@@ -137,23 +137,3 @@ export class MutationQuery {
   ) {}
 }
 
-export class MutationBuilder {
-  private commentText?: string;
-
-  constructor(
-    private entity: string,
-    private action: "Create" | "Update" | "Delete",
-    private payload: any,
-    private id?: any
-  ) {}
-
-  auditAs(c: string): this {
-    this.commentText = c;
-    return this;
-  }
-
-  async execute(ctx: any): Promise<any> {
-    const mutation = new MutationQuery(this.entity, this.action, this.payload, this.id, this.commentText);
-    return ctx.client.executeMutation(mutation);
-  }
-}

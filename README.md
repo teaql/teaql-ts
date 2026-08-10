@@ -34,7 +34,7 @@ const newTask = new Task({
     name: "New feature implementation", 
     status: 1001 
 });
-const createResult = await newTask.auditAs("Create new feature ticket").execute(ctx);
+const createResult = await newTask.auditAs("Create new feature ticket").save(ctx);
 
 // Update a Task
 const updateTask = new Task({ 
@@ -42,10 +42,11 @@ const updateTask = new Task({
     name: "New feature implementation (Updated)", 
     status: 1002 
 });
-const updateResult = await updateTask.auditAs("Move to ready").execute(ctx);
+const updateResult = await updateTask.auditAs("Move to ready").save(ctx);
 
 // Delete a Task
-const deleteResult = await Task.delete(9527).auditAs("Delete obsolete task").execute(ctx);
+const taskToDelete = new Task({ id: 9527 });
+const deleteResult = await taskToDelete.markAsDeleted().auditAs("Delete obsolete task").save(ctx);
 ```
 
 ### The Ultimate Safety for Low Code (Dynamic)

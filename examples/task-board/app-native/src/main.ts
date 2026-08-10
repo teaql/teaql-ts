@@ -48,7 +48,7 @@ async function runNativeExamples() {
     // Example D: Data Mutations
     console.log("\n[Execution]: Create Task");
     const task = new Task({ name: 'New Bug Task', status: 1001 });
-    const saveResult = await task.auditAs("Create a new bug").execute(ctx);
+    const saveResult = await task.auditAs("Create a new bug").save(ctx);
     console.log("Create Result:", JSON.stringify(saveResult, null, 2));
 
     const newId = saveResult.data[0].saved_data.id;
@@ -56,11 +56,12 @@ async function runNativeExamples() {
 
     console.log(`\n[Execution]: Update Task (ID: ${newId})`);
     const updateTask = new Task({ id: newId, name: 'New Bug Task (Fixed)', status: 1004 });
-    const updateResult = await updateTask.auditAs("Fix the bug").execute(ctx);
+    const updateResult = await updateTask.auditAs("Fix the bug").save(ctx);
     console.log("Update Result:", JSON.stringify(updateResult, null, 2));
 
     console.log(`\n[Execution]: Delete Task (ID: ${newId})`);
-    const deleteResult = await Task.delete(newId).auditAs("Clean up the bug").execute(ctx);
+    const taskToDelete = new Task({ id: newId });
+    const deleteResult = await taskToDelete.markAsDeleted().auditAs("Clean up the bug").save(ctx);
     console.log("Delete Result:", JSON.stringify(deleteResult, null, 2));
 
   } catch (err) {
