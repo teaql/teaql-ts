@@ -97,4 +97,14 @@ export class SelectQuery {
     this.aggregationCache.propagate(cacheExpiredMillis);
     return this;
   }
+
+  aggregate(functionName: string, field: string, alias: string): this {
+    this.aggregateItems.push({ function: functionName, field, alias });
+    return this;
+  }
+
+  groupBy(item: string): this {
+    this.groupByItems.push(item);
+    return this;
+  }
 }

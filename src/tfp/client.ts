@@ -1,4 +1,4 @@
-import { SelectQuery } from './query';
+import { SelectQuery } from '../core/ast';
 
 export interface TeaQLClientConfig {
   baseUrl: string;
