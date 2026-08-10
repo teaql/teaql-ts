@@ -16,26 +16,29 @@ async function runNativeExamples() {
     console.log("=== Native TypeScript 查询示例 ===");
 
     // 示例 A: 强类型链式调用 (条件过滤)
-    console.log("[执行]: Q.tasks().withNameContaining('bug')");
+    console.log("[执行]: Q.tasks().withNameContaining('bug').purpose('find bugs')");
     const filterResult = await Q.tasks()
       .withNameContaining("bug")
+      .purpose("find bugs")
       .executeForList(ctx);
       
     console.log("结果:", filterResult);
 
     // 示例 B: 强类型链式调用 (聚合与分组)
-    console.log("\n[执行]: Q.taskStatuses().groupByDisplayOrder().avgProgress()");
+    console.log("\n[执行]: Q.taskStatuses().groupByDisplayOrder().avgProgress().purpose('calc average')");
     const aggResult = await Q.taskStatuses()
       .groupByDisplayOrder()
       .avgProgress()
+      .purpose("calc average")
       .executeForList(ctx);
       
     console.log("结果:", aggResult);
 
     // 示例 C: 强类型链式调用 (嵌套 Facet 面板聚合)
-    console.log("\n[执行]: Q.tasks().facetByStatusAs('statusFacet', Q.taskStatuses().count())");
+    console.log("\n[执行]: Q.tasks().facetByStatusAs('statusFacet', Q.taskStatuses().count()).purpose('dashboard render')");
     const facetResult = await Q.tasks()
       .facetByStatusAs("statusFacet", Q.taskStatuses().count())
+      .purpose("dashboard render")
       .executeForList(ctx);
       
     console.log("主数据 (Tasks):", facetResult.data);

@@ -10,11 +10,12 @@ export class TaskStatusRequest {
     }
 
     comment(c: string): this {
-        // Just for logging/trace, currently ignored in SelectQuery
+        this.query.comment(c);
         return this;
     }
 
     purpose(p: string): this {
+        this.query.purpose(p);
         return this;
     }
 

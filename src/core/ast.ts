@@ -56,9 +56,21 @@ export class SelectQuery {
   public aggregateItems: any[] = [];
   public aggregationCache?: AggregationCacheOptions;
   public facets: any[] = [];
+  public commentText?: string;
+  public purposeText?: string;
   
   constructor(entity: string) {
     this.entity = entity;
+  }
+
+  comment(text: string): this {
+    this.commentText = text;
+    return this;
+  }
+
+  purpose(text: string): this {
+    this.purposeText = text;
+    return this;
   }
 
   facetBy(facetName: string, relationName: string, request: any): this {

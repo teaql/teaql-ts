@@ -53,6 +53,14 @@ class SelectQuery {
         this.facets = [];
         this.entity = entity;
     }
+    comment(text) {
+        this.commentText = text;
+        return this;
+    }
+    purpose(text) {
+        this.purposeText = text;
+        return this;
+    }
     facetBy(facetName, relationName, request) {
         this.facets.push({ facetName, relationName, query: request.query });
         return this;

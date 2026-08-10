@@ -34,7 +34,11 @@ export declare class SelectQuery {
     aggregateItems: any[];
     aggregationCache?: AggregationCacheOptions;
     facets: any[];
+    commentText?: string;
+    purposeText?: string;
     constructor(entity: string);
+    comment(text: string): this;
+    purpose(text: string): this;
     facetBy(facetName: string, relationName: string, request: any): this;
     filter(condition: any): this;
     limit(limit: number): this;
