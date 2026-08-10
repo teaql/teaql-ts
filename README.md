@@ -21,6 +21,28 @@ console.log("主数据 (Tasks):", result.data);
 console.log("统计面板 (Facets):", result.facets);
 ```
 
+### 数据写入与变更 (Mutations)
+
+TeaQL TS 也原生支持强类型的数据写入与更新：
+
+```typescript
+// 新增 Task
+const createResult = await Q.tasks().save(ctx, { 
+    name: "New feature implementation", 
+    status: 1001 
+}, "Create new feature ticket");
+
+// 更新 Task
+const updateResult = await Q.tasks().save(ctx, { 
+    id: 9527, 
+    name: "New feature implementation (Updated)", 
+    status: 1002 
+}, "Move to ready");
+
+// 删除 Task
+const deleteResult = await Q.tasks().delete(ctx, 9527, "Delete obsolete task");
+```
+
 ### 面向 Low Code 的极致安全 (Dynamic)
 如果你在搭建“无代码平台”或“动态报表”，你可以直接把上述代码当成**纯字符串**从网页传给解释器。在没有任何 `eval()` 注入风险的前提下，它依然可以完美执行：
 

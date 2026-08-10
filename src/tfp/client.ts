@@ -43,4 +43,21 @@ export class TeaQLClient {
     const responseJson = await response.json();
     return responseJson.data;
   }
+
+  async executeMutation(query: any): Promise<any> {
+    const response = await this.fetchImpl(`${this.config.baseUrl}/mutate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(query)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`TeaQL Mutation failed: ${response.status} ${errorText}`);
+    }
+
+    return response.json();
+  }
 }

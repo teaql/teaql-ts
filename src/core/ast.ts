@@ -114,3 +114,13 @@ export class SelectQuery {
     return this;
   }
 }
+
+export class MutationQuery {
+  constructor(
+    public entity: string,
+    public action: "Create" | "Update" | "Delete",
+    public payload: any,
+    public id?: any,
+    public comment?: string
+  ) {}
+}

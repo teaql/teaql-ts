@@ -41,6 +41,11 @@ async function runNativeExamples() {
     console.log("主数据 (Tasks):", facetResult.data);
     console.log("统计面板 (Facets):", facetResult.facets);
 
+    // 示例 D: 数据变更 (Mutations)
+    console.log("\n[执行]: Q.tasks().save({ name: 'New Task', status: 1001 })");
+    const saveResult = await Q.tasks().save(ctx, { name: 'New Bug Task', status: 1001 }, "Create a new bug");
+    console.log("保存结果:", saveResult);
+
   } catch (err) {
     console.error("执行查询失败:", err);
   }

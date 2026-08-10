@@ -310,4 +310,26 @@ export class TaskStatusRequest {
 
         return result;
     }
+
+    async save(ctx: any, payload: TaskStatus, comment?: string): Promise<any> {
+        const mutation = {
+            entity: "TaskStatus",
+            action: payload.id ? "Update" : "Create",
+            payload: payload,
+            id: payload.id,
+            comment: comment
+        };
+        return ctx.client.executeMutation(mutation);
+    }
+
+    async delete(ctx: any, id: any, comment?: string): Promise<any> {
+        const mutation = {
+            entity: "TaskStatus",
+            action: "Delete",
+            payload: {},
+            id: id,
+            comment: comment
+        };
+        return ctx.client.executeMutation(mutation);
+    }
 }

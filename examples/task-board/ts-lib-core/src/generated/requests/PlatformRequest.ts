@@ -140,4 +140,26 @@ export class PlatformRequest {
 
         return result;
     }
+
+    async save(ctx: any, payload: Platform, comment?: string): Promise<any> {
+        const mutation = {
+            entity: "Platform",
+            action: payload.id ? "Update" : "Create",
+            payload: payload,
+            id: payload.id,
+            comment: comment
+        };
+        return ctx.client.executeMutation(mutation);
+    }
+
+    async delete(ctx: any, id: any, comment?: string): Promise<any> {
+        const mutation = {
+            entity: "Platform",
+            action: "Delete",
+            payload: {},
+            id: id,
+            comment: comment
+        };
+        return ctx.client.executeMutation(mutation);
+    }
 }

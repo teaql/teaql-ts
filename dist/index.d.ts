@@ -1,5 +1,6 @@
-export * from './value';
-export * from './descriptors';
-export * from './query';
-export * from './client';
+export * from './core/value';
+export { SelectQuery, MutationQuery, AggregationCacheOptions } from './core/ast';
+export * from './meta/descriptors';
+export * from './tfp/client';
+export * from './parser/dsl';
 //# sourceMappingURL=index.d.ts.map
