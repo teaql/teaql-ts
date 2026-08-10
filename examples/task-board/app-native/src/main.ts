@@ -46,18 +46,18 @@ async function runNativeExamples() {
 
     // Example D: Data Mutations
     console.log("\n[Execution]: Create Task");
-    const saveResult = await Q.tasks().auditAs("Create a new bug").save(ctx, { name: 'New Bug Task', status: 1001 });
+    const saveResult = await Q.tasks().create({ name: 'New Bug Task', status: 1001 }).auditAs("Create a new bug").execute(ctx);
     console.log("Create Result:", JSON.stringify(saveResult, null, 2));
 
     const newId = saveResult.data[0].saved_data.id;
     console.log(`Retrieved newly created Task ID: ${newId}`);
 
     console.log(`\n[Execution]: Update Task (ID: ${newId})`);
-    const updateResult = await Q.tasks().auditAs("Fix the bug").save(ctx, { id: newId, name: 'New Bug Task (Fixed)', status: 1004 });
+    const updateResult = await Q.tasks().update({ id: newId, name: 'New Bug Task (Fixed)', status: 1004 }).auditAs("Fix the bug").execute(ctx);
     console.log("Update Result:", JSON.stringify(updateResult, null, 2));
 
     console.log(`\n[Execution]: Delete Task (ID: ${newId})`);
-    const deleteResult = await Q.tasks().auditAs("Clean up the bug").delete(ctx, newId);
+    const deleteResult = await Q.tasks().delete(newId).auditAs("Clean up the bug").execute(ctx);
     console.log("Delete Result:", JSON.stringify(deleteResult, null, 2));
 
   } catch (err) {

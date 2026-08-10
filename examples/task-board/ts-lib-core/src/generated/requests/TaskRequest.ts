@@ -1,4 +1,4 @@
-import { SelectQuery, TeaQLClient } from '../../../../../../src';
+import { SelectQuery, MutationBuilder, TeaQLClient } from '../../../../../../src';
 import { Task } from '../models/Task';
 
 export class TaskRequest {
@@ -10,11 +10,6 @@ export class TaskRequest {
     }
 
     comment(c: string): this {
-        this.query.comment(c);
-        return this;
-    }
-
-    auditAs(c: string): this {
         this.query.comment(c);
         return this;
     }
@@ -126,25 +121,15 @@ export class TaskRequest {
         return result;
     }
 
-    async save(ctx: any, payload: Task): Promise<any> {
-        const mutation = {
-            entity: "Task",
-            action: payload.id ? "Update" : "Create",
-            payload: payload,
-            id: payload.id,
-            comment: this.query.commentText
-        };
-        return ctx.client.executeMutation(mutation);
+    create(payload: Task): MutationBuilder {
+        return new MutationBuilder("Task", "Create", payload);
     }
 
-    async delete(ctx: any, id: any): Promise<any> {
-        const mutation = {
-            entity: "Task",
-            action: "Delete",
-            payload: {},
-            id: id,
-            comment: this.query.commentText
-        };
-        return ctx.client.executeMutation(mutation);
+    update(payload: Task): MutationBuilder {
+        return new MutationBuilder("Task", "Update", payload, payload.id);
+    }
+
+    delete(id: any): MutationBuilder {
+        return new MutationBuilder("Task", "Delete", {}, id);
     }
 }

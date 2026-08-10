@@ -1,4 +1,4 @@
-import { SelectQuery, TeaQLClient } from '../../../../../../src';
+import { SelectQuery, MutationBuilder, TeaQLClient } from '../../../../../../src';
 import { TaskExecutionLog } from '../models/TaskExecutionLog';
 
 export class TaskExecutionLogRequest {
@@ -10,11 +10,6 @@ export class TaskExecutionLogRequest {
     }
 
     comment(c: string): this {
-        this.query.comment(c);
-        return this;
-    }
-
-    auditAs(c: string): this {
         this.query.comment(c);
         return this;
     }
@@ -139,25 +134,15 @@ export class TaskExecutionLogRequest {
         return result;
     }
 
-    async save(ctx: any, payload: TaskExecutionLog): Promise<any> {
-        const mutation = {
-            entity: "TaskExecutionLog",
-            action: payload.id ? "Update" : "Create",
-            payload: payload,
-            id: payload.id,
-            comment: this.query.commentText
-        };
-        return ctx.client.executeMutation(mutation);
+    create(payload: TaskExecutionLog): MutationBuilder {
+        return new MutationBuilder("TaskExecutionLog", "Create", payload);
     }
 
-    async delete(ctx: any, id: any): Promise<any> {
-        const mutation = {
-            entity: "TaskExecutionLog",
-            action: "Delete",
-            payload: {},
-            id: id,
-            comment: this.query.commentText
-        };
-        return ctx.client.executeMutation(mutation);
+    update(payload: TaskExecutionLog): MutationBuilder {
+        return new MutationBuilder("TaskExecutionLog", "Update", payload, payload.id);
+    }
+
+    delete(id: any): MutationBuilder {
+        return new MutationBuilder("TaskExecutionLog", "Delete", {}, id);
     }
 }
