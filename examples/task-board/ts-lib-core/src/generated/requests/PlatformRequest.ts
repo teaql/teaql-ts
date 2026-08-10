@@ -1,4 +1,4 @@
-import { SelectQuery, MutationBuilder, TeaQLClient } from '../../../../../../src';
+import { SelectQuery, TeaQLClient } from '../../../../../../src';
 import { Platform } from '../models/Platform';
 
 export class PlatformRequest {
@@ -142,15 +142,4 @@ export class PlatformRequest {
         return result;
     }
 
-    create(payload: Platform): MutationBuilder {
-        return new MutationBuilder("Platform", "Create", payload);
-    }
-
-    update(payload: Platform): MutationBuilder {
-        return new MutationBuilder("Platform", "Update", payload, payload.id);
-    }
-
-    delete(id: any): MutationBuilder {
-        return new MutationBuilder("Platform", "Delete", {}, id);
-    }
 }

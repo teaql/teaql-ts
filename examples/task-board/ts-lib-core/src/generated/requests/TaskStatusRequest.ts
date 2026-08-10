@@ -1,4 +1,4 @@
-import { SelectQuery, MutationBuilder, TeaQLClient } from '../../../../../../src';
+import { SelectQuery, TeaQLClient } from '../../../../../../src';
 import { TaskStatus } from '../models/TaskStatus';
 
 export class TaskStatusRequest {
@@ -312,15 +312,4 @@ export class TaskStatusRequest {
         return result;
     }
 
-    create(payload: TaskStatus): MutationBuilder {
-        return new MutationBuilder("TaskStatus", "Create", payload);
-    }
-
-    update(payload: TaskStatus): MutationBuilder {
-        return new MutationBuilder("TaskStatus", "Update", payload, payload.id);
-    }
-
-    delete(id: any): MutationBuilder {
-        return new MutationBuilder("TaskStatus", "Delete", {}, id);
-    }
 }

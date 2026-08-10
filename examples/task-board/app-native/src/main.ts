@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import { TeaQLClient } from '../../../../src';
 import { Q } from '../../ts-lib-core/src/generated/Q';
+import { Task } from '../../ts-lib-core/src/generated/models/Task';
 
 // 1. Initialize TFP Client, pointing to the Rust backend
 const client = new TeaQLClient({
@@ -46,18 +47,20 @@ async function runNativeExamples() {
 
     // Example D: Data Mutations
     console.log("\n[Execution]: Create Task");
-    const saveResult = await Q.tasks().create({ name: 'New Bug Task', status: 1001 }).auditAs("Create a new bug").execute(ctx);
+    const task = new Task({ name: 'New Bug Task', status: 1001 });
+    const saveResult = await task.auditAs("Create a new bug").execute(ctx);
     console.log("Create Result:", JSON.stringify(saveResult, null, 2));
 
     const newId = saveResult.data[0].saved_data.id;
     console.log(`Retrieved newly created Task ID: ${newId}`);
 
     console.log(`\n[Execution]: Update Task (ID: ${newId})`);
-    const updateResult = await Q.tasks().update({ id: newId, name: 'New Bug Task (Fixed)', status: 1004 }).auditAs("Fix the bug").execute(ctx);
+    const updateTask = new Task({ id: newId, name: 'New Bug Task (Fixed)', status: 1004 });
+    const updateResult = await updateTask.auditAs("Fix the bug").execute(ctx);
     console.log("Update Result:", JSON.stringify(updateResult, null, 2));
 
     console.log(`\n[Execution]: Delete Task (ID: ${newId})`);
-    const deleteResult = await Q.tasks().delete(newId).auditAs("Clean up the bug").execute(ctx);
+    const deleteResult = await Task.delete(newId).auditAs("Clean up the bug").execute(ctx);
     console.log("Delete Result:", JSON.stringify(deleteResult, null, 2));
 
   } catch (err) {

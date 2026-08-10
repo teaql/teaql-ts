@@ -27,21 +27,25 @@ console.log("Statistics Panel (Facets):", result.facets);
 TeaQL TS also natively supports strongly-typed data creation and updates:
 
 ```typescript
+import { Task } from './generated/models/Task';
+
 // Create a new Task
-const createResult = await Q.tasks().create({ 
+const newTask = new Task({ 
     name: "New feature implementation", 
     status: 1001 
-}).auditAs("Create new feature ticket").execute(ctx);
+});
+const createResult = await newTask.auditAs("Create new feature ticket").execute(ctx);
 
 // Update a Task
-const updateResult = await Q.tasks().update({ 
+const updateTask = new Task({ 
     id: 9527, 
     name: "New feature implementation (Updated)", 
     status: 1002 
-}).auditAs("Move to ready").execute(ctx);
+});
+const updateResult = await updateTask.auditAs("Move to ready").execute(ctx);
 
 // Delete a Task
-const deleteResult = await Q.tasks().delete(9527).auditAs("Delete obsolete task").execute(ctx);
+const deleteResult = await Task.delete(9527).auditAs("Delete obsolete task").execute(ctx);
 ```
 
 ### The Ultimate Safety for Low Code (Dynamic)

@@ -1,4 +1,4 @@
-import { SelectQuery, MutationBuilder, TeaQLClient } from '../../../../../../src';
+import { SelectQuery, TeaQLClient } from '../../../../../../src';
 import { TaskExecutionLog } from '../models/TaskExecutionLog';
 
 export class TaskExecutionLogRequest {
@@ -134,15 +134,4 @@ export class TaskExecutionLogRequest {
         return result;
     }
 
-    create(payload: TaskExecutionLog): MutationBuilder {
-        return new MutationBuilder("TaskExecutionLog", "Create", payload);
-    }
-
-    update(payload: TaskExecutionLog): MutationBuilder {
-        return new MutationBuilder("TaskExecutionLog", "Update", payload, payload.id);
-    }
-
-    delete(id: any): MutationBuilder {
-        return new MutationBuilder("TaskExecutionLog", "Delete", {}, id);
-    }
 }
