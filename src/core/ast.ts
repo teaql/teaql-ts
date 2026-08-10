@@ -55,9 +55,15 @@ export class SelectQuery {
   public groupByItems: string[] = [];
   public aggregateItems: any[] = [];
   public aggregationCache?: AggregationCacheOptions;
+  public facets: any[] = [];
   
   constructor(entity: string) {
     this.entity = entity;
+  }
+
+  facetBy(facetName: string, relationName: string, request: any): this {
+    this.facets.push({ facetName, relationName, query: request.query });
+    return this;
   }
 
   filter(condition: any): this {

@@ -17,7 +17,7 @@ export class QueryParser {
         
         // Extract all chained method calls
         const remainingStr = queryStr.substring(entityMatch[0].length);
-        const methodRegex = /\.([a-zA-Z0-9_]+)\(([^)]*)\)/g;
+        const methodRegex = /\.([a-zA-Z0-9_]+)\(((?:[^)(]+|\([^)(]*\))*)\)/g;
         
         let match;
         while ((match = methodRegex.exec(remainingStr)) !== null) {
@@ -28,28 +28,32 @@ export class QueryParser {
                 throw new Error(`Method ${methodName} not found on request object`);
             }
             
-            // Basic argument parser
-            let parsedArg;
             if (argStr === '') {
-                // No arguments
                 requestObj[methodName]();
                 continue;
-            } else if (argStr === 'true') {
-                parsedArg = true;
-            } else if (argStr === 'false') {
-                parsedArg = false;
-            } else if (!isNaN(Number(argStr))) {
-                parsedArg = Number(argStr);
-            } else if ((argStr.startsWith('"') && argStr.endsWith('"')) || (argStr.startsWith("'") && argStr.endsWith("'"))) {
-                // Strip quotes
-                parsedArg = argStr.substring(1, argStr.length - 1);
-            } else {
-                // Fallback
-                parsedArg = argStr;
             }
+
+            // Split arguments by comma, being careful not to split inside nested parentheses
+            // A simple split won't work perfectly, but for Q.x().y() we can just split by ,
+            const args = argStr.split(/,(?![^(]*\))/).map(s => s.trim());
+            
+            const parsedArgs = args.map(arg => {
+                if (arg.startsWith("Q.")) {
+                    return QueryParser.parse(arg, entryPoint);
+                } else if (arg === 'true') {
+                    return true;
+                } else if (arg === 'false') {
+                    return false;
+                } else if (!isNaN(Number(arg))) {
+                    return Number(arg);
+                } else if ((arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"))) {
+                    return arg.substring(1, arg.length - 1);
+                }
+                return arg;
+            });
             
             // Invoke the builder method
-            requestObj[methodName](parsedArg);
+            requestObj[methodName](...parsedArgs);
         }
         
         return requestObj;
