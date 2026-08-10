@@ -2,38 +2,38 @@ import fetch from 'node-fetch';
 import { TeaQLClient, QueryParser } from '../../../../src';
 import { Q } from '../../ts-lib-core/src/generated/Q';
 
-// 1. 初始化 TFP 客户端，指向 Rust 后端
+// 1. Initialize TFP Client, pointing to the Rust backend
 const client = new TeaQLClient({
   baseUrl: 'http://127.0.0.1:3001',
   fetch: fetch as any
 });
 
-// 2. 准备请求上下文
+// 2. Prepare request context
 const ctx = { client };
 
 async function runDynamicExamples() {
   try {
-    console.log("=== 动态字符串查询示例 ===");
+    console.log("=== Dynamic String Query Examples ===");
 
-    // 示例 A: 动态过滤查询
+    // Example A: Dynamic filtering query
     const filterQuery = 'Q.tasks().withNameContaining("bug")';
-    console.log(`[执行]: ${filterQuery}`);
+    console.log(`[Execution]: ${filterQuery}`);
     
-    // 解析字符串 DSL 为 AST 并执行 (传入入口对象 Q)
+    // Parse the string DSL into AST and execute (pass entry object Q)
     const filterRequest = QueryParser.parse(filterQuery, Q);
     const filterResult = await filterRequest.executeForList(ctx);
-    console.log("结果:", filterResult);
+    console.log("Result:", filterResult);
 
-    // 示例 B: 动态聚合与分组
+    // Example B: Dynamic aggregation and grouping
     const userQueryStr = 'Q.tasks().withNameContaining("bug").facetByStatusAs("statusFacet", Q.taskStatuses().count())';
-    console.log(`\n[执行]: ${userQueryStr}`);
+    console.log(`\n[Execution]: ${userQueryStr}`);
     
     const aggRequest = QueryParser.parse(userQueryStr, Q);
     const aggResult = await aggRequest.executeForList(ctx);
-    console.log("结果:", aggResult);
+    console.log("Result:", aggResult);
 
   } catch (err) {
-    console.error("执行查询失败:", err);
+    console.error("Query execution failed:", err);
   }
 }
 

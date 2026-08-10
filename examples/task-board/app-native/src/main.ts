@@ -2,66 +2,66 @@ import fetch from 'node-fetch';
 import { TeaQLClient } from '../../../../src';
 import { Q } from '../../ts-lib-core/src/generated/Q';
 
-// 1. 初始化 TFP 客户端，指向 Rust 后端
+// 1. Initialize TFP Client, pointing to the Rust backend
 const client = new TeaQLClient({
   baseUrl: 'http://127.0.0.1:3001',
   fetch: fetch as any
 });
 
-// 2. 准备请求上下文
+// 2. Prepare request context
 const ctx = { client };
 
 async function runNativeExamples() {
   try {
-    console.log("=== Native TypeScript 查询示例 ===");
+    console.log("=== Native TypeScript Query Examples ===");
 
-    // 示例 A: 强类型链式调用 (条件过滤)
-    console.log("[执行]: Q.tasks().withNameContaining('bug').purpose('find bugs')");
+    // Example A: Strongly-typed chained calls (Conditional filtering)
+    console.log("[Execution]: Q.tasks().withNameContaining('bug').purpose('find bugs')");
     const filterResult = await Q.tasks()
       .withNameContaining("bug")
       .purpose("find bugs")
       .executeForList(ctx);
       
-    console.log("结果:", filterResult);
+    console.log("Result:", filterResult);
 
-    // 示例 B: 强类型链式调用 (聚合与分组)
-    console.log("\n[执行]: Q.taskStatuses().groupByDisplayOrder().avgProgress().purpose('calc average')");
+    // Example B: Strongly-typed chained calls (Aggregation and Grouping)
+    console.log("\n[Execution]: Q.taskStatuses().groupByDisplayOrder().avgProgress().purpose('calc average')");
     const aggResult = await Q.taskStatuses()
       .groupByDisplayOrder()
       .avgProgress()
       .purpose("calc average")
       .executeForList(ctx);
       
-    console.log("结果:", aggResult);
+    console.log("Result:", aggResult);
 
-    // 示例 C: 强类型链式调用 (嵌套 Facet 面板聚合)
-    console.log("\n[执行]: Q.tasks().facetByStatusAs('statusFacet', Q.taskStatuses().count()).purpose('dashboard render')");
+    // Example C: Strongly-typed chained calls (Nested Facet panel aggregation)
+    console.log("\n[Execution]: Q.tasks().facetByStatusAs('statusFacet', Q.taskStatuses().count()).purpose('dashboard render')");
     const facetResult = await Q.tasks()
       .facetByStatusAs("statusFacet", Q.taskStatuses().count())
       .purpose("dashboard render")
       .executeForList(ctx);
       
-    console.log("主数据 (Tasks):", facetResult.data);
-    console.log("统计面板 (Facets):", facetResult.facets);
+    console.log("Main data (Tasks):", facetResult.data);
+    console.log("Statistics panel (Facets):", facetResult.facets);
 
-    // 示例 D: 数据变更 (Mutations)
-    console.log("\n[执行]: Create Task");
+    // Example D: Data Mutations
+    console.log("\n[Execution]: Create Task");
     const saveResult = await Q.tasks().save(ctx, { name: 'New Bug Task', status: 1001 }, "Create a new bug");
-    console.log("创建结果:", JSON.stringify(saveResult, null, 2));
+    console.log("Create Result:", JSON.stringify(saveResult, null, 2));
 
     const newId = saveResult.data[0].saved_data.id;
-    console.log(`获取到新创建的 Task ID: ${newId}`);
+    console.log(`Retrieved newly created Task ID: ${newId}`);
 
-    console.log(`\n[执行]: Update Task (ID: ${newId})`);
+    console.log(`\n[Execution]: Update Task (ID: ${newId})`);
     const updateResult = await Q.tasks().save(ctx, { id: newId, name: 'New Bug Task (Fixed)', status: 1004 }, "Fix the bug");
-    console.log("更新结果:", JSON.stringify(updateResult, null, 2));
+    console.log("Update Result:", JSON.stringify(updateResult, null, 2));
 
-    console.log(`\n[执行]: Delete Task (ID: ${newId})`);
+    console.log(`\n[Execution]: Delete Task (ID: ${newId})`);
     const deleteResult = await Q.tasks().delete(ctx, newId, "Clean up the bug");
-    console.log("删除结果:", JSON.stringify(deleteResult, null, 2));
+    console.log("Delete Result:", JSON.stringify(deleteResult, null, 2));
 
   } catch (err) {
-    console.error("执行查询失败:", err);
+    console.error("Query execution failed:", err);
   }
 }
 
