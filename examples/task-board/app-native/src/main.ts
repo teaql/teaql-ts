@@ -52,15 +52,18 @@ async function runNativeExamples() {
     console.log("Create Result:", JSON.stringify(saveResult, null, 2));
 
     const newId = saveResult.data[0].saved_data.id;
-    console.log(`Retrieved newly created Task ID: ${newId}`);
+    const newVersion = saveResult.data[0].saved_data.version;
+    console.log(`Retrieved newly created Task ID: ${newId}, Version: ${newVersion}`);
 
     console.log(`\n[Execution]: Update Task (ID: ${newId})`);
-    const updateTask = new Task({ id: newId, name: 'New Bug Task (Fixed)', status: 1004 });
+    const updateTask = new Task({ id: newId, name: 'New Bug Task (Fixed)', status: 1004, version: newVersion });
     const updateResult = await updateTask.auditAs("Fix the bug").save(ctx);
     console.log("Update Result:", JSON.stringify(updateResult, null, 2));
 
+    const updatedVersion = updateResult.data[0].saved_data.version;
+
     console.log(`\n[Execution]: Delete Task (ID: ${newId})`);
-    const taskToDelete = new Task({ id: newId });
+    const taskToDelete = new Task({ id: newId, version: updatedVersion });
     const deleteResult = await taskToDelete.markAsDeleted().auditAs("Clean up the bug").save(ctx);
     console.log("Delete Result:", JSON.stringify(deleteResult, null, 2));
 

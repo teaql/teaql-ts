@@ -35,17 +35,20 @@ const newTask = new Task({
     status: 1001 
 });
 const createResult = await newTask.auditAs("Create new feature ticket").save(ctx);
+const newVersion = createResult.data[0].saved_data.version;
 
 // Update a Task
 const updateTask = new Task({ 
     id: 9527, 
+    version: newVersion, // Optimistic Concurrency Control requires version
     name: "New feature implementation (Updated)", 
     status: 1002 
 });
 const updateResult = await updateTask.auditAs("Move to ready").save(ctx);
+const updatedVersion = updateResult.data[0].saved_data.version;
 
 // Delete a Task
-const taskToDelete = new Task({ id: 9527 });
+const taskToDelete = new Task({ id: 9527, version: updatedVersion });
 const deleteResult = await taskToDelete.markAsDeleted().auditAs("Delete obsolete task").save(ctx);
 ```
 
