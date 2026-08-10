@@ -42,9 +42,20 @@ async function runNativeExamples() {
     console.log("统计面板 (Facets):", facetResult.facets);
 
     // 示例 D: 数据变更 (Mutations)
-    console.log("\n[执行]: Q.tasks().save({ name: 'New Task', status: 1001 })");
+    console.log("\n[执行]: Create Task");
     const saveResult = await Q.tasks().save(ctx, { name: 'New Bug Task', status: 1001 }, "Create a new bug");
-    console.log("保存结果:", saveResult);
+    console.log("创建结果:", JSON.stringify(saveResult, null, 2));
+
+    const newId = saveResult.data[0].saved_data.id;
+    console.log(`获取到新创建的 Task ID: ${newId}`);
+
+    console.log(`\n[执行]: Update Task (ID: ${newId})`);
+    const updateResult = await Q.tasks().save(ctx, { id: newId, name: 'New Bug Task (Fixed)', status: 1004 }, "Fix the bug");
+    console.log("更新结果:", JSON.stringify(updateResult, null, 2));
+
+    console.log(`\n[执行]: Delete Task (ID: ${newId})`);
+    const deleteResult = await Q.tasks().delete(ctx, newId, "Clean up the bug");
+    console.log("删除结果:", JSON.stringify(deleteResult, null, 2));
 
   } catch (err) {
     console.error("执行查询失败:", err);
