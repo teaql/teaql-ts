@@ -40,6 +40,7 @@ export class TeaQLClient {
       throw new Error(`TEAQL Query Error [${response.status}]: ${errText}`);
     }
 
-    return response.json();
+    const responseJson = await response.json();
+    return responseJson.data;
   }
 }

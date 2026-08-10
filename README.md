@@ -10,14 +10,14 @@
 如果你是全栈开发者，在拥有生成的 `Q` Builder 后，你可以写出极度丝滑的链式代码，IDE 将为你提供 100% 的智能补全：
 
 ```typescript
-// 业务需求：查询所有的“看板状态”，按展示顺序分组，并求出每个分组的进度总和
+// 业务需求：查询所有的“看板状态”，按展示顺序分组，并求出每个分组的平均进度
 const aggResult = await Q.taskStatuses()
   .groupByDisplayOrder() // 完全自动推导的分组方法
-  .sumProgress()         // 完全自动推导的聚合方法
+  .avgProgress()         // 完全自动推导的平均值聚合方法
   .executeForList(ctx);
 
-// 返回直观、已完成序列化的 JSON，无缝传递给 Vue/React 渲染
-console.log(aggResult.data);
+// 返回直观、已完成序列化的 JSON 数组，无缝传递给 Vue/React 渲染
+console.log(aggResult);
 ```
 
 ### 面向 Low Code 的极致安全 (Dynamic)
@@ -25,7 +25,7 @@ console.log(aggResult.data);
 
 ```typescript
 // 从前端输入框接收的纯字符串
-const userQuery = 'Q.taskStatuses().groupByDisplayOrder().sumProgress()';
+const userQuery = 'Q.taskStatuses().groupByDisplayOrder().avgProgress()';
 
 // 安全地解析为 AST 请求并执行
 const request = QueryParser.parse(userQuery);
