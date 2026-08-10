@@ -28,20 +28,20 @@ TeaQL TS also natively supports strongly-typed data creation and updates:
 
 ```typescript
 // Create a new Task
-const createResult = await Q.tasks().save(ctx, { 
+const createResult = await Q.tasks().auditAs("Create new feature ticket").save(ctx, { 
     name: "New feature implementation", 
     status: 1001 
-}, "Create new feature ticket");
+});
 
 // Update a Task
-const updateResult = await Q.tasks().save(ctx, { 
+const updateResult = await Q.tasks().auditAs("Move to ready").save(ctx, { 
     id: 9527, 
     name: "New feature implementation (Updated)", 
     status: 1002 
-}, "Move to ready");
+});
 
 // Delete a Task
-const deleteResult = await Q.tasks().delete(ctx, 9527, "Delete obsolete task");
+const deleteResult = await Q.tasks().auditAs("Delete obsolete task").delete(ctx, 9527);
 ```
 
 ### The Ultimate Safety for Low Code (Dynamic)

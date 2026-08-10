@@ -14,6 +14,11 @@ export class TaskStatusRequest {
         return this;
     }
 
+    auditAs(c: string): this {
+        this.query.comment(c);
+        return this;
+    }
+
     purpose(p: string): this {
         this.query.purpose(p);
         return this;
@@ -312,24 +317,24 @@ export class TaskStatusRequest {
         return result;
     }
 
-    async save(ctx: any, payload: TaskStatus, comment?: string): Promise<any> {
+    async save(ctx: any, payload: TaskStatus): Promise<any> {
         const mutation = {
             entity: "TaskStatus",
             action: payload.id ? "Update" : "Create",
             payload: payload,
             id: payload.id,
-            comment: comment
+            comment: this.query.commentText
         };
         return ctx.client.executeMutation(mutation);
     }
 
-    async delete(ctx: any, id: any, comment?: string): Promise<any> {
+    async delete(ctx: any, id: any): Promise<any> {
         const mutation = {
             entity: "TaskStatus",
             action: "Delete",
             payload: {},
             id: id,
-            comment: comment
+            comment: this.query.commentText
         };
         return ctx.client.executeMutation(mutation);
     }
