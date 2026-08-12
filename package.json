@@ -2,6 +2,9 @@
   "name": "teaql-ts",
   "version": "0.1.0",
   "description": "TEAQL TypeScript SDK for Browser",
+  "files": [
+    "dist"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

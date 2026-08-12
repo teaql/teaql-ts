@@ -31,6 +31,19 @@ describe('AST Classes', () => {
     expect(query.groupByItems[0]).toBe("status");
   });
 
+  it('SelectQuery should preserve nested relation limit in JSON', () => {
+    const query = new SelectQuery('Order').relationQuery(
+      'lines',
+      new SelectQuery('OrderLine').order(OrderBy.desc('id')).limit(3),
+    );
+
+    const payload = JSON.parse(JSON.stringify(query));
+
+    expect(payload.relations[0].name).toBe('lines');
+    expect(payload.relations[0].query.limitValue).toBe(3);
+    expect(payload.relations[0].query.orderItems[0].field).toBe('id');
+  });
+
   it('MutationQuery should build correctly', () => {
     const mut = new MutationQuery("Task", "Create", { name: "New Task" }, 1, "Creation comment");
 

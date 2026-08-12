@@ -7,6 +7,13 @@ export type ColumnSchema = {
 export type EntitySchema = {
     table: string;
     columns: Record<string, ColumnSchema>;
+    relations?: Record<string, RelationSchema>;
+};
+export type RelationSchema = {
+    targetEntity: string;
+    localKey: string;
+    foreignKey: string;
+    many: boolean;
 };
 export type SqlQueryResult = {
     rows: any[];
@@ -35,10 +42,16 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     protected readonly driver: TeaQLSqlDriver;
     private readonly schemas;
     private schemaReady?;
+    readonly sqlTrace: string[];
+    private readonly internalQueryToken;
+    private readonly auditEvents;
+    private auditSink?;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     private schema;
     private encode;
     private decodeRow;
+    get auditTrace(): ReadonlyArray<Readonly<Record<string, unknown>>>;
+    setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this;
     ensureSchema(): Promise<void>;
     executeMutation(mutation: any): Promise<any>;
     private compileExpression;
@@ -47,6 +60,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private aggregates;
     private orders;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    private enhanceRelations;
+    private queryLimit;
     close(): Promise<void>;
 }
 export declare function assertSafeIdentifier(value: string): string;

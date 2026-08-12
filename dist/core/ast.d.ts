@@ -34,6 +34,10 @@ export declare class SelectQuery {
     aggregateItems: any[];
     aggregationCache?: AggregationCacheOptions;
     facets: any[];
+    relations: Array<{
+        name: string;
+        query?: SelectQuery;
+    }>;
     commentText?: string;
     purposeText?: string;
     constructor(entity: string);
@@ -43,6 +47,8 @@ export declare class SelectQuery {
     filter(condition: any): this;
     limit(limit: number): this;
     offset(offset: number): this;
+    relation(name: string): this;
+    relationQuery(name: string, query: SelectQuery): this;
     order(orderBy: OrderBy): this;
     select(items: string[]): this;
     enableAggregationCacheFor(cacheExpiredMillis: number): this;

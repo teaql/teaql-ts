@@ -5,6 +5,9 @@ class AbstractSQLTeaQLClient {
     constructor(driver, schemas) {
         this.driver = driver;
         this.schemas = schemas;
+        this.sqlTrace = [];
+        this.internalQueryToken = Symbol('teaql-internal-query');
+        this.auditEvents = [];
     }
     schema(entity) {
         const schema = this.schemas[entity];
@@ -42,6 +45,13 @@ class AbstractSQLTeaQLClient {
         }
         return result;
     }
+    get auditTrace() {
+        return [...this.auditEvents];
+    }
+    setAuditSink(sink) {
+        this.auditSink = sink;
+        return this;
+    }
     async ensureSchema() {
         if (!this.schemaReady) {
             this.schemaReady = this.driver.ensureSchema(this.schemas);
@@ -49,10 +59,13 @@ class AbstractSQLTeaQLClient {
         return this.schemaReady;
     }
     async executeMutation(mutation) {
+        if (!String(mutation?.comment || '').trim()) {
+            throw new Error('Security audit failure: audit reason is required before mutation');
+        }
         await this.ensureSchema();
         const schema = this.schema(mutation.entity);
         const table = this.driver.identifier(schema.table);
-        return this.driver.transaction(async (session) => {
+        const result = await this.driver.transaction(async (session) => {
             if (mutation.action === 'Create') {
                 const id = mutation.id
                     ? String(mutation.id)
@@ -114,6 +127,17 @@ class AbstractSQLTeaQLClient {
             }
             throw new Error(`Unsupported mutation action: ${mutation.action}`);
         });
+        const event = Object.freeze({
+            entity: mutation.entity,
+            action: mutation.action,
+            id: String(result.id),
+            reason: String(mutation.comment),
+            recordedAt: new Date().toISOString(),
+        });
+        this.auditEvents.push(event);
+        if (this.auditSink)
+            await this.auditSink(event);
+        return result;
     }
     compileExpression(expression, schema, values) {
         if (Array.isArray(expression?.$and)) {
@@ -135,6 +159,23 @@ class AbstractSQLTeaQLClient {
             if (predicate?.$contains !== undefined) {
                 values.push(String(predicate.$contains));
                 return this.driver.contains(quotedField, this.driver.placeholder(values.length));
+            }
+            if (Array.isArray(predicate?.$in)) {
+                if (!predicate.$in.length)
+                    return 'FALSE';
+                const placeholders = predicate.$in.map((value) => {
+                    values.push(this.encode(value?.id ?? value, column));
+                    return this.driver.placeholder(values.length);
+                });
+                return `${quotedField} IN (${placeholders.join(', ')})`;
+            }
+            if (predicate?.$gte !== undefined) {
+                values.push(this.encode(predicate.$gte, column));
+                return `${quotedField} >= ${this.driver.placeholder(values.length)}`;
+            }
+            if (predicate?.$lte !== undefined) {
+                values.push(this.encode(predicate.$lte, column));
+                return `${quotedField} <= ${this.driver.placeholder(values.length)}`;
             }
             throw new Error(`Unsupported query predicate for ${field}`);
         });
@@ -170,6 +211,12 @@ class AbstractSQLTeaQLClient {
         }));
     }
     async executeQuery(query) {
+        const internal = query?.[this.internalQueryToken] === true;
+        const purpose = query?._purpose ?? query?.purposeText;
+        const comment = query?._comment ?? query?.commentText;
+        if (!internal && (!String(purpose || '').trim() || !String(comment || '').trim())) {
+            throw new Error('Security audit failure: purpose and comment are required before query execution');
+        }
         await this.ensureSchema();
         const schema = this.schema(query.entity);
         const values = [];
@@ -196,6 +243,26 @@ class AbstractSQLTeaQLClient {
             });
             projection = [...groupProjection, ...aggregateProjection].join(', ');
         }
+        const partitionBy = query.__teaqlPartitionBy;
+        const orders = this.orders(query);
+        const orderClauses = orders.map(order => {
+            if (!schema.columns[order.field]) {
+                throw new Error(`Unknown order field: ${order.field}`);
+            }
+            const direction = String(order.direction).toLowerCase() === 'desc'
+                ? 'DESC'
+                : 'ASC';
+            return `${this.driver.identifier(schema.columns[order.field].columnName)} ${direction}`;
+        });
+        if (partitionBy) {
+            const partitionColumn = schema.columns[partitionBy];
+            if (!partitionColumn)
+                throw new Error(`Unknown partition field: ${partitionBy}`);
+            const windowOrder = orderClauses.length ? ` ORDER BY ${orderClauses.join(', ')}` : '';
+            projection += `, ROW_NUMBER() OVER (PARTITION BY ` +
+                `${this.driver.identifier(partitionColumn.columnName)}${windowOrder}) AS ` +
+                this.driver.identifier('__teaql_partition_rank');
+        }
         let sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)}`;
         const filters = this.filters(query);
         if (filters.length) {
@@ -204,35 +271,91 @@ class AbstractSQLTeaQLClient {
         }
         if (groupFields.length)
             sql += ` GROUP BY ${groupFields.join(', ')}`;
-        const orders = this.orders(query);
-        if (orders.length) {
-            const clauses = orders.map(order => {
-                if (!schema.columns[order.field]) {
-                    throw new Error(`Unknown order field: ${order.field}`);
-                }
-                const direction = String(order.direction).toLowerCase() === 'desc'
-                    ? 'DESC'
-                    : 'ASC';
-                return `${this.driver.identifier(schema.columns[order.field].columnName)} ${direction}`;
-            });
-            sql += ` ORDER BY ${clauses.join(', ')}`;
-        }
         const limit = query._limit !== undefined
             ? Number(query._limit)
             : Number(query.limitValue || 0);
         const offset = query._offset !== undefined
             ? Number(query._offset)
             : Number(query.offsetValue || 0);
-        if (limit > 0) {
+        if (partitionBy) {
+            const rank = this.driver.identifier('__teaql_partition_rank');
+            const predicates = [];
+            values.push(offset);
+            predicates.push(`${rank} > ${this.driver.placeholder(values.length)}`);
+            if (limit > 0) {
+                values.push(offset + limit);
+                predicates.push(`${rank} <= ${this.driver.placeholder(values.length)}`);
+            }
+            sql = `SELECT * FROM (${sql}) AS ${this.driver.identifier('__teaql_partitioned')} ` +
+                `WHERE ${predicates.join(' AND ')} ORDER BY ${rank}`;
+        }
+        else if (orders.length) {
+            sql += ` ORDER BY ${orderClauses.join(', ')}`;
+        }
+        if (!partitionBy && limit > 0) {
             values.push(limit);
             sql += ` LIMIT ${this.driver.placeholder(values.length)}`;
         }
-        if (offset > 0) {
+        if (!partitionBy && offset > 0) {
             values.push(offset);
             sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
         }
+        this.sqlTrace.push(sql);
         const result = await this.driver.query(sql, values);
-        return result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
+        const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
+        await this.enhanceRelations(rows, query);
+        return rows;
+    }
+    async enhanceRelations(parents, query) {
+        if (!parents.length || !Array.isArray(query.relations) || !query.relations.length)
+            return;
+        const parentSchema = this.schema(query.entity);
+        for (const load of query.relations) {
+            const relation = parentSchema.relations?.[load.name];
+            if (!relation)
+                throw new Error(`Missing relation ${query.entity}.${load.name}`);
+            const parentIds = parents
+                .map(parent => parent[relation.localKey])
+                .filter(value => value !== undefined && value !== null);
+            if (!parentIds.length) {
+                for (const parent of parents)
+                    parent[load.name] = relation.many ? [] : null;
+                continue;
+            }
+            const childQuery = {
+                ...(load.query || {}),
+                entity: relation.targetEntity,
+                _filters: [...this.filters(load.query || {})],
+                relations: [...(load.query?.relations || [])],
+                __teaqlPartitionBy: load.query && this.queryLimit(load.query) !== undefined
+                    ? relation.foreignKey
+                    : undefined,
+            };
+            childQuery[this.internalQueryToken] = true;
+            childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
+            const children = await this.executeQuery(childQuery);
+            for (const child of children)
+                delete child.__teaql_partition_rank;
+            const buckets = new Map();
+            for (const child of children) {
+                const key = child[relation.foreignKey];
+                const bucket = buckets.get(key) || [];
+                bucket.push(child);
+                buckets.set(key, bucket);
+            }
+            for (const parent of parents) {
+                const related = buckets.get(parent[relation.localKey]) || [];
+                parent[load.name] = relation.many ? related : (related[0] ?? null);
+            }
+        }
+    }
+    queryLimit(query) {
+        if (query._limit !== undefined)
+            return Number(query._limit);
+        if (query.limitValue !== undefined && Number(query.limitValue) > 0) {
+            return Number(query.limitValue);
+        }
+        return undefined;
     }
     async close() {
         await this.driver.close();

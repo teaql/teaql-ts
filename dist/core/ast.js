@@ -51,6 +51,7 @@ class SelectQuery {
         this.groupByItems = [];
         this.aggregateItems = [];
         this.facets = [];
+        this.relations = [];
         this.entity = entity;
     }
     comment(text) {
@@ -75,6 +76,14 @@ class SelectQuery {
     }
     offset(offset) {
         this.offsetValue = offset;
+        return this;
+    }
+    relation(name) {
+        this.relations.push({ name });
+        return this;
+    }
+    relationQuery(name, query) {
+        this.relations.push({ name, query });
         return this;
     }
     order(orderBy) {
