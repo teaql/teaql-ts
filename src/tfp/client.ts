@@ -17,6 +17,7 @@ export class TeaQLClient {
   }
 
   async executeQuery<T = any>(query: SelectQuery): Promise<T[]> {
+    query.prepareForList();
     const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
     
     let headers: Record<string, string> = {

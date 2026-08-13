@@ -1,0 +1,12 @@
+{
+  "name": "teaql-order-management-example",
+  "private": true,
+  "workspaces": [
+    "typescript-node-lib-core",
+    "typescript-app-console"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace order-management-example",
+    "start": "npm start --workspace order-management-example"
+  }
+}

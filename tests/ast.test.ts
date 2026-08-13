@@ -1,6 +1,13 @@
 import { SelectQuery, SortDirection, OrderBy, MutationQuery } from '../src/core/ast';
 
 describe('AST Classes', () => {
+  it('enforces a local-only materialized list hard limit', () => {
+    expect(new SelectQuery('Order').prepareForList().limitValue).toBe(10_000);
+    expect(() => new SelectQuery('Order').limit(10_001).prepareForList()).toThrow('QUERY_HARD_LIMIT_EXCEEDED');
+    expect(() => new SelectQuery('Order').limit(10_001).hardLimit(20_000).prepareForList()).not.toThrow();
+    expect(JSON.stringify(new SelectQuery('Order').hardLimit(20_000))).not.toContain('hardLimit');
+  });
+
   it('SelectQuery should build correctly', () => {
     const query = new SelectQuery("Task")
       .filter({ "status": { "$eq": 1001 } })

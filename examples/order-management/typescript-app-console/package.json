@@ -1,0 +1,18 @@
+{
+  "name": "order-management-example",
+  "private": true,
+  "scripts": {
+    "start": "ts-node app.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "order-management-service-lib": "file:../typescript-node-lib-core",
+    "teaql-ts": "github:teaql/teaql-ts#684b4de0ca9f9b7e7eabb35630b31e3eb039fe8b",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

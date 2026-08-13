@@ -41,6 +41,7 @@ class AggregationCacheOptions {
 exports.AggregationCacheOptions = AggregationCacheOptions;
 class SelectQuery {
     constructor(entity) {
+        this.hardLimitValue = 10000;
         this.filterCondition = null;
         this.limitValue = 0;
         this.offsetValue = 0;
@@ -52,6 +53,8 @@ class SelectQuery {
         this.aggregateItems = [];
         this.facets = [];
         this.entity = entity;
+        // Local runtime policy must never cross the federation JSON boundary.
+        Object.defineProperty(this, 'hardLimitValue', { enumerable: false, writable: true, value: 10000 });
     }
     comment(text) {
         this.commentText = text;
@@ -71,6 +74,21 @@ class SelectQuery {
     }
     limit(limit) {
         this.limitValue = limit;
+        return this;
+    }
+    /** Override the outer materialized-list ceiling. Most callers should keep 10,000. */
+    hardLimit(limit) {
+        if (!Number.isSafeInteger(limit) || limit <= 0)
+            throw new Error('hardLimit must be a positive integer');
+        this.hardLimitValue = limit;
+        return this;
+    }
+    prepareForList() {
+        if (!this.limitValue)
+            this.limitValue = this.hardLimitValue;
+        if (this.limitValue > this.hardLimitValue) {
+            throw new Error(`QUERY_HARD_LIMIT_EXCEEDED: requested limit ${this.limitValue} exceeds hard limit ${this.hardLimitValue}`);
+        }
         return this;
     }
     offset(offset) {
