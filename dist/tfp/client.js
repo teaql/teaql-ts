@@ -8,6 +8,7 @@ class TeaQLClient {
         this.fetchImpl = config.fetch ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch);
     }
     async executeQuery(query) {
+        query.prepareForList();
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
         let headers = {
             'Content-Type': 'application/json',

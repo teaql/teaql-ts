@@ -19,3 +19,6 @@ Expect `WEB-2026-001`, `2026-08-12`, and `129.95`. The first run reports four au
 ## Customize it
 
 Change `withOrderNumberContaining`, ordering, or a generated relation selection in `app.ts`, then run `npm run build`. Keep trusted context and application policy in `typescript-app-console`; regenerate `typescript-node-lib-core`. The workspace resolves the current TeaQL SQL runtime normally—there is no copied `dist` cache. The shared model is not needed at runtime.
+### Materialized-list hard limit
+
+`executeForList` protects the service by applying a default hard limit of 10,000 rows. A requested page size above that ceiling fails explicitly. Trusted application code can call `hardLimit(...)` to override the outer-query ceiling. **Caution:** most applications should not override it; do so only for a reviewed, exceptional requirement. This setting does not describe streaming execution.

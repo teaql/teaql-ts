@@ -44,6 +44,7 @@ export class AggregationCacheOptions {
 }
 
 export class SelectQuery {
+  private hardLimitValue: number = 10_000;
   public entity: string;
   public filterCondition: any | null = null;
   public limitValue: number = 0;
@@ -61,6 +62,8 @@ export class SelectQuery {
   
   constructor(entity: string) {
     this.entity = entity;
+    // Local runtime policy must never cross the federation JSON boundary.
+    Object.defineProperty(this, 'hardLimitValue', { enumerable: false, writable: true, value: 10_000 });
   }
 
   comment(text: string): this {
@@ -85,6 +88,21 @@ export class SelectQuery {
 
   limit(limit: number): this {
     this.limitValue = limit;
+    return this;
+  }
+
+  /** Override the outer materialized-list ceiling. Most callers should keep 10,000. */
+  hardLimit(limit: number): this {
+    if (!Number.isSafeInteger(limit) || limit <= 0) throw new Error('hardLimit must be a positive integer');
+    this.hardLimitValue = limit;
+    return this;
+  }
+
+  prepareForList(): this {
+    if (!this.limitValue) this.limitValue = this.hardLimitValue;
+    if (this.limitValue > this.hardLimitValue) {
+      throw new Error(`QUERY_HARD_LIMIT_EXCEEDED: requested limit ${this.limitValue} exceeds hard limit ${this.hardLimitValue}`);
+    }
     return this;
   }
 
@@ -136,4 +154,3 @@ export class MutationQuery {
     public comment?: string
   ) {}
 }
-
