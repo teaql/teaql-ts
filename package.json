@@ -1,7 +1,7 @@
 {
-  "name": "teaql-ts",
+  "name": "@teaql/teaql",
   "version": "0.1.0",
-  "description": "TEAQL TypeScript SDK for Browser",
+  "description": "TeaQL runtime and SQL data services for TypeScript",
   "files": [
     "dist"
   ],
@@ -44,15 +44,28 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "prepack": "npm run build"
   },
   "keywords": [
     "teaql",
     "query",
     "database"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "TeaQL",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teaql/teaql-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/teaql/teaql-ts/issues"
+  },
+  "homepage": "https://teaql.io",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/jest": "^29.5.0",
