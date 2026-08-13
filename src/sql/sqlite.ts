@@ -125,6 +125,12 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     return { rows: [], rowCount: result.changes };
   }
 
+  async *stream(sql: string, values: any[] = []): AsyncIterable<any> {
+    const statement = this.database.prepare(sql);
+    if (!statement.reader) throw new Error('stream() requires a SELECT statement');
+    for (const row of statement.iterate(...values)) yield row;
+  }
+
   async close(): Promise<void> {
     this.database.close();
   }

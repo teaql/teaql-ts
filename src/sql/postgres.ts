@@ -1,4 +1,5 @@
 import { Pool, PoolClient } from 'pg';
+import QueryStream from 'pg-query-stream';
 import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
@@ -125,6 +126,17 @@ export class PostgreSQLDriver implements TeaQLSqlDriver {
 
   query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
     return new PostgreSQLSession(this.pool).query(sql, values);
+  }
+
+  async *stream(sql: string, values: any[] = []): AsyncIterable<any> {
+    const client = await this.pool.connect();
+    const cursor = client.query(new QueryStream(sql, values));
+    try {
+      for await (const row of cursor as any) yield row;
+    } finally {
+      cursor.destroy();
+      client.release();
+    }
   }
 
   async close(): Promise<void> {

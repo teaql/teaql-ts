@@ -37,6 +37,7 @@ export interface SqlSession {
 }
 
 export interface TeaQLSqlDriver extends SqlSession {
+  stream(sql: string, values?: any[]): AsyncIterable<any>;
   identifier(value: string): string;
   placeholder(index: number): string;
   encode(value: any, column?: ColumnSchema): any;
@@ -51,6 +52,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 export interface TeaQLDataService {
   executeMutation(mutation: any): Promise<any>;
   executeQuery<T = any>(query: any): Promise<T[]>;
+  executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
   close?(): Promise<void>;
 }
 
@@ -316,7 +318,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }));
   }
 
-  async executeQuery<T = any>(query: any): Promise<T[]> {
+  private async compileQuery(query: any): Promise<{
+    sql: string;
+    values: any[];
+    aggregateNames: string[];
+  }> {
     const internal = query?.[this.internalQueryToken] === true;
     const purpose = query?._purpose ?? query?.purposeText;
     const comment = query?._comment ?? query?.commentText;
@@ -411,12 +417,37 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
     }
     this.sqlTrace.push(sql);
+    return { sql, values, aggregateNames };
+  }
+
+  async executeQuery<T = any>(query: any): Promise<T[]> {
+    const { sql, values, aggregateNames } = await this.compileQuery(query);
     const result = await this.driver.query(sql, values);
     const rows = result.rows.map(row =>
       this.decodeRow(query.entity, row, aggregateNames),
     );
     await this.enhanceRelations(rows, query);
     return rows as T[];
+  }
+
+  async *executeForStream<T = any>(query: any, chunkSize = 1000): AsyncIterable<T[]> {
+    if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
+      throw new Error('stream chunk size must be a positive integer');
+    }
+    const { sql, values, aggregateNames } = await this.compileQuery(query);
+    let chunk: any[] = [];
+    for await (const rawRow of this.driver.stream(sql, values)) {
+      chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
+      if (chunk.length === chunkSize) {
+        await this.enhanceRelations(chunk, query);
+        yield chunk as T[];
+        chunk = [];
+      }
+    }
+    if (chunk.length) {
+      await this.enhanceRelations(chunk, query);
+      yield chunk as T[];
+    }
   }
 
   private async enhanceRelations(parents: any[], query: any): Promise<void> {

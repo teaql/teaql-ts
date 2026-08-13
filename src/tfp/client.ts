@@ -44,6 +44,15 @@ export class TeaQLClient {
     return responseJson.data;
   }
 
+  async *executeForStream<T = any>(
+    _query: SelectQuery,
+    _chunkSize = 1000,
+  ): AsyncIterable<T[]> {
+    throw new Error(
+      'TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol',
+    );
+  }
+
   async executeMutation(query: any): Promise<any> {
     const response = await this.fetchImpl(`${this.config.baseUrl}/mutate`, {
       method: 'POST',

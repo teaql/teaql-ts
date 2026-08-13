@@ -62,6 +62,7 @@
     "jest": "^29.5.0",
     "mysql2": "^3.11.0",
     "pg": "^8.12.0",
+    "pg-query-stream": "^4.7.0",
     "ts-jest": "^29.1.0",
     "typescript": "5.4.5"
   },
@@ -71,11 +72,13 @@
   "peerDependencies": {
     "better-sqlite3": "^11.7.0",
     "mysql2": "^3.11.0",
-    "pg": "^8.12.0"
+    "pg": "^8.12.0",
+    "pg-query-stream": "^4.7.0"
   },
   "peerDependenciesMeta": {
     "better-sqlite3": { "optional": true },
     "mysql2": { "optional": true },
-    "pg": { "optional": true }
+    "pg": { "optional": true },
+    "pg-query-stream": { "optional": true }
   }
 }

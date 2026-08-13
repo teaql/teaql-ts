@@ -1,4 +1,5 @@
-import { createPool, Pool, PoolConnection } from 'mysql2/promise';
+import { createPool as createCallbackPool, Pool as CallbackPool } from 'mysql2';
+import { Pool, PoolConnection } from 'mysql2/promise';
 import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
@@ -22,11 +23,13 @@ class MySQLSession implements SqlSession {
 }
 
 export class MySQLDriver implements TeaQLSqlDriver {
+  private readonly callbackPool: CallbackPool;
   private readonly pool: Pool;
 
   constructor(connectionString: string) {
     if (!connectionString) throw new Error('connectionString is required');
-    this.pool = createPool(connectionString);
+    this.callbackPool = createCallbackPool(connectionString);
+    this.pool = this.callbackPool.promise();
   }
 
   identifier(value: string): string {
@@ -137,8 +140,21 @@ export class MySQLDriver implements TeaQLSqlDriver {
     return new MySQLSession(this.pool).query(sql, values);
   }
 
+  async *stream(sql: string, values: any[] = []): AsyncIterable<any> {
+    const connection = await new Promise<any>((resolve, reject) => {
+      this.callbackPool.getConnection((error, value) => error ? reject(error) : resolve(value));
+    });
+    const readable = connection.query(sql, values).stream();
+    try {
+      for await (const row of readable) yield row;
+    } finally {
+      readable.destroy();
+      connection.release();
+    }
+  }
+
   async close(): Promise<void> {
-    await this.pool.end();
+    await this.callbackPool.promise().end();
   }
 }
 
