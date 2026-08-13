@@ -22,3 +22,15 @@ Change `withOrderNumberContaining`, ordering, or a generated relation selection 
 ### Materialized-list hard limit
 
 `executeForList` protects the service by applying a default hard limit of 10,000 rows. A requested page size above that ceiling fails explicitly. Trusted application code can call `hardLimit(...)` to override the outer-query ceiling. **Caution:** most applications should not override it; do so only for a reviewed, exceptional requirement. This setting does not describe streaming execution.
+
+### Streaming large root queries
+
+`executeForStream(ctx, chunkSize)` is an `AsyncIterable` of generated entities backed by the SQL driver's cursor:
+
+```typescript
+for await (const order of request.comment('export orders').purpose('reviewed export').executeForStream(ctx, 500)) {
+  await writeOrder(order);
+}
+```
+
+Breaking the loop destroys/releases the cursor. **Caution:** normally keep the default 1,000. The SQL runtime enhances selected relations a batch at a time. The ordinary TFP client explicitly rejects streaming until a dedicated protocol exists.
