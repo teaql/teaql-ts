@@ -100,11 +100,18 @@ export class SelectQuery {
   }
 
   prepareForList(): this {
-    if (!this.limitValue) this.limitValue = this.hardLimitValue;
-    if (this.limitValue > this.hardLimitValue) {
-      throw new Error(`QUERY_HARD_LIMIT_EXCEEDED: requested limit ${this.limitValue} exceeds hard limit ${this.hardLimitValue}`);
-    }
+    this.applyListLimit(this.hardLimitValue);
     return this;
+  }
+
+  private applyListLimit(ceiling: number): void {
+    if (!this.limitValue) this.limitValue = ceiling;
+    if (this.limitValue > ceiling) {
+      throw new Error(`QUERY_HARD_LIMIT_EXCEEDED: requested limit ${this.limitValue} exceeds hard limit ${ceiling}`);
+    }
+    for (const relation of this.relations) {
+      relation.query?.applyListLimit(10_000);
+    }
   }
 
   offset(offset: number): this {

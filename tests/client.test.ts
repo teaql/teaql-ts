@@ -104,4 +104,26 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     await expect(consume()).rejects.toThrow(/dedicated streaming protocol/);
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it.each(['hardLimit', 'hard_limit', 'hard_limit_value']) (
+    'rejects remote hard-limit injection through %s without issuing HTTP',
+    async (field) => {
+      const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+      const query = new SelectQuery('Order') as SelectQuery & Record<string, unknown>;
+      query[field] = 20_000;
+
+      await expect(client.executeQuery(query)).rejects.toThrow('TFP_FORBIDDEN_FIELD');
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects nested remote hard-limit injection without issuing HTTP', async () => {
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    const nested = new SelectQuery('OrderLine') as SelectQuery & Record<string, unknown>;
+    nested.hard_limit = 20_000;
+    const query = new SelectQuery('Order').relationQuery('lines', nested);
+
+    await expect(client.executeQuery(query)).rejects.toThrow('TFP_FORBIDDEN_FIELD');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });
