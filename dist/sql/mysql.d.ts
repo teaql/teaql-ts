@@ -1,5 +1,6 @@
 import { AbstractSQLTeaQLClient, ColumnSchema, EntitySchema, SqlQueryResult, SqlSession, TeaQLSqlDriver } from './core';
 export declare class MySQLDriver implements TeaQLSqlDriver {
+    private readonly callbackPool;
     private readonly pool;
     constructor(connectionString: string);
     identifier(value: string): string;
@@ -12,6 +13,7 @@ export declare class MySQLDriver implements TeaQLSqlDriver {
     transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T>;
     nextId(session: SqlSession, entity: string): Promise<string>;
     query(sql: string, values?: any[]): Promise<SqlQueryResult>;
+    stream(sql: string, values?: any[]): AsyncIterable<any>;
     close(): Promise<void>;
 }
 export declare class MySQLTeaQLClient extends AbstractSQLTeaQLClient {

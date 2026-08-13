@@ -23,6 +23,7 @@ export interface SqlSession {
     query(sql: string, values?: any[]): Promise<SqlQueryResult>;
 }
 export interface TeaQLSqlDriver extends SqlSession {
+    stream(sql: string, values?: any[]): AsyncIterable<any>;
     identifier(value: string): string;
     placeholder(index: number): string;
     encode(value: any, column?: ColumnSchema): any;
@@ -36,6 +37,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 export interface TeaQLDataService {
     executeMutation(mutation: any): Promise<any>;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
     close?(): Promise<void>;
 }
 export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
@@ -59,7 +61,9 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private groupBy;
     private aggregates;
     private orders;
+    private compileQuery;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
     private enhanceRelations;
     private queryLimit;
     close(): Promise<void>;

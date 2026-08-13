@@ -22,6 +22,7 @@ export declare class AggregationCacheOptions {
     propagate(cacheExpiredMillis: number): AggregationCacheOptions;
 }
 export declare class SelectQuery {
+    private hardLimitValue;
     entity: string;
     filterCondition: any | null;
     limitValue: number;
@@ -46,6 +47,9 @@ export declare class SelectQuery {
     facetBy(facetName: string, relationName: string, request: any): this;
     filter(condition: any): this;
     limit(limit: number): this;
+    /** Override the outer materialized-list ceiling. Most callers should keep 10,000. */
+    hardLimit(limit: number): this;
+    prepareForList(): this;
     offset(offset: number): this;
     relation(name: string): this;
     relationQuery(name: string, query: SelectQuery): this;

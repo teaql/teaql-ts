@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PostgreSQLTeaQLClient = exports.PostgreSQLDriver = void 0;
 const pg_1 = require("pg");
+const pg_query_stream_1 = __importDefault(require("pg-query-stream"));
 const core_1 = require("./core");
 class PostgreSQLSession {
     constructor(client) {
@@ -100,6 +104,18 @@ class PostgreSQLDriver {
     }
     query(sql, values = []) {
         return new PostgreSQLSession(this.pool).query(sql, values);
+    }
+    async *stream(sql, values = []) {
+        const client = await this.pool.connect();
+        const cursor = client.query(new pg_query_stream_1.default(sql, values));
+        try {
+            for await (const row of cursor)
+                yield row;
+        }
+        finally {
+            cursor.destroy();
+            client.release();
+        }
     }
     async close() {
         await this.pool.end();

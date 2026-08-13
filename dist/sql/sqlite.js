@@ -96,6 +96,13 @@ class SQLiteDriver {
         const result = statement.run(...values);
         return { rows: [], rowCount: result.changes };
     }
+    async *stream(sql, values = []) {
+        const statement = this.database.prepare(sql);
+        if (!statement.reader)
+            throw new Error('stream() requires a SELECT statement');
+        for (const row of statement.iterate(...values))
+            yield row;
+    }
     async close() {
         this.database.close();
     }

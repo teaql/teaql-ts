@@ -8,6 +8,7 @@ class TeaQLClient {
         this.fetchImpl = config.fetch ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch);
     }
     async executeQuery(query) {
+        query.prepareForList();
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
         let headers = {
             'Content-Type': 'application/json',
@@ -28,6 +29,9 @@ class TeaQLClient {
         }
         const responseJson = await response.json();
         return responseJson.data;
+    }
+    async *executeForStream(_query, _chunkSize = 1000) {
+        throw new Error('TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol');
     }
     async executeMutation(query) {
         const response = await this.fetchImpl(`${this.config.baseUrl}/mutate`, {

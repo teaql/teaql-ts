@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MySQLTeaQLClient = exports.MySQLDriver = void 0;
-const promise_1 = require("mysql2/promise");
+const mysql2_1 = require("mysql2");
 const core_1 = require("./core");
 class MySQLSession {
     constructor(client) {
@@ -18,7 +18,8 @@ class MySQLDriver {
     constructor(connectionString) {
         if (!connectionString)
             throw new Error('connectionString is required');
-        this.pool = (0, promise_1.createPool)(connectionString);
+        this.callbackPool = (0, mysql2_1.createPool)(connectionString);
+        this.pool = this.callbackPool.promise();
     }
     identifier(value) {
         return `\`${(0, core_1.assertSafeIdentifier)(value)}\``;
@@ -107,8 +108,22 @@ class MySQLDriver {
     query(sql, values = []) {
         return new MySQLSession(this.pool).query(sql, values);
     }
+    async *stream(sql, values = []) {
+        const connection = await new Promise((resolve, reject) => {
+            this.callbackPool.getConnection((error, value) => error ? reject(error) : resolve(value));
+        });
+        const readable = connection.query(sql, values).stream();
+        try {
+            for await (const row of readable)
+                yield row;
+        }
+        finally {
+            readable.destroy();
+            connection.release();
+        }
+    }
     async close() {
-        await this.pool.end();
+        await this.callbackPool.promise().end();
     }
 }
 exports.MySQLDriver = MySQLDriver;

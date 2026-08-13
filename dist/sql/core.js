@@ -210,7 +210,7 @@ class AbstractSQLTeaQLClient {
             direction: order.direction,
         }));
     }
-    async executeQuery(query) {
+    async compileQuery(query) {
         const internal = query?.[this.internalQueryToken] === true;
         const purpose = query?._purpose ?? query?.purposeText;
         const comment = query?._comment ?? query?.commentText;
@@ -301,10 +301,33 @@ class AbstractSQLTeaQLClient {
             sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
         }
         this.sqlTrace.push(sql);
+        return { sql, values, aggregateNames };
+    }
+    async executeQuery(query) {
+        const { sql, values, aggregateNames } = await this.compileQuery(query);
         const result = await this.driver.query(sql, values);
         const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
         await this.enhanceRelations(rows, query);
         return rows;
+    }
+    async *executeForStream(query, chunkSize = 1000) {
+        if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
+            throw new Error('stream chunk size must be a positive integer');
+        }
+        const { sql, values, aggregateNames } = await this.compileQuery(query);
+        let chunk = [];
+        for await (const rawRow of this.driver.stream(sql, values)) {
+            chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
+            if (chunk.length === chunkSize) {
+                await this.enhanceRelations(chunk, query);
+                yield chunk;
+                chunk = [];
+            }
+        }
+        if (chunk.length) {
+            await this.enhanceRelations(chunk, query);
+            yield chunk;
+        }
     }
     async enhanceRelations(parents, query) {
         if (!parents.length || !Array.isArray(query.relations) || !query.relations.length)
