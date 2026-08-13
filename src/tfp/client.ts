@@ -1,5 +1,21 @@
 import { SelectQuery } from '../core/ast';
 
+function rejectRemoteHardLimit(value: unknown, path = '$'): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => rejectRemoteHardLimit(item, `${path}[${index}]`));
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = key.replace(/[^a-zA-Z]/g, '').toLowerCase();
+    if (normalized === 'hardlimit' || normalized === 'hardlimitvalue') {
+      throw new Error(`TFP_FORBIDDEN_FIELD: ${path}.${key} is server-local policy`);
+    }
+    rejectRemoteHardLimit(child, `${path}.${key}`);
+  }
+}
+
 export interface TeaQLClientConfig {
   baseUrl: string;
   fetch?: typeof fetch;
@@ -18,6 +34,8 @@ export class TeaQLClient {
 
   async executeQuery<T = any>(query: SelectQuery): Promise<T[]> {
     query.prepareForList();
+    const payload = JSON.parse(JSON.stringify(query));
+    rejectRemoteHardLimit(payload);
     const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
     
     let headers: Record<string, string> = {
@@ -33,7 +51,7 @@ export class TeaQLClient {
     const response = await this.fetchImpl(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(query),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {

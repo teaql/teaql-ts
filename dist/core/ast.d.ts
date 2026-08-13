@@ -50,6 +50,7 @@ export declare class SelectQuery {
     /** Override the outer materialized-list ceiling. Most callers should keep 10,000. */
     hardLimit(limit: number): this;
     prepareForList(): this;
+    private applyListLimit;
     offset(offset: number): this;
     relation(name: string): this;
     relationQuery(name: string, query: SelectQuery): this;

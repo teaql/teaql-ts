@@ -8,6 +8,18 @@ describe('AST Classes', () => {
     expect(JSON.stringify(new SelectQuery('Order').hardLimit(20_000))).not.toContain('hardLimit');
   });
 
+  it('uses a fixed 10,000 ceiling for every nested relation query', () => {
+    const nested = new SelectQuery('OrderLine').hardLimit(20_000);
+    const query = new SelectQuery('Order').hardLimit(20_000).relationQuery('lines', nested);
+
+    query.prepareForList();
+    expect(query.limitValue).toBe(20_000);
+    expect(nested.limitValue).toBe(10_000);
+
+    nested.limit(10_001);
+    expect(() => query.prepareForList()).toThrow('QUERY_HARD_LIMIT_EXCEEDED');
+  });
+
   it('SelectQuery should build correctly', () => {
     const query = new SelectQuery("Task")
       .filter({ "status": { "$eq": 1001 } })

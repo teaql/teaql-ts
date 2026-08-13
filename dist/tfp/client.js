@@ -1,6 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TeaQLClient = void 0;
+function rejectRemoteHardLimit(value, path = '$') {
+    if (Array.isArray(value)) {
+        value.forEach((item, index) => rejectRemoteHardLimit(item, `${path}[${index}]`));
+        return;
+    }
+    if (!value || typeof value !== 'object')
+        return;
+    for (const [key, child] of Object.entries(value)) {
+        const normalized = key.replace(/[^a-zA-Z]/g, '').toLowerCase();
+        if (normalized === 'hardlimit' || normalized === 'hardlimitvalue') {
+            throw new Error(`TFP_FORBIDDEN_FIELD: ${path}.${key} is server-local policy`);
+        }
+        rejectRemoteHardLimit(child, `${path}.${key}`);
+    }
+}
 class TeaQLClient {
     constructor(config) {
         this.config = config;
@@ -9,6 +24,8 @@ class TeaQLClient {
     }
     async executeQuery(query) {
         query.prepareForList();
+        const payload = JSON.parse(JSON.stringify(query));
+        rejectRemoteHardLimit(payload);
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
         let headers = {
             'Content-Type': 'application/json',
@@ -21,7 +38,7 @@ class TeaQLClient {
         const response = await this.fetchImpl(url, {
             method: 'POST',
             headers,
-            body: JSON.stringify(query),
+            body: JSON.stringify(payload),
         });
         if (!response.ok) {
             const errText = await response.text();
