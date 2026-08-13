@@ -95,4 +95,13 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.payload.name).toBe("Created");
     expect(body.comment).toBe("create task");
   });
+
+  it('rejects streaming over the ordinary federation protocol without issuing HTTP', async () => {
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    const consume = async () => {
+      for await (const _chunk of client.executeForStream(new SelectQuery('Task'))) { /* consume */ }
+    };
+    await expect(consume()).rejects.toThrow(/dedicated streaming protocol/);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });

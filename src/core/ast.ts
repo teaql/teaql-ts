@@ -57,6 +57,7 @@ export class SelectQuery {
   public aggregateItems: any[] = [];
   public aggregationCache?: AggregationCacheOptions;
   public facets: any[] = [];
+  public relations: Array<{ name: string; query?: SelectQuery }> = [];
   public commentText?: string;
   public purposeText?: string;
   
@@ -108,6 +109,16 @@ export class SelectQuery {
 
   offset(offset: number): this {
     this.offsetValue = offset;
+    return this;
+  }
+
+  relation(name: string): this {
+    this.relations.push({ name });
+    return this;
+  }
+
+  relationQuery(name: string, query: SelectQuery): this {
+    this.relations.push({ name, query });
     return this;
   }
 

@@ -2,8 +2,46 @@
   "name": "teaql-ts",
   "version": "0.1.0",
   "description": "TEAQL TypeScript SDK for Browser",
+  "files": [
+    "dist"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./sql/core": {
+      "types": "./dist/sql/core.d.ts",
+      "require": "./dist/sql/core.js",
+      "default": "./dist/sql/core.js"
+    },
+    "./sql/postgres": {
+      "types": "./dist/sql/postgres.d.ts",
+      "require": "./dist/sql/postgres.js",
+      "default": "./dist/sql/postgres.js"
+    },
+    "./sql/mysql": {
+      "types": "./dist/sql/mysql.d.ts",
+      "require": "./dist/sql/mysql.js",
+      "default": "./dist/sql/mysql.js"
+    },
+    "./sql/sqlite": {
+      "types": "./dist/sql/sqlite.d.ts",
+      "require": "./dist/sql/sqlite.js",
+      "default": "./dist/sql/sqlite.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "sql/core": ["dist/sql/core.d.ts"],
+      "sql/postgres": ["dist/sql/postgres.d.ts"],
+      "sql/mysql": ["dist/sql/mysql.d.ts"],
+      "sql/sqlite": ["dist/sql/sqlite.d.ts"]
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest"
@@ -16,13 +54,31 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
     "@types/jest": "^29.5.0",
     "@types/node-fetch": "^2.6.13",
+    "@types/pg": "^8.11.0",
+    "better-sqlite3": "^11.7.0",
     "jest": "^29.5.0",
+    "mysql2": "^3.11.0",
+    "pg": "^8.12.0",
+    "pg-query-stream": "^4.7.0",
     "ts-jest": "^29.1.0",
     "typescript": "5.4.5"
   },
   "dependencies": {
     "node-fetch": "^2.7.0"
+  },
+  "peerDependencies": {
+    "better-sqlite3": "^11.7.0",
+    "mysql2": "^3.11.0",
+    "pg": "^8.12.0",
+    "pg-query-stream": "^4.7.0"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": { "optional": true },
+    "mysql2": { "optional": true },
+    "pg": { "optional": true },
+    "pg-query-stream": { "optional": true }
   }
 }
