@@ -25,6 +25,23 @@ const schemas: Record<string, EntitySchema> = {
 };
 
 describe('SQLite relation loading', () => {
+  it('enforces the formal runtime hard limit at the SQL list boundary', async () => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas);
+    const query = new SelectQuery('Order').purpose('test hard limit').comment('bounded list');
+
+    await client.executeQuery(query);
+
+    expect(query.limitValue).toBe(10_000);
+    expect(client.sqlTrace[client.sqlTrace.length - 1]).toContain(' LIMIT ');
+    await expect(client.executeQuery(
+      new SelectQuery('Order')
+        .purpose('test hard limit rejection')
+        .comment('reject oversized list')
+        .limit(10_001),
+    )).rejects.toThrow('QUERY_HARD_LIMIT_EXCEEDED');
+    await client.close();
+  });
+
   it('enforces runtime governance and sends immutable audit events to the app sink', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
     await expect(client.executeQuery(new SelectQuery('Order'))).rejects.toThrow(/purpose and comment/);

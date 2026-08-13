@@ -304,6 +304,13 @@ class AbstractSQLTeaQLClient {
         return { sql, values, aggregateNames };
     }
     async executeQuery(query) {
+        const internal = query?.[this.internalQueryToken] === true;
+        if (!internal) {
+            if (typeof query?.prepareForList !== 'function') {
+                throw new Error('TeaQL list execution requires the formal runtime SelectQuery');
+            }
+            query.prepareForList();
+        }
         const { sql, values, aggregateNames } = await this.compileQuery(query);
         const result = await this.driver.query(sql, values);
         const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
