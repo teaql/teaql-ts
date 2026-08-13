@@ -9,7 +9,7 @@ function rejectRemoteHardLimit(value: unknown, path = '$'): void {
 
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
     const normalized = key.replace(/[^a-zA-Z]/g, '').toLowerCase();
-    if (normalized === 'hardlimit' || normalized === 'hardlimitvalue') {
+    if (normalized === 'hardlimit' || normalized === 'hardlimitvalue' || normalized.startsWith('continuouspage')) {
       throw new Error(`TFP_FORBIDDEN_FIELD: ${path}.${key} is server-local policy`);
     }
     rejectRemoteHardLimit(child, `${path}.${key}`);

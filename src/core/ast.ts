@@ -45,6 +45,8 @@ export class AggregationCacheOptions {
 
 export class SelectQuery {
   private hardLimitValue: number = 10_000;
+  private continuousPageFetchOptions?: { namespace: string; ttlSeconds: number };
+  private continuousPageRuntimeContext?: any;
   public entity: string;
   public filterCondition: any | null = null;
   public limitValue: number = 0;
@@ -65,6 +67,8 @@ export class SelectQuery {
     this.entity = entity;
     // Local runtime policy must never cross the federation JSON boundary.
     Object.defineProperty(this, 'hardLimitValue', { enumerable: false, writable: true, value: 10_000 });
+    Object.defineProperty(this, 'continuousPageFetchOptions', { enumerable: false, writable: true, value: undefined });
+    Object.defineProperty(this, 'continuousPageRuntimeContext', { enumerable: false, writable: true, value: undefined });
   }
 
   comment(text: string): this {
@@ -98,6 +102,22 @@ export class SelectQuery {
     this.hardLimitValue = limit;
     return this;
   }
+
+  optimizeForContinuousPageFetch(): this {
+    return this.optimizeForContinuousPageFetchWith('default', 600);
+  }
+
+  optimizeForContinuousPageFetchWith(namespace: string, ttlSeconds: number): this {
+    if (!namespace?.trim()) throw new Error('continuous page namespace must not be empty');
+    if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) throw new Error('continuous page ttlSeconds must be a positive integer');
+    this.continuousPageFetchOptions = { namespace, ttlSeconds };
+    return this;
+  }
+
+  bindContinuousPageRuntime(runtime: any): this { this.continuousPageRuntimeContext = runtime; return this; }
+  localContinuousPageOptions(): { namespace: string; ttlSeconds: number } | undefined { return this.continuousPageFetchOptions; }
+  localContinuousPageRuntime(): any { return this.continuousPageRuntimeContext; }
+  clearContinuousPageRuntime(): this { this.continuousPageRuntimeContext = undefined; return this; }
 
   prepareForList(): this {
     this.applyListLimit(this.hardLimitValue);

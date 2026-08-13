@@ -117,6 +117,17 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     },
   );
 
+  it.each(['continuousPageFetch', 'continuous_page_fetch', 'continuousPageRuntime']) (
+    'rejects remote local cursor policy field %s without issuing HTTP',
+    async (field) => {
+      const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+      const query = new SelectQuery('Order') as SelectQuery & Record<string, unknown>;
+      query[field] = { namespace: 'attacker', ttlSeconds: 999 };
+      await expect(client.executeQuery(query)).rejects.toThrow('TFP_FORBIDDEN_FIELD');
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
+
   it('rejects nested remote hard-limit injection without issuing HTTP', async () => {
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
     const nested = new SelectQuery('OrderLine') as SelectQuery & Record<string, unknown>;

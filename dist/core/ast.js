@@ -56,6 +56,8 @@ class SelectQuery {
         this.entity = entity;
         // Local runtime policy must never cross the federation JSON boundary.
         Object.defineProperty(this, 'hardLimitValue', { enumerable: false, writable: true, value: 10000 });
+        Object.defineProperty(this, 'continuousPageFetchOptions', { enumerable: false, writable: true, value: undefined });
+        Object.defineProperty(this, 'continuousPageRuntimeContext', { enumerable: false, writable: true, value: undefined });
     }
     comment(text) {
         this.commentText = text;
@@ -84,6 +86,21 @@ class SelectQuery {
         this.hardLimitValue = limit;
         return this;
     }
+    optimizeForContinuousPageFetch() {
+        return this.optimizeForContinuousPageFetchWith('default', 600);
+    }
+    optimizeForContinuousPageFetchWith(namespace, ttlSeconds) {
+        if (!namespace?.trim())
+            throw new Error('continuous page namespace must not be empty');
+        if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0)
+            throw new Error('continuous page ttlSeconds must be a positive integer');
+        this.continuousPageFetchOptions = { namespace, ttlSeconds };
+        return this;
+    }
+    bindContinuousPageRuntime(runtime) { this.continuousPageRuntimeContext = runtime; return this; }
+    localContinuousPageOptions() { return this.continuousPageFetchOptions; }
+    localContinuousPageRuntime() { return this.continuousPageRuntimeContext; }
+    clearContinuousPageRuntime() { this.continuousPageRuntimeContext = undefined; return this; }
     prepareForList() {
         this.applyListLimit(this.hardLimitValue);
         return this;

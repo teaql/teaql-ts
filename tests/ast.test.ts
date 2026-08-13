@@ -1,6 +1,13 @@
 import { SelectQuery, SortDirection, OrderBy, MutationQuery } from '../src/core/ast';
 
 describe('AST Classes', () => {
+  it('keeps continuous page optimization local and validates it', () => {
+    const query = new SelectQuery('Order').optimizeForContinuousPageFetchWith('orders', 30);
+    expect(query.localContinuousPageOptions()).toEqual({ namespace: 'orders', ttlSeconds: 30 });
+    expect(JSON.stringify(query)).not.toContain('continuousPage');
+    expect(() => new SelectQuery('Order').optimizeForContinuousPageFetchWith(' ', 30)).toThrow('namespace');
+    expect(() => new SelectQuery('Order').optimizeForContinuousPageFetchWith('orders', 0)).toThrow('ttlSeconds');
+  });
   it('enforces a local-only materialized list hard limit', () => {
     expect(new SelectQuery('Order').prepareForList().limitValue).toBe(10_000);
     expect(() => new SelectQuery('Order').limit(10_001).prepareForList()).toThrow('QUERY_HARD_LIMIT_EXCEEDED');

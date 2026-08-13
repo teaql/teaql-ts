@@ -23,6 +23,8 @@ export declare class AggregationCacheOptions {
 }
 export declare class SelectQuery {
     private hardLimitValue;
+    private continuousPageFetchOptions?;
+    private continuousPageRuntimeContext?;
     entity: string;
     filterCondition: any | null;
     limitValue: number;
@@ -49,6 +51,15 @@ export declare class SelectQuery {
     limit(limit: number): this;
     /** Override the outer materialized-list ceiling. Most callers should keep 10,000. */
     hardLimit(limit: number): this;
+    optimizeForContinuousPageFetch(): this;
+    optimizeForContinuousPageFetchWith(namespace: string, ttlSeconds: number): this;
+    bindContinuousPageRuntime(runtime: any): this;
+    localContinuousPageOptions(): {
+        namespace: string;
+        ttlSeconds: number;
+    } | undefined;
+    localContinuousPageRuntime(): any;
+    clearContinuousPageRuntime(): this;
     prepareForList(): this;
     private applyListLimit;
     offset(offset: number): this;
