@@ -34,3 +34,28 @@ for await (const order of request.comment('export orders').purpose('reviewed exp
 ```
 
 Breaking the loop destroys/releases the cursor. **Caution:** normally keep the default 1,000. The SQL runtime enhances selected relations a batch at a time. The ordinary TFP client explicitly rejects streaming until a dedicated protocol exists.
+
+### Optional continuous browsing optimization
+
+For a browse-only screen ordered by the unique `id`, trusted application code can opt in:
+
+```typescript
+const orders = await Q.customerOrders()
+  .orderByIdDescending()
+  .offset(page * pageSize)
+  .limit(pageSize)
+  .optimizeForContinuousPageFetchWith('recent-orders', 60)
+  .purpose('browse recent orders')
+  .comment('order browser')
+  .executeForList(ctx);
+```
+
+The runtime keeps a bounded, expiring cursor in `UserContext`. A matching next page
+transparently uses an `id` seek instead of a deep offset; cache misses and unsupported
+query shapes retain offset semantics. The plan and cursor ID remain observable.
+
+**Caution:** this is an explicitly approximate optimization for continuous browsing, not
+business logic, reconciliation, export, or a stable snapshot. Browse screens usually do
+not need an exact count. Both the option and runtime scope are non-enumerable local state;
+the TFP client also rejects malicious continuous-page fields, so federation cannot enable
+or modify the optimization.

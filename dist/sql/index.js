@@ -18,4 +18,5 @@ __exportStar(require("./core"), exports);
 __exportStar(require("./postgres"), exports);
 __exportStar(require("./mysql"), exports);
 __exportStar(require("./sqlite"), exports);
+__exportStar(require("./expo-sqlite"), exports);
 //# sourceMappingURL=index.js.map

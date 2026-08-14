@@ -14,13 +14,15 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AggregationCacheOptions = exports.MutationQuery = exports.SelectQuery = void 0;
+exports.SortDirection = exports.OrderBy = exports.AggregationCacheOptions = exports.MutationQuery = exports.SelectQuery = void 0;
 __exportStar(require("./core/value"), exports);
 __exportStar(require("./core/context"), exports);
 var ast_1 = require("./core/ast");
 Object.defineProperty(exports, "SelectQuery", { enumerable: true, get: function () { return ast_1.SelectQuery; } });
 Object.defineProperty(exports, "MutationQuery", { enumerable: true, get: function () { return ast_1.MutationQuery; } });
 Object.defineProperty(exports, "AggregationCacheOptions", { enumerable: true, get: function () { return ast_1.AggregationCacheOptions; } });
+Object.defineProperty(exports, "OrderBy", { enumerable: true, get: function () { return ast_1.OrderBy; } });
+Object.defineProperty(exports, "SortDirection", { enumerable: true, get: function () { return ast_1.SortDirection; } });
 __exportStar(require("./meta/descriptors"), exports);
 __exportStar(require("./tfp/client"), exports);
 __exportStar(require("./parser/dsl"), exports);

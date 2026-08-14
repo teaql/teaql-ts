@@ -8,6 +8,7 @@ export declare class TeaQLClient {
     private config;
     private fetchImpl;
     constructor(config: TeaQLClientConfig);
+    private requestHeaders;
     executeQuery<T = any>(query: SelectQuery): Promise<T[]>;
     executeForStream<T = any>(_query: SelectQuery, _chunkSize?: number): AsyncIterable<T[]>;
     executeMutation(query: any): Promise<any>;

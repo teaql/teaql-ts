@@ -177,6 +177,14 @@ class AbstractSQLTeaQLClient {
                 values.push(this.encode(predicate.$lte, column));
                 return `${quotedField} <= ${this.driver.placeholder(values.length)}`;
             }
+            if (predicate?.$gt !== undefined) {
+                values.push(this.encode(predicate.$gt, column));
+                return `${quotedField} > ${this.driver.placeholder(values.length)}`;
+            }
+            if (predicate?.$lt !== undefined) {
+                values.push(this.encode(predicate.$lt, column));
+                return `${quotedField} < ${this.driver.placeholder(values.length)}`;
+            }
             throw new Error(`Unsupported query predicate for ${field}`);
         });
         return parts.length ? `(${parts.join(' AND ')})` : 'TRUE';
@@ -311,11 +319,84 @@ class AbstractSQLTeaQLClient {
             }
             query.prepareForList();
         }
+        const prepared = internal ? { query, execution: undefined } : await this.prepareContinuousPage(query);
+        query = prepared.query;
         const { sql, values, aggregateNames } = await this.compileQuery(query);
         const result = await this.driver.query(sql, values);
         const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
         await this.enhanceRelations(rows, query);
+        if (!internal)
+            await this.registerContinuousPage(query, prepared.execution, rows);
         return rows;
+    }
+    async prepareContinuousPage(query) {
+        const options = query.localContinuousPageOptions?.();
+        const runtime = query.localContinuousPageRuntime?.();
+        if (!options || !runtime) {
+            runtime?.observe('DISABLED');
+            return { query };
+        }
+        const orders = this.orders(query);
+        const limit = this.queryLimit(query);
+        if (!limit || orders.length !== 1 || orders[0].field !== 'id' || this.aggregates(query).length || this.groupBy(query).length || query.__teaqlPartitionBy) {
+            runtime.observe('OFFSET_FALLBACK:UNSUPPORTED_QUERY_SHAPE');
+            return { query };
+        }
+        const clone = Object.assign(Object.create(Object.getPrototypeOf(query)), query);
+        clone.orderItems = [...(query.orderItems || [])];
+        clone.relations = [...(query.relations || [])];
+        Object.defineProperty(clone, 'continuousPageFetchOptions', { enumerable: false, writable: true, value: options });
+        Object.defineProperty(clone, 'continuousPageRuntimeContext', { enumerable: false, writable: true, value: runtime });
+        const offset = Number(query.offsetValue || query._offset || 0);
+        const normalized = { ...JSON.parse(JSON.stringify(clone)), offsetValue: 0, _offset: 0, commentText: undefined, purposeText: undefined };
+        const rawKey = `${options.namespace}|${runtime.owner}|${JSON.stringify(normalized)}`;
+        let hash = 2166136261;
+        for (let i = 0; i < rawKey.length; i++)
+            hash = Math.imul(hash ^ rawKey.charCodeAt(i), 16777619);
+        const queryKey = `teaql:continuous-page:v1:${(hash >>> 0).toString(16)}`;
+        const execution = { queryKey, offset, limit, direction: String(orders[0].direction).toLowerCase(), ttlSeconds: options.ttlSeconds, runtime, optimized: false };
+        if (offset === 0) {
+            runtime.observe('OFFSET_FALLBACK:FIRST_PAGE');
+            return { query: clone, execution };
+        }
+        let cursor;
+        try {
+            cursor = await runtime.get(queryKey, offset);
+        }
+        catch {
+            runtime.observe('OFFSET_FALLBACK:STORE_UNAVAILABLE');
+            return { query: clone, execution };
+        }
+        if (!cursor) {
+            runtime.observe('OFFSET_FALLBACK:CACHE_MISS');
+            return { query: clone, execution };
+        }
+        const seek = { id: { [execution.direction === 'desc' ? '$lt' : '$gt']: cursor.boundary } };
+        clone.filterCondition = clone.filterCondition ? { $and: [clone.filterCondition, seek] } : seek;
+        clone.offsetValue = 0;
+        if (clone._offset !== undefined)
+            clone._offset = 0;
+        execution.optimized = true;
+        execution.cursorId = cursor.cursorId;
+        runtime.observe('CURSOR_SEEK', cursor.cursorId);
+        return { query: clone, execution };
+    }
+    async registerContinuousPage(_query, execution, rows) {
+        if (!execution || rows.length !== execution.limit || !rows.length || rows[rows.length - 1].id === undefined)
+            return;
+        try {
+            await execution.runtime.put(execution.queryKey, execution.offset + rows.length, {
+                cursorId: `cpg_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`,
+                boundary: rows[rows.length - 1].id,
+                expiresAt: Date.now() + execution.ttlSeconds * 1000,
+            });
+        }
+        catch {
+            execution.runtime.observe('OFFSET_FALLBACK:STORE_UNAVAILABLE');
+            return;
+        }
+        if (execution.optimized)
+            execution.runtime.observe('CURSOR_SEEK', execution.cursorId);
     }
     async *executeForStream(query, chunkSize = 1000) {
         if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
@@ -361,6 +442,8 @@ class AbstractSQLTeaQLClient {
                     ? relation.foreignKey
                     : undefined,
             };
+            if (typeof childQuery.clearContinuousPageRuntime === 'function')
+                childQuery.clearContinuousPageRuntime();
             childQuery[this.internalQueryToken] = true;
             childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
             const children = await this.executeQuery(childQuery);
