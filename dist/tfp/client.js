@@ -22,19 +22,21 @@ class TeaQLClient {
         // Fallback to global fetch if available
         this.fetchImpl = config.fetch ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch);
     }
+    async requestHeaders() {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        };
+        return this.config.getHeaders
+            ? { ...headers, ...await this.config.getHeaders() }
+            : headers;
+    }
     async executeQuery(query) {
         query.prepareForList();
         const payload = JSON.parse(JSON.stringify(query));
         rejectRemoteHardLimit(payload);
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
-        let headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        };
-        if (this.config.getHeaders) {
-            const extraHeaders = await this.config.getHeaders();
-            headers = { ...headers, ...extraHeaders };
-        }
+        const headers = await this.requestHeaders();
         const response = await this.fetchImpl(url, {
             method: 'POST',
             headers,
@@ -51,11 +53,9 @@ class TeaQLClient {
         throw new Error('TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol');
     }
     async executeMutation(query) {
-        const response = await this.fetchImpl(`${this.config.baseUrl}/mutate`, {
+        const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: await this.requestHeaders(),
             body: JSON.stringify(query)
         });
         if (!response.ok) {

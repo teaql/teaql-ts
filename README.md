@@ -13,6 +13,7 @@ profile needed by the application:
 | PostgreSQL | `teaql-ts/sql/postgres` | Node.js | `pg` |
 | MySQL | `teaql-ts/sql/mysql` | Node.js | `mysql2` |
 | SQLite | `teaql-ts/sql/sqlite` | Node.js | `better-sqlite3` |
+| Expo SQLite | `teaql-ts/sql/expo-sqlite` | React Native / Expo | `expo-sqlite` |
 
 ### Browser / TFP profile
 
@@ -29,9 +30,9 @@ import { SelectQuery, TeaQLClient } from "teaql-ts";
 const client = new TeaQLClient({ baseUrl: "/api/teaql" });
 const tasks = await client.executeQuery(
   new SelectQuery("Task")
-    .purpose("show current tasks")
     .comment("task board initial load")
-    .limit(20),
+    .limit(20)
+    .purpose("show current tasks"),
 );
 ```
 
@@ -83,6 +84,27 @@ In a TeaQL model, `data_service="postgres"`, `data_service="mysql"`, or
 regular TypeScript/browser generation profile continues to use TFP and has no
 database-driver import.
 
+### React Native / Expo SQLite profile
+
+Generated `typescript-app-expo` workspaces open and ensure their local schema
+on first launch, so a new user does not need to download or prepare a database
+file. The generated schema remains the source of truth:
+
+```typescript
+import * as SQLite from "expo-sqlite";
+import { ExpoSQLiteTeaQLClient } from "teaql-ts/sql/expo-sqlite";
+import { ENTITY_SCHEMAS } from "./teaql-expo-sql";
+
+const database = await SQLite.openDatabaseAsync("order-management.db");
+const client = new ExpoSQLiteTeaQLClient(database, ENTITY_SCHEMAS);
+```
+
+Local queries still require `comment(...)` and `purpose(...)`, and saves still
+require an audit reason. The same generated model can instead use the default
+TFP client for authenticated server queries. Tenant, user, permission, purpose
+policy, hard-limit policy, and continuous-page cursor policy must be supplied
+by trusted runtime context; they are not accepted from federation JSON.
+
 ## 🌟 Why Will It Make You Say "Wow"?
 
 Take a look at this code driven by `teaql-ts`, and you will feel the beauty of perfectly combining **type safety** with **declarative expression**. You no longer need to manually concatenate GraphQL strings or deal with tedious RESTful parameters, just write this:
@@ -94,8 +116,8 @@ If you are a full-stack developer, after having the generated `Q` Builder, you c
 // Business Requirement: Fetch all current tasks, and attach a "statistics panel" (Facet) to count them by status
 const result = await Q.tasks()
   .withNameContaining("bug")
+  .facetByStatusAs("statusFacet", Q.taskStatuses().count())
   .purpose("find bugs")
-  .facetByStatusAs("statusFacet", Q.taskStatuses().count()) 
   .executeForList(ctx);
 
 // Returns highly integrated JSON, a single response containing both main data and the statistics panel

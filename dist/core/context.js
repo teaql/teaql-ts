@@ -28,6 +28,10 @@ class UserContext {
         }
         return resource;
     }
+    /**
+     * Bind local optimization state without copying trusted runtime resources
+     * into the query or federation JSON payload.
+     */
     prepareQuery(query) {
         this.continuousPageRuntime.owner = this.userIdentifier;
         return query.bindContinuousPageRuntime(this.continuousPageRuntime);

@@ -96,6 +96,22 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.comment).toBe("create task");
   });
 
+  it('uses trusted authentication headers for mutations without serializing context', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+    const client = new TeaQLClient({
+      baseUrl: 'http://localhost:8080/api/',
+      getHeaders: async () => ({ Authorization: 'Bearer trusted-session' }),
+    });
+    const mutation = new MutationQuery('Task', 'Update', { id: 1 }, 2, 'update task');
+
+    await client.executeMutation(mutation);
+
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe('http://localhost:8080/api/mutate');
+    expect(options.headers.Authorization).toBe('Bearer trusted-session');
+    expect(options.body).not.toContain('trusted-session');
+  });
+
   it('rejects streaming over the ordinary federation protocol without issuing HTTP', async () => {
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
     const consume = async () => {

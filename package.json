@@ -1,9 +1,10 @@
 {
   "name": "@teaql/teaql",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "TeaQL runtime and SQL data services for TypeScript",
   "files": [
-    "dist"
+    "dist",
+    "!dist/.sql-root-owned-backup-*"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,14 +33,30 @@
       "types": "./dist/sql/sqlite.d.ts",
       "require": "./dist/sql/sqlite.js",
       "default": "./dist/sql/sqlite.js"
+    },
+    "./sql/expo-sqlite": {
+      "types": "./dist/sql/expo-sqlite.d.ts",
+      "require": "./dist/sql/expo-sqlite.js",
+      "default": "./dist/sql/expo-sqlite.js"
     }
   },
   "typesVersions": {
     "*": {
-      "sql/core": ["dist/sql/core.d.ts"],
-      "sql/postgres": ["dist/sql/postgres.d.ts"],
-      "sql/mysql": ["dist/sql/mysql.d.ts"],
-      "sql/sqlite": ["dist/sql/sqlite.d.ts"]
+      "sql/core": [
+        "dist/sql/core.d.ts"
+      ],
+      "sql/postgres": [
+        "dist/sql/postgres.d.ts"
+      ],
+      "sql/mysql": [
+        "dist/sql/mysql.d.ts"
+      ],
+      "sql/sqlite": [
+        "dist/sql/sqlite.d.ts"
+      ],
+      "sql/expo-sqlite": [
+        "dist/sql/expo-sqlite.d.ts"
+      ]
     }
   },
   "scripts": {
@@ -87,12 +104,24 @@
     "better-sqlite3": "^11.7.0",
     "mysql2": "^3.11.0",
     "pg": "^8.12.0",
-    "pg-query-stream": "^4.7.0"
+    "pg-query-stream": "^4.7.0",
+    "expo-sqlite": "*"
   },
   "peerDependenciesMeta": {
-    "better-sqlite3": { "optional": true },
-    "mysql2": { "optional": true },
-    "pg": { "optional": true },
-    "pg-query-stream": { "optional": true }
+    "better-sqlite3": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "pg-query-stream": {
+      "optional": true
+    },
+    "expo-sqlite": {
+      "optional": true
+    }
   }
 }

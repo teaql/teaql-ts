@@ -32,21 +32,23 @@ export class TeaQLClient {
     this.fetchImpl = config.fetch ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch);
   }
 
+  private async requestHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    return this.config.getHeaders
+      ? { ...headers, ...await this.config.getHeaders() }
+      : headers;
+  }
+
   async executeQuery<T = any>(query: SelectQuery): Promise<T[]> {
     query.prepareForList();
     const payload = JSON.parse(JSON.stringify(query));
     rejectRemoteHardLimit(payload);
     const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
     
-    let headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (this.config.getHeaders) {
-      const extraHeaders = await this.config.getHeaders();
-      headers = { ...headers, ...extraHeaders };
-    }
+    const headers = await this.requestHeaders();
 
     const response = await this.fetchImpl(url, {
       method: 'POST',
@@ -73,11 +75,9 @@ export class TeaQLClient {
   }
 
   async executeMutation(query: any): Promise<any> {
-    const response = await this.fetchImpl(`${this.config.baseUrl}/mutate`, {
+    const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await this.requestHeaders(),
       body: JSON.stringify(query)
     });
 
