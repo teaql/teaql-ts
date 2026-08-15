@@ -21,6 +21,12 @@ export declare class AggregationCacheOptions {
     static enabled(cacheExpiredMillis: number): AggregationCacheOptions;
     propagate(cacheExpiredMillis: number): AggregationCacheOptions;
 }
+export interface TeaQLPage<T> {
+    data: T[];
+    totalCount: number;
+    offset: number;
+    limit: number;
+}
 export declare class SelectQuery {
     private hardLimitValue;
     private continuousPageFetchOptions?;
@@ -52,8 +58,6 @@ export declare class SelectQuery {
     facetBy(facetName: string, relationName: string, request: any): this;
     filter(condition: any): this;
     limit(limit: number): this;
-    /** Override the outer materialized-list ceiling. Most callers should keep 10,000. */
-    hardLimit(limit: number): this;
     optimizeForContinuousPageFetch(): this;
     optimizeForContinuousPageFetchWith(namespace: string, ttlSeconds: number): this;
     bindContinuousPageRuntime(runtime: any): this;
@@ -64,6 +68,7 @@ export declare class SelectQuery {
     localContinuousPageRuntime(): any;
     clearContinuousPageRuntime(): this;
     prepareForList(): this;
+    forExactCount(alias?: string): SelectQuery;
     private applyListLimit;
     offset(offset: number): this;
     relation(name: string): this;

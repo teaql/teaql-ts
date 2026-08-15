@@ -43,6 +43,13 @@ export class AggregationCacheOptions {
   }
 }
 
+export interface TeaQLPage<T> {
+  data: T[];
+  totalCount: number;
+  offset: number;
+  limit: number;
+}
+
 export class SelectQuery {
   private hardLimitValue: number = 10_000;
   private continuousPageFetchOptions?: { namespace: string; ttlSeconds: number };
@@ -98,14 +105,10 @@ export class SelectQuery {
   }
 
   limit(limit: number): this {
+    if (!Number.isSafeInteger(limit) || limit < 1) {
+      throw new Error('QUERY_INVALID_LIMIT: limit must be a positive safe integer');
+    }
     this.limitValue = limit;
-    return this;
-  }
-
-  /** Override the outer materialized-list ceiling. Most callers should keep 10,000. */
-  hardLimit(limit: number): this {
-    if (!Number.isSafeInteger(limit) || limit <= 0) throw new Error('hardLimit must be a positive integer');
-    this.hardLimitValue = limit;
     return this;
   }
 
@@ -126,8 +129,23 @@ export class SelectQuery {
   clearContinuousPageRuntime(): this { this.continuousPageRuntimeContext = undefined; return this; }
 
   prepareForList(): this {
+    if (!Number.isSafeInteger(this.offsetValue) || this.offsetValue < 0) {
+      throw new Error('QUERY_INVALID_OFFSET: offset must be a non-negative safe integer');
+    }
+    if (this.limitValue && (!Number.isSafeInteger(this.limitValue) || this.limitValue < 1)) {
+      throw new Error('QUERY_INVALID_LIMIT: limit must be a positive safe integer');
+    }
     this.applyListLimit(this.hardLimitValue);
     return this;
+  }
+
+  forExactCount(alias = '__teaql_total'): SelectQuery {
+    const count = new SelectQuery(this.entity);
+    count.filterCondition = this.filterCondition;
+    count.commentText = this.commentText;
+    count.purposeText = this.purposeText;
+    count.aggregate('Count', 'id', alias);
+    return count;
   }
 
   private applyListLimit(ceiling: number): void {
@@ -141,6 +159,9 @@ export class SelectQuery {
   }
 
   offset(offset: number): this {
+    if (!Number.isSafeInteger(offset) || offset < 0) {
+      throw new Error('QUERY_INVALID_OFFSET: offset must be a non-negative safe integer');
+    }
     this.offsetValue = offset;
     return this;
   }

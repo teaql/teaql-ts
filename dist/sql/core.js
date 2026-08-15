@@ -329,6 +329,18 @@ class AbstractSQLTeaQLClient {
             await this.registerContinuousPage(query, prepared.execution, rows);
         return rows;
     }
+    async executeCount(query) {
+        if (typeof query?.forExactCount !== 'function') {
+            throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
+        }
+        const alias = '__teaql_total';
+        const rows = await this.executeQuery(query.forExactCount(alias));
+        const value = rows[0]?.[alias];
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
+        }
+        return value;
+    }
     async prepareContinuousPage(query) {
         const options = query.localContinuousPageOptions?.();
         const runtime = query.localContinuousPageRuntime?.();

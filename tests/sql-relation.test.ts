@@ -25,6 +25,25 @@ const schemas: Record<string, EntitySchema> = {
 };
 
 describe('SQLite relation loading', () => {
+  it('counts the exact filtered set without page, order, projection, or relations', async () => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas);
+    for (const id of ['11', '12', '13', '14', '15', '16']) {
+      await client.executeMutation({ entity: 'Order', action: 'Create', id, payload: {}, comment: 'seed page' });
+    }
+    const query = new SelectQuery('Order')
+      .filter({ id: { $lte: '15' } }).order(OrderBy.asc('id')).offset(2).limit(2)
+      .relationQuery('lines', new SelectQuery('OrderLine'))
+      .purpose('render page').comment('list filtered orders');
+    const rows = await client.executeQuery<any>(query);
+    const total = await client.executeCount(query);
+    expect(rows.map(row => row.id)).toEqual(['13', '14']);
+    expect(total).toBe(5);
+    const countSql = client.sqlTrace[client.sqlTrace.length - 1];
+    expect(countSql).toContain('COUNT(');
+    expect(countSql).not.toContain(' ORDER BY ');
+    expect(countSql).not.toContain(' OFFSET ');
+    await client.close();
+  });
   it('enforces the formal runtime hard limit at the SQL list boundary', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
     const query = new SelectQuery('Order').purpose('test hard limit').comment('bounded list');

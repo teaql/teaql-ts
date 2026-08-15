@@ -52,6 +52,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 export interface TeaQLDataService {
   executeMutation(mutation: any): Promise<any>;
   executeQuery<T = any>(query: any): Promise<T[]>;
+  executeCount(query: any): Promise<number>;
   executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
   close?(): Promise<void>;
 }
@@ -446,6 +447,19 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     await this.enhanceRelations(rows, query);
     if (!internal) await this.registerContinuousPage(query, prepared.execution, rows);
     return rows as T[];
+  }
+
+  async executeCount(query: any): Promise<number> {
+    if (typeof query?.forExactCount !== 'function') {
+      throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
+    }
+    const alias = '__teaql_total';
+    const rows = await this.executeQuery<Record<string, unknown>>(query.forExactCount(alias));
+    const value = rows[0]?.[alias];
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
+    }
+    return value;
   }
 
   private async prepareContinuousPage(query: any): Promise<{ query: any; execution?: any }> {

@@ -37,6 +37,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 export interface TeaQLDataService {
     executeMutation(mutation: any): Promise<any>;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    executeCount(query: any): Promise<number>;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
     close?(): Promise<void>;
 }
@@ -63,6 +64,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private orders;
     private compileQuery;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    executeCount(query: any): Promise<number>;
     private prepareContinuousPage;
     private registerContinuousPage;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;

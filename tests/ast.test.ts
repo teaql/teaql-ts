@@ -11,16 +11,17 @@ describe('AST Classes', () => {
   it('enforces a local-only materialized list hard limit', () => {
     expect(new SelectQuery('Order').prepareForList().limitValue).toBe(10_000);
     expect(() => new SelectQuery('Order').limit(10_001).prepareForList()).toThrow('QUERY_HARD_LIMIT_EXCEEDED');
-    expect(() => new SelectQuery('Order').limit(10_001).hardLimit(20_000).prepareForList()).not.toThrow();
-    expect(JSON.stringify(new SelectQuery('Order').hardLimit(20_000))).not.toContain('hardLimit');
+    expect(() => new SelectQuery('Order').limit(0)).toThrow('QUERY_INVALID_LIMIT');
+    expect(() => new SelectQuery('Order').limit(-1)).toThrow('QUERY_INVALID_LIMIT');
+    expect(() => new SelectQuery('Order').offset(-1)).toThrow('QUERY_INVALID_OFFSET');
   });
 
   it('uses a fixed 10,000 ceiling for every nested relation query', () => {
-    const nested = new SelectQuery('OrderLine').hardLimit(20_000);
-    const query = new SelectQuery('Order').hardLimit(20_000).relationQuery('lines', nested);
+    const nested = new SelectQuery('OrderLine');
+    const query = new SelectQuery('Order').relationQuery('lines', nested);
 
     query.prepareForList();
-    expect(query.limitValue).toBe(20_000);
+    expect(query.limitValue).toBe(10_000);
     expect(nested.limitValue).toBe(10_000);
 
     nested.limit(10_001);
