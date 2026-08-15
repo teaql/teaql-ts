@@ -123,8 +123,8 @@ class SelectQuery {
         this.relations.push({ name });
         return this;
     }
-    relationQuery(name, query) {
-        this.relations.push({ name, query });
+    relationQuery(name, query, localKey = 'id', foreignKey = 'id', many = true) {
+        this.relations.push({ name, query, localKey, foreignKey, many });
         return this;
     }
     order(orderBy) {

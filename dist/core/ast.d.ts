@@ -40,6 +40,9 @@ export declare class SelectQuery {
     relations: Array<{
         name: string;
         query?: SelectQuery;
+        localKey?: string;
+        foreignKey?: string;
+        many?: boolean;
     }>;
     commentText?: string;
     purposeText?: string;
@@ -64,7 +67,7 @@ export declare class SelectQuery {
     private applyListLimit;
     offset(offset: number): this;
     relation(name: string): this;
-    relationQuery(name: string, query: SelectQuery): this;
+    relationQuery(name: string, query: SelectQuery, localKey?: string, foreignKey?: string, many?: boolean): this;
     order(orderBy: OrderBy): this;
     select(items: string[]): this;
     enableAggregationCacheFor(cacheExpiredMillis: number): this;
