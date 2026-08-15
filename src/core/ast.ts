@@ -59,7 +59,13 @@ export class SelectQuery {
   public aggregateItems: any[] = [];
   public aggregationCache?: AggregationCacheOptions;
   public facets: any[] = [];
-  public relations: Array<{ name: string; query?: SelectQuery }> = [];
+  public relations: Array<{
+    name: string;
+    query?: SelectQuery;
+    localKey?: string;
+    foreignKey?: string;
+    many?: boolean;
+  }> = [];
   public commentText?: string;
   public purposeText?: string;
   
@@ -144,8 +150,14 @@ export class SelectQuery {
     return this;
   }
 
-  relationQuery(name: string, query: SelectQuery): this {
-    this.relations.push({ name, query });
+  relationQuery(
+    name: string,
+    query: SelectQuery,
+    localKey = 'id',
+    foreignKey = 'id',
+    many = true
+  ): this {
+    this.relations.push({ name, query, localKey, foreignKey, many });
     return this;
   }
 

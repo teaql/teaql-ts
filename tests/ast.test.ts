@@ -43,6 +43,19 @@ describe('AST Classes', () => {
     expect(query.orderItems[0].direction).toBe(SortDirection.Desc);
   });
 
+  it('captures forward and reverse relation join semantics', () => {
+    const organization = new SelectQuery('Organization').select(['id', 'name']);
+    const children = new SelectQuery('Child').select(['id', 'parent']);
+    const query = new SelectQuery('Person')
+      .relationQuery('organization', organization, 'organization', 'id', false)
+      .relationQuery('childList', children, 'id', 'parent', true);
+
+    expect(query.relations).toEqual([
+      { name: 'organization', query: organization, localKey: 'organization', foreignKey: 'id', many: false },
+      { name: 'childList', query: children, localKey: 'id', foreignKey: 'parent', many: true },
+    ]);
+  });
+
   it('SelectQuery should support aggregations and groupBy', () => {
     const query = new SelectQuery("Task")
       .aggregate("Count", "id", "taskCount")
