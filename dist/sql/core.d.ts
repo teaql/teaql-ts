@@ -41,6 +41,30 @@ export interface TeaQLDataService {
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
     close?(): Promise<void>;
 }
+export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
+export type SQLExecutionMetadata = Readonly<{
+    operation: SQLExecutionOperation;
+    parameterizedSQL: string;
+    parameters: readonly unknown[];
+    elapsedMicros: number;
+    resultCount?: number;
+    affectedRows?: number;
+    resultSummary: string;
+}>;
+export interface RuntimeTelemetrySink {
+    record(metadata: SQLExecutionMetadata): void;
+}
+export declare class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
+    private mode;
+    private entries;
+    record(metadata: SQLExecutionMetadata): void;
+    private setMode;
+    enableAll(): this;
+    enableSelect(): this;
+    enableMutation(): this;
+    disable(): this;
+    snapshot(): readonly SQLExecutionMetadata[];
+}
 export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     protected readonly driver: TeaQLSqlDriver;
     private readonly schemas;
@@ -49,12 +73,15 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private readonly internalQueryToken;
     private readonly auditEvents;
     private auditSink?;
+    private telemetrySink?;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     private schema;
     private encode;
     private decodeRow;
     get auditTrace(): ReadonlyArray<Readonly<Record<string, unknown>>>;
     setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this;
+    setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this;
+    private recordSQL;
     ensureSchema(): Promise<void>;
     executeMutation(mutation: any): Promise<any>;
     private compileExpression;

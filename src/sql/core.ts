@@ -57,6 +57,50 @@ export interface TeaQLDataService {
   close?(): Promise<void>;
 }
 
+export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
+
+export type SQLExecutionMetadata = Readonly<{
+  operation: SQLExecutionOperation;
+  parameterizedSQL: string;
+  parameters: readonly unknown[];
+  elapsedMicros: number;
+  resultCount?: number;
+  affectedRows?: number;
+  resultSummary: string;
+}>;
+
+export interface RuntimeTelemetrySink {
+  record(metadata: SQLExecutionMetadata): void;
+}
+
+export class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
+  private mode: 'all' | 'select' | 'mutation' | 'disabled' = 'all';
+  private entries: SQLExecutionMetadata[] = [];
+
+  record(metadata: SQLExecutionMetadata): void {
+    const isSelect = metadata.operation === 'select';
+    if (this.mode === 'disabled' ||
+        (this.mode === 'select' && !isSelect) ||
+        (this.mode === 'mutation' && isSelect)) return;
+    this.entries.push(Object.freeze({
+      ...metadata,
+      parameters: Object.freeze([...metadata.parameters]),
+    }));
+  }
+
+  private setMode(mode: 'all' | 'select' | 'mutation' | 'disabled'): this {
+    this.mode = mode;
+    this.entries = [];
+    return this;
+  }
+
+  enableAll(): this { return this.setMode('all'); }
+  enableSelect(): this { return this.setMode('select'); }
+  enableMutation(): this { return this.setMode('mutation'); }
+  disable(): this { return this.setMode('disabled'); }
+  snapshot(): readonly SQLExecutionMetadata[] { return [...this.entries]; }
+}
+
 type NormalizedAggregate = { func: string; field: string; retName: string };
 type NormalizedOrder = { field: string; direction: string };
 
@@ -66,6 +110,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly internalQueryToken = Symbol('teaql-internal-query');
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
+  private telemetrySink?: RuntimeTelemetrySink;
 
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
@@ -114,6 +159,24 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this;
   }
 
+  setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this {
+    this.telemetrySink = sink;
+    return this;
+  }
+
+  private recordSQL(
+    operation: SQLExecutionOperation, parameterizedSQL: string, parameters: readonly unknown[],
+    startedAt: number, resultCount?: number, affectedRows?: number,
+  ): void {
+    this.telemetrySink?.record(Object.freeze({
+      operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
+      elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
+      resultCount, affectedRows,
+      resultSummary: resultCount !== undefined
+        ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
+    }));
+  }
+
   async ensureSchema(): Promise<void> {
     if (!this.schemaReady) {
       this.schemaReady = this.driver.ensureSchema(this.schemas);
@@ -146,10 +209,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const values = fields.map(field =>
           this.encode(record[field], schema.columns[field]),
         );
-        await session.query(
-          `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`,
-          values,
-        );
+        const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
+        const startedAt = Date.now();
+        const mutationResult = await session.query(sql, values);
+        this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
         return { success: true, id, version };
       }
 
@@ -177,11 +240,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             `${versionColumn} = ${this.driver.placeholder(values.length)}`,
           );
         }
-        const result = await session.query(
-          `UPDATE ${table} SET ${assignments.join(', ')} ` +
-          `WHERE ${predicates.join(' AND ')}`,
-          values,
-        );
+        const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
+          `WHERE ${predicates.join(' AND ')}`;
+        const startedAt = Date.now();
+        const result = await session.query(sql, values);
+        this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount);
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
@@ -211,10 +274,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             this.driver.placeholder(values.length),
           );
         }
-        const result = await session.query(
-          `DELETE FROM ${table} WHERE ${predicates.join(' AND ')}`,
-          values,
-        );
+        const sql = `DELETE FROM ${table} WHERE ${predicates.join(' AND ')}`;
+        const startedAt = Date.now();
+        const result = await session.query(sql, values);
+        this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount);
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
@@ -440,7 +503,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const prepared = internal ? { query, execution: undefined } : await this.prepareContinuousPage(query);
     query = prepared.query;
     const { sql, values, aggregateNames } = await this.compileQuery(query);
+    const startedAt = Date.now();
     const result = await this.driver.query(sql, values);
+    this.recordSQL('select', sql, values, startedAt, result.rowCount);
     const rows = result.rows.map(row =>
       this.decodeRow(query.entity, row, aggregateNames),
     );

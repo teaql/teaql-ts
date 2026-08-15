@@ -1,6 +1,34 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = void 0;
+exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = void 0;
+class SQLExecutionEvidenceStore {
+    constructor() {
+        this.mode = 'all';
+        this.entries = [];
+    }
+    record(metadata) {
+        const isSelect = metadata.operation === 'select';
+        if (this.mode === 'disabled' ||
+            (this.mode === 'select' && !isSelect) ||
+            (this.mode === 'mutation' && isSelect))
+            return;
+        this.entries.push(Object.freeze({
+            ...metadata,
+            parameters: Object.freeze([...metadata.parameters]),
+        }));
+    }
+    setMode(mode) {
+        this.mode = mode;
+        this.entries = [];
+        return this;
+    }
+    enableAll() { return this.setMode('all'); }
+    enableSelect() { return this.setMode('select'); }
+    enableMutation() { return this.setMode('mutation'); }
+    disable() { return this.setMode('disabled'); }
+    snapshot() { return [...this.entries]; }
+}
+exports.SQLExecutionEvidenceStore = SQLExecutionEvidenceStore;
 class AbstractSQLTeaQLClient {
     constructor(driver, schemas) {
         this.driver = driver;
@@ -52,6 +80,19 @@ class AbstractSQLTeaQLClient {
         this.auditSink = sink;
         return this;
     }
+    setRuntimeTelemetrySink(sink) {
+        this.telemetrySink = sink;
+        return this;
+    }
+    recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows) {
+        this.telemetrySink?.record(Object.freeze({
+            operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
+            elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
+            resultCount, affectedRows,
+            resultSummary: resultCount !== undefined
+                ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
+        }));
+    }
     async ensureSchema() {
         if (!this.schemaReady) {
             this.schemaReady = this.driver.ensureSchema(this.schemas);
@@ -77,7 +118,10 @@ class AbstractSQLTeaQLClient {
                 const columns = fields.map(field => this.driver.identifier(schema.columns[field].columnName)).join(', ');
                 const placeholders = fields.map((_, index) => this.driver.placeholder(index + 1)).join(', ');
                 const values = fields.map(field => this.encode(record[field], schema.columns[field]));
-                await session.query(`INSERT INTO ${table} (${columns}) VALUES (${placeholders})`, values);
+                const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
+                const startedAt = Date.now();
+                const mutationResult = await session.query(sql, values);
+                this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
                 return { success: true, id, version };
             }
             if (mutation.action === 'Update') {
@@ -96,8 +140,11 @@ class AbstractSQLTeaQLClient {
                     values.push(Number(mutation.version));
                     predicates.push(`${versionColumn} = ${this.driver.placeholder(values.length)}`);
                 }
-                const result = await session.query(`UPDATE ${table} SET ${assignments.join(', ')} ` +
-                    `WHERE ${predicates.join(' AND ')}`, values);
+                const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
+                    `WHERE ${predicates.join(' AND ')}`;
+                const startedAt = Date.now();
+                const result = await session.query(sql, values);
+                this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount);
                 if (result.rowCount !== 1) {
                     throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                 }
@@ -119,7 +166,10 @@ class AbstractSQLTeaQLClient {
                     predicates.push(`${this.driver.identifier('version')} = ` +
                         this.driver.placeholder(values.length));
                 }
-                const result = await session.query(`DELETE FROM ${table} WHERE ${predicates.join(' AND ')}`, values);
+                const sql = `DELETE FROM ${table} WHERE ${predicates.join(' AND ')}`;
+                const startedAt = Date.now();
+                const result = await session.query(sql, values);
+                this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount);
                 if (result.rowCount !== 1) {
                     throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                 }
@@ -322,7 +372,9 @@ class AbstractSQLTeaQLClient {
         const prepared = internal ? { query, execution: undefined } : await this.prepareContinuousPage(query);
         query = prepared.query;
         const { sql, values, aggregateNames } = await this.compileQuery(query);
+        const startedAt = Date.now();
         const result = await this.driver.query(sql, values);
+        this.recordSQL('select', sql, values, startedAt, result.rowCount);
         const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
         await this.enhanceRelations(rows, query);
         if (!internal)
