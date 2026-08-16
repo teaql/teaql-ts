@@ -2,6 +2,15 @@
 
 `teaql-ts` is the core TypeScript runtime framework for the **TEAQL Federation Protocol (TFP)**. It provides an ultra-lightweight engine responsible for securely translating elegant chained DSLs into cross-language ASTs, allowing you to enjoy a strongly-typed, highly expressive data fetching experience on the frontend (or Node.js).
 
+## Recommended Agent Harness
+
+When building database-backed or federated applications with the TeaQL
+TypeScript runtime, we recommend using it together with the [TeaQL Agent Kit](https://github.com/teaql/teaql-agent-kit).
+The Agent Kit is TeaQL's continuously evolving **Harness Engineering** method.
+It gives coding agents a model-mediated, executable workflow for domain
+modeling, deterministic evaluation and repair, code generation, implementation,
+and evidence-based verification as the generator and runtimes evolve.
+
 ## Runtime Profiles
 
 `teaql-ts` uses explicit package entry points as runtime profiles. Import only the
