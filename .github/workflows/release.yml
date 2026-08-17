@@ -22,6 +22,8 @@ jobs:
       - run: npm ci
       - name: Verify tag matches package version
         run: test "${GITHUB_REF_NAME#typescript-v}" = "$(node -p 'require("./package.json").version')"
-      - run: npm test
+      # better-sqlite3 owns native resources whose cleanup can race Jest workers
+      # on Node 24. Serial execution keeps the release verification deterministic.
+      - run: npm test -- --runInBand
       - run: npm run build
       - run: npm publish --access public
