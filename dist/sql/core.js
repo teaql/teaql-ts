@@ -103,7 +103,6 @@ class AbstractSQLTeaQLClient {
         if (!String(mutation?.comment || '').trim()) {
             throw new Error('Security audit failure: audit reason is required before mutation');
         }
-        await this.ensureSchema();
         const schema = this.schema(mutation.entity);
         const table = this.driver.identifier(schema.table);
         const result = await this.driver.transaction(async (session) => {
@@ -122,7 +121,12 @@ class AbstractSQLTeaQLClient {
                 const startedAt = Date.now();
                 const mutationResult = await session.query(sql, values);
                 this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
-                return { success: true, id, version };
+                return {
+                    success: true,
+                    id,
+                    version,
+                    persistedRecord: await this.readPersistedRecord(session, schema, id),
+                };
             }
             if (mutation.action === 'Update') {
                 const fields = Object.keys(schema.columns).filter(field => field !== 'id' && field !== 'version' &&
@@ -148,12 +152,12 @@ class AbstractSQLTeaQLClient {
                 if (result.rowCount !== 1) {
                     throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                 }
-                const versionResult = await session.query(`SELECT ${versionColumn} AS ${versionColumn} FROM ${table} WHERE ` +
-                    `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`, [String(mutation.id)]);
+                const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id));
                 return {
                     success: true,
                     id: String(mutation.id),
-                    version: Number(versionResult.rows[0].version),
+                    version: Number(persistedRecord.version),
+                    persistedRecord,
                 };
             }
             if (mutation.action === 'Delete') {
@@ -187,6 +191,32 @@ class AbstractSQLTeaQLClient {
         this.auditEvents.push(event);
         if (this.auditSink)
             await this.auditSink(event);
+        return result;
+    }
+    async readPersistedRecord(session, schema, id) {
+        const projection = Object.entries(schema.columns).map(([field, column]) => `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`).join(', ');
+        const result = await session.query(`SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
+            `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`, [id]);
+        if (result.rowCount !== 1) {
+            throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
+        }
+        return this.decodeRowForSchema(schema, result.rows[0]);
+    }
+    decodeRowForSchema(schema, row) {
+        const result = { ...row };
+        for (const [field, column] of Object.entries(schema.columns)) {
+            const value = result[field];
+            if (value === null || value === undefined)
+                continue;
+            if (column.decode === 'number')
+                result[field] = Number(value);
+            if (column.decode === 'string')
+                result[field] = String(value);
+            if (column.decode === 'date' && value instanceof Date)
+                result[field] = value.toISOString();
+            if (column.logicalType === 'boolean')
+                result[field] = Boolean(value);
+        }
         return result;
     }
     compileExpression(expression, schema, values) {
@@ -275,7 +305,6 @@ class AbstractSQLTeaQLClient {
         if (!internal && (!String(purpose || '').trim() || !String(comment || '').trim())) {
             throw new Error('Security audit failure: purpose and comment are required before query execution');
         }
-        await this.ensureSchema();
         const schema = this.schema(query.entity);
         const values = [];
         const groupProperties = this.groupBy(query);

@@ -16,6 +16,7 @@ const schemas: Record<string, EntitySchema> = {
 it('captures parameterized safe SQL evidence with exact modes', async () => {
   const store = new SQLExecutionEvidenceStore();
   const client = new SQLiteTeaQLClient(':memory:', schemas).setRuntimeTelemetrySink(store);
+  await client.ensureSchema();
   const secret = 'secret-customer-value';
   await client.executeMutation({
     entity: 'Person', action: 'Create', id: '1', payload: { name: secret }, comment: 'seed evidence',

@@ -97,6 +97,7 @@ describe('Expo SQLite TeaQL driver', () => {
   it('ensures schema, persists governed mutations, and queries real SQLite', async () => {
     const database = new TestExpoDatabase();
     const client = new ExpoSQLiteTeaQLClient(database, schemas);
+    await client.ensureSchema();
 
     await expect(client.executeMutation(
       new MutationQuery('Order', 'Create', { name: 'unsafe' }),
@@ -108,7 +109,12 @@ describe('Expo SQLite TeaQL driver', () => {
         'create local order',
       ),
     );
-    expect(created).toEqual({ success: true, id: '1000', version: 1 });
+    expect(created).toEqual({
+      success: true,
+      id: '1000',
+      version: 1,
+      persistedRecord: { id: '1000', version: 1, name: 'first', active: true },
+    });
 
     const rows = await client.executeQuery<any>(
       new SelectQuery('Order')
@@ -126,6 +132,7 @@ describe('Expo SQLite TeaQL driver', () => {
   it('uses optimistic versions, hard limits, and true async cursor streaming', async () => {
     const database = new TestExpoDatabase();
     const client = new ExpoSQLiteTeaQLClient(database, schemas);
+    await client.ensureSchema();
     for (let index = 1; index <= 5; index++) {
       await client.executeMutation(new MutationQuery(
         'Order', 'Create', { name: `order-${index}`, active: true },

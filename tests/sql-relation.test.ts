@@ -27,6 +27,7 @@ const schemas: Record<string, EntitySchema> = {
 describe('SQLite relation loading', () => {
   it('counts the exact filtered set without page, order, projection, or relations', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await client.ensureSchema();
     for (const id of ['11', '12', '13', '14', '15', '16']) {
       await client.executeMutation({ entity: 'Order', action: 'Create', id, payload: {}, comment: 'seed page' });
     }
@@ -46,6 +47,7 @@ describe('SQLite relation loading', () => {
   });
   it('enforces the formal runtime hard limit at the SQL list boundary', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await client.ensureSchema();
     const query = new SelectQuery('Order').purpose('test hard limit').comment('bounded list');
 
     await client.executeQuery(query);
@@ -63,6 +65,7 @@ describe('SQLite relation loading', () => {
 
   it('enforces runtime governance and sends immutable audit events to the app sink', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await client.ensureSchema();
     await expect(client.executeQuery(new SelectQuery('Order'))).rejects.toThrow(/purpose and comment/);
     await expect(client.executeMutation({ entity: 'Order', action: 'Create', payload: {} }))
       .rejects.toThrow(/audit reason/);
@@ -78,6 +81,7 @@ describe('SQLite relation loading', () => {
 
   it('executes inclusive range and IN predicates in SQL', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await client.ensureSchema();
     for (const id of ['11', '12', '13']) {
       await client.executeMutation({ entity: 'Order', action: 'Create', id, payload: {}, comment: 'seed order' });
     }
@@ -100,6 +104,7 @@ describe('SQLite relation loading', () => {
 
   it('applies nested limit independently to every parent', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await client.ensureSchema();
     for (const orderId of ['11', '12']) {
       await client.executeMutation({ entity: 'Order', action: 'Create', id: orderId, payload: {}, comment: 'seed order' });
       for (let index = 1; index <= 5; index++) {

@@ -19,6 +19,13 @@ export type SqlQueryResult = {
     rows: any[];
     rowCount: number;
 };
+export type MutationResult = {
+    success: boolean;
+    id: string;
+    version?: number;
+    deleted?: boolean;
+    persistedRecord?: Record<string, unknown>;
+};
 export interface SqlSession {
     query(sql: string, values?: any[]): Promise<SqlQueryResult>;
 }
@@ -35,7 +42,7 @@ export interface TeaQLSqlDriver extends SqlSession {
     close(): Promise<void>;
 }
 export interface TeaQLDataService {
-    executeMutation(mutation: any): Promise<any>;
+    executeMutation(mutation: any): Promise<MutationResult>;
     executeQuery<T = any>(query: any): Promise<T[]>;
     executeCount(query: any): Promise<number>;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
@@ -83,7 +90,9 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this;
     private recordSQL;
     ensureSchema(): Promise<void>;
-    executeMutation(mutation: any): Promise<any>;
+    executeMutation(mutation: any): Promise<MutationResult>;
+    private readPersistedRecord;
+    private decodeRowForSchema;
     private compileExpression;
     private filters;
     private groupBy;

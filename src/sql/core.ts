@@ -32,6 +32,14 @@ export type SqlQueryResult = {
   rowCount: number;
 };
 
+export type MutationResult = {
+  success: boolean;
+  id: string;
+  version?: number;
+  deleted?: boolean;
+  persistedRecord?: Record<string, unknown>;
+};
+
 export interface SqlSession {
   query(sql: string, values?: any[]): Promise<SqlQueryResult>;
 }
@@ -50,7 +58,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 }
 
 export interface TeaQLDataService {
-  executeMutation(mutation: any): Promise<any>;
+  executeMutation(mutation: any): Promise<MutationResult>;
   executeQuery<T = any>(query: any): Promise<T[]>;
   executeCount(query: any): Promise<number>;
   executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
@@ -184,11 +192,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this.schemaReady;
   }
 
-  async executeMutation(mutation: any): Promise<any> {
+  async executeMutation(mutation: any): Promise<MutationResult> {
     if (!String(mutation?.comment || '').trim()) {
       throw new Error('Security audit failure: audit reason is required before mutation');
     }
-    await this.ensureSchema();
     const schema = this.schema(mutation.entity);
     const table = this.driver.identifier(schema.table);
     const result = await this.driver.transaction(async session => {
@@ -213,7 +220,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const startedAt = Date.now();
         const mutationResult = await session.query(sql, values);
         this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
-        return { success: true, id, version };
+        return {
+          success: true,
+          id,
+          version,
+          persistedRecord: await this.readPersistedRecord(session, schema, id),
+        };
       }
 
       if (mutation.action === 'Update') {
@@ -250,15 +262,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
           );
         }
-        const versionResult = await session.query(
-          `SELECT ${versionColumn} AS ${versionColumn} FROM ${table} WHERE ` +
-          `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
-          [String(mutation.id)],
+        const persistedRecord = await this.readPersistedRecord(
+          session, schema, String(mutation.id),
         );
         return {
           success: true,
           id: String(mutation.id),
-          version: Number(versionResult.rows[0].version),
+          version: Number(persistedRecord.version),
+          persistedRecord,
         };
       }
 
@@ -297,6 +308,36 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     });
     this.auditEvents.push(event);
     if (this.auditSink) await this.auditSink(event);
+    return result;
+  }
+
+  private async readPersistedRecord(
+    session: SqlSession, schema: EntitySchema, id: string,
+  ): Promise<Record<string, unknown>> {
+    const projection = Object.entries(schema.columns).map(([field, column]) =>
+      `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`,
+    ).join(', ');
+    const result = await session.query(
+      `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
+      `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
+      [id],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
+    }
+    return this.decodeRowForSchema(schema, result.rows[0]);
+  }
+
+  private decodeRowForSchema(schema: EntitySchema, row: any): Record<string, unknown> {
+    const result = { ...row };
+    for (const [field, column] of Object.entries(schema.columns)) {
+      const value = result[field];
+      if (value === null || value === undefined) continue;
+      if (column.decode === 'number') result[field] = Number(value);
+      if (column.decode === 'string') result[field] = String(value);
+      if (column.decode === 'date' && value instanceof Date) result[field] = value.toISOString();
+      if (column.logicalType === 'boolean') result[field] = Boolean(value);
+    }
     return result;
   }
 
@@ -401,7 +442,6 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (!internal && (!String(purpose || '').trim() || !String(comment || '').trim())) {
       throw new Error('Security audit failure: purpose and comment are required before query execution');
     }
-    await this.ensureSchema();
     const schema = this.schema(query.entity);
     const values: any[] = [];
     const groupProperties = this.groupBy(query);
