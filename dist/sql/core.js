@@ -166,6 +166,7 @@ class AbstractSQLTeaQLClient {
                 };
             }
             if (mutation.action === 'Delete') {
+                const versionColumn = this.driver.identifier('version');
                 const values = [String(mutation.id)];
                 const predicates = [
                     `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
@@ -175,14 +176,22 @@ class AbstractSQLTeaQLClient {
                     predicates.push(`${this.driver.identifier('version')} = ` +
                         this.driver.placeholder(values.length));
                 }
-                const sql = `DELETE FROM ${table} WHERE ${predicates.join(' AND ')}`;
+                const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
+                    `WHERE ${predicates.join(' AND ')}`;
                 const startedAt = Date.now();
                 const result = await session.query(sql, values);
                 this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount);
                 if (result.rowCount !== 1) {
                     throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                 }
-                return { success: true, id: String(mutation.id), deleted: true };
+                const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id));
+                return {
+                    success: true,
+                    id: String(mutation.id),
+                    version: Number(persistedRecord.version),
+                    deleted: true,
+                    persistedRecord,
+                };
             }
             throw new Error(`Unsupported mutation action: ${mutation.action}`);
         });
@@ -357,8 +366,11 @@ class AbstractSQLTeaQLClient {
         }
         let sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)}`;
         const filters = this.filters(query);
-        if (filters.length) {
-            const predicates = filters.map(expression => this.compileExpression(expression, schema, values));
+        const predicates = filters.map(expression => this.compileExpression(expression, schema, values));
+        if (schema.columns.version) {
+            predicates.push(`${this.driver.identifier(schema.columns.version.columnName)} > 0`);
+        }
+        if (predicates.length) {
             sql += ` WHERE ${predicates.join(' AND ')}`;
         }
         if (groupFields.length)

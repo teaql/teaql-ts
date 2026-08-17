@@ -44,3 +44,21 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   expect(store.snapshot()).toHaveLength(0);
   await client.close();
 });
+
+it('soft deletes and returns the authoritative negative version', async () => {
+  const client = new SQLiteTeaQLClient(':memory:', schemas);
+  await client.ensureSchema();
+  const created = await client.executeMutation({
+    entity: 'Person', action: 'Create', payload: { name: 'Ada' }, comment: 'create',
+  });
+  const deleted = await client.executeMutation({
+    entity: 'Person', action: 'Delete', id: created.id, version: created.version,
+    payload: {}, comment: 'delete',
+  });
+  expect(deleted.version).toBe(-2);
+  expect(deleted.persistedRecord?.version).toBe(-2);
+  expect(await client.executeQuery(
+    new SelectQuery('Person').comment('read').purpose('verify soft delete'),
+  )).toHaveLength(0);
+  await client.close();
+});
