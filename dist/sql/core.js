@@ -37,6 +37,11 @@ class AbstractSQLTeaQLClient {
         this.internalQueryToken = Symbol('teaql-internal-query');
         this.auditEvents = [];
     }
+    /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
+    install(module) {
+        Object.assign(this.schemas, module.schemas);
+        return this;
+    }
     schema(entity) {
         const schema = this.schemas[entity];
         if (!schema)

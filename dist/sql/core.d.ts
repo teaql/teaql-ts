@@ -82,6 +82,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private auditSink?;
     private telemetrySink?;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
+    /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
+    install(module: import('../core/runtime-module').RuntimeModule): this;
     private schema;
     private encode;
     private decodeRow;
