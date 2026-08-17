@@ -125,6 +125,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     private readonly schemas: Record<string, EntitySchema>,
   ) {}
 
+  /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
+  install(module: import('../core/runtime-module').RuntimeModule): this {
+    Object.assign(this.schemas, module.schemas);
+    return this;
+  }
+
   private schema(entity: string): EntitySchema {
     const schema = this.schemas[entity];
     if (!schema) throw new Error(`Unknown TeaQL entity: ${entity}`);
