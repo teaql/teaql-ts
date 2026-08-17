@@ -53,11 +53,15 @@ export type SQLExecutionMetadata = Readonly<{
     operation: SQLExecutionOperation;
     parameterizedSQL: string;
     parameters: readonly unknown[];
+    /** SQL with bind values rendered as literals, intended only for diagnostics. */
+    debugSQL: string;
     elapsedMicros: number;
     resultCount?: number;
     affectedRows?: number;
     resultSummary: string;
 }>;
+/** Render provider placeholders as SQL literals so the statement can be copied into a SQL client. */
+export declare function debugSQL(parameterizedSQL: string, parameters: readonly unknown[]): string;
 export interface RuntimeTelemetrySink {
     record(metadata: SQLExecutionMetadata): void;
 }

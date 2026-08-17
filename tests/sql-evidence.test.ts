@@ -29,6 +29,7 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   expect(entries.some(entry => entry.operation === 'select')).toBe(true);
   expect(entries.every(entry => !entry.parameterizedSQL.includes(secret))).toBe(true);
   expect(entries.every(entry => entry.parameters.length > 0)).toBe(true);
+  expect(entries.some(entry => entry.debugSQL.includes(`'${secret}'`))).toBe(true);
   expect(entries.some(entry => entry.resultCount !== undefined)).toBe(true);
   expect(entries.some(entry => entry.affectedRows !== undefined)).toBe(true);
 

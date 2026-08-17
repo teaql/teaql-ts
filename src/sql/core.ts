@@ -71,11 +71,69 @@ export type SQLExecutionMetadata = Readonly<{
   operation: SQLExecutionOperation;
   parameterizedSQL: string;
   parameters: readonly unknown[];
+  /** SQL with bind values rendered as literals, intended only for diagnostics. */
+  debugSQL: string;
   elapsedMicros: number;
   resultCount?: number;
   affectedRows?: number;
   resultSummary: string;
 }>;
+
+/** Render provider placeholders as SQL literals so the statement can be copied into a SQL client. */
+export function debugSQL(parameterizedSQL: string, parameters: readonly unknown[]): string {
+  let positionalIndex = 0;
+  let result = '';
+  let inString = false;
+  for (let index = 0; index < parameterizedSQL.length; index++) {
+    const char = parameterizedSQL[index];
+    if (char === "'") {
+      result += char;
+      if (inString && parameterizedSQL[index + 1] === "'") result += parameterizedSQL[++index];
+      else inString = !inString;
+      continue;
+    }
+    if (!inString && char === '?') {
+      result += positionalIndex < parameters.length
+        ? sqlLiteral(parameters[positionalIndex++]) : char;
+      continue;
+    }
+    if (!inString && char === '$' && /[0-9]/.test(parameterizedSQL[index + 1] ?? '')) {
+      let end = index + 1;
+      while (/[0-9]/.test(parameterizedSQL[end] ?? '')) end++;
+      const parameterIndex = Number(parameterizedSQL.slice(index + 1, end)) - 1;
+      result += parameterIndex >= 0 && parameterIndex < parameters.length
+        ? sqlLiteral(parameters[parameterIndex]) : parameterizedSQL.slice(index, end);
+      index = end - 1;
+      continue;
+    }
+    if (!inString && parameterizedSQL.slice(index).match(/^@p[0-9]+/i)) {
+      const placeholder = parameterizedSQL.slice(index).match(/^@p([0-9]+)/i)!;
+      const parameterIndex = Number(placeholder[1]) - 1;
+      result += parameterIndex >= 0 && parameterIndex < parameters.length
+        ? sqlLiteral(parameters[parameterIndex]) : placeholder[0];
+      index += placeholder[0].length - 1;
+      continue;
+    }
+    result += char;
+  }
+  return result;
+}
+
+function sqlLiteral(value: unknown): string {
+  if (value === null || value === undefined) return 'NULL';
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (typeof value === 'number' || typeof value === 'bigint') return String(value);
+  if (value instanceof Date) return quoteSQLString(value.toISOString());
+  if (value instanceof Uint8Array) {
+    return `X'${Array.from(value, byte => byte.toString(16).padStart(2, '0')).join('')}'`;
+  }
+  if (typeof value === 'object') return quoteSQLString(JSON.stringify(value));
+  return quoteSQLString(String(value));
+}
+
+function quoteSQLString(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
 
 export interface RuntimeTelemetrySink {
   record(metadata: SQLExecutionMetadata): void;
@@ -184,6 +242,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   ): void {
     this.telemetrySink?.record(Object.freeze({
       operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
+      debugSQL: debugSQL(parameterizedSQL, parameters),
       elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
       resultCount, affectedRows,
       resultSummary: resultCount !== undefined

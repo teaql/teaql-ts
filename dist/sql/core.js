@@ -1,6 +1,68 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = void 0;
+exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.debugSQL = void 0;
+/** Render provider placeholders as SQL literals so the statement can be copied into a SQL client. */
+function debugSQL(parameterizedSQL, parameters) {
+    let positionalIndex = 0;
+    let result = '';
+    let inString = false;
+    for (let index = 0; index < parameterizedSQL.length; index++) {
+        const char = parameterizedSQL[index];
+        if (char === "'") {
+            result += char;
+            if (inString && parameterizedSQL[index + 1] === "'")
+                result += parameterizedSQL[++index];
+            else
+                inString = !inString;
+            continue;
+        }
+        if (!inString && char === '?') {
+            result += positionalIndex < parameters.length
+                ? sqlLiteral(parameters[positionalIndex++]) : char;
+            continue;
+        }
+        if (!inString && char === '$' && /[0-9]/.test(parameterizedSQL[index + 1] ?? '')) {
+            let end = index + 1;
+            while (/[0-9]/.test(parameterizedSQL[end] ?? ''))
+                end++;
+            const parameterIndex = Number(parameterizedSQL.slice(index + 1, end)) - 1;
+            result += parameterIndex >= 0 && parameterIndex < parameters.length
+                ? sqlLiteral(parameters[parameterIndex]) : parameterizedSQL.slice(index, end);
+            index = end - 1;
+            continue;
+        }
+        if (!inString && parameterizedSQL.slice(index).match(/^@p[0-9]+/i)) {
+            const placeholder = parameterizedSQL.slice(index).match(/^@p([0-9]+)/i);
+            const parameterIndex = Number(placeholder[1]) - 1;
+            result += parameterIndex >= 0 && parameterIndex < parameters.length
+                ? sqlLiteral(parameters[parameterIndex]) : placeholder[0];
+            index += placeholder[0].length - 1;
+            continue;
+        }
+        result += char;
+    }
+    return result;
+}
+exports.debugSQL = debugSQL;
+function sqlLiteral(value) {
+    if (value === null || value === undefined)
+        return 'NULL';
+    if (typeof value === 'boolean')
+        return value ? 'TRUE' : 'FALSE';
+    if (typeof value === 'number' || typeof value === 'bigint')
+        return String(value);
+    if (value instanceof Date)
+        return quoteSQLString(value.toISOString());
+    if (value instanceof Uint8Array) {
+        return `X'${Array.from(value, byte => byte.toString(16).padStart(2, '0')).join('')}'`;
+    }
+    if (typeof value === 'object')
+        return quoteSQLString(JSON.stringify(value));
+    return quoteSQLString(String(value));
+}
+function quoteSQLString(value) {
+    return `'${value.replace(/'/g, "''")}'`;
+}
 class SQLExecutionEvidenceStore {
     constructor() {
         this.mode = 'all';
@@ -92,6 +154,7 @@ class AbstractSQLTeaQLClient {
     recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows) {
         this.telemetrySink?.record(Object.freeze({
             operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
+            debugSQL: debugSQL(parameterizedSQL, parameters),
             elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
             resultCount, affectedRows,
             resultSummary: resultCount !== undefined
