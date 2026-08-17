@@ -26,4 +26,6 @@ jobs:
       # on Node 24. Serial execution keeps the release verification deterministic.
       - run: npm test -- --runInBand
       - run: npm run build
+      - name: Upgrade npm for trusted publishing
+        run: npm install --global npm@latest
       - run: npm publish --access public
