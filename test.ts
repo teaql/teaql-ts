@@ -8,7 +8,7 @@ const client = new TeaQLClient({
   fetch: fetch as any
 });
 
-const ctx = { client };
+const context = { client };
 
 async function runTest() {
   try {
@@ -16,14 +16,14 @@ async function runTest() {
     const queryStr1 = 'Q.tasks().withNameContaining("bug")';
     console.log("Parsing:", queryStr1);
     const parsedRequest1 = QueryParser.parse(queryStr1);
-    const parsedTasks1 = await parsedRequest1.executeForList(ctx);
+    const parsedTasks1 = await parsedRequest1.executeForList(context);
     console.log("Parsed Tasks result:", parsedTasks1);
 
     console.log("\nTesting QueryParser (Aggregation + GroupBy)...");
     const queryStr2 = 'Q.taskStatuses().groupByDisplayOrder().sumProgress()';
     console.log("Parsing:", queryStr2);
     const parsedRequest2 = QueryParser.parse(queryStr2);
-    const parsedTasks2 = await parsedRequest2.executeForList(ctx);
+    const parsedTasks2 = await parsedRequest2.executeForList(context);
     console.log("Parsed Aggregation result:", parsedTasks2);
 
   } catch (err) {
