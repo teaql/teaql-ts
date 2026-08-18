@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TeaQLClient = void 0;
+const telemetry_1 = require("../core/telemetry");
 function rejectRemoteHardLimit(value, path = '$') {
     if (Array.isArray(value)) {
         value.forEach((item, index) => rejectRemoteHardLimit(item, `${path}[${index}]`));
@@ -21,6 +22,11 @@ class TeaQLClient {
         this.config = config;
         // Fallback to global fetch if available
         this.fetchImpl = config.fetch ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch);
+        this.runtimeTelemetry = config.runtimeTelemetry ?? telemetry_1.NOOP_RUNTIME_TELEMETRY;
+    }
+    setRuntimeTelemetry(telemetry) {
+        this.runtimeTelemetry = telemetry ?? telemetry_1.NOOP_RUNTIME_TELEMETRY;
+        return this;
     }
     async requestHeaders() {
         const headers = {
@@ -36,33 +42,33 @@ class TeaQLClient {
         const payload = JSON.parse(JSON.stringify(query));
         rejectRemoteHardLimit(payload);
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
-        const headers = await this.requestHeaders();
-        const response = await this.fetchImpl(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`TEAQL Query Error [${response.status}]: ${errText}`);
-        }
-        const responseJson = await response.json();
-        return responseJson.data;
+        return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.query', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
+            const headers = await this.requestHeaders();
+            const response = await this.fetchImpl(url, {
+                method: 'POST', headers, body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`TEAQL Query Error [${response.status}]: ${errText}`);
+            }
+            const responseJson = await response.json();
+            return responseJson.data;
+        }, result => ({ attributes: { 'teaql.result.cardinality': result.length } }));
     }
     async *executeForStream(_query, _chunkSize = 1000) {
         throw new Error('TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol');
     }
     async executeMutation(query) {
-        const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
-            method: 'POST',
-            headers: await this.requestHeaders(),
-            body: JSON.stringify(query)
+        return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.mutation', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
+            const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
+                method: 'POST', headers: await this.requestHeaders(), body: JSON.stringify(query),
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`TeaQL Mutation failed: ${response.status} ${errorText}`);
+            }
+            return response.json();
         });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`TeaQL Mutation failed: ${response.status} ${errorText}`);
-        }
-        return response.json();
     }
 }
 exports.TeaQLClient = TeaQLClient;

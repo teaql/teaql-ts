@@ -1,5 +1,21 @@
 import { TeaQLClient } from '../src/tfp/client';
 import { SelectQuery, SortDirection, OrderBy, MutationQuery } from '../src/core/ast';
+import { RuntimeOperation, RuntimeTelemetry, RuntimeTelemetryScope } from '../src/core/telemetry';
+
+class TfpRecordingTelemetry implements RuntimeTelemetry {
+  readonly events: Array<{ operation: RuntimeOperation; outcome?: string; cardinality?: number }> = [];
+  start(operation: RuntimeOperation): RuntimeTelemetryScope {
+    const event = { operation } as { operation: RuntimeOperation; outcome?: string; cardinality?: number };
+    this.events.push(event);
+    return {
+      success: completion => {
+        event.outcome = 'success';
+        event.cardinality = completion?.attributes?.['teaql.result.cardinality'] as number | undefined;
+      },
+      failure: () => { event.outcome = 'failure'; },
+    };
+  }
+}
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -94,6 +110,40 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.action).toBe("Create");
     expect(body.payload.name).toBe("Created");
     expect(body.comment).toBe("create task");
+  });
+
+  it('records balanced TFP client query and mutation lifecycles', async () => {
+    const telemetry = new TfpRecordingTelemetry();
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 1 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) });
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api', runtimeTelemetry: telemetry });
+
+    await client.executeQuery(new SelectQuery('Task'));
+    await client.executeMutation(new MutationQuery('Task', 'Create', {}, undefined, 'test'));
+
+    expect(telemetry.events.map(event => [
+      event.operation.family,
+      event.operation.name,
+      event.operation.attributes?.['teaql.tfp.role'],
+      event.outcome,
+    ])).toEqual([
+      ['tfp', 'client.query', 'client', 'success'],
+      ['tfp', 'client.mutation', 'client', 'success'],
+    ]);
+    expect(telemetry.events[0].cardinality).toBe(1);
+  });
+
+  it('records TFP transport failure and rethrows the original error', async () => {
+    const telemetry = new TfpRecordingTelemetry();
+    const transportError = new Error('network unavailable');
+    (global.fetch as jest.Mock).mockRejectedValue(transportError);
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' })
+      .setRuntimeTelemetry(telemetry);
+
+    await expect(client.executeQuery(new SelectQuery('Task'))).rejects.toBe(transportError);
+    expect(telemetry.events).toHaveLength(1);
+    expect(telemetry.events[0].outcome).toBe('failure');
   });
 
   it('uses trusted authentication headers for mutations without serializing context', async () => {
