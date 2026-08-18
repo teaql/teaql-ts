@@ -57,6 +57,7 @@ class ExpoSQLiteSession implements SqlSession {
  * `expo-sqlite.openDatabaseAsync()` and injects it here through UserContext.
  */
 export class ExpoSQLiteDriver implements TeaQLSqlDriver {
+  readonly databaseKind = 'sqlite' as const;
   private initialized?: Promise<void>;
 
   constructor(private readonly database: ExpoSQLiteDatabaseLike) {

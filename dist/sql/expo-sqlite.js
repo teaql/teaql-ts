@@ -28,6 +28,7 @@ class ExpoSQLiteSession {
 class ExpoSQLiteDriver {
     constructor(database) {
         this.database = database;
+        this.databaseKind = 'sqlite';
         if (!database)
             throw new Error('opened Expo SQLite database is required');
     }

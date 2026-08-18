@@ -1,5 +1,6 @@
 import { AbstractSQLTeaQLClient, ColumnSchema, EntitySchema, SqlQueryResult, SqlSession, TeaQLSqlDriver } from './core';
 export declare class PostgreSQLDriver implements TeaQLSqlDriver {
+    readonly databaseKind: "postgresql";
     private readonly pool;
     constructor(connectionString: string);
     identifier(value: string): string;

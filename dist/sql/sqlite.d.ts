@@ -1,5 +1,6 @@
 import { AbstractSQLTeaQLClient, ColumnSchema, EntitySchema, SqlQueryResult, SqlSession, TeaQLSqlDriver } from './core';
 export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
+    readonly databaseKind: "sqlite";
     private readonly database;
     constructor(filename: string);
     identifier(value: string): string;

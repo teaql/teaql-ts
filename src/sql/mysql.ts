@@ -23,12 +23,13 @@ class MySQLSession implements SqlSession {
 }
 
 export class MySQLDriver implements TeaQLSqlDriver {
+  readonly databaseKind = 'mysql' as const;
   private readonly callbackPool: CallbackPool;
   private readonly pool: Pool;
 
   constructor(connectionString: string) {
     if (!connectionString) throw new Error('connectionString is required');
-    this.callbackPool = createCallbackPool(connectionString);
+    this.callbackPool = createCallbackPool({ uri: connectionString, timezone: 'Z' });
     this.pool = this.callbackPool.promise();
   }
 

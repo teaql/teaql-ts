@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.debugSQL = void 0;
-/** Render provider placeholders as SQL literals so the statement can be copied into a SQL client. */
-function debugSQL(parameterizedSQL, parameters) {
+function debugSQL(parameterizedSQL, parameters, databaseKind = 'sqlite') {
     let positionalIndex = 0;
     let result = '';
     let state = 'sql';
@@ -64,7 +63,7 @@ function debugSQL(parameterizedSQL, parameters) {
         }
         if (char === '?') {
             result += positionalIndex < parameters.length
-                ? sqlLiteral(parameters[positionalIndex++]) : char;
+                ? sqlLiteral(parameters[positionalIndex++], databaseKind) : char;
             continue;
         }
         if (char === '$' && /[0-9]/.test(parameterizedSQL[index + 1] ?? '')) {
@@ -73,7 +72,7 @@ function debugSQL(parameterizedSQL, parameters) {
                 end++;
             const parameterIndex = Number(parameterizedSQL.slice(index + 1, end)) - 1;
             result += parameterIndex >= 0 && parameterIndex < parameters.length
-                ? sqlLiteral(parameters[parameterIndex]) : parameterizedSQL.slice(index, end);
+                ? sqlLiteral(parameters[parameterIndex], databaseKind) : parameterizedSQL.slice(index, end);
             index = end - 1;
             continue;
         }
@@ -81,7 +80,7 @@ function debugSQL(parameterizedSQL, parameters) {
             const placeholder = parameterizedSQL.slice(index).match(/^@p([0-9]+)/i);
             const parameterIndex = Number(placeholder[1]) - 1;
             result += parameterIndex >= 0 && parameterIndex < parameters.length
-                ? sqlLiteral(parameters[parameterIndex]) : placeholder[0];
+                ? sqlLiteral(parameters[parameterIndex], databaseKind) : placeholder[0];
             index += placeholder[0].length - 1;
             continue;
         }
@@ -90,7 +89,7 @@ function debugSQL(parameterizedSQL, parameters) {
     return result;
 }
 exports.debugSQL = debugSQL;
-function sqlLiteral(value) {
+function sqlLiteral(value, databaseKind) {
     if (value && typeof value === 'object' && 'type' in value) {
         const typed = value;
         if (typed.type === 'Null' || typed.type === 'TypedNull')
@@ -98,10 +97,20 @@ function sqlLiteral(value) {
         if (typed.type === 'Date') {
             const date = typed.value instanceof Date
                 ? typed.value.toISOString().slice(0, 10) : String(typed.value);
+            if (databaseKind === 'postgresql')
+                return `DATE ${quoteSQLString(date)}`;
+            if (databaseKind === 'mysql')
+                return `CAST(${quoteSQLString(date)} AS DATE)`;
             return quoteSQLString(date);
         }
-        if (typed.type === 'Timestamp')
-            return String(typed.value);
+        if (typed.type === 'Timestamp') {
+            if (databaseKind === 'sqlite')
+                return String(typed.value);
+            const iso = new Date(Number(typed.value)).toISOString();
+            if (databaseKind === 'postgresql')
+                return `TIMESTAMPTZ ${quoteSQLString(iso)}`;
+            return `CAST(${quoteSQLString(iso.slice(0, 23).replace('T', ' '))} AS DATETIME(3))`;
+        }
         if (typed.type === 'Bool')
             return typed.value ? 'TRUE' : 'FALSE';
         if (['I64', 'U64', 'F64', 'Decimal'].includes(typed.type))
@@ -115,8 +124,13 @@ function sqlLiteral(value) {
         return value ? 'TRUE' : 'FALSE';
     if (typeof value === 'number' || typeof value === 'bigint')
         return String(value);
-    if (value instanceof Date)
-        return quoteSQLString(value.toISOString());
+    if (value instanceof Date) {
+        if (databaseKind === 'sqlite')
+            return String(value.getTime());
+        if (databaseKind === 'postgresql')
+            return `TIMESTAMPTZ ${quoteSQLString(value.toISOString())}`;
+        return `CAST(${quoteSQLString(value.toISOString().slice(0, 23).replace('T', ' '))} AS DATETIME(3))`;
+    }
     if (value instanceof Uint8Array) {
         return `X'${Array.from(value, byte => byte.toString(16).padStart(2, '0')).join('')}'`;
     }
@@ -218,7 +232,7 @@ class AbstractSQLTeaQLClient {
     recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows) {
         this.telemetrySink?.record(Object.freeze({
             operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
-            debugSQL: debugSQL(parameterizedSQL, parameters),
+            debugSQL: debugSQL(parameterizedSQL, parameters, this.driver.databaseKind),
             elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
             resultCount, affectedRows,
             resultSummary: resultCount !== undefined

@@ -12,6 +12,7 @@ import {
 } from './core';
 
 export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
+  readonly databaseKind = 'sqlite' as const;
   private readonly database: Database.Database;
 
   constructor(filename: string) {

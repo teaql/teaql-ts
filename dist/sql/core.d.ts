@@ -30,6 +30,7 @@ export interface SqlSession {
     query(sql: string, values?: any[]): Promise<SqlQueryResult>;
 }
 export interface TeaQLSqlDriver extends SqlSession {
+    readonly databaseKind: SQLDatabaseKind;
     stream(sql: string, values?: any[]): AsyncIterable<any>;
     identifier(value: string): string;
     placeholder(index: number): string;
@@ -61,7 +62,8 @@ export type SQLExecutionMetadata = Readonly<{
     resultSummary: string;
 }>;
 /** Render provider placeholders as SQL literals so the statement can be copied into a SQL client. */
-export declare function debugSQL(parameterizedSQL: string, parameters: readonly unknown[]): string;
+export type SQLDatabaseKind = 'postgresql' | 'mysql' | 'sqlite';
+export declare function debugSQL(parameterizedSQL: string, parameters: readonly unknown[], databaseKind?: SQLDatabaseKind): string;
 export interface RuntimeTelemetrySink {
     record(metadata: SQLExecutionMetadata): void;
 }

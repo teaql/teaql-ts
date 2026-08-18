@@ -16,9 +16,10 @@ class MySQLSession {
 }
 class MySQLDriver {
     constructor(connectionString) {
+        this.databaseKind = 'mysql';
         if (!connectionString)
             throw new Error('connectionString is required');
-        this.callbackPool = (0, mysql2_1.createPool)(connectionString);
+        this.callbackPool = (0, mysql2_1.createPool)({ uri: connectionString, timezone: 'Z' });
         this.pool = this.callbackPool.promise();
     }
     identifier(value) {

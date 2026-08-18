@@ -23,6 +23,7 @@ export interface ExpoSQLiteDatabaseLike {
  */
 export declare class ExpoSQLiteDriver implements TeaQLSqlDriver {
     private readonly database;
+    readonly databaseKind: "sqlite";
     private initialized?;
     constructor(database: ExpoSQLiteDatabaseLike);
     identifier(value: string): string;

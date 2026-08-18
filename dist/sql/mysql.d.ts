@@ -1,5 +1,6 @@
 import { AbstractSQLTeaQLClient, ColumnSchema, EntitySchema, SqlQueryResult, SqlSession, TeaQLSqlDriver } from './core';
 export declare class MySQLDriver implements TeaQLSqlDriver {
+    readonly databaseKind: "mysql";
     private readonly callbackPool;
     private readonly pool;
     constructor(connectionString: string);

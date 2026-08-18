@@ -8,6 +8,7 @@ const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const core_1 = require("./core");
 class SQLiteDriver {
     constructor(filename) {
+        this.databaseKind = 'sqlite';
         if (!filename)
             throw new Error('filename is required');
         this.database = new better_sqlite3_1.default(filename);

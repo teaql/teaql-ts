@@ -18,6 +18,7 @@ class PostgreSQLSession {
 }
 class PostgreSQLDriver {
     constructor(connectionString) {
+        this.databaseKind = 'postgresql';
         if (!connectionString)
             throw new Error('connectionString is required');
         this.pool = new pg_1.Pool({ connectionString });

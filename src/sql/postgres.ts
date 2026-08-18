@@ -22,6 +22,7 @@ class PostgreSQLSession implements SqlSession {
 }
 
 export class PostgreSQLDriver implements TeaQLSqlDriver {
+  readonly databaseKind = 'postgresql' as const;
   private readonly pool: Pool;
 
   constructor(connectionString: string) {

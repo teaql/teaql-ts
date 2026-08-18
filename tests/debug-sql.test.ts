@@ -52,4 +52,16 @@ describe('debugSQL', () => {
       await driver.close();
     }
   });
+
+  test('renders PostgreSQL and MySQL typed temporal literals', () => {
+    const values = [Values.Date('2024-02-29'), Values.Timestamp(-315521754322)];
+    expect(debugSQL(
+      '-- ignored $1\nSELECT $1, $2 /* ignored $2 */', values, 'postgresql',
+    )).toBe(
+      "-- ignored $1\nSELECT DATE '2024-02-29', TIMESTAMPTZ '1960-01-02T03:04:05.678Z' /* ignored $2 */",
+    );
+    expect(debugSQL('SELECT ?, ? /* ignored ? */', values, 'mysql')).toBe(
+      "SELECT CAST('2024-02-29' AS DATE), CAST('1960-01-02 03:04:05.678' AS DATETIME(3)) /* ignored ? */",
+    );
+  });
 });
