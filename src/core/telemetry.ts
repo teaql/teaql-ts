@@ -28,8 +28,18 @@ export interface RuntimeTelemetryScope {
 /** Provider-neutral TeaQL lifecycle contract. Implementations must be fail open. */
 export interface RuntimeTelemetry {
   start(operation: RuntimeOperation): RuntimeTelemetryScope;
+  inject?(carrier: Record<string, string>): void;
   flush?(): void | Promise<void>;
   shutdown?(): void | Promise<void>;
+}
+
+/** Inject the active runtime trace into transport metadata without affecting business work. */
+export function injectRuntimeContext(
+  telemetry: RuntimeTelemetry | undefined,
+  carrier: Record<string, string>,
+): Record<string, string> {
+  try { telemetry?.inject?.(carrier); } catch { /* telemetry is fail open */ }
+  return carrier;
 }
 
 const noopScope: RuntimeTelemetryScope = Object.freeze({

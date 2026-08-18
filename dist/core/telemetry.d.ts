@@ -16,9 +16,12 @@ export interface RuntimeTelemetryScope {
 /** Provider-neutral TeaQL lifecycle contract. Implementations must be fail open. */
 export interface RuntimeTelemetry {
     start(operation: RuntimeOperation): RuntimeTelemetryScope;
+    inject?(carrier: Record<string, string>): void;
     flush?(): void | Promise<void>;
     shutdown?(): void | Promise<void>;
 }
+/** Inject the active runtime trace into transport metadata without affecting business work. */
+export declare function injectRuntimeContext(telemetry: RuntimeTelemetry | undefined, carrier: Record<string, string>): Record<string, string>;
 export declare const NOOP_RUNTIME_TELEMETRY: RuntimeTelemetry;
 export declare function safeRuntimeOperation(operation: RuntimeOperation): RuntimeOperation;
 export declare function startRuntimeOperation(telemetry: RuntimeTelemetry | undefined, operation: RuntimeOperation): RuntimeTelemetryScope;

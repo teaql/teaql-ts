@@ -43,7 +43,7 @@ class TeaQLClient {
         rejectRemoteHardLimit(payload);
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.query', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
-            const headers = await this.requestHeaders();
+            const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
             const response = await this.fetchImpl(url, {
                 method: 'POST', headers, body: JSON.stringify(payload),
             });
@@ -60,8 +60,9 @@ class TeaQLClient {
     }
     async executeMutation(query) {
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.mutation', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
+            const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
             const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
-                method: 'POST', headers: await this.requestHeaders(), body: JSON.stringify(query),
+                method: 'POST', headers, body: JSON.stringify(query),
             });
             if (!response.ok) {
                 const errorText = await response.text();

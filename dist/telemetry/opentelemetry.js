@@ -62,6 +62,9 @@ class OpenTelemetryRuntimeTelemetry {
             },
         };
     }
+    inject(carrier) {
+        api_1.propagation.inject(api_1.context.active(), carrier);
+    }
     flush() {
         return this.lifecycle.flush?.();
     }

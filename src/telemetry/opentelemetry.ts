@@ -2,6 +2,7 @@ import {
   Attributes,
   context,
   Meter,
+  propagation,
   Span,
   SpanStatusCode,
   Tracer,
@@ -87,6 +88,10 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
         finish('failure');
       },
     };
+  }
+
+  inject(carrier: Record<string, string>): void {
+    propagation.inject(context.active(), carrier);
   }
 
   flush(): void | Promise<void> {

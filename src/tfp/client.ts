@@ -1,6 +1,7 @@
 import { SelectQuery } from '../core/ast';
 import {
   NOOP_RUNTIME_TELEMETRY,
+  injectRuntimeContext,
   observeRuntimeOperation,
   RuntimeTelemetry,
 } from '../core/telemetry';
@@ -65,7 +66,9 @@ export class TeaQLClient {
       this.runtimeTelemetry,
       { family: 'tfp', name: 'client.query', attributes: { 'teaql.tfp.role': 'client' } },
       async () => {
-        const headers = await this.requestHeaders();
+        const headers = injectRuntimeContext(
+          this.runtimeTelemetry, await this.requestHeaders(),
+        );
         const response = await this.fetchImpl(url, {
           method: 'POST', headers, body: JSON.stringify(payload),
         });
@@ -94,8 +97,11 @@ export class TeaQLClient {
       this.runtimeTelemetry,
       { family: 'tfp', name: 'client.mutation', attributes: { 'teaql.tfp.role': 'client' } },
       async () => {
+        const headers = injectRuntimeContext(
+          this.runtimeTelemetry, await this.requestHeaders(),
+        );
         const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
-          method: 'POST', headers: await this.requestHeaders(), body: JSON.stringify(query),
+          method: 'POST', headers, body: JSON.stringify(query),
         });
         if (!response.ok) {
           const errorText = await response.text();

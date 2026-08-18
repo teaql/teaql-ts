@@ -14,6 +14,7 @@ export declare class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     private readonly operations;
     constructor(tracer: Tracer, meter: Meter, lifecycle?: OpenTelemetryRuntimeLifecycle, logger?: Logger | undefined);
     start(operation: RuntimeOperation): RuntimeTelemetryScope;
+    inject(carrier: Record<string, string>): void;
     flush(): void | Promise<void>;
     shutdown(): void | Promise<void>;
     private setSafeCompletionAttributes;

@@ -1,6 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.observeRuntimeOperation = exports.startRuntimeOperation = exports.safeRuntimeOperation = exports.NOOP_RUNTIME_TELEMETRY = void 0;
+exports.observeRuntimeOperation = exports.startRuntimeOperation = exports.safeRuntimeOperation = exports.NOOP_RUNTIME_TELEMETRY = exports.injectRuntimeContext = void 0;
+/** Inject the active runtime trace into transport metadata without affecting business work. */
+function injectRuntimeContext(telemetry, carrier) {
+    try {
+        telemetry?.inject?.(carrier);
+    }
+    catch { /* telemetry is fail open */ }
+    return carrier;
+}
+exports.injectRuntimeContext = injectRuntimeContext;
 const noopScope = Object.freeze({
     success: () => undefined,
     failure: () => undefined,

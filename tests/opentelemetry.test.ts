@@ -1,4 +1,5 @@
-import { context, metrics } from '@opentelemetry/api';
+import { context, metrics, propagation } from '@opentelemetry/api';
+import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import {
   BasicTracerProvider,
@@ -93,4 +94,29 @@ test('exports safe balanced spans through the official OpenTelemetry SDK', async
   await telemetry.shutdown();
   context.disable();
   metrics.disable();
+});
+
+test('injects the active operation span using W3C Trace Context', async () => {
+  context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+  propagation.setGlobalPropagator(new W3CTraceContextPropagator());
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const meterProvider = new MeterProvider();
+  const telemetry = new OpenTelemetryRuntimeTelemetry(
+    provider.getTracer('io.teaql.runtime'), meterProvider.getMeter('io.teaql.runtime'),
+  );
+  const carrier: Record<string, string> = {};
+
+  await observeRuntimeOperation(telemetry, {
+    family: 'tfp', name: 'client.query', attributes: { 'teaql.tfp.role': 'client' },
+  }, async () => { telemetry.inject(carrier); });
+
+  const span = exporter.getFinishedSpans()[0];
+  expect(carrier.traceparent).toBe(
+    `00-${span.spanContext().traceId}-${span.spanContext().spanId}-01`,
+  );
+  await provider.shutdown();
+  await meterProvider.shutdown();
+  propagation.disable();
+  context.disable();
 });

@@ -146,6 +146,36 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(telemetry.events[0].outcome).toBe('failure');
   });
 
+  it('injects trace metadata inside the TFP client operation without touching payload', async () => {
+    const telemetry = new TfpRecordingTelemetry() as TfpRecordingTelemetry & RuntimeTelemetry;
+    telemetry.inject = carrier => { carrier.traceparent = '00-trace-span-01'; };
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, json: async () => ({ data: [] }),
+    });
+    const client = new TeaQLClient({
+      baseUrl: 'http://localhost:8080/api', runtimeTelemetry: telemetry,
+    });
+
+    await client.executeQuery(new SelectQuery('Task'));
+
+    const [, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(options.headers.traceparent).toBe('00-trace-span-01');
+    expect(options.body).not.toContain('traceparent');
+  });
+
+  it('keeps TFP requests working when propagation injection fails', async () => {
+    const telemetry = new TfpRecordingTelemetry() as TfpRecordingTelemetry & RuntimeTelemetry;
+    telemetry.inject = () => { throw new Error('propagator unavailable'); };
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, json: async () => ({ data: [] }),
+    });
+
+    await new TeaQLClient({
+      baseUrl: 'http://localhost:8080/api', runtimeTelemetry: telemetry,
+    }).executeQuery(new SelectQuery('Task'));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('uses trusted authentication headers for mutations without serializing context', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
     const client = new TeaQLClient({
