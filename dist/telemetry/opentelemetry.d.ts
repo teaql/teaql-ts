@@ -1,4 +1,5 @@
 import { Meter, Tracer } from '@opentelemetry/api';
+import type { Logger } from '@opentelemetry/api-logs';
 import { RuntimeOperation, RuntimeTelemetry, RuntimeTelemetryScope } from '../core/telemetry';
 export interface OpenTelemetryRuntimeLifecycle {
     flush?: () => void | Promise<void>;
@@ -8,9 +9,10 @@ export interface OpenTelemetryRuntimeLifecycle {
 export declare class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     private readonly tracer;
     private readonly lifecycle;
+    private readonly logger?;
     private readonly duration;
     private readonly operations;
-    constructor(tracer: Tracer, meter: Meter, lifecycle?: OpenTelemetryRuntimeLifecycle);
+    constructor(tracer: Tracer, meter: Meter, lifecycle?: OpenTelemetryRuntimeLifecycle, logger?: Logger | undefined);
     start(operation: RuntimeOperation): RuntimeTelemetryScope;
     flush(): void | Promise<void>;
     shutdown(): void | Promise<void>;

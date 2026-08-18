@@ -7,6 +7,7 @@ import {
   Tracer,
   trace,
 } from '@opentelemetry/api';
+import type { Logger } from '@opentelemetry/api-logs';
 import {
   RuntimeAttributeValue,
   RuntimeOperation,
@@ -29,6 +30,7 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     private readonly tracer: Tracer,
     meter: Meter,
     private readonly lifecycle: OpenTelemetryRuntimeLifecycle = {},
+    private readonly logger?: Logger,
   ) {
     this.duration = meter.createHistogram('teaql.runtime.operation.duration', {
       description: 'TeaQL runtime operation duration',
@@ -48,21 +50,34 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     const activeContext = trace.setSpan(context.active(), span);
     let ended = false;
 
-    const finish = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion) => {
+    const finishInContext = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion) => {
       if (ended) return;
       ended = true;
       if (outcome === 'success') this.setSafeCompletionAttributes(span, completion);
       span.setStatus(outcome === 'success'
         ? { code: SpanStatusCode.OK }
         : { code: SpanStatusCode.ERROR });
+      const durationMs = Math.max(0, performance.now() - startedAt);
       const metricAttributes = {
         'teaql.operation.family': operation.family,
         'teaql.operation.outcome': outcome,
       };
-      this.duration.record(Math.max(0, performance.now() - startedAt), metricAttributes);
+      this.duration.record(durationMs, metricAttributes);
       this.operations.add(1, metricAttributes);
+      this.logger?.emit({
+        severityNumber: 9,
+        severityText: 'INFO',
+        body: 'TeaQL runtime operation completed',
+        attributes: {
+          ...metricAttributes,
+          'teaql.operation.name': operation.name,
+          'teaql.operation.duration_ms': durationMs,
+        },
+      });
       span.end();
     };
+    const finish = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion) =>
+      context.with(activeContext, () => finishInContext(outcome, completion));
 
     return {
       run: work => context.with(activeContext, work),
