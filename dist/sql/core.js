@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.debugSQL = void 0;
+const telemetry_1 = require("../core/telemetry");
 function debugSQL(parameterizedSQL, parameters, databaseKind = 'sqlite') {
     let positionalIndex = 0;
     let result = '';
@@ -229,6 +230,10 @@ class AbstractSQLTeaQLClient {
         this.telemetrySink = sink;
         return this;
     }
+    setRuntimeTelemetry(telemetry) {
+        this.runtimeTelemetry = telemetry;
+        return this;
+    }
     recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows) {
         this.telemetrySink?.record(Object.freeze({
             operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
@@ -246,107 +251,138 @@ class AbstractSQLTeaQLClient {
         return this.schemaReady;
     }
     async executeMutation(mutation) {
-        if (!String(mutation?.comment || '').trim()) {
-            throw new Error('Security audit failure: audit reason is required before mutation');
+        const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
+            family: 'mutation',
+            name: `${String(mutation?.entity || 'unknown')}.${String(mutation?.action || 'unknown').toLowerCase()}`,
+            attributes: {
+                'teaql.entity.type': String(mutation?.entity || 'unknown'),
+                'teaql.mutation.kind': String(mutation?.action || 'unknown').toLowerCase(),
+            },
+        });
+        try {
+            if (!String(mutation?.comment || '').trim()) {
+                throw new Error('Security audit failure: audit reason is required before mutation');
+            }
+            const schema = this.schema(mutation.entity);
+            const table = this.driver.identifier(schema.table);
+            const result = await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
+                family: 'provider',
+                name: `${this.driver.databaseKind}.mutation`,
+                attributes: {
+                    'teaql.provider.kind': this.driver.databaseKind,
+                    'teaql.provider.operation': String(mutation.action).toLowerCase(),
+                },
+            }, () => this.driver.transaction(async (session) => {
+                if (mutation.action === 'Create') {
+                    const id = mutation.id
+                        ? String(mutation.id)
+                        : await this.driver.nextId(session, mutation.entity);
+                    const version = Number(mutation.version || 0) + 1;
+                    const record = { ...mutation.payload, id, version };
+                    const fields = Object.keys(schema.columns)
+                        .filter(field => record[field] !== undefined);
+                    const columns = fields.map(field => this.driver.identifier(schema.columns[field].columnName)).join(', ');
+                    const placeholders = fields.map((_, index) => this.driver.placeholder(index + 1)).join(', ');
+                    const values = fields.map(field => this.encode(record[field], schema.columns[field]));
+                    const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
+                    const startedAt = Date.now();
+                    const mutationResult = await session.query(sql, values);
+                    this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
+                    return {
+                        success: true,
+                        id,
+                        version,
+                        persistedRecord: await this.readPersistedRecord(session, schema, id),
+                    };
+                }
+                if (mutation.action === 'Update') {
+                    const fields = Object.keys(schema.columns).filter(field => field !== 'id' && field !== 'version' &&
+                        mutation.payload[field] !== undefined);
+                    const values = fields.map(field => this.encode(mutation.payload[field], schema.columns[field]));
+                    const assignments = fields.map((field, index) => `${this.driver.identifier(schema.columns[field].columnName)} = ` +
+                        this.driver.placeholder(index + 1));
+                    const versionColumn = this.driver.identifier('version');
+                    assignments.push(`${versionColumn} = ${versionColumn} + 1`);
+                    values.push(String(mutation.id));
+                    const predicates = [
+                        `${this.driver.identifier('id')} = ${this.driver.placeholder(values.length)}`,
+                    ];
+                    if (mutation.version !== undefined && mutation.version !== null) {
+                        values.push(Number(mutation.version));
+                        predicates.push(`${versionColumn} = ${this.driver.placeholder(values.length)}`);
+                    }
+                    const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
+                        `WHERE ${predicates.join(' AND ')}`;
+                    const startedAt = Date.now();
+                    const result = await session.query(sql, values);
+                    this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount);
+                    if (result.rowCount !== 1) {
+                        throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
+                    }
+                    const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id));
+                    return {
+                        success: true,
+                        id: String(mutation.id),
+                        version: Number(persistedRecord.version),
+                        persistedRecord,
+                    };
+                }
+                if (mutation.action === 'Delete') {
+                    const versionColumn = this.driver.identifier('version');
+                    const values = [String(mutation.id)];
+                    const predicates = [
+                        `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
+                    ];
+                    if (mutation.version !== undefined && mutation.version !== null) {
+                        values.push(Number(mutation.version));
+                        predicates.push(`${this.driver.identifier('version')} = ` +
+                            this.driver.placeholder(values.length));
+                    }
+                    const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
+                        `WHERE ${predicates.join(' AND ')}`;
+                    const startedAt = Date.now();
+                    const result = await session.query(sql, values);
+                    this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount);
+                    if (result.rowCount !== 1) {
+                        throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
+                    }
+                    const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id));
+                    return {
+                        success: true,
+                        id: String(mutation.id),
+                        version: Number(persistedRecord.version),
+                        deleted: true,
+                        persistedRecord,
+                    };
+                }
+                throw new Error(`Unsupported mutation action: ${mutation.action}`);
+            }));
+            const event = Object.freeze({
+                entity: mutation.entity,
+                action: mutation.action,
+                id: String(result.id),
+                reason: String(mutation.comment),
+                recordedAt: new Date().toISOString(),
+            });
+            this.auditEvents.push(event);
+            if (this.auditSink) {
+                await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
+                    family: 'audit',
+                    name: `${mutation.entity}.audit`,
+                    attributes: {
+                        'teaql.entity.type': String(mutation.entity),
+                        'teaql.mutation.kind': String(mutation.action).toLowerCase(),
+                        'teaql.audit.changed_field_count': Object.keys(mutation.payload || {}).length,
+                    },
+                }, async () => this.auditSink(event));
+            }
+            scope.success();
+            return result;
         }
-        const schema = this.schema(mutation.entity);
-        const table = this.driver.identifier(schema.table);
-        const result = await this.driver.transaction(async (session) => {
-            if (mutation.action === 'Create') {
-                const id = mutation.id
-                    ? String(mutation.id)
-                    : await this.driver.nextId(session, mutation.entity);
-                const version = Number(mutation.version || 0) + 1;
-                const record = { ...mutation.payload, id, version };
-                const fields = Object.keys(schema.columns)
-                    .filter(field => record[field] !== undefined);
-                const columns = fields.map(field => this.driver.identifier(schema.columns[field].columnName)).join(', ');
-                const placeholders = fields.map((_, index) => this.driver.placeholder(index + 1)).join(', ');
-                const values = fields.map(field => this.encode(record[field], schema.columns[field]));
-                const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-                const startedAt = Date.now();
-                const mutationResult = await session.query(sql, values);
-                this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
-                return {
-                    success: true,
-                    id,
-                    version,
-                    persistedRecord: await this.readPersistedRecord(session, schema, id),
-                };
-            }
-            if (mutation.action === 'Update') {
-                const fields = Object.keys(schema.columns).filter(field => field !== 'id' && field !== 'version' &&
-                    mutation.payload[field] !== undefined);
-                const values = fields.map(field => this.encode(mutation.payload[field], schema.columns[field]));
-                const assignments = fields.map((field, index) => `${this.driver.identifier(schema.columns[field].columnName)} = ` +
-                    this.driver.placeholder(index + 1));
-                const versionColumn = this.driver.identifier('version');
-                assignments.push(`${versionColumn} = ${versionColumn} + 1`);
-                values.push(String(mutation.id));
-                const predicates = [
-                    `${this.driver.identifier('id')} = ${this.driver.placeholder(values.length)}`,
-                ];
-                if (mutation.version !== undefined && mutation.version !== null) {
-                    values.push(Number(mutation.version));
-                    predicates.push(`${versionColumn} = ${this.driver.placeholder(values.length)}`);
-                }
-                const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
-                    `WHERE ${predicates.join(' AND ')}`;
-                const startedAt = Date.now();
-                const result = await session.query(sql, values);
-                this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount);
-                if (result.rowCount !== 1) {
-                    throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
-                }
-                const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id));
-                return {
-                    success: true,
-                    id: String(mutation.id),
-                    version: Number(persistedRecord.version),
-                    persistedRecord,
-                };
-            }
-            if (mutation.action === 'Delete') {
-                const versionColumn = this.driver.identifier('version');
-                const values = [String(mutation.id)];
-                const predicates = [
-                    `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
-                ];
-                if (mutation.version !== undefined && mutation.version !== null) {
-                    values.push(Number(mutation.version));
-                    predicates.push(`${this.driver.identifier('version')} = ` +
-                        this.driver.placeholder(values.length));
-                }
-                const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
-                    `WHERE ${predicates.join(' AND ')}`;
-                const startedAt = Date.now();
-                const result = await session.query(sql, values);
-                this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount);
-                if (result.rowCount !== 1) {
-                    throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
-                }
-                const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id));
-                return {
-                    success: true,
-                    id: String(mutation.id),
-                    version: Number(persistedRecord.version),
-                    deleted: true,
-                    persistedRecord,
-                };
-            }
-            throw new Error(`Unsupported mutation action: ${mutation.action}`);
-        });
-        const event = Object.freeze({
-            entity: mutation.entity,
-            action: mutation.action,
-            id: String(result.id),
-            reason: String(mutation.comment),
-            recordedAt: new Date().toISOString(),
-        });
-        this.auditEvents.push(event);
-        if (this.auditSink)
-            await this.auditSink(event);
-        return result;
+        catch (error) {
+            scope.failure(error);
+            throw error;
+        }
     }
     async readPersistedRecord(session, schema, id) {
         const projection = Object.entries(schema.columns).map(([field, column]) => `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`).join(', ');
@@ -549,24 +585,43 @@ class AbstractSQLTeaQLClient {
         return { sql, values, aggregateNames };
     }
     async executeQuery(query) {
-        const internal = query?.[this.internalQueryToken] === true;
-        if (!internal) {
-            if (typeof query?.prepareForList !== 'function') {
-                throw new Error('TeaQL list execution requires the formal runtime SelectQuery');
+        const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
+            family: 'query',
+            name: `${String(query?.entity || 'unknown')}.list`,
+            attributes: { 'teaql.entity.type': String(query?.entity || 'unknown') },
+        });
+        try {
+            const internal = query?.[this.internalQueryToken] === true;
+            if (!internal) {
+                if (typeof query?.prepareForList !== 'function') {
+                    throw new Error('TeaQL list execution requires the formal runtime SelectQuery');
+                }
+                query.prepareForList();
             }
-            query.prepareForList();
+            const prepared = internal ? { query, execution: undefined } : await this.prepareContinuousPage(query);
+            query = prepared.query;
+            const { sql, values, aggregateNames } = await this.compileQuery(query);
+            const startedAt = Date.now();
+            const result = await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
+                family: 'provider',
+                name: `${this.driver.databaseKind}.query`,
+                attributes: {
+                    'teaql.provider.kind': this.driver.databaseKind,
+                    'teaql.provider.operation': 'query',
+                },
+            }, () => this.driver.query(sql, values));
+            this.recordSQL('select', sql, values, startedAt, result.rowCount);
+            const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
+            await this.enhanceRelations(rows, query);
+            if (!internal)
+                await this.registerContinuousPage(query, prepared.execution, rows);
+            scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
+            return rows;
         }
-        const prepared = internal ? { query, execution: undefined } : await this.prepareContinuousPage(query);
-        query = prepared.query;
-        const { sql, values, aggregateNames } = await this.compileQuery(query);
-        const startedAt = Date.now();
-        const result = await this.driver.query(sql, values);
-        this.recordSQL('select', sql, values, startedAt, result.rowCount);
-        const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
-        await this.enhanceRelations(rows, query);
-        if (!internal)
-            await this.registerContinuousPage(query, prepared.execution, rows);
-        return rows;
+        catch (error) {
+            scope.failure(error);
+            throw error;
+        }
     }
     async executeCount(query) {
         if (typeof query?.forExactCount !== 'function') {
@@ -612,7 +667,11 @@ class AbstractSQLTeaQLClient {
         }
         let cursor;
         try {
-            cursor = await runtime.get(queryKey, offset);
+            cursor = await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
+                family: 'cache',
+                name: 'continuous_page.get',
+                attributes: { 'teaql.cache.operation': 'get' },
+            }, () => runtime.get(queryKey, offset));
         }
         catch {
             runtime.observe('OFFSET_FALLBACK:STORE_UNAVAILABLE');
@@ -636,11 +695,15 @@ class AbstractSQLTeaQLClient {
         if (!execution || rows.length !== execution.limit || !rows.length || rows[rows.length - 1].id === undefined)
             return;
         try {
-            await execution.runtime.put(execution.queryKey, execution.offset + rows.length, {
+            await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
+                family: 'cache',
+                name: 'continuous_page.put',
+                attributes: { 'teaql.cache.operation': 'put' },
+            }, () => execution.runtime.put(execution.queryKey, execution.offset + rows.length, {
                 cursorId: `cpg_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`,
                 boundary: rows[rows.length - 1].id,
                 expiresAt: Date.now() + execution.ttlSeconds * 1000,
-            });
+            }));
         }
         catch {
             execution.runtime.observe('OFFSET_FALLBACK:STORE_UNAVAILABLE');
@@ -673,43 +736,58 @@ class AbstractSQLTeaQLClient {
             return;
         const parentSchema = this.schema(query.entity);
         for (const load of query.relations) {
-            const relation = parentSchema.relations?.[load.name];
-            if (!relation)
-                throw new Error(`Missing relation ${query.entity}.${load.name}`);
-            const parentIds = parents
-                .map(parent => parent[relation.localKey])
-                .filter(value => value !== undefined && value !== null);
-            if (!parentIds.length) {
-                for (const parent of parents)
-                    parent[load.name] = relation.many ? [] : null;
-                continue;
+            const relationScope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
+                family: 'relation_load',
+                name: `${query.entity}.${String(load.name)}`,
+                attributes: {
+                    'teaql.entity.type': String(query.entity),
+                    'teaql.relation.name': String(load.name),
+                },
+            });
+            try {
+                const relation = parentSchema.relations?.[load.name];
+                if (!relation)
+                    throw new Error(`Missing relation ${query.entity}.${load.name}`);
+                const parentIds = parents
+                    .map(parent => parent[relation.localKey])
+                    .filter(value => value !== undefined && value !== null);
+                if (!parentIds.length) {
+                    for (const parent of parents)
+                        parent[load.name] = relation.many ? [] : null;
+                    continue;
+                }
+                const childQuery = {
+                    ...(load.query || {}),
+                    entity: relation.targetEntity,
+                    _filters: [...this.filters(load.query || {})],
+                    relations: [...(load.query?.relations || [])],
+                    __teaqlPartitionBy: load.query && this.queryLimit(load.query) !== undefined
+                        ? relation.foreignKey
+                        : undefined,
+                };
+                if (typeof childQuery.clearContinuousPageRuntime === 'function')
+                    childQuery.clearContinuousPageRuntime();
+                childQuery[this.internalQueryToken] = true;
+                childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
+                const children = await this.executeQuery(childQuery);
+                for (const child of children)
+                    delete child.__teaql_partition_rank;
+                const buckets = new Map();
+                for (const child of children) {
+                    const key = child[relation.foreignKey];
+                    const bucket = buckets.get(key) || [];
+                    bucket.push(child);
+                    buckets.set(key, bucket);
+                }
+                for (const parent of parents) {
+                    const related = buckets.get(parent[relation.localKey]) || [];
+                    parent[load.name] = relation.many ? related : (related[0] ?? null);
+                }
+                relationScope.success({ attributes: { 'teaql.result.cardinality': children.length } });
             }
-            const childQuery = {
-                ...(load.query || {}),
-                entity: relation.targetEntity,
-                _filters: [...this.filters(load.query || {})],
-                relations: [...(load.query?.relations || [])],
-                __teaqlPartitionBy: load.query && this.queryLimit(load.query) !== undefined
-                    ? relation.foreignKey
-                    : undefined,
-            };
-            if (typeof childQuery.clearContinuousPageRuntime === 'function')
-                childQuery.clearContinuousPageRuntime();
-            childQuery[this.internalQueryToken] = true;
-            childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-            const children = await this.executeQuery(childQuery);
-            for (const child of children)
-                delete child.__teaql_partition_rank;
-            const buckets = new Map();
-            for (const child of children) {
-                const key = child[relation.foreignKey];
-                const bucket = buckets.get(key) || [];
-                bucket.push(child);
-                buckets.set(key, bucket);
-            }
-            for (const parent of parents) {
-                const related = buckets.get(parent[relation.localKey]) || [];
-                parent[load.name] = relation.many ? related : (related[0] ?? null);
+            catch (error) {
+                relationScope.failure(error);
+                throw error;
             }
         }
     }

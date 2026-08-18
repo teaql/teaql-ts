@@ -20,6 +20,7 @@ __exportStar(require("./core/context"), exports);
 __exportStar(require("./core/tools"), exports);
 __exportStar(require("./core/local-cache"), exports);
 __exportStar(require("./core/runtime-module"), exports);
+__exportStar(require("./core/telemetry"), exports);
 var ast_1 = require("./core/ast");
 Object.defineProperty(exports, "SelectQuery", { enumerable: true, get: function () { return ast_1.SelectQuery; } });
 Object.defineProperty(exports, "MutationQuery", { enumerable: true, get: function () { return ast_1.MutationQuery; } });

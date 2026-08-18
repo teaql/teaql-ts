@@ -1,3 +1,9 @@
+import {
+  observeRuntimeOperation,
+  RuntimeTelemetry,
+  startRuntimeOperation,
+} from '../core/telemetry';
+
 export type LogicalColumnType =
   | 'boolean'
   | 'double'
@@ -237,6 +243,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
   private telemetrySink?: RuntimeTelemetrySink;
+  private runtimeTelemetry?: RuntimeTelemetry;
 
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
@@ -296,6 +303,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this;
   }
 
+  setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this {
+    this.runtimeTelemetry = telemetry;
+    return this;
+  }
+
   private recordSQL(
     operation: SQLExecutionOperation, parameterizedSQL: string, parameters: readonly unknown[],
     startedAt: number, resultCount?: number, affectedRows?: number,
@@ -318,12 +330,28 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeMutation(mutation: any): Promise<MutationResult> {
-    if (!String(mutation?.comment || '').trim()) {
-      throw new Error('Security audit failure: audit reason is required before mutation');
-    }
-    const schema = this.schema(mutation.entity);
-    const table = this.driver.identifier(schema.table);
-    const result = await this.driver.transaction(async session => {
+    const scope = startRuntimeOperation(this.runtimeTelemetry, {
+      family: 'mutation',
+      name: `${String(mutation?.entity || 'unknown')}.${String(mutation?.action || 'unknown').toLowerCase()}`,
+      attributes: {
+        'teaql.entity.type': String(mutation?.entity || 'unknown'),
+        'teaql.mutation.kind': String(mutation?.action || 'unknown').toLowerCase(),
+      },
+    });
+    try {
+      if (!String(mutation?.comment || '').trim()) {
+        throw new Error('Security audit failure: audit reason is required before mutation');
+      }
+      const schema = this.schema(mutation.entity);
+      const table = this.driver.identifier(schema.table);
+      const result = await observeRuntimeOperation(this.runtimeTelemetry, {
+        family: 'provider',
+        name: `${this.driver.databaseKind}.mutation`,
+        attributes: {
+          'teaql.provider.kind': this.driver.databaseKind,
+          'teaql.provider.operation': String(mutation.action).toLowerCase(),
+        },
+      }, () => this.driver.transaction(async session => {
       if (mutation.action === 'Create') {
         const id = mutation.id
           ? String(mutation.id)
@@ -434,17 +462,32 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       }
 
       throw new Error(`Unsupported mutation action: ${mutation.action}`);
-    });
-    const event = Object.freeze({
-      entity: mutation.entity,
-      action: mutation.action,
-      id: String(result.id),
-      reason: String(mutation.comment),
-      recordedAt: new Date().toISOString(),
-    });
-    this.auditEvents.push(event);
-    if (this.auditSink) await this.auditSink(event);
-    return result;
+      }));
+      const event = Object.freeze({
+        entity: mutation.entity,
+        action: mutation.action,
+        id: String(result.id),
+        reason: String(mutation.comment),
+        recordedAt: new Date().toISOString(),
+      });
+      this.auditEvents.push(event);
+      if (this.auditSink) {
+        await observeRuntimeOperation(this.runtimeTelemetry, {
+          family: 'audit',
+          name: `${mutation.entity}.audit`,
+          attributes: {
+            'teaql.entity.type': String(mutation.entity),
+            'teaql.mutation.kind': String(mutation.action).toLowerCase(),
+            'teaql.audit.changed_field_count': Object.keys(mutation.payload || {}).length,
+          },
+        }, async () => this.auditSink!(event));
+      }
+      scope.success();
+      return result;
+    } catch (error) {
+      scope.failure(error);
+      throw error;
+    }
   }
 
   private async readPersistedRecord(
@@ -674,6 +717,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeQuery<T = any>(query: any): Promise<T[]> {
+    const scope = startRuntimeOperation(this.runtimeTelemetry, {
+      family: 'query',
+      name: `${String(query?.entity || 'unknown')}.list`,
+      attributes: { 'teaql.entity.type': String(query?.entity || 'unknown') },
+    });
+    try {
     const internal = query?.[this.internalQueryToken] === true;
     if (!internal) {
       if (typeof query?.prepareForList !== 'function') {
@@ -685,14 +734,26 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     query = prepared.query;
     const { sql, values, aggregateNames } = await this.compileQuery(query);
     const startedAt = Date.now();
-    const result = await this.driver.query(sql, values);
+    const result = await observeRuntimeOperation(this.runtimeTelemetry, {
+      family: 'provider',
+      name: `${this.driver.databaseKind}.query`,
+      attributes: {
+        'teaql.provider.kind': this.driver.databaseKind,
+        'teaql.provider.operation': 'query',
+      },
+    }, () => this.driver.query(sql, values));
     this.recordSQL('select', sql, values, startedAt, result.rowCount);
     const rows = result.rows.map(row =>
       this.decodeRow(query.entity, row, aggregateNames),
     );
     await this.enhanceRelations(rows, query);
     if (!internal) await this.registerContinuousPage(query, prepared.execution, rows);
+    scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
     return rows as T[];
+    } catch (error) {
+      scope.failure(error);
+      throw error;
+    }
   }
 
   async executeCount(query: any): Promise<number> {
@@ -728,7 +789,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const queryKey = `teaql:continuous-page:v1:${(hash >>> 0).toString(16)}`;
     const execution: any = { queryKey, offset, limit, direction: String(orders[0].direction).toLowerCase(), ttlSeconds: options.ttlSeconds, runtime, optimized: false };
     if (offset === 0) { runtime.observe('OFFSET_FALLBACK:FIRST_PAGE'); return { query: clone, execution }; }
-    let cursor: any; try { cursor = await runtime.get(queryKey, offset); } catch { runtime.observe('OFFSET_FALLBACK:STORE_UNAVAILABLE'); return { query: clone, execution }; }
+    let cursor: any; try {
+      cursor = await observeRuntimeOperation(this.runtimeTelemetry, {
+        family: 'cache',
+        name: 'continuous_page.get',
+        attributes: { 'teaql.cache.operation': 'get' },
+      }, () => runtime.get(queryKey, offset));
+    } catch { runtime.observe('OFFSET_FALLBACK:STORE_UNAVAILABLE'); return { query: clone, execution }; }
     if (!cursor) { runtime.observe('OFFSET_FALLBACK:CACHE_MISS'); return { query: clone, execution }; }
     const seek = { id: { [execution.direction === 'desc' ? '$lt' : '$gt']: cursor.boundary } };
     clone.filterCondition = clone.filterCondition ? { $and: [clone.filterCondition, seek] } : seek;
@@ -741,11 +808,15 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private async registerContinuousPage(_query: any, execution: any, rows: any[]): Promise<void> {
     if (!execution || rows.length !== execution.limit || !rows.length || rows[rows.length - 1].id === undefined) return;
     try {
-      await execution.runtime.put(execution.queryKey, execution.offset + rows.length, {
+      await observeRuntimeOperation(this.runtimeTelemetry, {
+        family: 'cache',
+        name: 'continuous_page.put',
+        attributes: { 'teaql.cache.operation': 'put' },
+      }, () => execution.runtime.put(execution.queryKey, execution.offset + rows.length, {
         cursorId: `cpg_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`,
         boundary: rows[rows.length - 1].id,
         expiresAt: Date.now() + execution.ttlSeconds * 1000,
-      });
+      }));
     } catch { execution.runtime.observe('OFFSET_FALLBACK:STORE_UNAVAILABLE'); return; }
     if (execution.optimized) execution.runtime.observe('CURSOR_SEEK', execution.cursorId);
   }
@@ -774,6 +845,15 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
     for (const load of query.relations) {
+      const relationScope = startRuntimeOperation(this.runtimeTelemetry, {
+        family: 'relation_load',
+        name: `${query.entity}.${String(load.name)}`,
+        attributes: {
+          'teaql.entity.type': String(query.entity),
+          'teaql.relation.name': String(load.name),
+        },
+      });
+      try {
       const relation = parentSchema.relations?.[load.name];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
       const parentIds = parents
@@ -807,6 +887,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       for (const parent of parents) {
         const related = buckets.get(parent[relation.localKey]) || [];
         parent[load.name] = relation.many ? related : (related[0] ?? null);
+      }
+      relationScope.success({ attributes: { 'teaql.result.cardinality': children.length } });
+      } catch (error) {
+        relationScope.failure(error);
+        throw error;
       }
     }
   }

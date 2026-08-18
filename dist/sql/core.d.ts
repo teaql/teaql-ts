@@ -1,3 +1,4 @@
+import { RuntimeTelemetry } from '../core/telemetry';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
     columnName: string;
@@ -87,6 +88,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private readonly auditEvents;
     private auditSink?;
     private telemetrySink?;
+    private runtimeTelemetry?;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
@@ -96,6 +98,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     get auditTrace(): ReadonlyArray<Readonly<Record<string, unknown>>>;
     setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this;
     setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this;
+    setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private recordSQL;
     ensureSchema(): Promise<void>;
     executeMutation(mutation: any): Promise<MutationResult>;

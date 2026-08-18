@@ -38,6 +38,11 @@
       "types": "./dist/sql/expo-sqlite.d.ts",
       "require": "./dist/sql/expo-sqlite.js",
       "default": "./dist/sql/expo-sqlite.js"
+    },
+    "./telemetry/opentelemetry": {
+      "types": "./dist/telemetry/opentelemetry.d.ts",
+      "require": "./dist/telemetry/opentelemetry.js",
+      "default": "./dist/telemetry/opentelemetry.js"
     }
   },
   "typesVersions": {
@@ -84,6 +89,8 @@
     "access": "public"
   },
   "devDependencies": {
+    "@opentelemetry/sdk-metrics": "^2.10.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/jest": "^29.5.0",
     "@types/node-fetch": "^2.6.13",
@@ -101,13 +108,17 @@
     "node-fetch": "^2.7.0"
   },
   "peerDependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "better-sqlite3": "^11.7.0",
+    "expo-sqlite": "*",
     "mysql2": "^3.11.0",
     "pg": "^8.12.0",
-    "pg-query-stream": "^4.7.0",
-    "expo-sqlite": "*"
+    "pg-query-stream": "^4.7.0"
   },
   "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    },
     "better-sqlite3": {
       "optional": true
     },

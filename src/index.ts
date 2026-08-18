@@ -3,6 +3,7 @@ export * from './core/context';
 export * from './core/tools';
 export * from './core/local-cache';
 export * from './core/runtime-module';
+export * from './core/telemetry';
 export { SelectQuery, MutationQuery, AggregationCacheOptions, OrderBy, SortDirection } from './core/ast';
 export type { TeaQLPage } from './core/ast';
 export * from './meta/descriptors';
