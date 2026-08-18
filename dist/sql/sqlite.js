@@ -26,6 +26,18 @@ class SQLiteDriver {
         }
         if (column?.logicalType === 'boolean')
             return value ? 1 : 0;
+        if (column?.logicalType === 'date') {
+            return value instanceof Date ? value.toISOString().slice(0, 10) : value;
+        }
+        if (column?.logicalType === 'datetime') {
+            if (value instanceof Date)
+                return value.getTime();
+            if (typeof value === 'string') {
+                const millis = Date.parse(value);
+                if (!Number.isNaN(millis))
+                    return millis;
+            }
+        }
         return value;
     }
     contains(columnSql, placeholder) {
@@ -40,7 +52,7 @@ class SQLiteDriver {
             double: 'REAL',
             decimal: 'NUMERIC',
             date: 'TEXT',
-            datetime: 'TEXT',
+            datetime: 'INTEGER',
             json: 'TEXT',
             integer: 'INTEGER',
             text: 'TEXT',

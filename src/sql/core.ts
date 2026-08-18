@@ -83,21 +83,50 @@ export type SQLExecutionMetadata = Readonly<{
 export function debugSQL(parameterizedSQL: string, parameters: readonly unknown[]): string {
   let positionalIndex = 0;
   let result = '';
-  let inString = false;
+  let state: 'sql' | 'single' | 'double' | 'line-comment' | 'block-comment' = 'sql';
   for (let index = 0; index < parameterizedSQL.length; index++) {
     const char = parameterizedSQL[index];
-    if (char === "'") {
+    const next = parameterizedSQL[index + 1] ?? '';
+    if (state === 'sql' && char === "'") {
       result += char;
-      if (inString && parameterizedSQL[index + 1] === "'") result += parameterizedSQL[++index];
-      else inString = !inString;
+      state = 'single';
       continue;
     }
-    if (!inString && char === '?') {
+    if (state === 'sql' && char === '"') { result += char; state = 'double'; continue; }
+    if (state === 'sql' && char === '-' && next === '-') {
+      result += '--'; index++; state = 'line-comment'; continue;
+    }
+    if (state === 'sql' && char === '/' && next === '*') {
+      result += '/*'; index++; state = 'block-comment'; continue;
+    }
+    if (state === 'single') {
+      result += char;
+      if (char === "'" && next === "'") result += parameterizedSQL[++index];
+      else if (char === "'") state = 'sql';
+      continue;
+    }
+    if (state === 'double') {
+      result += char;
+      if (char === '"' && next === '"') result += parameterizedSQL[++index];
+      else if (char === '"') state = 'sql';
+      continue;
+    }
+    if (state === 'line-comment') {
+      result += char;
+      if (char === '\r' || char === '\n') state = 'sql';
+      continue;
+    }
+    if (state === 'block-comment') {
+      result += char;
+      if (char === '*' && next === '/') { result += '/'; index++; state = 'sql'; }
+      continue;
+    }
+    if (char === '?') {
       result += positionalIndex < parameters.length
         ? sqlLiteral(parameters[positionalIndex++]) : char;
       continue;
     }
-    if (!inString && char === '$' && /[0-9]/.test(parameterizedSQL[index + 1] ?? '')) {
+    if (char === '$' && /[0-9]/.test(parameterizedSQL[index + 1] ?? '')) {
       let end = index + 1;
       while (/[0-9]/.test(parameterizedSQL[end] ?? '')) end++;
       const parameterIndex = Number(parameterizedSQL.slice(index + 1, end)) - 1;
@@ -106,7 +135,7 @@ export function debugSQL(parameterizedSQL: string, parameters: readonly unknown[
       index = end - 1;
       continue;
     }
-    if (!inString && parameterizedSQL.slice(index).match(/^@p[0-9]+/i)) {
+    if (parameterizedSQL.slice(index).match(/^@p[0-9]+/i)) {
       const placeholder = parameterizedSQL.slice(index).match(/^@p([0-9]+)/i)!;
       const parameterIndex = Number(placeholder[1]) - 1;
       result += parameterIndex >= 0 && parameterIndex < parameters.length
@@ -120,6 +149,19 @@ export function debugSQL(parameterizedSQL: string, parameters: readonly unknown[
 }
 
 function sqlLiteral(value: unknown): string {
+  if (value && typeof value === 'object' && 'type' in value) {
+    const typed = value as { type: string; value?: unknown };
+    if (typed.type === 'Null' || typed.type === 'TypedNull') return 'NULL';
+    if (typed.type === 'Date') {
+      const date = typed.value instanceof Date
+        ? typed.value.toISOString().slice(0, 10) : String(typed.value);
+      return quoteSQLString(date);
+    }
+    if (typed.type === 'Timestamp') return String(typed.value);
+    if (typed.type === 'Bool') return typed.value ? 'TRUE' : 'FALSE';
+    if (['I64', 'U64', 'F64', 'Decimal'].includes(typed.type)) return String(typed.value);
+    if (typed.type === 'Text') return quoteSQLString(String(typed.value));
+  }
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
   if (typeof value === 'number' || typeof value === 'bigint') return String(value);
