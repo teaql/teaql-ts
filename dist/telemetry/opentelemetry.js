@@ -21,6 +21,7 @@ class OpenTelemetryRuntimeTelemetry {
         const span = this.tracer.startSpan(`teaql.${operation.family}`, {
             attributes: operation.attributes,
         });
+        const activeContext = api_1.trace.setSpan(api_1.context.active(), span);
         let ended = false;
         const finish = (outcome, completion) => {
             if (ended)
@@ -40,6 +41,7 @@ class OpenTelemetryRuntimeTelemetry {
             span.end();
         };
         return {
+            run: work => api_1.context.with(activeContext, work),
             success: completion => finish('success', completion),
             failure: error => {
                 span.setAttribute('teaql.error.type', this.errorType(error));

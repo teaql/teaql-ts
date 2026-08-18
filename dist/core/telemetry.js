@@ -38,6 +38,9 @@ function startRuntimeOperation(telemetry, operation) {
         const delegate = telemetry.start(safeRuntimeOperation(operation));
         let ended = false;
         return {
+            run: delegate.run
+                ? (work) => delegate.run(work)
+                : (work) => work(),
             success(completion) {
                 if (ended)
                     return;
@@ -66,7 +69,7 @@ exports.startRuntimeOperation = startRuntimeOperation;
 async function observeRuntimeOperation(telemetry, operation, work, completion) {
     const scope = startRuntimeOperation(telemetry, operation);
     try {
-        const result = await work();
+        const result = await (scope.run ? scope.run(work) : work());
         scope.success(completion?.(result));
         return result;
     }

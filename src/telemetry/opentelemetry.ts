@@ -1,9 +1,11 @@
 import {
   Attributes,
+  context,
   Meter,
   Span,
   SpanStatusCode,
   Tracer,
+  trace,
 } from '@opentelemetry/api';
 import {
   RuntimeAttributeValue,
@@ -43,6 +45,7 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     const span = this.tracer.startSpan(`teaql.${operation.family}`, {
       attributes: operation.attributes as Attributes,
     });
+    const activeContext = trace.setSpan(context.active(), span);
     let ended = false;
 
     const finish = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion) => {
@@ -62,6 +65,7 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     };
 
     return {
+      run: work => context.with(activeContext, work),
       success: completion => finish('success', completion),
       failure: error => {
         span.setAttribute('teaql.error.type', this.errorType(error));

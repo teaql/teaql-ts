@@ -11,6 +11,7 @@ export interface RuntimeOperationCompletion {
 export interface RuntimeTelemetryScope {
     success(completion?: RuntimeOperationCompletion): void;
     failure(error: unknown): void;
+    run?<T>(work: () => Promise<T>): Promise<T>;
 }
 /** Provider-neutral TeaQL lifecycle contract. Implementations must be fail open. */
 export interface RuntimeTelemetry {

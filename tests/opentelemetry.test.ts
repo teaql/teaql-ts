@@ -1,4 +1,5 @@
-import { metrics } from '@opentelemetry/api';
+import { context, metrics } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import {
   BasicTracerProvider,
   InMemorySpanExporter,
@@ -14,6 +15,8 @@ import { observeRuntimeOperation } from '../src/core/telemetry';
 import { OpenTelemetryRuntimeTelemetry } from '../src/telemetry/opentelemetry';
 
 test('exports safe balanced spans through the official OpenTelemetry SDK', async () => {
+  const contextManager = new AsyncLocalStorageContextManager().enable();
+  context.setGlobalContextManager(contextManager);
   const exporter = new InMemorySpanExporter();
   const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
   const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
@@ -38,21 +41,30 @@ test('exports safe balanced spans through the official OpenTelemetry SDK', async
       'teaql.entity.type': 'School',
       'teaql.entity.id': 'redacted',
     },
-  }, async () => ['one'], rows => ({
+  }, async () => observeRuntimeOperation(telemetry, {
+    family: 'provider',
+    name: 'sqlite.query',
+    attributes: {
+      'teaql.provider.kind': 'sqlite',
+      'teaql.provider.operation': 'query',
+    },
+  }, async () => ['one']), rows => ({
     attributes: { 'teaql.result.cardinality': rows.length },
   }));
   await telemetry.flush();
 
   const spans = exporter.getFinishedSpans();
-  expect(spans).toHaveLength(1);
-  expect(spans[0].name).toBe('teaql.query');
-  expect(spans[0].attributes).toMatchObject({
+  expect(spans).toHaveLength(2);
+  const querySpan = spans.find(span => span.name === 'teaql.query')!;
+  const providerSpan = spans.find(span => span.name === 'teaql.provider')!;
+  expect(querySpan.attributes).toMatchObject({
     'teaql.operation.family': 'query',
     'teaql.operation.name': 'School.list',
     'teaql.entity.type': 'School',
     'teaql.result.cardinality': 1,
   });
-  expect(spans[0].attributes).not.toHaveProperty('teaql.entity.id');
+  expect(querySpan.attributes).not.toHaveProperty('teaql.entity.id');
+  expect(providerSpan.parentSpanContext?.spanId).toBe(querySpan.spanContext().spanId);
   const metricNames = metricExporter.getMetrics().flatMap(resourceMetrics =>
     resourceMetrics.scopeMetrics.flatMap(scope => scope.metrics.map(metric => metric.descriptor.name)));
   expect(metricNames).toEqual(expect.arrayContaining([
@@ -61,4 +73,5 @@ test('exports safe balanced spans through the official OpenTelemetry SDK', async
   ]));
   await telemetry.shutdown();
   metrics.disable();
+  context.disable();
 });

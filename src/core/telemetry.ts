@@ -22,6 +22,7 @@ export interface RuntimeOperationCompletion {
 export interface RuntimeTelemetryScope {
   success(completion?: RuntimeOperationCompletion): void;
   failure(error: unknown): void;
+  run?<T>(work: () => Promise<T>): Promise<T>;
 }
 
 /** Provider-neutral TeaQL lifecycle contract. Implementations must be fail open. */
@@ -72,6 +73,9 @@ export function startRuntimeOperation(
     const delegate = telemetry.start(safeRuntimeOperation(operation));
     let ended = false;
     return {
+      run: delegate.run
+        ? <T>(work: () => Promise<T>) => delegate.run!(work)
+        : <T>(work: () => Promise<T>) => work(),
       success(completion) {
         if (ended) return;
         ended = true;
@@ -96,7 +100,7 @@ export async function observeRuntimeOperation<T>(
 ): Promise<T> {
   const scope = startRuntimeOperation(telemetry, operation);
   try {
-    const result = await work();
+    const result = await (scope.run ? scope.run(work) : work());
     scope.success(completion?.(result));
     return result;
   } catch (error) {
