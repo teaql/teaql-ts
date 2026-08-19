@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OpenTelemetryRuntimeTelemetry = void 0;
 const api_1 = require("@opentelemetry/api");
+const telemetry_1 = require("../core/telemetry");
 /** Bridges the provider-neutral TeaQL lifecycle to application-owned OTel providers. */
 class OpenTelemetryRuntimeTelemetry {
     constructor(tracer, meter, lifecycle = {}, logger) {
@@ -24,7 +25,7 @@ class OpenTelemetryRuntimeTelemetry {
         });
         const activeContext = api_1.trace.setSpan(api_1.context.active(), span);
         let ended = false;
-        const finishInContext = (outcome, completion) => {
+        const finishInContext = (outcome, completion, errorCategory) => {
             if (ended)
                 return;
             ended = true;
@@ -48,17 +49,20 @@ class OpenTelemetryRuntimeTelemetry {
                     ...metricAttributes,
                     'teaql.operation.name': operation.name,
                     'teaql.operation.duration_ms': durationMs,
+                    ...(errorCategory ? { 'teaql.error.category': errorCategory } : {}),
                 },
             });
             span.end();
         };
-        const finish = (outcome, completion) => api_1.context.with(activeContext, () => finishInContext(outcome, completion));
+        const finish = (outcome, completion, errorCategory) => api_1.context.with(activeContext, () => finishInContext(outcome, completion, errorCategory));
         return {
             run: work => api_1.context.with(activeContext, work),
             success: completion => finish('success', completion),
             failure: error => {
+                const category = (0, telemetry_1.runtimeErrorCategory)(error);
                 span.setAttribute('teaql.error.type', this.errorType(error));
-                finish('failure');
+                span.setAttribute('teaql.error.category', category);
+                finish('failure', undefined, category);
             },
         };
     }

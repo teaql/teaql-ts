@@ -6,6 +6,7 @@ import {
   RuntimeTelemetryScope,
   startRuntimeOperation,
 } from '../src/core/telemetry';
+import { runtimeErrorCategory } from '../src/core/telemetry';
 import { SelectQuery } from '../src/core/ast';
 import { EntitySchema } from '../src/sql/core';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
@@ -21,6 +22,15 @@ class RecordingTelemetry implements RuntimeTelemetry {
     };
   }
 }
+
+test('classifies native error types without inspecting messages', () => {
+  class DatabaseTimeoutError extends Error {}
+  class PermissionError extends Error {}
+  class UnknownTeaQLError extends Error {}
+  expect(runtimeErrorCategory(new DatabaseTimeoutError('secret'))).toBe('timeout');
+  expect(runtimeErrorCategory(new PermissionError('secret'))).toBe('authorization');
+  expect(runtimeErrorCategory(new UnknownTeaQLError('timeout in message'))).toBe('internal');
+});
 
 test('records one balanced successful lifecycle and removes forbidden attributes', async () => {
   const telemetry = new RecordingTelemetry();

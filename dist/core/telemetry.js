@@ -1,6 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.observeRuntimeOperation = exports.startRuntimeOperation = exports.safeRuntimeOperation = exports.NOOP_RUNTIME_TELEMETRY = exports.injectRuntimeContext = void 0;
+exports.observeRuntimeOperation = exports.startRuntimeOperation = exports.safeRuntimeOperation = exports.NOOP_RUNTIME_TELEMETRY = exports.injectRuntimeContext = exports.runtimeErrorCategory = void 0;
+/** Stable classification derived from a native error type, never its message. */
+function runtimeErrorCategory(error) {
+    const type = error instanceof Error && error.constructor?.name
+        ? error.constructor.name.toLowerCase()
+        : typeof error;
+    if (/timeout|deadline/.test(type))
+        return 'timeout';
+    if (/authentication|authorization|unauthorized|forbidden|permission/.test(type))
+        return 'authorization';
+    if (/validation|invalidargument|valueerror|parse|format/.test(type))
+        return 'validation';
+    if (/conflict|optimistic|version|duplicate|alreadyexists/.test(type))
+        return 'conflict';
+    if (/transport|network|connection|socket|http|ioerror/.test(type))
+        return 'transport';
+    if (/provider|sql|database|jdbc/.test(type))
+        return 'provider';
+    return 'internal';
+}
+exports.runtimeErrorCategory = runtimeErrorCategory;
 /** Inject the active runtime trace into transport metadata without affecting business work. */
 function injectRuntimeContext(telemetry, carrier) {
     try {

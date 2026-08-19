@@ -1,5 +1,8 @@
 export type RuntimeOperationFamily = 'query' | 'mutation' | 'relation_load' | 'provider' | 'cache' | 'tfp' | 'audit';
 export type RuntimeAttributeValue = string | number | boolean;
+export type RuntimeErrorCategory = 'validation' | 'authorization' | 'conflict' | 'timeout' | 'transport' | 'provider' | 'internal';
+/** Stable classification derived from a native error type, never its message. */
+export declare function runtimeErrorCategory(error: unknown): RuntimeErrorCategory;
 export interface RuntimeOperation {
     readonly family: RuntimeOperationFamily;
     readonly name: string;

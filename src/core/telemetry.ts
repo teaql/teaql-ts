@@ -9,6 +9,24 @@ export type RuntimeOperationFamily =
 
 export type RuntimeAttributeValue = string | number | boolean;
 
+export type RuntimeErrorCategory =
+  | 'validation' | 'authorization' | 'conflict' | 'timeout'
+  | 'transport' | 'provider' | 'internal';
+
+/** Stable classification derived from a native error type, never its message. */
+export function runtimeErrorCategory(error: unknown): RuntimeErrorCategory {
+  const type = error instanceof Error && error.constructor?.name
+    ? error.constructor.name.toLowerCase()
+    : typeof error;
+  if (/timeout|deadline/.test(type)) return 'timeout';
+  if (/authentication|authorization|unauthorized|forbidden|permission/.test(type)) return 'authorization';
+  if (/validation|invalidargument|valueerror|parse|format/.test(type)) return 'validation';
+  if (/conflict|optimistic|version|duplicate|alreadyexists/.test(type)) return 'conflict';
+  if (/transport|network|connection|socket|http|ioerror/.test(type)) return 'transport';
+  if (/provider|sql|database|jdbc/.test(type)) return 'provider';
+  return 'internal';
+}
+
 export interface RuntimeOperation {
   readonly family: RuntimeOperationFamily;
   readonly name: string;

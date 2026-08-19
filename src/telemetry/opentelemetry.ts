@@ -15,6 +15,7 @@ import {
   RuntimeOperationCompletion,
   RuntimeTelemetry,
   RuntimeTelemetryScope,
+  runtimeErrorCategory,
 } from '../core/telemetry';
 
 export interface OpenTelemetryRuntimeLifecycle {
@@ -51,7 +52,8 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     const activeContext = trace.setSpan(context.active(), span);
     let ended = false;
 
-    const finishInContext = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion) => {
+    const finishInContext = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion,
+      errorCategory?: string) => {
       if (ended) return;
       ended = true;
       if (outcome === 'success') this.setSafeCompletionAttributes(span, completion);
@@ -73,19 +75,23 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
           ...metricAttributes,
           'teaql.operation.name': operation.name,
           'teaql.operation.duration_ms': durationMs,
+          ...(errorCategory ? { 'teaql.error.category': errorCategory } : {}),
         },
       });
       span.end();
     };
-    const finish = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion) =>
-      context.with(activeContext, () => finishInContext(outcome, completion));
+    const finish = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion,
+      errorCategory?: string) =>
+      context.with(activeContext, () => finishInContext(outcome, completion, errorCategory));
 
     return {
       run: work => context.with(activeContext, work),
       success: completion => finish('success', completion),
       failure: error => {
+        const category = runtimeErrorCategory(error);
         span.setAttribute('teaql.error.type', this.errorType(error));
-        finish('failure');
+        span.setAttribute('teaql.error.category', category);
+        finish('failure', undefined, category);
       },
     };
   }
