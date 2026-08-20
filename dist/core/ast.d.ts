@@ -1,3 +1,4 @@
+import { SmartList } from './smart-list';
 export declare enum SortDirection {
     Asc = "Asc",
     Desc = "Desc"
@@ -22,7 +23,7 @@ export declare class AggregationCacheOptions {
     propagate(cacheExpiredMillis: number): AggregationCacheOptions;
 }
 export interface TeaQLPage<T> {
-    data: T[];
+    data: SmartList<T>;
     totalCount: number;
     offset: number;
     limit: number;

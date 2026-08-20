@@ -1,4 +1,5 @@
 import { Value } from './value';
+import { SmartList } from './smart-list';
 
 export enum SortDirection {
   Asc = 'Asc',
@@ -44,7 +45,7 @@ export class AggregationCacheOptions {
 }
 
 export interface TeaQLPage<T> {
-  data: T[];
+  data: SmartList<T>;
   totalCount: number;
   offset: number;
   limit: number;
