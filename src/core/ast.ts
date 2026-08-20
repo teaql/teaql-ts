@@ -223,6 +223,7 @@ export class MutationQuery {
     public action: "Create" | "Update" | "Delete",
     public payload: any,
     public id?: any,
-    public comment?: string
+    public comment?: string,
+    public expectedVersion?: number,
   ) {}
 }

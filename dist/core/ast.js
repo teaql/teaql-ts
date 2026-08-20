@@ -170,12 +170,13 @@ class SelectQuery {
 }
 exports.SelectQuery = SelectQuery;
 class MutationQuery {
-    constructor(entity, action, payload, id, comment) {
+    constructor(entity, action, payload, id, comment, expectedVersion) {
         this.entity = entity;
         this.action = action;
         this.payload = payload;
         this.id = id;
         this.comment = comment;
+        this.expectedVersion = expectedVersion;
     }
 }
 exports.MutationQuery = MutationQuery;

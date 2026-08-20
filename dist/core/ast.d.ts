@@ -87,6 +87,7 @@ export declare class MutationQuery {
     payload: any;
     id?: any;
     comment?: string | undefined;
-    constructor(entity: string, action: "Create" | "Update" | "Delete", payload: any, id?: any, comment?: string | undefined);
+    expectedVersion?: number | undefined;
+    constructor(entity: string, action: "Create" | "Update" | "Delete", payload: any, id?: any, comment?: string | undefined, expectedVersion?: number | undefined);
 }
 //# sourceMappingURL=ast.d.ts.map

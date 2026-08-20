@@ -39,8 +39,26 @@ class TeaQLClient {
     }
     async executeQuery(query) {
         query.prepareForList();
-        const payload = JSON.parse(JSON.stringify(query));
-        rejectRemoteHardLimit(payload);
+        rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
+        if (!query.commentText?.trim())
+            throw new Error('TFP_INVALID_REQUEST: commentText is required');
+        if (!query.purposeText?.trim())
+            throw new Error('TFP_POLICY_VIOLATION: purposeText is required');
+        if (query.facets.length || query.relations.length || query.joins.length) {
+            throw new Error('TFP_INVALID_REQUEST: facets, relations, and joins are not part of canonical TFP v1');
+        }
+        const payload = {
+            entity: query.entity,
+            filterCondition: query.filterCondition,
+            limitValue: query.limitValue || undefined,
+            offsetValue: query.offsetValue || undefined,
+            orderItems: query.orderItems,
+            selectItems: query.selectItems,
+            groupByItems: query.groupByItems,
+            aggregateItems: query.aggregateItems,
+            commentText: query.commentText,
+            purposeText: query.purposeText,
+        };
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.query', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
             const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
@@ -59,10 +77,18 @@ class TeaQLClient {
         throw new Error('TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol');
     }
     async executeMutation(query) {
+        if (!query?.comment?.trim?.()) {
+            throw new Error('TFP_AUDIT_REASON_REQUIRED: mutation audit reason is required');
+        }
+        const payload = {
+            entity: query.entity, action: query.action, payload: query.payload,
+            id: query.id, expectedVersion: query.expectedVersion, comment: query.comment,
+        };
+        rejectRemoteHardLimit(payload);
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.mutation', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
             const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
             const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
-                method: 'POST', headers, body: JSON.stringify(query),
+                method: 'POST', headers, body: JSON.stringify(payload),
             });
             if (!response.ok) {
                 const errorText = await response.text();

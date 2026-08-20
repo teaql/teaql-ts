@@ -20,6 +20,9 @@ class TfpRecordingTelemetry implements RuntimeTelemetry {
 // Mock fetch globally
 global.fetch = jest.fn();
 
+const federalQuery = (entity: string) => new SelectQuery(entity)
+  .comment('conformance query').purpose('conformance test');
+
 describe('TeaQLClient Backend/Node.js Tests', () => {
   beforeEach(() => {
     (global.fetch as jest.Mock).mockClear();
@@ -35,7 +38,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
 
     // 2. Arrange: Create client and query
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
-    const query = new SelectQuery("User")
+    const query = federalQuery("User")
       .filter({ "name": { "$eq": "Test User" } })
       .order(OrderBy.desc("id"))
       .limit(10);
@@ -62,28 +65,20 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.orderItems[0].direction).toBe(SortDirection.Desc);
   });
 
-  it('should support facets in SelectQuery', async () => {
+  it('rejects facets outside canonical TFP v1', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: async () => ({ data: [], facets: { statusCount: [{ code: 'NEW', count: 5 }] } })
     });
 
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
-    const query = new SelectQuery("Task");
+    const query = federalQuery("Task");
     
     const facetQuery = new SelectQuery("Task").aggregate("Count", "id", "count");
     query.facetBy("statusCount", "STATUS_PROPERTY", { query: facetQuery });
 
-    const result = await client.executeQuery(query);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-
-    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
-    const body = JSON.parse(options.body);
-    expect(body.facets).toBeDefined();
-    expect(body.facets.length).toBe(1);
-    expect(body.facets[0].facetName).toBe("statusCount");
-    expect(body.facets[0].relationName).toBe("STATUS_PROPERTY");
-    expect(body.facets[0].query.entity).toBe("Task");
+    await expect(client.executeQuery(query)).rejects.toThrow('TFP_INVALID_REQUEST');
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('should support mutations and correctly serialize them to /mutate', async () => {
@@ -119,7 +114,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) });
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api', runtimeTelemetry: telemetry });
 
-    await client.executeQuery(new SelectQuery('Task'));
+    await client.executeQuery(federalQuery('Task'));
     await client.executeMutation(new MutationQuery('Task', 'Create', {}, undefined, 'test'));
 
     expect(telemetry.events.map(event => [
@@ -141,7 +136,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' })
       .setRuntimeTelemetry(telemetry);
 
-    await expect(client.executeQuery(new SelectQuery('Task'))).rejects.toBe(transportError);
+    await expect(client.executeQuery(federalQuery('Task'))).rejects.toBe(transportError);
     expect(telemetry.events).toHaveLength(1);
     expect(telemetry.events[0].outcome).toBe('failure');
   });
@@ -156,7 +151,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
       baseUrl: 'http://localhost:8080/api', runtimeTelemetry: telemetry,
     });
 
-    await client.executeQuery(new SelectQuery('Task'));
+    await client.executeQuery(federalQuery('Task'));
 
     const [, options] = (global.fetch as jest.Mock).mock.calls[0];
     expect(options.headers.traceparent).toBe('00-trace-span-01');
@@ -172,7 +167,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
 
     await new TeaQLClient({
       baseUrl: 'http://localhost:8080/api', runtimeTelemetry: telemetry,
-    }).executeQuery(new SelectQuery('Task'));
+    }).executeQuery(federalQuery('Task'));
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -205,7 +200,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     'rejects remote hard-limit injection through %s without issuing HTTP',
     async (field) => {
       const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
-      const query = new SelectQuery('Order') as SelectQuery & Record<string, unknown>;
+      const query = federalQuery('Order') as SelectQuery & Record<string, unknown>;
       query[field] = 20_000;
 
       await expect(client.executeQuery(query)).rejects.toThrow('TFP_FORBIDDEN_FIELD');
@@ -217,7 +212,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     'rejects remote local cursor policy field %s without issuing HTTP',
     async (field) => {
       const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
-      const query = new SelectQuery('Order') as SelectQuery & Record<string, unknown>;
+      const query = federalQuery('Order') as SelectQuery & Record<string, unknown>;
       query[field] = { namespace: 'attacker', ttlSeconds: 999 };
       await expect(client.executeQuery(query)).rejects.toThrow('TFP_FORBIDDEN_FIELD');
       expect(global.fetch).not.toHaveBeenCalled();
@@ -228,7 +223,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
     const nested = new SelectQuery('OrderLine') as SelectQuery & Record<string, unknown>;
     nested.hard_limit = 20_000;
-    const query = new SelectQuery('Order').relationQuery('lines', nested);
+    const query = federalQuery('Order').relationQuery('lines', nested);
 
     await expect(client.executeQuery(query)).rejects.toThrow('TFP_FORBIDDEN_FIELD');
     expect(global.fetch).not.toHaveBeenCalled();
