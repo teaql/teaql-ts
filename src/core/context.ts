@@ -1,4 +1,5 @@
 import { SelectQuery } from './ast';
+import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
 
 type Cursor = { cursorId: string; boundary: any; expiresAt: number };
 
@@ -14,6 +15,13 @@ export class UserContext {
   public userIdentifier = '';
   public continuousPagePlan = 'DISABLED';
   public continuousPageCursorId?: string;
+  public locale: Locale = 'en';
+  public i18nCatalog: I18nCatalog = I18nCatalog.builtin;
+
+  setLocaleCode(code: string): this { const locale = parseLocale(code); this.locale = locale; return this; }
+  setLanguageCode(code: string): this { return this.setLocaleCode(code); }
+  installI18nCatalog(catalog: I18nCatalog): this { if(!catalog) throw new Error('catalog is required'); this.i18nCatalog=catalog; return this; }
+  translateCheckResults(results: CheckResult[]): CheckResult[] { return results.map(result=>this.i18nCatalog.translate(result,this.locale)); }
 
   insertResource<T>(name: string, resource: T): this {
     this.resources.set(name, resource);

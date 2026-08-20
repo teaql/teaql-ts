@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SortDirection = exports.OrderBy = exports.AggregationCacheOptions = exports.MutationQuery = exports.SelectQuery = void 0;
 __exportStar(require("./core/value"), exports);
 __exportStar(require("./core/context"), exports);
+__exportStar(require("./core/i18n"), exports);
 __exportStar(require("./core/tools"), exports);
 __exportStar(require("./core/local-cache"), exports);
 __exportStar(require("./core/runtime-module"), exports);

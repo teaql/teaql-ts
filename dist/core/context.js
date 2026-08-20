@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserContext = void 0;
+const i18n_1 = require("./i18n");
 class UserContext {
     constructor() {
         this.resources = new Map();
@@ -13,7 +14,14 @@ class UserContext {
         };
         this.userIdentifier = '';
         this.continuousPagePlan = 'DISABLED';
+        this.locale = 'en';
+        this.i18nCatalog = i18n_1.I18nCatalog.builtin;
     }
+    setLocaleCode(code) { const locale = (0, i18n_1.parseLocale)(code); this.locale = locale; return this; }
+    setLanguageCode(code) { return this.setLocaleCode(code); }
+    installI18nCatalog(catalog) { if (!catalog)
+        throw new Error('catalog is required'); this.i18nCatalog = catalog; return this; }
+    translateCheckResults(results) { return results.map(result => this.i18nCatalog.translate(result, this.locale)); }
     insertResource(name, resource) {
         this.resources.set(name, resource);
         return this;

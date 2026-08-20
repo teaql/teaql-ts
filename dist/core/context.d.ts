@@ -1,4 +1,5 @@
 import { SelectQuery } from './ast';
+import { CheckResult, I18nCatalog, Locale } from './i18n';
 export declare class UserContext {
     private readonly resources;
     private readonly continuousPageCursors;
@@ -6,6 +7,12 @@ export declare class UserContext {
     userIdentifier: string;
     continuousPagePlan: string;
     continuousPageCursorId?: string;
+    locale: Locale;
+    i18nCatalog: I18nCatalog;
+    setLocaleCode(code: string): this;
+    setLanguageCode(code: string): this;
+    installI18nCatalog(catalog: I18nCatalog): this;
+    translateCheckResults(results: CheckResult[]): CheckResult[];
     insertResource<T>(name: string, resource: T): this;
     getResource<T>(name: string): T | undefined;
     requireResource<T>(name: string): T;
