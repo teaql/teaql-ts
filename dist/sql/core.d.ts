@@ -1,4 +1,5 @@
 import { RuntimeTelemetry } from '../core/telemetry';
+import { UserContext } from '../core/context';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
     columnName: string;
@@ -89,9 +90,12 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private auditSink?;
     private telemetrySink?;
     private runtimeTelemetry?;
+    private readonly checkers;
+    private userContext;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
+    setUserContext(context: UserContext): this;
     private schema;
     private encode;
     private decodeRow;

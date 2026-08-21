@@ -29,6 +29,7 @@ class UserContext {
     getResource(name) {
         return this.resources.get(name);
     }
+    removeResource(name) { this.resources.delete(name); return this; }
     requireResource(name) {
         const resource = this.getResource(name);
         if (resource === undefined) {

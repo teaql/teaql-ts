@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.debugSQL = void 0;
 const telemetry_1 = require("../core/telemetry");
+const checker_1 = require("../core/checker");
+const context_1 = require("../core/context");
 function debugSQL(parameterizedSQL, parameters, databaseKind = 'sqlite') {
     let positionalIndex = 0;
     let result = '';
@@ -177,12 +179,16 @@ class AbstractSQLTeaQLClient {
         this.sqlTrace = [];
         this.internalQueryToken = Symbol('teaql-internal-query');
         this.auditEvents = [];
+        this.checkers = {};
+        this.userContext = new context_1.UserContext();
     }
     /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
     install(module) {
         Object.assign(this.schemas, module.schemas);
+        Object.assign(this.checkers, module.checkers);
         return this;
     }
+    setUserContext(context) { this.userContext = context; return this; }
     schema(entity) {
         const schema = this.schemas[entity];
         if (!schema)
@@ -262,6 +268,20 @@ class AbstractSQLTeaQLClient {
         try {
             if (!String(mutation?.comment || '').trim()) {
                 throw new Error('Security audit failure: audit reason is required before mutation');
+            }
+            const checker = this.checkers[String(mutation.entity)];
+            if (checker) {
+                const results = [];
+                this.userContext.insertResource('fixTime', new Date());
+                try {
+                    checker.checkAndFix(this.userContext, mutation, results);
+                    this.userContext.translateCheckResults(results);
+                    if (results.length)
+                        throw new checker_1.CheckException(results);
+                }
+                finally {
+                    this.userContext.removeResource('fixTime');
+                }
             }
             const schema = this.schema(mutation.entity);
             const table = this.driver.identifier(schema.table);

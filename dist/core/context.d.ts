@@ -15,6 +15,7 @@ export declare class UserContext {
     translateCheckResults(results: CheckResult[]): CheckResult[];
     insertResource<T>(name: string, resource: T): this;
     getResource<T>(name: string): T | undefined;
+    removeResource(name: string): this;
     requireResource<T>(name: string): T;
     /**
      * Bind local optimization state without copying trusted runtime resources
