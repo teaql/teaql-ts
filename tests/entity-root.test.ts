@@ -21,3 +21,11 @@ test('entity root tracks final values, versions and lifecycle', () => {
   expect(root.isNew(line)).toBe(false);
   expect(root.isDeleted(line)).toBe(false);
 });
+
+test('entity root merges, rekeys and clears one entity', () => {
+  const child = new EntityRoot(); const temporary = { entity: 'Line', id: -1 }; const persisted = { entity: 'Line', id: 42 };
+  child.markAsNew(temporary); child.set(temporary, 'quantity', 2);
+  const root = new EntityRoot(); root.mergeFrom(child); root.rekey(temporary, persisted);
+  expect(root.isNew(persisted)).toBe(true); expect(root.change(persisted).quantity).toBe(2);
+  root.clearEntity(persisted); expect(root.isNew(persisted)).toBe(false); expect(root.change(persisted)).toEqual({});
+});
