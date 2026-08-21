@@ -1,5 +1,6 @@
 import { SelectQuery } from './ast';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
+import { EntityRoot } from './entity-root';
 export type ContextEntityRef = Readonly<{
     entity: string;
     id: string | number | bigint;
@@ -17,6 +18,7 @@ export declare class ContextRootError extends Error {
     }> | undefined);
 }
 export declare class UserContext {
+    readonly entityRoot: EntityRoot;
     private readonly resources;
     private readonly continuousPageCursors;
     private readonly continuousPageRuntime;
