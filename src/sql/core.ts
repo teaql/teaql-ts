@@ -3,6 +3,8 @@ import {
   RuntimeTelemetry,
   startRuntimeOperation,
 } from '../core/telemetry';
+import { CheckException, EntityChecker } from '../core/checker';
+import { UserContext } from '../core/context';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -244,6 +246,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
   private telemetrySink?: RuntimeTelemetrySink;
   private runtimeTelemetry?: RuntimeTelemetry;
+  private readonly checkers: Record<string, EntityChecker> = {};
+  private userContext = new UserContext();
 
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
@@ -253,8 +257,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
   install(module: import('../core/runtime-module').RuntimeModule): this {
     Object.assign(this.schemas, module.schemas);
+    Object.assign(this.checkers, module.checkers);
     return this;
   }
+
+  setUserContext(context: UserContext): this { this.userContext = context; return this; }
 
   private schema(entity: string): EntitySchema {
     const schema = this.schemas[entity];
@@ -341,6 +348,18 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     try {
       if (!String(mutation?.comment || '').trim()) {
         throw new Error('Security audit failure: audit reason is required before mutation');
+      }
+      const checker = this.checkers[String(mutation.entity)];
+      if (checker) {
+        const results: import('../core/i18n').CheckResult[] = [];
+        this.userContext.insertResource('fixTime', new Date());
+        try {
+          checker.checkAndFix(this.userContext, mutation, results);
+          this.userContext.translateCheckResults(results);
+          if (results.length) throw new CheckException(results);
+        } finally {
+          this.userContext.removeResource('fixTime');
+        }
       }
       const schema = this.schema(mutation.entity);
       const table = this.driver.identifier(schema.table);

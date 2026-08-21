@@ -1,5 +1,6 @@
 export * from './core/value';
 export * from './core/context';
+export * from './core/checker';
 export * from './core/i18n';
 export * from './core/tools';
 export * from './core/local-cache';

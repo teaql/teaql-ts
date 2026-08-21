@@ -32,6 +32,8 @@ export class UserContext {
     return this.resources.get(name) as T | undefined;
   }
 
+  removeResource(name: string): this { this.resources.delete(name); return this; }
+
   requireResource<T>(name: string): T {
     const resource = this.getResource<T>(name);
     if (resource === undefined) {
