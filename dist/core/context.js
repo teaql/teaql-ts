@@ -1,7 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserContext = void 0;
+exports.UserContext = exports.ContextRootError = void 0;
 const i18n_1 = require("./i18n");
+class ContextRootError extends Error {
+    constructor(reason, expectedType, activeRoot) {
+        super(`context root ${reason}: expected ${expectedType}`);
+        this.reason = reason;
+        this.expectedType = expectedType;
+        this.activeRoot = activeRoot;
+        this.name = 'ContextRootError';
+    }
+}
+exports.ContextRootError = ContextRootError;
 class UserContext {
     constructor() {
         this.resources = new Map();
@@ -36,6 +46,20 @@ class UserContext {
             throw new Error(`Required UserContext resource is missing: ${name}`);
         }
         return resource;
+    }
+    withActiveRoot(root) {
+        if (!root || !root.entity || root.id === undefined || root.id === null) {
+            throw new TypeError('active root must be a typed entity reference');
+        }
+        return this.insertResource('activeRoot', Object.freeze({ ...root }));
+    }
+    requireActiveRoot(expectedType) {
+        const root = this.getResource('activeRoot');
+        if (!root)
+            throw new ContextRootError('missing', expectedType);
+        if (root.entity !== expectedType)
+            throw new ContextRootError('type_mismatch', expectedType, root);
+        return root;
     }
     /**
      * Bind local optimization state without copying trusted runtime resources

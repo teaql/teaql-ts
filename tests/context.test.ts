@@ -23,4 +23,12 @@ describe('UserContext', () => {
       'Required UserContext resource is missing: dataService',
     );
   });
+
+  it('binds a typed active root and rejects missing or mismatched types', () => {
+    const context = new UserContext();
+    expect(() => context.requireActiveRoot('Tenant')).toThrow('context root missing');
+    context.withActiveRoot({ entity: 'Tenant', id: 42 });
+    expect(context.requireActiveRoot('Tenant').id).toBe(42);
+    expect(() => context.requireActiveRoot('Store')).toThrow('context root type_mismatch');
+  });
 });

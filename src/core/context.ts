@@ -3,6 +3,19 @@ import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
 
 type Cursor = { cursorId: string; boundary: any; expiresAt: number };
 
+export type ContextEntityRef = Readonly<{ entity: string; id: string | number | bigint }>;
+
+export class ContextRootError extends Error {
+  constructor(
+    public readonly reason: 'missing' | 'type_mismatch',
+    public readonly expectedType: string,
+    public readonly activeRoot?: ContextEntityRef,
+  ) {
+    super(`context root ${reason}: expected ${expectedType}`);
+    this.name = 'ContextRootError';
+  }
+}
+
 export class UserContext {
   private readonly resources = new Map<string, unknown>();
   private readonly continuousPageCursors = new Map<string, Cursor>();
@@ -40,6 +53,20 @@ export class UserContext {
       throw new Error(`Required UserContext resource is missing: ${name}`);
     }
     return resource;
+  }
+
+  withActiveRoot(root: ContextEntityRef): this {
+    if (!root || !root.entity || root.id === undefined || root.id === null) {
+      throw new TypeError('active root must be a typed entity reference');
+    }
+    return this.insertResource('activeRoot', Object.freeze({ ...root }));
+  }
+
+  requireActiveRoot(expectedType: string): ContextEntityRef {
+    const root = this.getResource<ContextEntityRef>('activeRoot');
+    if (!root) throw new ContextRootError('missing', expectedType);
+    if (root.entity !== expectedType) throw new ContextRootError('type_mismatch', expectedType, root);
+    return root;
   }
 
   /**

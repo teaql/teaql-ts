@@ -1,5 +1,21 @@
 import { SelectQuery } from './ast';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
+export type ContextEntityRef = Readonly<{
+    entity: string;
+    id: string | number | bigint;
+}>;
+export declare class ContextRootError extends Error {
+    readonly reason: 'missing' | 'type_mismatch';
+    readonly expectedType: string;
+    readonly activeRoot?: Readonly<{
+        entity: string;
+        id: string | number | bigint;
+    }> | undefined;
+    constructor(reason: 'missing' | 'type_mismatch', expectedType: string, activeRoot?: Readonly<{
+        entity: string;
+        id: string | number | bigint;
+    }> | undefined);
+}
 export declare class UserContext {
     private readonly resources;
     private readonly continuousPageCursors;
@@ -17,6 +33,8 @@ export declare class UserContext {
     getResource<T>(name: string): T | undefined;
     removeResource(name: string): this;
     requireResource<T>(name: string): T;
+    withActiveRoot(root: ContextEntityRef): this;
+    requireActiveRoot(expectedType: string): ContextEntityRef;
     /**
      * Bind local optimization state without copying trusted runtime resources
      * into the query or federation JSON payload.
