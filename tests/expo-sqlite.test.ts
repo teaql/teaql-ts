@@ -111,9 +111,9 @@ describe('Expo SQLite TeaQL driver', () => {
     );
     expect(created).toEqual({
       success: true,
-      id: '1000',
+      id: '1',
       version: 1,
-      persistedRecord: { id: '1000', version: 1, name: 'first', active: true },
+      persistedRecord: { id: '1', version: 1, name: 'first', active: true },
     });
 
     const rows = await client.executeQuery<any>(
@@ -122,7 +122,7 @@ describe('Expo SQLite TeaQL driver', () => {
         .purpose('browse order history')
         .order(OrderBy.asc('id')),
     );
-    expect(rows).toEqual([{ id: '1000', version: 1, name: 'first', active: true }]);
+    expect(rows).toEqual([{ id: '1', version: 1, name: 'first', active: true }]);
     expect(client.auditTrace[0].reason).toBe('create local order');
 
     await client.close();

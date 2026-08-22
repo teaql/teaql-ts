@@ -36,6 +36,7 @@ export declare class ExpoSQLiteDriver implements TeaQLSqlDriver {
     ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;
     transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T>;
     nextId(session: SqlSession, entity: string): Promise<string>;
+    ensureIdFloor(session: SqlSession, entity: string, floor: string): Promise<void>;
     query(sql: string, values?: any[]): Promise<SqlQueryResult>;
     stream(sql: string, values?: any[]): AsyncIterable<any>;
     close(): Promise<void>;

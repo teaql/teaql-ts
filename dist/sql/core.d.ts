@@ -42,8 +42,10 @@ export interface TeaQLSqlDriver extends SqlSession {
     ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;
     transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T>;
     nextId(session: SqlSession, entity: string): Promise<string>;
+    ensureIdFloor(session: SqlSession, entity: string, floor: string): Promise<void>;
     close(): Promise<void>;
 }
+export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder: (index: number) => string, entity: string, floor: string): Promise<void>;
 export interface TeaQLDataService {
     executeMutation(mutation: any): Promise<MutationResult>;
     executeQuery<T = any>(query: any): Promise<T[]>;

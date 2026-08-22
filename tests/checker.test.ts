@@ -14,6 +14,7 @@ class Driver implements TeaQLSqlDriver {
   ensureSchema = async () => {};
   transaction = async <T>(work: (session: any) => Promise<T>) => { this.transactions++; return work(this); };
   nextId = async () => '1';
+  ensureIdFloor = async () => {};
   close = async () => {};
 }
 

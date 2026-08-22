@@ -63,7 +63,54 @@ export interface TeaQLSqlDriver extends SqlSession {
   ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;
   transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T>;
   nextId(session: SqlSession, entity: string): Promise<string>;
+  ensureIdFloor(session: SqlSession, entity: string, floor: string): Promise<void>;
   close(): Promise<void>;
+}
+
+export async function ensureOptimisticIdFloor(
+  session: SqlSession,
+  placeholder: (index: number) => string,
+  entity: string,
+  floor: string,
+): Promise<void> {
+  const numericFloor = Number(floor);
+  if (!Number.isSafeInteger(numericFloor) || numericFloor < 0) {
+    throw new Error(`Invalid ID space floor ${floor} for ${entity}`);
+  }
+  for (let attempt = 1; attempt <= 100; attempt += 1) {
+    const currentResult = await session.query(
+      `SELECT current_level AS id FROM teaql_id_space WHERE type_name = ${placeholder(1)}`,
+      [entity],
+    );
+    if (!currentResult.rowCount) {
+      try {
+        const inserted = await session.query(
+          `INSERT INTO teaql_id_space(type_name, current_level) VALUES (${placeholder(1)}, ${placeholder(2)})`,
+          [entity, numericFloor],
+        );
+        if (inserted.rowCount === 1) return;
+      } catch (error) {
+        const winner = await session.query(
+          `SELECT current_level FROM teaql_id_space WHERE type_name = ${placeholder(1)}`,
+          [entity],
+        );
+        if (!winner.rowCount) throw error;
+      }
+      continue;
+    }
+    const current = Number(currentResult.rows[0].id);
+    if (current >= numericFloor) return;
+    const updated = await session.query(
+      `UPDATE teaql_id_space SET current_level = ${placeholder(1)} ` +
+      `WHERE type_name = ${placeholder(2)} AND current_level = ${placeholder(3)}`,
+      [numericFloor, entity, current],
+    );
+    if (updated.rowCount === 1) return;
+    if (updated.rowCount !== 0) throw new Error(
+      `ID space floor update for ${entity} changed ${updated.rowCount} rows on attempt ${attempt}`);
+  }
+  throw new Error(
+    `Unable to synchronize ID space floor for ${entity} after 100 optimistic-lock attempts`);
 }
 
 export interface TeaQLDataService {
@@ -380,6 +427,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const id = mutation.id
           ? String(mutation.id)
           : await this.driver.nextId(session, mutation.entity);
+        if (mutation.id) {
+          await this.driver.ensureIdFloor(session, mutation.entity, id);
+        }
         const version = Number(mutation.version || 0) + 1;
         const record = { ...mutation.payload, id, version };
         const fields = Object.keys(schema.columns)

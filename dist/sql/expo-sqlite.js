@@ -90,7 +90,7 @@ class ExpoSQLiteDriver {
             }
         }
         await this.query('CREATE TABLE IF NOT EXISTS teaql_id_space (' +
-            'entity TEXT PRIMARY KEY, next_id INTEGER NOT NULL)');
+            'type_name TEXT PRIMARY KEY, current_level INTEGER NOT NULL)');
     }
     async transaction(work) {
         let value;
@@ -100,14 +100,34 @@ class ExpoSQLiteDriver {
         return value;
     }
     async nextId(session, entity) {
-        const current = await session.query('SELECT next_id AS id FROM teaql_id_space WHERE entity = ?', [entity]);
-        if (!current.rowCount) {
-            await session.query('INSERT INTO teaql_id_space(entity, next_id) VALUES (?, 1000)', [entity]);
-            return '1000';
+        for (let attempt = 1; attempt <= 100; attempt += 1) {
+            const current = await session.query('SELECT current_level AS id FROM teaql_id_space WHERE type_name = ?', [entity]);
+            if (!current.rowCount) {
+                try {
+                    const inserted = await session.query('INSERT INTO teaql_id_space(type_name, current_level) VALUES (?, 1)', [entity]);
+                    if (inserted.rowCount === 1)
+                        return '1';
+                }
+                catch (error) {
+                    const winner = await session.query('SELECT current_level AS id FROM teaql_id_space WHERE type_name = ?', [entity]);
+                    if (!winner.rowCount)
+                        throw error;
+                }
+                continue;
+            }
+            const previous = Number(current.rows[0].id);
+            const next = previous + 1;
+            const updated = await session.query('UPDATE teaql_id_space SET current_level = ? WHERE type_name = ? AND current_level = ?', [next, entity, previous]);
+            if (updated.rowCount === 1)
+                return String(next);
+            if (updated.rowCount !== 0) {
+                throw new Error(`ID space update for ${entity} changed ${updated.rowCount} rows`);
+            }
         }
-        const next = Number(current.rows[0].id) + 1;
-        await session.query('UPDATE teaql_id_space SET next_id = ? WHERE entity = ?', [next, entity]);
-        return String(next);
+        throw new Error(`Unable to allocate ID for ${entity} after 100 optimistic-lock attempts`);
+    }
+    ensureIdFloor(session, entity, floor) {
+        return (0, core_1.ensureOptimisticIdFloor)(session, index => this.placeholder(index), entity, floor);
     }
     async query(sql, values = []) {
         return new ExpoSQLiteSession(this.database).query(sql, values);

@@ -15,6 +15,7 @@ class Driver implements TeaQLSqlDriver {
   async ensureSchema() {}
   async transaction<T>(work: (session: any) => Promise<T>): Promise<T> { return work(this); }
   async nextId() { return '1'; }
+  async ensureIdFloor() {}
   async close() {}
 }
 class Client extends AbstractSQLTeaQLClient { constructor(public d: Driver) { super(d, { Order: { table: 'orders', columns: { id: { columnName: 'id', logicalType: 'integer', decode: 'number' } } } }); } }

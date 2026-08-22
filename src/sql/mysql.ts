@@ -9,6 +9,7 @@ import {
   SqlQueryResult,
   SqlSession,
   standardAggregateFunction,
+  ensureOptimisticIdFloor,
   TeaQLSqlDriver,
 } from './core';
 
@@ -105,7 +106,7 @@ export class MySQLDriver implements TeaQLSqlDriver {
     }
     await this.query(
       'CREATE TABLE IF NOT EXISTS teaql_id_space (' +
-      'entity VARCHAR(255) PRIMARY KEY, next_id BIGINT NOT NULL)',
+      'type_name VARCHAR(255) PRIMARY KEY, current_level BIGINT NOT NULL)',
     );
   }
 
@@ -125,16 +126,35 @@ export class MySQLDriver implements TeaQLSqlDriver {
   }
 
   async nextId(session: SqlSession, entity: string): Promise<string> {
-    await session.query(
-      'INSERT INTO teaql_id_space(entity, next_id) VALUES (?, 1000) ' +
-      'ON DUPLICATE KEY UPDATE next_id = next_id + 1',
-      [entity],
-    );
-    const result = await session.query(
-      'SELECT next_id AS id FROM teaql_id_space WHERE entity = ?',
-      [entity],
-    );
-    return String(result.rows[0].id);
+    for (let attempt = 1; attempt <= 100; attempt += 1) {
+      const result = await session.query(
+        'SELECT current_level AS id FROM teaql_id_space WHERE type_name = ?', [entity]);
+      if (!result.rowCount) {
+        try {
+          const inserted = await session.query(
+            'INSERT INTO teaql_id_space(type_name, current_level) VALUES (?, 1)', [entity]);
+          if (inserted.rowCount === 1) return '1';
+        } catch (error) {
+          const winner = await session.query(
+            'SELECT current_level FROM teaql_id_space WHERE type_name = ?', [entity]);
+          if (!winner.rowCount) throw error;
+        }
+        continue;
+      }
+      const previous = Number(result.rows[0].id);
+      const next = previous + 1;
+      const updated = await session.query(
+        'UPDATE teaql_id_space SET current_level = ? ' +
+        'WHERE type_name = ? AND current_level = ?', [next, entity, previous]);
+      if (updated.rowCount === 1) return String(next);
+      if (updated.rowCount !== 0) throw new Error(
+        `ID space update for ${entity} changed ${updated.rowCount} rows`);
+    }
+    throw new Error(`Unable to allocate ID for ${entity} after 100 optimistic-lock attempts`);
+  }
+
+  ensureIdFloor(session: SqlSession, entity: string, floor: string): Promise<void> {
+    return ensureOptimisticIdFloor(session, index => this.placeholder(index), entity, floor);
   }
 
   query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
