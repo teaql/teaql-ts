@@ -488,6 +488,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (!String(mutation?.comment || '').trim()) {
         throw new Error('Security audit failure: audit reason is required before mutation');
       }
+      // EntityRoot.change() deliberately returns an immutable ledger snapshot.
+      // Checkers also own context-derived fixes, so give that boundary a mutable
+      // working payload without weakening the ledger's immutability contract.
+      mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
       const checker = this.checkers[String(mutation.entity)];
       if (checker) {
         const results: import('../core/i18n').CheckResult[] = [];

@@ -44,7 +44,18 @@ async function main(): Promise<void> {
     if (schoolType.code !== "PRIMARY" || schoolType.displayOrder !== 1) {
         throw new Error("SchoolType forward relation was not hydrated");
     }
-    console.log("PASS TypeScript School Management: forward relation metadata and hydration");
+    const previousVersion = loaded.version;
+    if (previousVersion === undefined) throw new Error("Loaded school has no version");
+    loaded.updateName("Riverside Primary School — verified");
+    await loaded.auditAs("Verify TypeScript update fixes").save(context);
+    if (loaded.version !== previousVersion + 1) throw new Error("Update did not advance version");
+    const updated = await Q.schools().withIdIs(loaded.id)
+        .comment("Reload the updated school")
+        .purpose("Verify update_time fix and persisted mutation").executeForOne(context);
+    if (updated?.name !== "Riverside Primary School — verified") {
+        throw new Error("Updated school name was not persisted");
+    }
+    console.log("PASS TypeScript School Management: forward relations and checker-fixed Update");
     await client.close();
 }
 
