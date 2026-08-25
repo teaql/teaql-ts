@@ -7,7 +7,7 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
-    "teaql-ts": "npm:@teaql/teaql@0.1.17",
+    "teaql-ts": "file:../..",
     "better-sqlite3": "^12.10.0"},
   "devDependencies": {
     "typescript": "^5.0.0",
