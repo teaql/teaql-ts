@@ -1,10 +1,11 @@
-import { CheckException, CheckResult, EntityChecker, RuntimeModule, UserContext } from '../src';
+import { CheckException, CheckResult, EntityChecker, ObjectLocation, RuntimeModule, UserContext } from '../src';
 import { AbstractSQLTeaQLClient, TeaQLSqlDriver } from '../src/sql/core';
 
 class Driver implements TeaQLSqlDriver {
   readonly databaseKind = 'sqlite' as const;
   transactions = 0;
-  query = async () => ({ rows: [], rowCount: 1 });
+  statements: string[] = [];
+  query = async (sql: string) => { this.statements.push(sql); return { rows: sql.startsWith('SELECT') ? [{ id: '1', version: 1, userEmail: 'a@b.test' }] : [], rowCount: 1 }; };
   stream = async function* () {};
   identifier = (value: string) => `"${value}"`;
   placeholder = () => '?';
@@ -30,7 +31,7 @@ test('checker failure is structured, save scoped, and runs before SQL transactio
     checkAndFix(ctx, mutation, results: CheckResult[]) {
       calls++;
       expect(ctx.getResource('fixTime')).toBeInstanceOf(Date);
-      if (!mutation.payload.name) results.push({ ruleId: 'required', location: 'name' });
+      if (!mutation.payload.name) results.push({ ruleId: 'required', location: ObjectLocation.property('name') });
     },
   };
   const client = new Client(driver).setUserContext(context).install(new RuntimeModule({
@@ -44,4 +45,28 @@ test('checker failure is structured, save scoped, and runs before SQL transactio
   expect(calls).toBe(2);
   expect(driver.transactions).toBe(0);
   expect(context.getResource('fixTime')).toBeUndefined();
+});
+
+test('canonical multiword mutation key reaches checker and native SQL schema', async () => {
+  const driver = new Driver();
+  const checker: EntityChecker = {
+    checkAndFix(_context, mutation, results) {
+      if (!mutation.payload.user_email) {
+        results.push({ ruleId: 'required', location: ObjectLocation.property('user_email') });
+      }
+    },
+  };
+  const client = new Client(driver).setUserContext(new UserContext()).install(new RuntimeModule({
+    User: { table: 'user_data', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      userEmail: { columnName: 'email_address', modelName: 'user_email', logicalType: 'text', decode: 'native' },
+    } },
+  }, { User: checker }));
+
+  const result = await client.executeMutation({
+    entity: 'User', action: 'Create', payload: { user_email: 'a@b.test' }, comment: 'test canonical key',
+  });
+  expect(result.persistedRecord?.userEmail).toBe('a@b.test');
+  expect(driver.statements.some(sql => sql.includes('"email_address"'))).toBe(true);
 });

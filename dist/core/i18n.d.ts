@@ -1,3 +1,4 @@
+import { ObjectLocation } from './object-location';
 export declare const locales: readonly ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr", "es", "pt", "ar", "th", "id", "fil", "uk", "vi"];
 export type Locale = typeof locales[number];
 export declare class UnsupportedLocaleError extends Error {
@@ -16,7 +17,7 @@ export type CatalogData = {
 };
 export interface CheckResult {
     ruleId: string;
-    location: string;
+    location: ObjectLocation;
     inputValue?: unknown;
     systemValue?: unknown;
     message?: string;

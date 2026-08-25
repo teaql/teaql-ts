@@ -248,6 +248,18 @@ class AbstractSQLTeaQLClient {
             throw new Error(`Unknown TeaQL entity: ${entity}`);
         return schema;
     }
+    toRuntimeMutationRecord(schema, canonicalRecord) {
+        const result = {};
+        for (const [canonicalName, value] of Object.entries(canonicalRecord)) {
+            const runtimeName = schema.columns[canonicalName]
+                ? canonicalName
+                : Object.keys(schema.columns).find(name => schema.columns[name].modelName === canonicalName ||
+                    schema.columns[name].columnName === canonicalName);
+            if (runtimeName)
+                result[runtimeName] = value;
+        }
+        return result;
+    }
     encode(value, column) {
         const normalized = value?.id ?? value;
         if (normalized === undefined)
@@ -388,6 +400,7 @@ class AbstractSQLTeaQLClient {
                 }
             }
             const schema = this.schema(mutation.entity);
+            const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
             const table = this.driver.identifier(schema.table);
             const result = await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
                 family: 'provider',
@@ -405,7 +418,7 @@ class AbstractSQLTeaQLClient {
                         await this.driver.ensureIdFloor(session, mutation.entity, id);
                     }
                     const version = Number(mutation.version || 0) + 1;
-                    const record = { ...mutation.payload, id, version };
+                    const record = { ...mutationRecord, id, version };
                     const fields = Object.keys(schema.columns)
                         .filter(field => record[field] !== undefined);
                     const columns = fields.map(field => this.driver.identifier(schema.columns[field].columnName)).join(', ');
@@ -424,8 +437,8 @@ class AbstractSQLTeaQLClient {
                 }
                 if (mutation.action === 'Update') {
                     const fields = Object.keys(schema.columns).filter(field => field !== 'id' && field !== 'version' &&
-                        mutation.payload[field] !== undefined);
-                    const values = fields.map(field => this.encode(mutation.payload[field], schema.columns[field]));
+                        mutationRecord[field] !== undefined);
+                    const values = fields.map(field => this.encode(mutationRecord[field], schema.columns[field]));
                     const assignments = fields.map((field, index) => `${this.driver.identifier(schema.columns[field].columnName)} = ` +
                         this.driver.placeholder(index + 1));
                     const versionColumn = this.driver.identifier('version');

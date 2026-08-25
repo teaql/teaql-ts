@@ -19,6 +19,7 @@ __exportStar(require("./core/value"), exports);
 __exportStar(require("./core/context"), exports);
 __exportStar(require("./core/entity-root"), exports);
 __exportStar(require("./core/checker"), exports);
+__exportStar(require("./core/object-location"), exports);
 __exportStar(require("./core/i18n"), exports);
 __exportStar(require("./core/tools"), exports);
 __exportStar(require("./core/local-cache"), exports);

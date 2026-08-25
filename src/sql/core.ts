@@ -20,6 +20,7 @@ export type LogicalColumnType =
 
 export type ColumnSchema = {
   columnName: string;
+  modelName?: string;
   logicalType: LogicalColumnType;
   decode: 'string' | 'number' | 'date' | 'native';
 };
@@ -336,6 +337,23 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return schema;
   }
 
+  private toRuntimeMutationRecord(
+    schema: EntitySchema,
+    canonicalRecord: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const [canonicalName, value] of Object.entries(canonicalRecord)) {
+      const runtimeName = schema.columns[canonicalName]
+        ? canonicalName
+        : Object.keys(schema.columns).find(
+          name => schema.columns[name].modelName === canonicalName ||
+            schema.columns[name].columnName === canonicalName,
+        );
+      if (runtimeName) result[runtimeName] = value;
+    }
+    return result;
+  }
+
   private encode(value: any, column?: ColumnSchema): any {
     const normalized = value?.id ?? value;
     if (normalized === undefined) return undefined;
@@ -488,6 +506,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         }
       }
       const schema = this.schema(mutation.entity);
+      const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
       const table = this.driver.identifier(schema.table);
       const result = await observeRuntimeOperation(this.runtimeTelemetry, {
         family: 'provider',
@@ -505,7 +524,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           await this.driver.ensureIdFloor(session, mutation.entity, id);
         }
         const version = Number(mutation.version || 0) + 1;
-        const record = { ...mutation.payload, id, version };
+        const record: Record<string, unknown> = { ...mutationRecord, id, version };
         const fields = Object.keys(schema.columns)
           .filter(field => record[field] !== undefined);
         const columns = fields.map(field =>
@@ -532,10 +551,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (mutation.action === 'Update') {
         const fields = Object.keys(schema.columns).filter(field =>
           field !== 'id' && field !== 'version' &&
-          mutation.payload[field] !== undefined,
+          mutationRecord[field] !== undefined,
         );
         const values = fields.map(field =>
-          this.encode(mutation.payload[field], schema.columns[field]),
+          this.encode(mutationRecord[field], schema.columns[field]),
         );
         const assignments = fields.map((field, index) =>
           `${this.driver.identifier(schema.columns[field].columnName)} = ` +

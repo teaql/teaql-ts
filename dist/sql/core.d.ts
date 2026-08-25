@@ -3,6 +3,7 @@ import { UserContext } from '../core/context';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
     columnName: string;
+    modelName?: string;
     logicalType: LogicalColumnType;
     decode: 'string' | 'number' | 'date' | 'native';
 };
@@ -100,6 +101,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     install(module: import('../core/runtime-module').RuntimeModule): this;
     setUserContext(context: UserContext): this;
     private schema;
+    private toRuntimeMutationRecord;
     private encode;
     private decodeRow;
     get auditTrace(): ReadonlyArray<Readonly<Record<string, unknown>>>;
