@@ -4,6 +4,7 @@ exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.Abstr
 const telemetry_1 = require("../core/telemetry");
 const checker_1 = require("../core/checker");
 const context_1 = require("../core/context");
+const runtime_module_1 = require("../core/runtime-module");
 async function ensureOptimisticIdFloor(session, placeholder, entity, floor) {
     const numericFloor = Number(floor);
     if (!Number.isSafeInteger(numericFloor) || numericFloor < 0) {
@@ -37,6 +38,23 @@ async function ensureOptimisticIdFloor(session, placeholder, entity, floor) {
     throw new Error(`Unable to synchronize ID space floor for ${entity} after 100 optimistic-lock attempts`);
 }
 exports.ensureOptimisticIdFloor = ensureOptimisticIdFloor;
+function unquoteIdentifier(identifier) {
+    if ((identifier.startsWith('"') && identifier.endsWith('"')) ||
+        (identifier.startsWith('`') && identifier.endsWith('`'))) {
+        return identifier.slice(1, -1).replace(/""/g, '"').replace(/``/g, '`');
+    }
+    return identifier;
+}
+function sameBootstrapValue(left, right) {
+    if (left === right)
+        return true;
+    if (left instanceof Date)
+        left = left.getTime();
+    if (right instanceof Date)
+        right = right.getTime();
+    return left !== null && left !== undefined && right !== null && right !== undefined &&
+        String(left) === String(right);
+}
 function debugSQL(parameterizedSQL, parameters, databaseKind = 'sqlite') {
     let positionalIndex = 0;
     let result = '';
@@ -214,11 +232,13 @@ class AbstractSQLTeaQLClient {
         this.auditEvents = [];
         this.checkers = {};
         this.userContext = new context_1.UserContext();
+        this.bootstrap = {};
     }
     /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
     install(module) {
         Object.assign(this.schemas, module.schemas);
         Object.assign(this.checkers, module.checkers);
+        this.bootstrap = (0, runtime_module_1.mergeRuntimeBootstrap)(this.bootstrap, module.bootstrap);
         return this;
     }
     setUserContext(context) { this.userContext = context; return this; }
@@ -285,9 +305,55 @@ class AbstractSQLTeaQLClient {
     }
     async ensureSchema() {
         if (!this.schemaReady) {
-            this.schemaReady = this.driver.ensureSchema(this.schemas);
+            this.schemaReady = this.driver.ensureSchema(this.schemas)
+                .then(() => this.ensureBootstrapData());
         }
         return this.schemaReady;
+    }
+    async ensureBootstrapData() {
+        const records = [
+            ...(this.bootstrap.defaultDomainRoot ? [this.bootstrap.defaultDomainRoot] : []),
+            ...(this.bootstrap.constants ?? []),
+        ];
+        if (!records.length)
+            return;
+        await this.driver.transaction(async (session) => {
+            for (const record of records)
+                await this.reconcileBootstrapEntity(session, record);
+        });
+    }
+    async reconcileBootstrapEntity(session, record) {
+        const schema = this.schema(record.entity);
+        const table = this.driver.identifier(schema.table);
+        const idColumn = this.driver.identifier(schema.columns.id?.columnName ?? 'id');
+        const versionColumn = this.driver.identifier(schema.columns.version?.columnName ?? 'version');
+        const entries = Object.entries(record.values ?? {}).map(([field, value]) => {
+            const column = schema.columns[field];
+            if (!column)
+                throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
+            return {
+                column: this.driver.identifier(column.columnName),
+                value: this.driver.encode(value, column),
+            };
+        });
+        const current = await session.query(`SELECT * FROM ${table} WHERE ${idColumn} = ${this.driver.placeholder(1)}`, [record.id]);
+        if (!current.rowCount) {
+            const columns = [idColumn, versionColumn, ...entries.map(entry => entry.column)];
+            const values = [record.id, 1, ...entries.map(entry => entry.value)];
+            const placeholders = values.map((_, index) => this.driver.placeholder(index + 1));
+            await session.query(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`, values);
+        }
+        else {
+            const row = current.rows[0];
+            const changed = entries.filter(entry => !sameBootstrapValue(row[unquoteIdentifier(entry.column)], entry.value));
+            if (changed.length) {
+                const assignments = changed.map((entry, index) => `${entry.column} = ${this.driver.placeholder(index + 1)}`);
+                assignments.push(`${versionColumn} = ${versionColumn} + 1`);
+                await session.query(`UPDATE ${table} SET ${assignments.join(', ')} WHERE ${idColumn} = ` +
+                    this.driver.placeholder(changed.length + 1), [...changed.map(entry => entry.value), record.id]);
+            }
+        }
+        await this.driver.ensureIdFloor(session, record.entity, record.id);
     }
     async executeMutation(mutation) {
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {

@@ -1,0 +1,17 @@
+{
+  "name": "teaql-ensure-schema-bootstrap-example",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "ts-node app.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "teaql-ts": "file:../..",
+    "ts-node": "^10.9.2",
+    "typescript": "5.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

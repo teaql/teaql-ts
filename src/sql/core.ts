@@ -5,6 +5,8 @@ import {
 } from '../core/telemetry';
 import { CheckException, EntityChecker } from '../core/checker';
 import { UserContext } from '../core/context';
+import { mergeRuntimeBootstrap } from '../core/runtime-module';
+import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -111,6 +113,22 @@ export async function ensureOptimisticIdFloor(
   }
   throw new Error(
     `Unable to synchronize ID space floor for ${entity} after 100 optimistic-lock attempts`);
+}
+
+function unquoteIdentifier(identifier: string): string {
+  if ((identifier.startsWith('"') && identifier.endsWith('"')) ||
+      (identifier.startsWith('`') && identifier.endsWith('`'))) {
+    return identifier.slice(1, -1).replace(/""/g, '"').replace(/``/g, '`');
+  }
+  return identifier;
+}
+
+function sameBootstrapValue(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (left instanceof Date) left = left.getTime();
+  if (right instanceof Date) right = right.getTime();
+  return left !== null && left !== undefined && right !== null && right !== undefined &&
+    String(left) === String(right);
 }
 
 export interface TeaQLDataService {
@@ -295,6 +313,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private runtimeTelemetry?: RuntimeTelemetry;
   private readonly checkers: Record<string, EntityChecker> = {};
   private userContext = new UserContext();
+  private bootstrap: RuntimeBootstrap = {};
 
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
@@ -305,6 +324,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   install(module: import('../core/runtime-module').RuntimeModule): this {
     Object.assign(this.schemas, module.schemas);
     Object.assign(this.checkers, module.checkers);
+    this.bootstrap = mergeRuntimeBootstrap(this.bootstrap, module.bootstrap);
     return this;
   }
 
@@ -378,9 +398,63 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   async ensureSchema(): Promise<void> {
     if (!this.schemaReady) {
-      this.schemaReady = this.driver.ensureSchema(this.schemas);
+      this.schemaReady = this.driver.ensureSchema(this.schemas)
+        .then(() => this.ensureBootstrapData());
     }
     return this.schemaReady;
+  }
+
+  private async ensureBootstrapData(): Promise<void> {
+    const records = [
+      ...(this.bootstrap.defaultDomainRoot ? [this.bootstrap.defaultDomainRoot] : []),
+      ...(this.bootstrap.constants ?? []),
+    ];
+    if (!records.length) return;
+    await this.driver.transaction(async session => {
+      for (const record of records) await this.reconcileBootstrapEntity(session, record);
+    });
+  }
+
+  private async reconcileBootstrapEntity(session: SqlSession, record: BootstrapEntity): Promise<void> {
+    const schema = this.schema(record.entity);
+    const table = this.driver.identifier(schema.table);
+    const idColumn = this.driver.identifier(schema.columns.id?.columnName ?? 'id');
+    const versionColumn = this.driver.identifier(schema.columns.version?.columnName ?? 'version');
+    const entries = Object.entries(record.values ?? {}).map(([field, value]) => {
+      const column = schema.columns[field];
+      if (!column) throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
+      return {
+        column: this.driver.identifier(column.columnName),
+        value: this.driver.encode(value, column),
+      };
+    });
+    const current = await session.query(
+      `SELECT * FROM ${table} WHERE ${idColumn} = ${this.driver.placeholder(1)}`,
+      [record.id],
+    );
+    if (!current.rowCount) {
+      const columns = [idColumn, versionColumn, ...entries.map(entry => entry.column)];
+      const values = [record.id, 1, ...entries.map(entry => entry.value)];
+      const placeholders = values.map((_, index) => this.driver.placeholder(index + 1));
+      await session.query(
+        `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
+        values,
+      );
+    } else {
+      const row = current.rows[0];
+      const changed = entries.filter(entry => !sameBootstrapValue(row[unquoteIdentifier(entry.column)], entry.value));
+      if (changed.length) {
+        const assignments = changed.map((entry, index) =>
+          `${entry.column} = ${this.driver.placeholder(index + 1)}`);
+        assignments.push(`${versionColumn} = ${versionColumn} + 1`);
+        await session.query(
+          `UPDATE ${table} SET ${assignments.join(', ')} WHERE ${idColumn} = ` +
+          this.driver.placeholder(changed.length + 1),
+          [...changed.map(entry => entry.value), record.id],
+        );
+      }
+    }
+    await this.driver.ensureIdFloor(session, record.entity, record.id);
   }
 
   async executeMutation(mutation: any): Promise<MutationResult> {

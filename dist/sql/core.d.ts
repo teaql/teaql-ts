@@ -94,6 +94,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private runtimeTelemetry?;
     private readonly checkers;
     private userContext;
+    private bootstrap;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
@@ -107,6 +108,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private recordSQL;
     ensureSchema(): Promise<void>;
+    private ensureBootstrapData;
+    private reconcileBootstrapEntity;
     executeMutation(mutation: any): Promise<MutationResult>;
     private readPersistedRecord;
     private decodeRowForSchema;
