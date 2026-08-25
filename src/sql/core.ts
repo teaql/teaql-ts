@@ -800,9 +800,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.driver.identifier(field),
     );
     const aggregateNames: string[] = [];
-    let projection = Object.entries(schema.columns).map(([field, column]) =>
-      `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`,
-    ).join(', ');
+    const requestedFields = Array.isArray(query.selectItems) && query.selectItems.length
+      ? [...new Set(['id', 'version', ...query.selectItems])]
+      : Object.keys(schema.columns);
+    for (const field of requestedFields) {
+      if (!schema.columns[field]) throw new Error(`Unknown selected field: ${field}`);
+    }
+    let projection = requestedFields.map(field => {
+      const column = schema.columns[field];
+      return `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`;
+    }).join(', ');
     const aggregates = this.aggregates(query);
     if (aggregates.length) {
       const aggregateProjection = aggregates.map(aggregate => {

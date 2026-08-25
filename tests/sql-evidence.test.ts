@@ -63,3 +63,16 @@ it('soft deletes and returns the authoritative negative version', async () => {
   )).toHaveLength(0);
   await client.close();
 });
+
+it('honors projections while always retaining id and version', async () => {
+  const client = new SQLiteTeaQLClient(':memory:', schemas);
+  await client.ensureSchema();
+  await client.executeMutation({
+    entity: 'Person', action: 'Create', payload: { name: 'Ada' }, comment: 'create',
+  });
+  const rows = await client.executeQuery(
+    new SelectQuery('Person').select(['id']).comment('minimal read').purpose('verify projection'),
+  );
+  expect(rows).toEqual([{ id: '1', version: 1 }]);
+  await client.close();
+});
