@@ -75,7 +75,7 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
     },
   }
 }, {
-  defaultDomainRoot: { entity: "Platform", id: "1", values: { "name": "Campus Learning Platform", "baseUrl": "//campus.example.com", "createTime": "createTime()", "updateTime": "updateTime()" } },
+  defaultDomainRoot: { entity: "Platform", id: "1", values: { "name": "Campus Learning Platform", "baseUrl": "https://campus.example.com", "createTime": "createTime()", "updateTime": "updateTime()" } },
   constants: [
     { entity: "SchoolType", id: "1001", values: { "platform": "1", "name": "Primary", "code": "PRIMARY", "displayOrder": "1" } },
     { entity: "SchoolType", id: "1002", values: { "platform": "1", "name": "Secondary", "code": "SECONDARY", "displayOrder": "2" } }
