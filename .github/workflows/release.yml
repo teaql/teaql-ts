@@ -1,6 +1,7 @@
 name: Publish TypeScript package
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "typescript-v*"
