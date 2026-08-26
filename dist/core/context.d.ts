@@ -5,10 +5,6 @@ export type ContextEntityRef = Readonly<{
     entity: string;
     id: string | number | bigint;
 }>;
-/** Application-level schema capability. Physical SQL drivers are deliberately not exposed here. */
-export interface ContextSchemaExecutor {
-    ensureSchema(context: UserContext): Promise<void>;
-}
 export declare class ContextRootError extends Error {
     readonly reason: 'missing' | 'type_mismatch';
     readonly expectedType: string;

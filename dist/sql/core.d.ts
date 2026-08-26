@@ -1,5 +1,6 @@
 import { RuntimeTelemetry } from '../core/telemetry';
 import { UserContext } from '../core/context';
+import { contextSchemaCapability } from '../core/schema-capability';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
     columnName: string;
@@ -109,8 +110,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this;
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private recordSQL;
-    /** Physical facade used by UserContext; application code should call context.ensureSchema(). */
-    ensureSchema(context: UserContext): Promise<void>;
+    /** Package-internal physical capability used only by UserContext.ensureSchema(). */
+    [contextSchemaCapability](context: UserContext): Promise<void>;
     private ensureBootstrapData;
     private reconcileBootstrapEntity;
     executeMutation(mutation: any): Promise<MutationResult>;

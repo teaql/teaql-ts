@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserContext = exports.ContextRootError = void 0;
 const i18n_1 = require("./i18n");
 const entity_root_1 = require("./entity-root");
+const schema_capability_1 = require("./schema-capability");
 class ContextRootError extends Error {
     constructor(reason, expectedType, activeRoot) {
         super(`context root ${reason}: expected ${expectedType}`);
@@ -54,7 +55,12 @@ class UserContext {
      * Installing a module never performs schema changes.
      */
     ensureSchema() {
-        return this.requireResource('dataService').ensureSchema(this);
+        const service = this.requireResource('dataService');
+        const ensure = service[schema_capability_1.contextSchemaCapability];
+        if (!ensure) {
+            throw new Error('Configured dataService is not a schema-aware TeaQL provider');
+        }
+        return ensure.call(service, this);
     }
     withActiveRoot(root) {
         if (!root || !root.entity || root.id === undefined || root.id === null) {

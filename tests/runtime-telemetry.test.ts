@@ -124,7 +124,7 @@ test('SQLite operations emit query, mutation, provider, relation and audit lifec
   const client = new SQLiteTeaQLClient(':memory:', schemas)
     .setRuntimeTelemetry(telemetry)
     .setAuditSink(async () => undefined);
-  await client.ensureSchema(new UserContext());
+  await new UserContext().insertResource('dataService', client).ensureSchema();
   await client.executeMutation({
     entity: 'School', action: 'Create', id: '1', payload: {}, comment: 'seed school',
   });

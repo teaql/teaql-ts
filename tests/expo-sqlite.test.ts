@@ -98,7 +98,7 @@ describe('Expo SQLite TeaQL driver', () => {
   it('ensures schema, persists governed mutations, and queries real SQLite', async () => {
     const database = new TestExpoDatabase();
     const client = new ExpoSQLiteTeaQLClient(database, schemas);
-    await client.ensureSchema(new UserContext());
+    await new UserContext().insertResource('dataService', client).ensureSchema();
 
     await expect(client.executeMutation(
       new MutationQuery('Order', 'Create', { name: 'unsafe' }),
@@ -133,7 +133,7 @@ describe('Expo SQLite TeaQL driver', () => {
   it('uses optimistic versions, hard limits, and true async cursor streaming', async () => {
     const database = new TestExpoDatabase();
     const client = new ExpoSQLiteTeaQLClient(database, schemas);
-    await client.ensureSchema(new UserContext());
+    await new UserContext().insertResource('dataService', client).ensureSchema();
     for (let index = 1; index <= 5; index++) {
       await client.executeMutation(new MutationQuery(
         'Order', 'Create', { name: `order-${index}`, active: true },

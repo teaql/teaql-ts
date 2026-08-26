@@ -5,6 +5,7 @@ const telemetry_1 = require("../core/telemetry");
 const checker_1 = require("../core/checker");
 const context_1 = require("../core/context");
 const runtime_module_1 = require("../core/runtime-module");
+const schema_capability_1 = require("../core/schema-capability");
 async function ensureOptimisticIdFloor(session, placeholder, entity, floor) {
     const numericFloor = Number(floor);
     if (!Number.isSafeInteger(numericFloor) || numericFloor < 0) {
@@ -315,8 +316,8 @@ class AbstractSQLTeaQLClient {
                 ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
         }));
     }
-    /** Physical facade used by UserContext; application code should call context.ensureSchema(). */
-    async ensureSchema(context) {
+    /** Package-internal physical capability used only by UserContext.ensureSchema(). */
+    async [schema_capability_1.contextSchemaCapability](context) {
         this.userContext = context;
         if (!this.schemaReady) {
             this.schemaReady = this.driver.ensureSchema(this.schemas)

@@ -7,6 +7,13 @@ import { RuntimeModule } from '../src/core/runtime-module';
 import { EntitySchema } from '../src/sql/core';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
 
+function assertProviderSchemaAPIIsHidden(client: SQLiteTeaQLClient): void {
+  // @ts-expect-error Ensure Schema is intentionally available only through UserContext.
+  void client.ensureSchema;
+}
+
+void assertProviderSchemaAPIIsHidden;
+
 const schemas: Record<string, EntitySchema> = {
   Platform: {
     table: 'platform_data',
@@ -43,8 +50,8 @@ it('reconciles bootstrap data idempotently and advances ID spaces', async () => 
   const database = path.join(directory, 'bootstrap.sqlite');
   try {
     const first = new SQLiteTeaQLClient(database, {}).install(moduleWithStatus('Pending')) as SQLiteTeaQLClient;
-    await first.ensureSchema(new UserContext());
-    await first.ensureSchema(new UserContext());
+    await new UserContext().insertResource('dataService', first).ensureSchema();
+    await new UserContext().insertResource('dataService', first).ensureSchema();
 
     expect(await first.executeQuery(read('Platform'))).toEqual([
       expect.objectContaining({ id: '1', version: 1, name: 'Default Platform' }),
@@ -63,7 +70,7 @@ it('reconciles bootstrap data idempotently and advances ID spaces', async () => 
     const second = new SQLiteTeaQLClient(database, {}).install(
       moduleWithStatus('Awaiting Payment'),
     ) as SQLiteTeaQLClient;
-    await second.ensureSchema(new UserContext());
+    await new UserContext().insertResource('dataService', second).ensureSchema();
     expect(await second.executeQuery(read('Platform'))).toHaveLength(2);
     expect(await second.executeQuery(read('OrderStatus'))).toEqual([
       expect.objectContaining({

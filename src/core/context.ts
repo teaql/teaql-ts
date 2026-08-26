@@ -1,15 +1,14 @@
 import { SelectQuery } from './ast';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
 import { EntityRoot } from './entity-root';
+import {
+  contextSchemaCapability,
+  InternalContextSchemaExecutor,
+} from './schema-capability';
 
 type Cursor = { cursorId: string; boundary: any; expiresAt: number };
 
 export type ContextEntityRef = Readonly<{ entity: string; id: string | number | bigint }>;
-
-/** Application-level schema capability. Physical SQL drivers are deliberately not exposed here. */
-export interface ContextSchemaExecutor {
-  ensureSchema(context: UserContext): Promise<void>;
-}
 
 export class ContextRootError extends Error {
   constructor(
@@ -67,7 +66,12 @@ export class UserContext {
    * Installing a module never performs schema changes.
    */
   ensureSchema(): Promise<void> {
-    return this.requireResource<ContextSchemaExecutor>('dataService').ensureSchema(this);
+    const service = this.requireResource<Partial<InternalContextSchemaExecutor>>('dataService');
+    const ensure = service[contextSchemaCapability];
+    if (!ensure) {
+      throw new Error('Configured dataService is not a schema-aware TeaQL provider');
+    }
+    return ensure.call(service, this);
   }
 
   withActiveRoot(root: ContextEntityRef): this {

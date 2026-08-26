@@ -7,6 +7,7 @@ import { CheckException, EntityChecker } from '../core/checker';
 import { UserContext } from '../core/context';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
+import { contextSchemaCapability } from '../core/schema-capability';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -414,8 +415,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }));
   }
 
-  /** Physical facade used by UserContext; application code should call context.ensureSchema(). */
-  async ensureSchema(context: UserContext): Promise<void> {
+  /** Package-internal physical capability used only by UserContext.ensureSchema(). */
+  async [contextSchemaCapability](context: UserContext): Promise<void> {
     this.userContext = context;
     if (!this.schemaReady) {
       this.schemaReady = this.driver.ensureSchema(this.schemas)

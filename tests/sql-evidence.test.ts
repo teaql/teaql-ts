@@ -17,7 +17,7 @@ const schemas: Record<string, EntitySchema> = {
 it('captures parameterized safe SQL evidence with exact modes', async () => {
   const store = new SQLExecutionEvidenceStore();
   const client = new SQLiteTeaQLClient(':memory:', schemas).setRuntimeTelemetrySink(store);
-  await client.ensureSchema(new UserContext());
+  await new UserContext().insertResource('dataService', client).ensureSchema();
   const secret = 'secret-customer-value';
   await client.executeMutation({
     entity: 'Person', action: 'Create', id: '1', payload: { name: secret }, comment: 'seed evidence',
@@ -49,7 +49,7 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
 
 it('soft deletes and returns the authoritative negative version', async () => {
   const client = new SQLiteTeaQLClient(':memory:', schemas);
-  await client.ensureSchema(new UserContext());
+  await new UserContext().insertResource('dataService', client).ensureSchema();
   const created = await client.executeMutation({
     entity: 'Person', action: 'Create', payload: { name: 'Ada' }, comment: 'create',
   });
@@ -67,7 +67,7 @@ it('soft deletes and returns the authoritative negative version', async () => {
 
 it('honors projections while always retaining id and version', async () => {
   const client = new SQLiteTeaQLClient(':memory:', schemas);
-  await client.ensureSchema(new UserContext());
+  await new UserContext().insertResource('dataService', client).ensureSchema();
   await client.executeMutation({
     entity: 'Person', action: 'Create', payload: { name: 'Ada' }, comment: 'create',
   });
