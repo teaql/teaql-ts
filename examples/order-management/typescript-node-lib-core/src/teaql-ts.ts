@@ -110,27 +110,8 @@ export class TeaQLClient implements TeaQLDataService {
 }
 
 declare const require: any;
-
-export class UserContext {
-    private readonly resources = new Map<string, unknown>();
-
-    insertResource<T>(name: string, resource: T): this {
-        this.resources.set(name, resource);
-        return this;
-    }
-
-    getResource<T>(name: string): T | undefined {
-        return this.resources.get(name) as T | undefined;
-    }
-
-    requireResource<T>(name: string): T {
-        const resource = this.getResource<T>(name);
-        if (resource === undefined) {
-            throw new Error(`Required UserContext resource is missing: ${name}`);
-        }
-        return resource;
-    }
-}
+export { UserContext } from "teaql-ts";
+import { UserContext } from "teaql-ts";
 
 export function eq(a: any, b: any) { return {type: 'eq', field: a, value: b}; }
 export function contain(a: any, b: any) { return {type: 'contain', field: a, value: b}; }

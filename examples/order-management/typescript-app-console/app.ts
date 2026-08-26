@@ -5,7 +5,7 @@ import { CommercePlatform } from "order-management-service-lib/src/generated/mod
 import { Customer } from "order-management-service-lib/src/generated/models/Customer";
 import { CustomerOrder } from "order-management-service-lib/src/generated/models/CustomerOrder";
 import { OrderSearchPreset } from "order-management-service-lib/src/generated/models/OrderSearchPreset";
-import { UserContext } from "order-management-service-lib/src/teaql-ts";
+import { UserContext } from "teaql-ts";
 import { SQLiteTeaQLClient } from "order-management-service-lib/src/teaql-node-sqlite";
 
 async function main(): Promise<void> {

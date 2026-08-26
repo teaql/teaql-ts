@@ -1,0 +1,15 @@
+{
+  "name": "teaql-task-board-federation-examples",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0",
+    "teaql-ts": "file:../.."
+  },
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.12",
+    "typescript": "^5.0.0"
+  }
+}
