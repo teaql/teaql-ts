@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { RuntimeModule, SelectQuery } from 'teaql-ts';
+import { RuntimeModule, SelectQuery, UserContext } from 'teaql-ts';
 import type { EntitySchema } from 'teaql-ts/sql/core';
 import { SQLiteTeaQLClient } from 'teaql-ts/sql/sqlite';
 
@@ -44,7 +44,8 @@ async function main(): Promise<void> {
   const client = new SQLiteTeaQLClient(path.join(directory, 'bootstrap.sqlite'), {});
 
   client.install(generatedModule); // passive: metadata only
-  await client.ensureSchema();     // explicit: DDL plus system bootstrap
+  const context = new UserContext().insertResource('dataService', client);
+  await context.ensureSchema();    // explicit: DDL plus system bootstrap
 
   const platforms = await client.executeQuery(read('Platform'));
   const defaultRoot = platforms.find(platform => String(platform.id) === '1');

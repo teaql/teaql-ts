@@ -1,3 +1,4 @@
+import { UserContext } from '../src/core/context';
 import { OrderBy, SelectQuery } from '../src/core/ast';
 import { EntitySchema } from '../src/sql/core';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
@@ -17,7 +18,7 @@ const schemas: Record<string, EntitySchema> = {
 describe('SQLite true streaming query', () => {
   it('yields bounded chunks from the statement iterator', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
-    await client.ensureSchema();
+    await client.ensureSchema(new UserContext());
     for (let id = 1; id <= 5; id++) {
       await client.executeMutation({
         entity: 'Order', action: 'Create', id: String(id), payload: {}, comment: 'seed stream fixture',
@@ -36,7 +37,7 @@ describe('SQLite true streaming query', () => {
 
   it('rejects missing governance and invalid chunk sizes at iteration time', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
-    await client.ensureSchema();
+    await client.ensureSchema(new UserContext());
     const consume = async (stream: AsyncIterable<any[]>) => {
       for await (const _chunk of stream) { /* consume */ }
     };

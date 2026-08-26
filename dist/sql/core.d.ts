@@ -97,7 +97,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private userContext;
     private bootstrap;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
-    /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
+    /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
     setUserContext(context: UserContext): this;
     private schema;
@@ -109,7 +109,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this;
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private recordSQL;
-    ensureSchema(): Promise<void>;
+    /** Physical facade used by UserContext; application code should call context.ensureSchema(). */
+    ensureSchema(context: UserContext): Promise<void>;
     private ensureBootstrapData;
     private reconcileBootstrapEntity;
     executeMutation(mutation: any): Promise<MutationResult>;

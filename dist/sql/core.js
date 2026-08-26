@@ -234,7 +234,7 @@ class AbstractSQLTeaQLClient {
         this.userContext = new context_1.UserContext();
         this.bootstrap = {};
     }
-    /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
+    /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module) {
         Object.assign(this.schemas, module.schemas);
         Object.assign(this.checkers, module.checkers);
@@ -315,7 +315,9 @@ class AbstractSQLTeaQLClient {
                 ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
         }));
     }
-    async ensureSchema() {
+    /** Physical facade used by UserContext; application code should call context.ensureSchema(). */
+    async ensureSchema(context) {
+        this.userContext = context;
         if (!this.schemaReady) {
             this.schemaReady = this.driver.ensureSchema(this.schemas)
                 .then(() => this.ensureBootstrapData());

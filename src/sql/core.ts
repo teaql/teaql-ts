@@ -321,7 +321,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     private readonly schemas: Record<string, EntitySchema>,
   ) {}
 
-  /** Installs metadata only. Call ensureSchema() explicitly when schema changes are intended. */
+  /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module: import('../core/runtime-module').RuntimeModule): this {
     Object.assign(this.schemas, module.schemas);
     Object.assign(this.checkers, module.checkers);
@@ -414,7 +414,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }));
   }
 
-  async ensureSchema(): Promise<void> {
+  /** Physical facade used by UserContext; application code should call context.ensureSchema(). */
+  async ensureSchema(context: UserContext): Promise<void> {
+    this.userContext = context;
     if (!this.schemaReady) {
       this.schemaReady = this.driver.ensureSchema(this.schemas)
         .then(() => this.ensureBootstrapData());

@@ -49,6 +49,13 @@ class UserContext {
         }
         return resource;
     }
+    /**
+     * Explicitly reconcile the installed Runtime Module with this context's data service.
+     * Installing a module never performs schema changes.
+     */
+    ensureSchema() {
+        return this.requireResource('dataService').ensureSchema(this);
+    }
     withActiveRoot(root) {
         if (!root || !root.entity || root.id === undefined || root.id === null) {
             throw new TypeError('active root must be a typed entity reference');

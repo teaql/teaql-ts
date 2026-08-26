@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   const context = new UserContext().insertResource("dataService", client);
   client.setUserContext(context);
 
-  await client.ensureSchema();
+  await context.ensureSchema();
   console.log("PASS ensureSchema (explicit SQLite DDL and Platform(1) bootstrap)");
 
   const sqlBeforeInvalidSave = client.sqlTrace.length;

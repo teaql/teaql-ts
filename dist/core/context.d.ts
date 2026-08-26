@@ -5,6 +5,10 @@ export type ContextEntityRef = Readonly<{
     entity: string;
     id: string | number | bigint;
 }>;
+/** Application-level schema capability. Physical SQL drivers are deliberately not exposed here. */
+export interface ContextSchemaExecutor {
+    ensureSchema(context: UserContext): Promise<void>;
+}
 export declare class ContextRootError extends Error {
     readonly reason: 'missing' | 'type_mismatch';
     readonly expectedType: string;
@@ -35,6 +39,11 @@ export declare class UserContext {
     getResource<T>(name: string): T | undefined;
     removeResource(name: string): this;
     requireResource<T>(name: string): T;
+    /**
+     * Explicitly reconcile the installed Runtime Module with this context's data service.
+     * Installing a module never performs schema changes.
+     */
+    ensureSchema(): Promise<void>;
     withActiveRoot(root: ContextEntityRef): this;
     requireActiveRoot(expectedType: string): ContextEntityRef;
     /**

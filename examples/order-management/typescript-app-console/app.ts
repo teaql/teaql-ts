@@ -20,7 +20,7 @@ async function main(): Promise<void> {
     console.log(`[audit] ${event.action} ${event.entity}#${event.id}; reason=${JSON.stringify(event.reason)}`);
   });
   const ctx = new UserContext().insertResource("dataService", client);
-  await client.ensureSchema();
+  await ctx.ensureSchema();
   console.log("[schema] ensured 7 generated entity tables");
 
   const platforms = await Q.commercePlatforms()

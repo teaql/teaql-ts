@@ -1,3 +1,4 @@
+import { UserContext } from '../src/core/context';
 import {
   NOOP_RUNTIME_TELEMETRY,
   observeRuntimeOperation,
@@ -123,7 +124,7 @@ test('SQLite operations emit query, mutation, provider, relation and audit lifec
   const client = new SQLiteTeaQLClient(':memory:', schemas)
     .setRuntimeTelemetry(telemetry)
     .setAuditSink(async () => undefined);
-  await client.ensureSchema();
+  await client.ensureSchema(new UserContext());
   await client.executeMutation({
     entity: 'School', action: 'Create', id: '1', payload: {}, comment: 'seed school',
   });

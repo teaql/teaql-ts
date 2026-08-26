@@ -1,3 +1,4 @@
+import { UserContext } from '../src/core/context';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -42,8 +43,8 @@ it('reconciles bootstrap data idempotently and advances ID spaces', async () => 
   const database = path.join(directory, 'bootstrap.sqlite');
   try {
     const first = new SQLiteTeaQLClient(database, {}).install(moduleWithStatus('Pending')) as SQLiteTeaQLClient;
-    await first.ensureSchema();
-    await first.ensureSchema();
+    await first.ensureSchema(new UserContext());
+    await first.ensureSchema(new UserContext());
 
     expect(await first.executeQuery(read('Platform'))).toEqual([
       expect.objectContaining({ id: '1', version: 1, name: 'Default Platform' }),
@@ -62,7 +63,7 @@ it('reconciles bootstrap data idempotently and advances ID spaces', async () => 
     const second = new SQLiteTeaQLClient(database, {}).install(
       moduleWithStatus('Awaiting Payment'),
     ) as SQLiteTeaQLClient;
-    await second.ensureSchema();
+    await second.ensureSchema(new UserContext());
     expect(await second.executeQuery(read('Platform'))).toHaveLength(2);
     expect(await second.executeQuery(read('OrderStatus'))).toEqual([
       expect.objectContaining({

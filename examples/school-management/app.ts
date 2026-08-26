@@ -16,9 +16,9 @@ async function main(): Promise<void> {
 
     const client = new SQLiteTeaQLClient(database);
     client.install(GENERATED_RUNTIME_MODULE);
-    await client.ensureSchema();
-    await client.ensureSchema();
     const context = new UserContext().insertResource("dataService", client);
+    await context.ensureSchema();
+    await context.ensureSchema();
 
     const roots = await Q.platforms().comment("Read repeated root seed")
         .purpose("Verify School bootstrap idempotency").executeForList(context);
@@ -38,8 +38,8 @@ async function main(): Promise<void> {
     });
     const changedClient = new SQLiteTeaQLClient(database);
     changedClient.install(GENERATED_RUNTIME_MODULE).install(changedModule);
-    await changedClient.ensureSchema();
     const changedContext = new UserContext().insertResource("dataService", changedClient);
+    await changedContext.ensureSchema();
     const changedPrimary = await Q.schoolTypes().withIdIs("1001")
         .comment("Read reconciled Primary constant")
         .purpose("Verify versioned constant reconciliation")

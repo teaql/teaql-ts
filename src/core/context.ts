@@ -6,6 +6,11 @@ type Cursor = { cursorId: string; boundary: any; expiresAt: number };
 
 export type ContextEntityRef = Readonly<{ entity: string; id: string | number | bigint }>;
 
+/** Application-level schema capability. Physical SQL drivers are deliberately not exposed here. */
+export interface ContextSchemaExecutor {
+  ensureSchema(context: UserContext): Promise<void>;
+}
+
 export class ContextRootError extends Error {
   constructor(
     public readonly reason: 'missing' | 'type_mismatch',
@@ -55,6 +60,14 @@ export class UserContext {
       throw new Error(`Required UserContext resource is missing: ${name}`);
     }
     return resource;
+  }
+
+  /**
+   * Explicitly reconcile the installed Runtime Module with this context's data service.
+   * Installing a module never performs schema changes.
+   */
+  ensureSchema(): Promise<void> {
+    return this.requireResource<ContextSchemaExecutor>('dataService').ensureSchema(this);
   }
 
   withActiveRoot(root: ContextEntityRef): this {
