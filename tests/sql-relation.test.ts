@@ -104,13 +104,17 @@ describe('SQLite relation loading', () => {
     await client.close();
   });
 
-  it('rejects provider-aware SoundingLike explicitly on SQLite', async () => {
+  it('registers Soundex during ensureSchema and executes SoundingLike on SQLite', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
     await new UserContext().insertResource('dataService', client).ensureSchema();
-    await expect(client.executeQuery(
-      new SelectQuery('Order').purpose('test phonetic query').comment('reject unsupported soundex')
-        .filter({ id: { $soundLike: 'Robert' } }),
-    )).rejects.toThrow('QRY-P09_UNSUPPORTED');
+    for (const [id, name] of [['101', 'Robert'], ['102', 'Rupert'], ['103', 'Alice']]) {
+      await client.executeMutation({ entity: 'OrderLine', action: 'Create', id, payload: { name }, comment: 'seed phonetic query' });
+    }
+    const rows = await client.executeQuery<any>(
+      new SelectQuery('OrderLine').purpose('test phonetic query').comment('execute registered soundex')
+        .filter({ name: { $soundLike: 'Robert' } }).order(OrderBy.asc('id')),
+    );
+    expect(rows.map(row => row.name)).toEqual(['Robert', 'Rupert']);
     await client.close();
   });
 

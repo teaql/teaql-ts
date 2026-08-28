@@ -12,9 +12,29 @@ import {
   TeaQLSqlDriver,
 } from './core';
 
+function soundex(value: unknown): string {
+  const letters = String(value ?? '').toUpperCase().match(/[A-Z]/g) ?? [];
+  if (!letters.length) return '?000';
+  const groups: Record<string, string> = {};
+  for (const [chars, code] of [['BFPV', '1'], ['CGJKQSXZ', '2'], ['DT', '3'], ['L', '4'], ['MN', '5'], ['R', '6']]) {
+    for (const char of chars) groups[char] = code;
+  }
+  const first = letters[0]!;
+  let result: string = first;
+  let previous = groups[first] ?? '0';
+  for (const letter of letters.slice(1)) {
+    const current = groups[letter] ?? '0';
+    if (current !== '0' && current !== previous) result += current;
+    if (result.length === 4) break;
+    previous = current;
+  }
+  return result.padEnd(4, '0');
+}
+
 export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   readonly databaseKind = 'sqlite' as const;
   private readonly database: Database.Database;
+  private soundexRegistered = false;
 
   constructor(filename: string) {
     if (!filename) throw new Error('filename is required');
@@ -72,6 +92,10 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   }
 
   async ensureSchema(schemas: Record<string, EntitySchema>): Promise<void> {
+    if (!this.soundexRegistered) {
+      this.database.function('soundex', { deterministic: true }, soundex);
+      this.soundexRegistered = true;
+    }
     for (const schema of Object.values(schemas)) {
       const table = this.identifier(schema.table);
       await this.query(

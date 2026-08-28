@@ -6,9 +6,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SQLiteTeaQLClient = exports.SQLiteDriver = void 0;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const core_1 = require("./core");
+function soundex(value) {
+    const letters = String(value ?? '').toUpperCase().match(/[A-Z]/g) ?? [];
+    if (!letters.length)
+        return '?000';
+    const groups = {};
+    for (const [chars, code] of [['BFPV', '1'], ['CGJKQSXZ', '2'], ['DT', '3'], ['L', '4'], ['MN', '5'], ['R', '6']]) {
+        for (const char of chars)
+            groups[char] = code;
+    }
+    const first = letters[0];
+    let result = first;
+    let previous = groups[first] ?? '0';
+    for (const letter of letters.slice(1)) {
+        const current = groups[letter] ?? '0';
+        if (current !== '0' && current !== previous)
+            result += current;
+        if (result.length === 4)
+            break;
+        previous = current;
+    }
+    return result.padEnd(4, '0');
+}
 class SQLiteDriver {
     constructor(filename) {
         this.databaseKind = 'sqlite';
+        this.soundexRegistered = false;
         if (!filename)
             throw new Error('filename is required');
         this.database = new better_sqlite3_1.default(filename);
@@ -61,6 +84,10 @@ class SQLiteDriver {
         return types[type];
     }
     async ensureSchema(schemas) {
+        if (!this.soundexRegistered) {
+            this.database.function('soundex', { deterministic: true }, soundex);
+            this.soundexRegistered = true;
+        }
         for (const schema of Object.values(schemas)) {
             const table = this.identifier(schema.table);
             await this.query(`CREATE TABLE IF NOT EXISTS ${table} (` +

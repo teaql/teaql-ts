@@ -2,6 +2,7 @@ import { AbstractSQLTeaQLClient, ColumnSchema, EntitySchema, SqlQueryResult, Sql
 export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     readonly databaseKind: "sqlite";
     private readonly database;
+    private soundexRegistered;
     constructor(filename: string);
     identifier(value: string): string;
     placeholder(_index: number): string;
