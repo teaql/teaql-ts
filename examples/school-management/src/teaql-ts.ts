@@ -1,4 +1,7 @@
-import { SelectQuery as RuntimeSelectQuery, UserContext } from "teaql-ts";
+import {
+    CheckException, EntityChecker, RuntimeModule,
+    SelectQuery as RuntimeSelectQuery, UserContext,
+} from "teaql-ts";
 
 export { CheckException, EntityRoot, SmartList, UserContext } from "teaql-ts";
 export type { EntityKey } from "teaql-ts";
@@ -29,6 +32,8 @@ export interface TeaQLDataService {
 export class TeaQLClient implements TeaQLDataService {
     private data: Record<string, Record<string, any>> = {};
     private nextIds: Record<string, number> = {};
+    private readonly checkers: Record<string, EntityChecker> = {};
+    private userContext = new UserContext();
 
     constructor(private storagePath?: string) {
         if (storagePath) {
@@ -39,6 +44,17 @@ export class TeaQLClient implements TeaQLDataService {
                 this.nextIds = state.nextIds || {};
             }
         }
+    }
+
+    /** Installs passive generated metadata. It never mutates storage. */
+    install(module: RuntimeModule): this {
+        Object.assign(this.checkers, module.checkers);
+        return this;
+    }
+
+    setUserContext(context: UserContext): this {
+        this.userContext = context;
+        return this;
     }
 
     private persist() {
@@ -52,6 +68,19 @@ export class TeaQLClient implements TeaQLDataService {
     }
 
     async executeMutation(mutation: any): Promise<any> {
+        mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+        const checker = this.checkers[String(mutation.entity)];
+        if (checker) {
+            const results: any[] = [];
+            this.userContext.insertResource("fixTime", new Date());
+            try {
+                checker.checkAndFix(this.userContext, mutation, results);
+                this.userContext.translateCheckResults(results);
+                if (results.length) throw new CheckException(results);
+            } finally {
+                this.userContext.removeResource("fixTime");
+            }
+        }
         const table = this.data[mutation.entity] ||= {};
         if (mutation.action === "Create") {
             const id = mutation.id ?? String(this.nextIds[mutation.entity] || 1);

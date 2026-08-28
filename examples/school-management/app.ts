@@ -1,4 +1,5 @@
 import { Q } from "./src/generated/Q";
+import { E } from "./src/generated/E";
 import { Platform } from "./src/generated/models/Platform";
 import { SchoolType } from "./src/generated/models/SchoolType";
 import { UserContext } from "./src/teaql-ts";
@@ -58,13 +59,21 @@ async function main(): Promise<void> {
     const school = Q.schools().comment("Create the example school")
         .purpose("Verify generated TypeScript mutations").newEntity(context);
     school.updatePlatform(Platform.refer("1"));
-    school.updateSchoolType(SchoolType.refer("1001"));
+    school.updateSchoolTypeToPrimary();
     school.updateName("Riverside Primary School");
     school.updateAddress("12 River Road, Springfield");
     school.updateEstablishedDate("1995-09-01");
     school.updateStudentCapacity(800);
     school.updateActive(true);
     await school.auditAs("Create Riverside Primary School").save(context);
+
+    const primarySchools = await Q.schools().withSchoolTypeIsPrimary()
+        .comment("Read schools linked through the PRIMARY helper")
+        .purpose("Verify constant helper mutation-ledger semantics")
+        .executeForList(context);
+    if (primarySchools.length !== 1 || E.school(primarySchools[0]).schoolTypeId().eval() !== "1001") {
+        throw new Error("PRIMARY helper did not persist and hydrate school_type=1001");
+    }
 
     const loaded = await Q.schools().withIdIs(school.id)
         .selectPlatformWith(Q.platformsWithMinimalFields().selectName().selectBaseUrl())

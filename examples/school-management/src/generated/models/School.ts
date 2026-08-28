@@ -220,6 +220,7 @@ export class School {
     public updateSchoolTypeToPrimary(): School {
         this.schoolType = "1001";
         this.markLoaded("schoolType");
+        (this as any)._root.set(this.teaqlEntityKey(), "school_type", this.schoolType);
         return this;
     }
 
