@@ -107,7 +107,8 @@ async function main(): Promise<void> {
         ["date range", Q.schools().withEstablishedDateBetween("1995-01-01", "1995-12-31"), 1],
         ["known", Q.schools().withAddressIsKnown(), 1],
         ["unknown", Q.schools().withAddressIsUnknown(), 0],
-        ["boolean", Q.schools().whichAreActive(), 1],
+        ["boolean true", Q.schools().whichAreActive(), 1],
+        ["boolean false", Q.schools().whichAreNotActive(), 0],
         ["constant relation", Q.schools().withSchoolTypeIsPrimary(), 1],
     ];
     for (const [label, request, expected] of queryCases) {
