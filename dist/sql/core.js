@@ -581,6 +581,13 @@ class AbstractSQLTeaQLClient {
                 values.push(this.encode(value, column));
                 return `${quotedField} <> ${this.driver.placeholder(values.length)}`;
             }
+            if (predicate?.$soundLike !== undefined) {
+                if (this.driver.databaseKind === 'sqlite') {
+                    throw new Error('QRY-P09_UNSUPPORTED: SoundingLike requires a provider with SOUNDEX support; sqlite is not supported');
+                }
+                values.push(String(predicate.$soundLike));
+                return `SOUNDEX(${quotedField}) = SOUNDEX(${this.driver.placeholder(values.length)})`;
+            }
             if (predicate?.$contains !== undefined) {
                 values.push(String(predicate.$contains));
                 return this.driver.contains(quotedField, this.driver.placeholder(values.length));

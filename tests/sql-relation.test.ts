@@ -103,6 +103,16 @@ describe('SQLite relation loading', () => {
     await client.close();
   });
 
+  it('rejects provider-aware SoundingLike explicitly on SQLite', async () => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    await expect(client.executeQuery(
+      new SelectQuery('Order').purpose('test phonetic query').comment('reject unsupported soundex')
+        .filter({ id: { $soundLike: 'Robert' } }),
+    )).rejects.toThrow('QRY-P09_UNSUPPORTED');
+    await client.close();
+  });
+
   it('applies nested limit independently to every parent', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
     await new UserContext().insertResource('dataService', client).ensureSchema();
