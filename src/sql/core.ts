@@ -716,12 +716,34 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           values.push(this.encode(value, column));
           return `${quotedField} = ${this.driver.placeholder(values.length)}`;
         }
+        if (predicate?.$ne !== undefined) {
+          const value = predicate.$ne?.id ?? predicate.$ne;
+          if (value === null) return `${quotedField} IS NOT NULL`;
+          values.push(this.encode(value, column));
+          return `${quotedField} <> ${this.driver.placeholder(values.length)}`;
+        }
         if (predicate?.$contains !== undefined) {
           values.push(String(predicate.$contains));
           return this.driver.contains(
             quotedField,
             this.driver.placeholder(values.length),
           );
+        }
+        if (predicate?.$notContains !== undefined) {
+          values.push(String(predicate.$notContains));
+          return `NOT (${this.driver.contains(quotedField, this.driver.placeholder(values.length))})`;
+        }
+        for (const [operator, prefix, suffix, negative] of [
+          ['$startsWith', '', '%', false],
+          ['$notStartsWith', '', '%', true],
+          ['$endsWith', '%', '', false],
+          ['$notEndsWith', '%', '', true],
+        ] as const) {
+          if (predicate?.[operator] !== undefined) {
+            values.push(`${prefix}${String(predicate[operator])}${suffix}`);
+            const like = `${quotedField} LIKE ${this.driver.placeholder(values.length)}`;
+            return negative ? `NOT (${like})` : like;
+          }
         }
         if (Array.isArray(predicate?.$in)) {
           if (!predicate.$in.length) return 'FALSE';
@@ -731,6 +753,23 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           });
           return `${quotedField} IN (${placeholders.join(', ')})`;
         }
+        if (Array.isArray(predicate?.$notIn)) {
+          if (!predicate.$notIn.length) return 'TRUE';
+          const placeholders = predicate.$notIn.map((value: any) => {
+            values.push(this.encode(value?.id ?? value, column));
+            return this.driver.placeholder(values.length);
+          });
+          return `${quotedField} NOT IN (${placeholders.join(', ')})`;
+        }
+        if (Array.isArray(predicate?.$between) && predicate.$between.length === 2) {
+          values.push(this.encode(predicate.$between[0], column));
+          const lower = this.driver.placeholder(values.length);
+          values.push(this.encode(predicate.$between[1], column));
+          const upper = this.driver.placeholder(values.length);
+          return `${quotedField} BETWEEN ${lower} AND ${upper}`;
+        }
+        if (predicate?.$isNull === true) return `${quotedField} IS NULL`;
+        if (predicate?.$isNull === false) return `${quotedField} IS NOT NULL`;
         if (predicate?.$gte !== undefined) {
           values.push(this.encode(predicate.$gte, column));
           return `${quotedField} >= ${this.driver.placeholder(values.length)}`;
@@ -747,7 +786,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           values.push(this.encode(predicate.$lt, column));
           return `${quotedField} < ${this.driver.placeholder(values.length)}`;
         }
-        throw new Error(`Unsupported query predicate for ${field}`);
+        throw new Error(`Unsupported query predicate for ${field}: ${JSON.stringify(predicate)}`);
       },
     );
     return parts.length ? `(${parts.join(' AND ')})` : 'TRUE';

@@ -131,8 +131,23 @@ export class SchoolTypeRequest {
             return this;
         }
 
+        withIdIsNot(val: any): this {
+            this.filters.push({ "id": { "$ne": val } });
+            return this;
+        }
+
         withIdIn(...vals: any[]): this {
             this.filters.push({ "id": { "$in": vals } });
+            return this;
+        }
+
+        withIdNotIn(...vals: any[]): this {
+            this.filters.push({ "id": { "$notIn": vals } });
+            return this;
+        }
+
+        withIdGreaterThan(val: any): this {
+            this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
@@ -141,8 +156,28 @@ export class SchoolTypeRequest {
             return this;
         }
 
+        withIdLessThan(val: any): this {
+            this.filters.push({ "id": { "$lt": val } });
+            return this;
+        }
+
         withIdLessThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$lte": val } });
+            return this;
+        }
+
+        withIdBetween(lower: any, upper: any): this {
+            this.filters.push({ "id": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withIdIsKnown(): this {
+            this.filters.push({ "id": { "$isNull": false } });
+            return this;
+        }
+
+        withIdIsUnknown(): this {
+            this.filters.push({ "id": { "$isNull": true } });
             return this;
         }
 
@@ -156,8 +191,77 @@ export class SchoolTypeRequest {
             return this;
         }
 
-        withNameIn(...vals: string[]): this {
+        withNameIsNot(val: any): this {
+            this.filters.push({ "name": { "$ne": val } });
+            return this;
+        }
+
+        withNameIn(...vals: any[]): this {
             this.filters.push({ "name": { "$in": vals } });
+            return this;
+        }
+
+        withNameNotIn(...vals: any[]): this {
+            this.filters.push({ "name": { "$notIn": vals } });
+            return this;
+        }
+
+        withNameGreaterThan(val: any): this {
+            this.filters.push({ "name": { "$gt": val } });
+            return this;
+        }
+
+        withNameGreaterThanOrEqualTo(val: any): this {
+            this.filters.push({ "name": { "$gte": val } });
+            return this;
+        }
+
+        withNameLessThan(val: any): this {
+            this.filters.push({ "name": { "$lt": val } });
+            return this;
+        }
+
+        withNameLessThanOrEqualTo(val: any): this {
+            this.filters.push({ "name": { "$lte": val } });
+            return this;
+        }
+
+        withNameBetween(lower: any, upper: any): this {
+            this.filters.push({ "name": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withNameIsKnown(): this {
+            this.filters.push({ "name": { "$isNull": false } });
+            return this;
+        }
+
+        withNameIsUnknown(): this {
+            this.filters.push({ "name": { "$isNull": true } });
+            return this;
+        }
+        withNameNotContaining(val: string): this {
+            this.filters.push({ "name": { "$notContains": val } });
+            return this;
+        }
+
+        withNameStartingWith(val: string): this {
+            this.filters.push({ "name": { "$startsWith": val } });
+            return this;
+        }
+
+        withNameNotStartingWith(val: string): this {
+            this.filters.push({ "name": { "$notStartsWith": val } });
+            return this;
+        }
+
+        withNameEndingWith(val: string): this {
+            this.filters.push({ "name": { "$endsWith": val } });
+            return this;
+        }
+
+        withNameNotEndingWith(val: string): this {
+            this.filters.push({ "name": { "$notEndsWith": val } });
             return this;
         }
 
@@ -171,8 +275,77 @@ export class SchoolTypeRequest {
             return this;
         }
 
-        withCodeIn(...vals: string[]): this {
+        withCodeIsNot(val: any): this {
+            this.filters.push({ "code": { "$ne": val } });
+            return this;
+        }
+
+        withCodeIn(...vals: any[]): this {
             this.filters.push({ "code": { "$in": vals } });
+            return this;
+        }
+
+        withCodeNotIn(...vals: any[]): this {
+            this.filters.push({ "code": { "$notIn": vals } });
+            return this;
+        }
+
+        withCodeGreaterThan(val: any): this {
+            this.filters.push({ "code": { "$gt": val } });
+            return this;
+        }
+
+        withCodeGreaterThanOrEqualTo(val: any): this {
+            this.filters.push({ "code": { "$gte": val } });
+            return this;
+        }
+
+        withCodeLessThan(val: any): this {
+            this.filters.push({ "code": { "$lt": val } });
+            return this;
+        }
+
+        withCodeLessThanOrEqualTo(val: any): this {
+            this.filters.push({ "code": { "$lte": val } });
+            return this;
+        }
+
+        withCodeBetween(lower: any, upper: any): this {
+            this.filters.push({ "code": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withCodeIsKnown(): this {
+            this.filters.push({ "code": { "$isNull": false } });
+            return this;
+        }
+
+        withCodeIsUnknown(): this {
+            this.filters.push({ "code": { "$isNull": true } });
+            return this;
+        }
+        withCodeNotContaining(val: string): this {
+            this.filters.push({ "code": { "$notContains": val } });
+            return this;
+        }
+
+        withCodeStartingWith(val: string): this {
+            this.filters.push({ "code": { "$startsWith": val } });
+            return this;
+        }
+
+        withCodeNotStartingWith(val: string): this {
+            this.filters.push({ "code": { "$notStartsWith": val } });
+            return this;
+        }
+
+        withCodeEndingWith(val: string): this {
+            this.filters.push({ "code": { "$endsWith": val } });
+            return this;
+        }
+
+        withCodeNotEndingWith(val: string): this {
+            this.filters.push({ "code": { "$notEndsWith": val } });
             return this;
         }
 
@@ -181,8 +354,23 @@ export class SchoolTypeRequest {
             return this;
         }
 
+        withDisplayOrderIsNot(val: any): this {
+            this.filters.push({ "displayOrder": { "$ne": val } });
+            return this;
+        }
+
         withDisplayOrderIn(...vals: any[]): this {
             this.filters.push({ "displayOrder": { "$in": vals } });
+            return this;
+        }
+
+        withDisplayOrderNotIn(...vals: any[]): this {
+            this.filters.push({ "displayOrder": { "$notIn": vals } });
+            return this;
+        }
+
+        withDisplayOrderGreaterThan(val: any): this {
+            this.filters.push({ "displayOrder": { "$gt": val } });
             return this;
         }
 
@@ -191,8 +379,28 @@ export class SchoolTypeRequest {
             return this;
         }
 
+        withDisplayOrderLessThan(val: any): this {
+            this.filters.push({ "displayOrder": { "$lt": val } });
+            return this;
+        }
+
         withDisplayOrderLessThanOrEqualTo(val: any): this {
             this.filters.push({ "displayOrder": { "$lte": val } });
+            return this;
+        }
+
+        withDisplayOrderBetween(lower: any, upper: any): this {
+            this.filters.push({ "displayOrder": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withDisplayOrderIsKnown(): this {
+            this.filters.push({ "displayOrder": { "$isNull": false } });
+            return this;
+        }
+
+        withDisplayOrderIsUnknown(): this {
+            this.filters.push({ "displayOrder": { "$isNull": true } });
             return this;
         }
 
@@ -201,8 +409,23 @@ export class SchoolTypeRequest {
             return this;
         }
 
+        withVersionIsNot(val: any): this {
+            this.filters.push({ "version": { "$ne": val } });
+            return this;
+        }
+
         withVersionIn(...vals: any[]): this {
             this.filters.push({ "version": { "$in": vals } });
+            return this;
+        }
+
+        withVersionNotIn(...vals: any[]): this {
+            this.filters.push({ "version": { "$notIn": vals } });
+            return this;
+        }
+
+        withVersionGreaterThan(val: any): this {
+            this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
@@ -211,8 +434,28 @@ export class SchoolTypeRequest {
             return this;
         }
 
+        withVersionLessThan(val: any): this {
+            this.filters.push({ "version": { "$lt": val } });
+            return this;
+        }
+
         withVersionLessThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$lte": val } });
+            return this;
+        }
+
+        withVersionBetween(lower: any, upper: any): this {
+            this.filters.push({ "version": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withVersionIsKnown(): this {
+            this.filters.push({ "version": { "$isNull": false } });
+            return this;
+        }
+
+        withVersionIsUnknown(): this {
+            this.filters.push({ "version": { "$isNull": true } });
             return this;
         }
 

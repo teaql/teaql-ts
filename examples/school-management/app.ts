@@ -90,6 +90,39 @@ async function main(): Promise<void> {
     if (schoolType.code !== "PRIMARY" || schoolType.displayOrder !== 1) {
         throw new Error("SchoolType forward relation was not hydrated");
     }
+
+    const queryCases: Array<[string, any, number]> = [
+        ["string equality", Q.schools().withNameIs("Riverside Primary School"), 1],
+        ["string inequality", Q.schools().withNameIsNot("Another School"), 1],
+        ["string membership", Q.schools().withNameIn("Riverside Primary School", "Another School"), 1],
+        ["negative membership", Q.schools().withNameNotIn("Another School"), 1],
+        ["contains", Q.schools().withNameContaining("Primary"), 1],
+        ["negative contains", Q.schools().withNameNotContaining("Secondary"), 1],
+        ["starts with", Q.schools().withNameStartingWith("Riverside"), 1],
+        ["negative starts with", Q.schools().withNameNotStartingWith("Lakeside"), 1],
+        ["ends with", Q.schools().withNameEndingWith("School"), 1],
+        ["negative ends with", Q.schools().withNameNotEndingWith("Academy"), 1],
+        ["number range", Q.schools().withStudentCapacityBetween(700, 900), 1],
+        ["strict comparison", Q.schools().withStudentCapacityGreaterThan(799).withStudentCapacityLessThan(801), 1],
+        ["date range", Q.schools().withEstablishedDateBetween("1995-01-01", "1995-12-31"), 1],
+        ["known", Q.schools().withAddressIsKnown(), 1],
+        ["unknown", Q.schools().withAddressIsUnknown(), 0],
+        ["boolean", Q.schools().whichAreActive(), 1],
+        ["constant relation", Q.schools().withSchoolTypeIsPrimary(), 1],
+    ];
+    for (const [label, request, expected] of queryCases) {
+        const result = await request.comment(`Query parity: ${label}`)
+            .purpose("Execute the shared School Query conformance case")
+            .executeForList(context);
+        if (result.length !== expected) throw new Error(`${label}: expected ${expected}, got ${result.length}`);
+    }
+    const projected = await Q.schools().selectName().orderByIdDescending()
+        .comment("Query parity: projection and ordering")
+        .purpose("Execute the shared School Query conformance case")
+        .executeForList(context);
+    if (projected.length !== 1 || projected[0].name !== "Riverside Primary School") {
+        throw new Error("projection/order query did not preserve typed School result");
+    }
     const previousVersion = loaded.version;
     if (previousVersion === undefined) throw new Error("Loaded school has no version");
     loaded.updateName("Riverside Primary School — verified");
@@ -101,7 +134,7 @@ async function main(): Promise<void> {
     if (updated?.name !== "Riverside Primary School — verified") {
         throw new Error("Updated school name was not persisted");
     }
-    console.log("PASS TypeScript School Management: idempotent bootstrap, ID floor, relations, and Update");
+    console.log("PASS TypeScript School Management: bootstrap, portable Query parity, relations, and Update");
     await client.close();
 }
 

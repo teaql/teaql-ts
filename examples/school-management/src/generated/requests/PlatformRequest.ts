@@ -125,8 +125,23 @@ export class PlatformRequest {
             return this;
         }
 
+        withIdIsNot(val: any): this {
+            this.filters.push({ "id": { "$ne": val } });
+            return this;
+        }
+
         withIdIn(...vals: any[]): this {
             this.filters.push({ "id": { "$in": vals } });
+            return this;
+        }
+
+        withIdNotIn(...vals: any[]): this {
+            this.filters.push({ "id": { "$notIn": vals } });
+            return this;
+        }
+
+        withIdGreaterThan(val: any): this {
+            this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
@@ -135,8 +150,28 @@ export class PlatformRequest {
             return this;
         }
 
+        withIdLessThan(val: any): this {
+            this.filters.push({ "id": { "$lt": val } });
+            return this;
+        }
+
         withIdLessThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$lte": val } });
+            return this;
+        }
+
+        withIdBetween(lower: any, upper: any): this {
+            this.filters.push({ "id": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withIdIsKnown(): this {
+            this.filters.push({ "id": { "$isNull": false } });
+            return this;
+        }
+
+        withIdIsUnknown(): this {
+            this.filters.push({ "id": { "$isNull": true } });
             return this;
         }
 
@@ -150,8 +185,77 @@ export class PlatformRequest {
             return this;
         }
 
-        withNameIn(...vals: string[]): this {
+        withNameIsNot(val: any): this {
+            this.filters.push({ "name": { "$ne": val } });
+            return this;
+        }
+
+        withNameIn(...vals: any[]): this {
             this.filters.push({ "name": { "$in": vals } });
+            return this;
+        }
+
+        withNameNotIn(...vals: any[]): this {
+            this.filters.push({ "name": { "$notIn": vals } });
+            return this;
+        }
+
+        withNameGreaterThan(val: any): this {
+            this.filters.push({ "name": { "$gt": val } });
+            return this;
+        }
+
+        withNameGreaterThanOrEqualTo(val: any): this {
+            this.filters.push({ "name": { "$gte": val } });
+            return this;
+        }
+
+        withNameLessThan(val: any): this {
+            this.filters.push({ "name": { "$lt": val } });
+            return this;
+        }
+
+        withNameLessThanOrEqualTo(val: any): this {
+            this.filters.push({ "name": { "$lte": val } });
+            return this;
+        }
+
+        withNameBetween(lower: any, upper: any): this {
+            this.filters.push({ "name": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withNameIsKnown(): this {
+            this.filters.push({ "name": { "$isNull": false } });
+            return this;
+        }
+
+        withNameIsUnknown(): this {
+            this.filters.push({ "name": { "$isNull": true } });
+            return this;
+        }
+        withNameNotContaining(val: string): this {
+            this.filters.push({ "name": { "$notContains": val } });
+            return this;
+        }
+
+        withNameStartingWith(val: string): this {
+            this.filters.push({ "name": { "$startsWith": val } });
+            return this;
+        }
+
+        withNameNotStartingWith(val: string): this {
+            this.filters.push({ "name": { "$notStartsWith": val } });
+            return this;
+        }
+
+        withNameEndingWith(val: string): this {
+            this.filters.push({ "name": { "$endsWith": val } });
+            return this;
+        }
+
+        withNameNotEndingWith(val: string): this {
+            this.filters.push({ "name": { "$notEndsWith": val } });
             return this;
         }
 
@@ -165,8 +269,77 @@ export class PlatformRequest {
             return this;
         }
 
-        withBaseUrlIn(...vals: string[]): this {
+        withBaseUrlIsNot(val: any): this {
+            this.filters.push({ "baseUrl": { "$ne": val } });
+            return this;
+        }
+
+        withBaseUrlIn(...vals: any[]): this {
             this.filters.push({ "baseUrl": { "$in": vals } });
+            return this;
+        }
+
+        withBaseUrlNotIn(...vals: any[]): this {
+            this.filters.push({ "baseUrl": { "$notIn": vals } });
+            return this;
+        }
+
+        withBaseUrlGreaterThan(val: any): this {
+            this.filters.push({ "baseUrl": { "$gt": val } });
+            return this;
+        }
+
+        withBaseUrlGreaterThanOrEqualTo(val: any): this {
+            this.filters.push({ "baseUrl": { "$gte": val } });
+            return this;
+        }
+
+        withBaseUrlLessThan(val: any): this {
+            this.filters.push({ "baseUrl": { "$lt": val } });
+            return this;
+        }
+
+        withBaseUrlLessThanOrEqualTo(val: any): this {
+            this.filters.push({ "baseUrl": { "$lte": val } });
+            return this;
+        }
+
+        withBaseUrlBetween(lower: any, upper: any): this {
+            this.filters.push({ "baseUrl": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withBaseUrlIsKnown(): this {
+            this.filters.push({ "baseUrl": { "$isNull": false } });
+            return this;
+        }
+
+        withBaseUrlIsUnknown(): this {
+            this.filters.push({ "baseUrl": { "$isNull": true } });
+            return this;
+        }
+        withBaseUrlNotContaining(val: string): this {
+            this.filters.push({ "baseUrl": { "$notContains": val } });
+            return this;
+        }
+
+        withBaseUrlStartingWith(val: string): this {
+            this.filters.push({ "baseUrl": { "$startsWith": val } });
+            return this;
+        }
+
+        withBaseUrlNotStartingWith(val: string): this {
+            this.filters.push({ "baseUrl": { "$notStartsWith": val } });
+            return this;
+        }
+
+        withBaseUrlEndingWith(val: string): this {
+            this.filters.push({ "baseUrl": { "$endsWith": val } });
+            return this;
+        }
+
+        withBaseUrlNotEndingWith(val: string): this {
+            this.filters.push({ "baseUrl": { "$notEndsWith": val } });
             return this;
         }
 
@@ -175,8 +348,23 @@ export class PlatformRequest {
             return this;
         }
 
+        withCreateTimeIsNot(val: any): this {
+            this.filters.push({ "createTime": { "$ne": val } });
+            return this;
+        }
+
         withCreateTimeIn(...vals: any[]): this {
             this.filters.push({ "createTime": { "$in": vals } });
+            return this;
+        }
+
+        withCreateTimeNotIn(...vals: any[]): this {
+            this.filters.push({ "createTime": { "$notIn": vals } });
+            return this;
+        }
+
+        withCreateTimeGreaterThan(val: any): this {
+            this.filters.push({ "createTime": { "$gt": val } });
             return this;
         }
 
@@ -185,8 +373,28 @@ export class PlatformRequest {
             return this;
         }
 
+        withCreateTimeLessThan(val: any): this {
+            this.filters.push({ "createTime": { "$lt": val } });
+            return this;
+        }
+
         withCreateTimeLessThanOrEqualTo(val: any): this {
             this.filters.push({ "createTime": { "$lte": val } });
+            return this;
+        }
+
+        withCreateTimeBetween(lower: any, upper: any): this {
+            this.filters.push({ "createTime": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withCreateTimeIsKnown(): this {
+            this.filters.push({ "createTime": { "$isNull": false } });
+            return this;
+        }
+
+        withCreateTimeIsUnknown(): this {
+            this.filters.push({ "createTime": { "$isNull": true } });
             return this;
         }
 
@@ -195,8 +403,23 @@ export class PlatformRequest {
             return this;
         }
 
+        withUpdateTimeIsNot(val: any): this {
+            this.filters.push({ "updateTime": { "$ne": val } });
+            return this;
+        }
+
         withUpdateTimeIn(...vals: any[]): this {
             this.filters.push({ "updateTime": { "$in": vals } });
+            return this;
+        }
+
+        withUpdateTimeNotIn(...vals: any[]): this {
+            this.filters.push({ "updateTime": { "$notIn": vals } });
+            return this;
+        }
+
+        withUpdateTimeGreaterThan(val: any): this {
+            this.filters.push({ "updateTime": { "$gt": val } });
             return this;
         }
 
@@ -205,8 +428,28 @@ export class PlatformRequest {
             return this;
         }
 
+        withUpdateTimeLessThan(val: any): this {
+            this.filters.push({ "updateTime": { "$lt": val } });
+            return this;
+        }
+
         withUpdateTimeLessThanOrEqualTo(val: any): this {
             this.filters.push({ "updateTime": { "$lte": val } });
+            return this;
+        }
+
+        withUpdateTimeBetween(lower: any, upper: any): this {
+            this.filters.push({ "updateTime": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withUpdateTimeIsKnown(): this {
+            this.filters.push({ "updateTime": { "$isNull": false } });
+            return this;
+        }
+
+        withUpdateTimeIsUnknown(): this {
+            this.filters.push({ "updateTime": { "$isNull": true } });
             return this;
         }
 
@@ -215,8 +458,23 @@ export class PlatformRequest {
             return this;
         }
 
+        withVersionIsNot(val: any): this {
+            this.filters.push({ "version": { "$ne": val } });
+            return this;
+        }
+
         withVersionIn(...vals: any[]): this {
             this.filters.push({ "version": { "$in": vals } });
+            return this;
+        }
+
+        withVersionNotIn(...vals: any[]): this {
+            this.filters.push({ "version": { "$notIn": vals } });
+            return this;
+        }
+
+        withVersionGreaterThan(val: any): this {
+            this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
@@ -225,8 +483,28 @@ export class PlatformRequest {
             return this;
         }
 
+        withVersionLessThan(val: any): this {
+            this.filters.push({ "version": { "$lt": val } });
+            return this;
+        }
+
         withVersionLessThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$lte": val } });
+            return this;
+        }
+
+        withVersionBetween(lower: any, upper: any): this {
+            this.filters.push({ "version": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withVersionIsKnown(): this {
+            this.filters.push({ "version": { "$isNull": false } });
+            return this;
+        }
+
+        withVersionIsUnknown(): this {
+            this.filters.push({ "version": { "$isNull": true } });
             return this;
         }
 
