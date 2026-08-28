@@ -75,7 +75,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     const query = federalQuery("Task");
     
     const facetQuery = new SelectQuery("Task").aggregate("Count", "id", "count");
-    query.facetBy("statusCount", "STATUS_PROPERTY", { query: facetQuery });
+    query.facetBy("statusCount", "status", { toQuery: () => facetQuery });
 
     await expect(client.executeQuery(query)).rejects.toThrow('TFP_INVALID_REQUEST');
     expect(global.fetch).not.toHaveBeenCalled();

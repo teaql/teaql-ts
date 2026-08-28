@@ -8,6 +8,7 @@ import { UserContext } from '../core/context';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
+import { SelectQuery } from '../core/ast';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -138,6 +139,7 @@ export interface TeaQLDataService {
   executeQuery<T = any>(query: any): Promise<T[]>;
   executeCount(query: any): Promise<number>;
   executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
+  executeFacetMembership?(outerQuery: any, relationName: string): Promise<Map<string, number>>;
   close?(): Promise<void>;
 }
 
@@ -985,6 +987,28 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
   }
 
+  async executeFacetMembership(
+    outerQuery: SelectQuery,
+    relationName: string,
+  ): Promise<Map<string, number>> {
+    const query = outerQuery.clone();
+    query.facets = [];
+    query.relations = [];
+    query.orderItems = [];
+    query.offsetValue = 0;
+    query.limitValue = 0;
+    query.selectItems = [];
+    query.groupByItems = [relationName];
+    query.aggregateItems = [{ function: 'Count', field: 'id', alias: '__teaql_facet_count' }];
+    (query as any)[this.internalQueryToken] = true;
+    const rows = await this.executeQuery<Record<string, unknown>>(query);
+    return new Map(rows.flatMap(row => {
+      const value = row[relationName];
+      const count = Number(row.__teaql_facet_count ?? 0);
+      return value === null || value === undefined ? [] : [[String(value), count]];
+    }));
+  }
+
   async executeCount(query: any): Promise<number> {
     if (typeof query?.forExactCount !== 'function') {
       throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
@@ -1053,6 +1077,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async *executeForStream<T = any>(query: any, chunkSize = 1000): AsyncIterable<T[]> {
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
       throw new Error('stream chunk size must be a positive integer');
+    }
+    if (Array.isArray(query.facets) && query.facets.length > 0) {
+      throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
     }
     const { sql, values, aggregateNames } = await this.compileQuery(query);
     let chunk: any[] = [];

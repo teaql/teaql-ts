@@ -67,9 +67,35 @@ class SelectQuery {
         this.purposeText = text;
         return this;
     }
-    facetBy(facetName, relationName, request) {
-        this.facets.push({ facetName, relationName, query: request.query });
+    facetBy(facetName, relationName, request, includeAllFacets = true) {
+        this.facets.push({
+            facetName,
+            relationName,
+            query: request.toQuery(),
+            includeAllFacets,
+        });
         return this;
+    }
+    clone() {
+        const copy = new SelectQuery(this.entity);
+        copy.filterCondition = this.filterCondition;
+        copy.limitValue = this.limitValue;
+        copy.offsetValue = this.offsetValue;
+        copy.orderItems = [...this.orderItems];
+        copy.selectItems = [...this.selectItems];
+        copy.properties = [...this.properties];
+        copy.joins = [...this.joins];
+        copy.groupByItems = [...this.groupByItems];
+        copy.aggregateItems = this.aggregateItems.map(item => ({ ...item }));
+        copy.aggregationCache = this.aggregationCache;
+        copy.facets = this.facets.map(facet => ({ ...facet, query: facet.query.clone() }));
+        copy.relations = this.relations.map(relation => ({
+            ...relation,
+            query: relation.query?.clone(),
+        }));
+        copy.commentText = this.commentText;
+        copy.purposeText = this.purposeText;
+        return copy;
     }
     filter(condition) {
         this.filterCondition = condition;

@@ -51,6 +51,17 @@ export interface TeaQLPage<T> {
   limit: number;
 }
 
+export interface QuerySelection {
+  toQuery(): SelectQuery;
+}
+
+export interface FacetRequest {
+  facetName: string;
+  relationName: string;
+  query: SelectQuery;
+  includeAllFacets: boolean;
+}
+
 export class SelectQuery {
   private hardLimitValue: number = 10_000;
   private continuousPageFetchOptions?: { namespace: string; ttlSeconds: number };
@@ -66,7 +77,7 @@ export class SelectQuery {
   public groupByItems: string[] = [];
   public aggregateItems: any[] = [];
   public aggregationCache?: AggregationCacheOptions;
-  public facets: any[] = [];
+  public facets: FacetRequest[] = [];
   public relations: Array<{
     name: string;
     query?: SelectQuery;
@@ -95,9 +106,41 @@ export class SelectQuery {
     return this;
   }
 
-  facetBy(facetName: string, relationName: string, request: any): this {
-    this.facets.push({ facetName, relationName, query: request.query });
+  facetBy(
+    facetName: string,
+    relationName: string,
+    request: QuerySelection,
+    includeAllFacets = true,
+  ): this {
+    this.facets.push({
+      facetName,
+      relationName,
+      query: request.toQuery(),
+      includeAllFacets,
+    });
     return this;
+  }
+
+  clone(): SelectQuery {
+    const copy = new SelectQuery(this.entity);
+    copy.filterCondition = this.filterCondition;
+    copy.limitValue = this.limitValue;
+    copy.offsetValue = this.offsetValue;
+    copy.orderItems = [...this.orderItems];
+    copy.selectItems = [...this.selectItems];
+    copy.properties = [...this.properties];
+    copy.joins = [...this.joins];
+    copy.groupByItems = [...this.groupByItems];
+    copy.aggregateItems = this.aggregateItems.map(item => ({ ...item }));
+    copy.aggregationCache = this.aggregationCache;
+    copy.facets = this.facets.map(facet => ({ ...facet, query: facet.query.clone() }));
+    copy.relations = this.relations.map(relation => ({
+      ...relation,
+      query: relation.query?.clone(),
+    }));
+    copy.commentText = this.commentText;
+    copy.purposeText = this.purposeText;
+    return copy;
   }
 
   filter(condition: any): this {

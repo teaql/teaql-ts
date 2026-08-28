@@ -1,6 +1,7 @@
 import { RuntimeTelemetry } from '../core/telemetry';
 import { UserContext } from '../core/context';
 import { contextSchemaCapability } from '../core/schema-capability';
+import { SelectQuery } from '../core/ast';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
     columnName: string;
@@ -53,6 +54,7 @@ export interface TeaQLDataService {
     executeQuery<T = any>(query: any): Promise<T[]>;
     executeCount(query: any): Promise<number>;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
+    executeFacetMembership?(outerQuery: any, relationName: string): Promise<Map<string, number>>;
     close?(): Promise<void>;
 }
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
@@ -124,6 +126,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private orders;
     private compileQuery;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    executeFacetMembership(outerQuery: SelectQuery, relationName: string): Promise<Map<string, number>>;
     executeCount(query: any): Promise<number>;
     private prepareContinuousPage;
     private registerContinuousPage;

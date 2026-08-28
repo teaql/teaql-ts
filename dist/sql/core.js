@@ -830,6 +830,24 @@ class AbstractSQLTeaQLClient {
             throw error;
         }
     }
+    async executeFacetMembership(outerQuery, relationName) {
+        const query = outerQuery.clone();
+        query.facets = [];
+        query.relations = [];
+        query.orderItems = [];
+        query.offsetValue = 0;
+        query.limitValue = 0;
+        query.selectItems = [];
+        query.groupByItems = [relationName];
+        query.aggregateItems = [{ function: 'Count', field: 'id', alias: '__teaql_facet_count' }];
+        query[this.internalQueryToken] = true;
+        const rows = await this.executeQuery(query);
+        return new Map(rows.flatMap(row => {
+            const value = row[relationName];
+            const count = Number(row.__teaql_facet_count ?? 0);
+            return value === null || value === undefined ? [] : [[String(value), count]];
+        }));
+    }
     async executeCount(query) {
         if (typeof query?.forExactCount !== 'function') {
             throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
@@ -922,6 +940,9 @@ class AbstractSQLTeaQLClient {
     async *executeForStream(query, chunkSize = 1000) {
         if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
             throw new Error('stream chunk size must be a positive integer');
+        }
+        if (Array.isArray(query.facets) && query.facets.length > 0) {
+            throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
         }
         const { sql, values, aggregateNames } = await this.compileQuery(query);
         let chunk = [];

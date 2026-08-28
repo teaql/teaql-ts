@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SortDirection = exports.OrderBy = exports.AggregationCacheOptions = exports.MutationQuery = exports.SelectQuery = void 0;
+exports.executeRelationFacets = exports.SortDirection = exports.OrderBy = exports.AggregationCacheOptions = exports.MutationQuery = exports.SelectQuery = void 0;
 __exportStar(require("./core/value"), exports);
 __exportStar(require("./core/context"), exports);
 __exportStar(require("./core/entity-root"), exports);
@@ -32,6 +32,8 @@ Object.defineProperty(exports, "MutationQuery", { enumerable: true, get: functio
 Object.defineProperty(exports, "AggregationCacheOptions", { enumerable: true, get: function () { return ast_1.AggregationCacheOptions; } });
 Object.defineProperty(exports, "OrderBy", { enumerable: true, get: function () { return ast_1.OrderBy; } });
 Object.defineProperty(exports, "SortDirection", { enumerable: true, get: function () { return ast_1.SortDirection; } });
+var facet_1 = require("./core/facet");
+Object.defineProperty(exports, "executeRelationFacets", { enumerable: true, get: function () { return facet_1.executeRelationFacets; } });
 __exportStar(require("./meta/descriptors"), exports);
 __exportStar(require("./tfp/client"), exports);
 __exportStar(require("./parser/dsl"), exports);

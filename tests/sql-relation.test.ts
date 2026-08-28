@@ -2,6 +2,7 @@ import { UserContext } from '../src/core/context';
 import { OrderBy, SelectQuery } from '../src/core/ast';
 import { EntitySchema } from '../src/sql/core';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
+import { executeRelationFacets } from '../src/core/facet';
 
 const schemas: Record<string, EntitySchema> = {
   Order: {
@@ -110,6 +111,35 @@ describe('SQLite relation loading', () => {
       new SelectQuery('Order').purpose('test phonetic query').comment('reject unsupported soundex')
         .filter({ id: { $soundLike: 'Robert' } }),
     )).rejects.toThrow('QRY-P09_UNSUPPORTED');
+    await client.close();
+  });
+
+  it('computes relation facet membership with grouped SQL and include-all semantics', async () => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    for (const id of ['11', '12', '13']) {
+      await client.executeMutation({ entity: 'Order', action: 'Create', id, payload: {}, comment: 'seed order facet' });
+    }
+    for (const [id, orderId, name] of [
+      ['101', '11', 'Riverside one'], ['102', '11', 'Riverside two'], ['103', '12', 'Other'],
+    ]) {
+      await client.executeMutation({
+        entity: 'OrderLine', action: 'Create', id, payload: { orderId, name }, comment: 'seed line facet',
+      });
+    }
+    const outer = new SelectQuery('OrderLine')
+      .purpose('render order facet').comment('count Riverside lines')
+      .filter({ name: { $contains: 'Riverside' } });
+    outer.facetBy('orders', 'orderId', {
+      toQuery: () => new SelectQuery('Order').aggregate('Count', 'id', 'lineCount')
+        .purpose('render order facet').comment('load order facet values'),
+    });
+
+    const facets = await executeRelationFacets(client, query => query, outer, outer.facets);
+    expect(facets.orders.map(row => [row.id, row.lineCount])).toEqual([
+      ['11', 2], ['12', 0], ['13', 0],
+    ]);
+    expect(client.sqlTrace.some(sql => sql.includes('GROUP BY') && sql.includes('COUNT('))).toBe(true);
     await client.close();
   });
 

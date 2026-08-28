@@ -28,6 +28,15 @@ export interface TeaQLPage<T> {
     offset: number;
     limit: number;
 }
+export interface QuerySelection {
+    toQuery(): SelectQuery;
+}
+export interface FacetRequest {
+    facetName: string;
+    relationName: string;
+    query: SelectQuery;
+    includeAllFacets: boolean;
+}
 export declare class SelectQuery {
     private hardLimitValue;
     private continuousPageFetchOptions?;
@@ -43,7 +52,7 @@ export declare class SelectQuery {
     groupByItems: string[];
     aggregateItems: any[];
     aggregationCache?: AggregationCacheOptions;
-    facets: any[];
+    facets: FacetRequest[];
     relations: Array<{
         name: string;
         query?: SelectQuery;
@@ -56,7 +65,8 @@ export declare class SelectQuery {
     constructor(entity: string);
     comment(text: string): this;
     purpose(text: string): this;
-    facetBy(facetName: string, relationName: string, request: any): this;
+    facetBy(facetName: string, relationName: string, request: QuerySelection, includeAllFacets?: boolean): this;
+    clone(): SelectQuery;
     filter(condition: any): this;
     limit(limit: number): this;
     optimizeForContinuousPageFetch(): this;
