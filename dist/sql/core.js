@@ -849,6 +849,7 @@ class AbstractSQLTeaQLClient {
             this.recordSQL('select', sql, values, startedAt, result.rowCount);
             const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
             await this.enhanceRelations(rows, query);
+            await this.enhanceRelationAggregates(rows, query);
             if (!internal)
                 await this.registerContinuousPage(query, prepared.execution, rows);
             scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
@@ -1047,6 +1048,70 @@ class AbstractSQLTeaQLClient {
                 throw error;
             }
         }
+    }
+    async enhanceRelationAggregates(parents, query) {
+        const aggregates = query.relationAggregates;
+        if (!parents.length || !Array.isArray(aggregates) || !aggregates.length)
+            return;
+        const parentSchema = this.schema(query.entity);
+        for (const aggregate of aggregates) {
+            const relation = parentSchema.relations?.[aggregate.relationName];
+            if (!relation)
+                throw new Error(`Missing relation ${query.entity}.${aggregate.relationName}`);
+            const parentIds = parents
+                .map(parent => parent[relation.localKey])
+                .filter(value => value !== undefined && value !== null);
+            if (!parentIds.length) {
+                for (const parent of parents) {
+                    parent[aggregate.alias] = aggregate.singleResult
+                        ? this.emptyAggregateValue(aggregate.query)
+                        : {};
+                }
+                continue;
+            }
+            const childQuery = aggregate.query.clone();
+            childQuery.entity = relation.targetEntity;
+            childQuery.selectItems = [];
+            childQuery.properties = [];
+            childQuery.orderItems = [];
+            childQuery.limitValue = 0;
+            childQuery.offsetValue = 0;
+            childQuery.relations = [];
+            childQuery.relationAggregates = [];
+            if (!childQuery.aggregateItems.length) {
+                childQuery.aggregate('Count', 'id', aggregate.alias);
+            }
+            if (!childQuery.groupByItems.includes(relation.foreignKey)) {
+                childQuery.groupBy(relation.foreignKey);
+            }
+            childQuery.filterCondition = {
+                ...(childQuery.filterCondition || {}),
+                [relation.foreignKey]: { $in: parentIds },
+            };
+            childQuery[this.internalQueryToken] = true;
+            const rows = await this.executeQuery(childQuery);
+            const buckets = new Map();
+            for (const row of rows)
+                buckets.set(row[relation.foreignKey], row);
+            for (const parent of parents) {
+                const row = buckets.get(parent[relation.localKey]);
+                if (!row) {
+                    parent[aggregate.alias] = aggregate.singleResult
+                        ? this.emptyAggregateValue(aggregate.query)
+                        : {};
+                }
+                else if (aggregate.singleResult) {
+                    parent[aggregate.alias] = row[childQuery.aggregateItems[0].alias] ?? null;
+                }
+                else {
+                    parent[aggregate.alias] = Object.fromEntries(Object.entries(row).filter(([key]) => key !== relation.foreignKey));
+                }
+            }
+        }
+    }
+    emptyAggregateValue(query) {
+        const aggregate = query.aggregateItems[0];
+        return !aggregate || String(aggregate.function).toLowerCase() === 'count' ? 0 : null;
     }
     queryLimit(query) {
         if (query._limit !== undefined)

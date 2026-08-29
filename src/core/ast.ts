@@ -62,6 +62,13 @@ export interface FacetRequest {
   includeAllFacets: boolean;
 }
 
+export interface RelationAggregate {
+  relationName: string;
+  alias: string;
+  query: SelectQuery;
+  singleResult: boolean;
+}
+
 export class SelectQuery {
   private hardLimitValue: number = 10_000;
   private continuousPageFetchOptions?: { namespace: string; ttlSeconds: number };
@@ -85,6 +92,7 @@ export class SelectQuery {
     foreignKey?: string;
     many?: boolean;
   }> = [];
+  public relationAggregates: RelationAggregate[] = [];
   public commentText?: string;
   public purposeText?: string;
   
@@ -137,6 +145,10 @@ export class SelectQuery {
     copy.relations = this.relations.map(relation => ({
       ...relation,
       query: relation.query?.clone(),
+    }));
+    copy.relationAggregates = this.relationAggregates.map(aggregate => ({
+      ...aggregate,
+      query: aggregate.query.clone(),
     }));
     copy.commentText = this.commentText;
     copy.purposeText = this.purposeText;
@@ -223,6 +235,16 @@ export class SelectQuery {
     many = true
   ): this {
     this.relations.push({ name, query, localKey, foreignKey, many });
+    return this;
+  }
+
+  relationAggregate(
+    relationName: string,
+    alias: string,
+    query: SelectQuery,
+    singleResult = true,
+  ): this {
+    this.relationAggregates.push({ relationName, alias, query, singleResult });
     return this;
   }
 

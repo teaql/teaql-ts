@@ -53,6 +53,7 @@ class SelectQuery {
         this.aggregateItems = [];
         this.facets = [];
         this.relations = [];
+        this.relationAggregates = [];
         this.entity = entity;
         // Local runtime policy must never cross the federation JSON boundary.
         Object.defineProperty(this, 'hardLimitValue', { enumerable: false, writable: true, value: 10000 });
@@ -92,6 +93,10 @@ class SelectQuery {
         copy.relations = this.relations.map(relation => ({
             ...relation,
             query: relation.query?.clone(),
+        }));
+        copy.relationAggregates = this.relationAggregates.map(aggregate => ({
+            ...aggregate,
+            query: aggregate.query.clone(),
         }));
         copy.commentText = this.commentText;
         copy.purposeText = this.purposeText;
@@ -164,6 +169,10 @@ class SelectQuery {
     }
     relationQuery(name, query, localKey = 'id', foreignKey = 'id', many = true) {
         this.relations.push({ name, query, localKey, foreignKey, many });
+        return this;
+    }
+    relationAggregate(relationName, alias, query, singleResult = true) {
+        this.relationAggregates.push({ relationName, alias, query, singleResult });
         return this;
     }
     order(orderBy) {

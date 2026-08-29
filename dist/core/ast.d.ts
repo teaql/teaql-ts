@@ -37,6 +37,12 @@ export interface FacetRequest {
     query: SelectQuery;
     includeAllFacets: boolean;
 }
+export interface RelationAggregate {
+    relationName: string;
+    alias: string;
+    query: SelectQuery;
+    singleResult: boolean;
+}
 export declare class SelectQuery {
     private hardLimitValue;
     private continuousPageFetchOptions?;
@@ -60,6 +66,7 @@ export declare class SelectQuery {
         foreignKey?: string;
         many?: boolean;
     }>;
+    relationAggregates: RelationAggregate[];
     commentText?: string;
     purposeText?: string;
     constructor(entity: string);
@@ -84,6 +91,7 @@ export declare class SelectQuery {
     offset(offset: number): this;
     relation(name: string): this;
     relationQuery(name: string, query: SelectQuery, localKey?: string, foreignKey?: string, many?: boolean): this;
+    relationAggregate(relationName: string, alias: string, query: SelectQuery, singleResult?: boolean): this;
     order(orderBy: OrderBy): this;
     select(items: string[]): this;
     enableAggregationCacheFor(cacheExpiredMillis: number): this;
