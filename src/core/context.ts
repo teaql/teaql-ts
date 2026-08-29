@@ -1,6 +1,5 @@
 import { SelectQuery } from './ast';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
-import { EntityRoot } from './entity-root';
 import {
   contextSchemaCapability,
   InternalContextSchemaExecutor,
@@ -22,7 +21,6 @@ export class ContextRootError extends Error {
 }
 
 export class UserContext {
-  public readonly entityRoot = new EntityRoot();
   private readonly resources = new Map<string, unknown>();
   private readonly continuousPageCursors = new Map<string, Cursor>();
   private readonly continuousPageRuntime = {

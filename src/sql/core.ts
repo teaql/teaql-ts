@@ -503,9 +503,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         this.userContext.insertResource('fixTime', new Date());
         try {
           checker.checkAndFix(this.userContext, mutation, results);
-          if (mutation.ledgerKey) {
+          if (mutation.ledgerKey && mutation.ledgerRoot) {
             for (const [field, value] of Object.entries(mutation.payload || {})) {
-              this.userContext.entityRoot.set(mutation.ledgerKey, field, value);
+              mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
             }
           }
           this.userContext.translateCheckResults(results);

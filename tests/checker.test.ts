@@ -1,4 +1,4 @@
-import { CheckException, CheckResult, EntityChecker, ObjectLocation, RuntimeModule, UserContext } from '../src';
+import { CheckException, CheckResult, EntityChecker, EntityRoot, ObjectLocation, RuntimeModule, UserContext } from '../src';
 import { AbstractSQLTeaQLClient, TeaQLSqlDriver } from '../src/sql/core';
 
 class Driver implements TeaQLSqlDriver {
@@ -74,6 +74,7 @@ test('canonical multiword mutation key reaches checker and native SQL schema', a
 test('update checker can add fixes to an immutable mutation ledger snapshot', async () => {
   const driver = new Driver();
   const context = new UserContext();
+  const ledgerRoot = new EntityRoot();
   const ledgerKey = { entity: 'Task', id: '1' } as const;
   const checker: EntityChecker = {
     checkAndFix(ctx, mutation) {
@@ -93,11 +94,11 @@ test('update checker can add fixes to an immutable mutation ledger snapshot', as
   const immutableLedgerPayload = Object.freeze({ name: 'Updated task' });
   await expect(client.executeMutation({
     entity: 'Task', action: 'Update', payload: immutableLedgerPayload,
-    id: '1', version: 1, comment: 'update task', ledgerKey,
+    id: '1', version: 1, comment: 'update task', ledgerKey, ledgerRoot,
   })).resolves.toBeDefined();
 
   expect(Object.isFrozen(immutableLedgerPayload)).toBe(true);
   expect((immutableLedgerPayload as Record<string, unknown>).update_time).toBeUndefined();
-  expect(context.entityRoot.change(ledgerKey).update_time).toBeInstanceOf(Date);
+  expect(ledgerRoot.change(ledgerKey).update_time).toBeInstanceOf(Date);
   expect(driver.statements.some(sql => sql.includes('"update_time" = ?'))).toBe(true);
 });

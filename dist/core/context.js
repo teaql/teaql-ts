@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserContext = exports.ContextRootError = void 0;
 const i18n_1 = require("./i18n");
-const entity_root_1 = require("./entity-root");
 const schema_capability_1 = require("./schema-capability");
 class ContextRootError extends Error {
     constructor(reason, expectedType, activeRoot) {
@@ -16,7 +15,6 @@ class ContextRootError extends Error {
 exports.ContextRootError = ContextRootError;
 class UserContext {
     constructor() {
-        this.entityRoot = new entity_root_1.EntityRoot();
         this.resources = new Map();
         this.continuousPageCursors = new Map();
         this.continuousPageRuntime = {
