@@ -6,6 +6,7 @@ const checker_1 = require("../core/checker");
 const context_1 = require("../core/context");
 const runtime_module_1 = require("../core/runtime-module");
 const schema_capability_1 = require("../core/schema-capability");
+const ast_1 = require("../core/ast");
 async function ensureOptimisticIdFloor(session, placeholder, entity, floor) {
     const numericFloor = Number(floor);
     if (!Number.isSafeInteger(numericFloor) || numericFloor < 0) {
@@ -834,7 +835,8 @@ class AbstractSQLTeaQLClient {
                 }
                 query.prepareForList();
             }
-            const prepared = internal ? { query, execution: undefined } : await this.prepareContinuousPage(query);
+            const idSetPrepared = internal ? { query, execution: undefined } : await this.prepareIdSetPage(query);
+            const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
             query = prepared.query;
             const { sql, values, aggregateNames } = await this.compileQuery(query);
             const startedAt = Date.now();
@@ -848,6 +850,11 @@ class AbstractSQLTeaQLClient {
             }, () => this.driver.query(sql, values));
             this.recordSQL('select', sql, values, startedAt, result.rowCount);
             const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
+            if (idSetPrepared.execution?.pageIds) {
+                const positions = new Map(idSetPrepared.execution.pageIds.map((id, index) => [String(id), index]));
+                rows.sort((left, right) => (positions.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER)
+                    - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER));
+            }
             await this.enhanceRelations(rows, query);
             await this.enhanceRelationAggregates(rows, query);
             if (!internal)
@@ -859,6 +866,111 @@ class AbstractSQLTeaQLClient {
             scope.failure(error);
             throw error;
         }
+    }
+    async prepareIdSetPage(query) {
+        const options = query.localIdSetPaginationOptions?.();
+        const runtime = query.localIdSetPaginationRuntime?.();
+        if (!options || !runtime) {
+            runtime?.observe('ID_SET_DISABLED');
+            return { query };
+        }
+        const limit = this.queryLimit(query);
+        if (!limit || query.localContinuousPageOptions?.() || this.aggregates(query).length
+            || this.groupBy(query).length || query.__teaqlPartitionBy) {
+            runtime.observe('ID_SET_FALLBACK_UNSUPPORTED_SHAPE');
+            return { query };
+        }
+        if ((query.orderItems || []).some((order) => order.expr != null)) {
+            runtime.observe('ID_SET_FALLBACK_NON_DETERMINISTIC_ORDER');
+            return { query };
+        }
+        if (!this.orders(query).some(order => order.field === 'id')) {
+            query = query.clone().order(ast_1.OrderBy.asc('id'));
+        }
+        const normalized = query.clone();
+        normalized.offsetValue = 0;
+        normalized.limitValue = 0;
+        normalized.selectItems = [];
+        normalized.relations = [];
+        normalized.commentText = undefined;
+        normalized.purposeText = undefined;
+        normalized.clearIdSetPaginationRuntime();
+        normalized.clearContinuousPageRuntime();
+        const rawKey = `${options.namespace}|${runtime.scope}|${JSON.stringify(normalized)}`;
+        let hash = 2166136261;
+        for (let i = 0; i < rawKey.length; i++)
+            hash = Math.imul(hash ^ rawKey.charCodeAt(i), 16777619);
+        const queryKey = `teaql:id-set:v1:${(hash >>> 0).toString(16)}`;
+        let retained;
+        let cacheHit = false;
+        try {
+            retained = runtime.get(queryKey);
+        }
+        catch {
+            runtime.observe('ID_SET_FALLBACK_STORE_UNAVAILABLE');
+            return { query };
+        }
+        if (!retained) {
+            let buildResult;
+            try {
+                buildResult = await runtime.build(queryKey, async () => {
+                    const existing = runtime.get(queryKey);
+                    if (existing)
+                        return existing;
+                    const idQuery = query.clone();
+                    idQuery.selectItems = ['id'];
+                    idQuery.relations = [];
+                    idQuery.relationAggregates = [];
+                    idQuery.facets = [];
+                    idQuery.offsetValue = 0;
+                    idQuery.limitValue = options.maxIds + 1;
+                    idQuery.clearIdSetPaginationRuntime();
+                    idQuery.clearContinuousPageRuntime();
+                    idQuery[this.internalQueryToken] = true;
+                    const idRows = await this.executeQuery(idQuery);
+                    if (idRows.length > options.maxIds)
+                        return undefined;
+                    let ids;
+                    try {
+                        ids = BigUint64Array.from(idRows.map(row => BigInt(row.id)));
+                    }
+                    catch {
+                        throw new Error('ID_SET_UNSUPPORTED_ID');
+                    }
+                    const value = { ids, expiresAt: Date.now() + options.ttlSeconds * 1000 };
+                    runtime.put(queryKey, value);
+                    return value;
+                });
+            }
+            catch (error) {
+                runtime.observe(error instanceof Error && error.message === 'ID_SET_UNSUPPORTED_ID'
+                    ? 'ID_SET_FALLBACK_UNSUPPORTED_SHAPE'
+                    : 'ID_SET_FALLBACK_STORE_UNAVAILABLE');
+                return { query };
+            }
+            retained = buildResult.value;
+            if (!retained) {
+                runtime.observe('ID_SET_FALLBACK_LIMIT_EXCEEDED', options.maxIds + 1);
+                return { query };
+            }
+            cacheHit = !buildResult.built;
+            runtime.observe(cacheHit ? 'ID_SET_HIT' : 'ID_SET_BUILD', retained.ids.length);
+        }
+        else {
+            cacheHit = true;
+            runtime.observe('ID_SET_HIT', retained.ids.length);
+        }
+        const offset = Number(query.offsetValue || query._offset || 0);
+        const pageIds = Array.from(retained.ids.slice(offset, offset + limit));
+        const page = query.clone();
+        page.offsetValue = 0;
+        page.limitValue = Math.max(pageIds.length, 1);
+        page.filterCondition = page.filterCondition
+            ? { $and: [page.filterCondition, { id: { $in: pageIds } }] }
+            : { id: { $in: pageIds } };
+        page.clearIdSetPaginationRuntime();
+        runtime.observe(cacheHit ? 'ID_SET_HIT' : 'ID_SET_BUILD', retained.ids.length);
+        return { query: page, execution: { pageIds, totalCount: retained.ids.length } };
     }
     async executeFacetMembership(outerQuery, relationName) {
         const query = outerQuery.clone();

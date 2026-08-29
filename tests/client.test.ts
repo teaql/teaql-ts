@@ -228,6 +228,17 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     },
   );
 
+  it.each(['idSetPagination', 'id_set_pagination', 'paginationWithIdSet']) (
+    'rejects remote ID-set retention policy field %s without issuing HTTP',
+    async (field) => {
+      const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+      const query = federalQuery('Order') as SelectQuery & Record<string, unknown>;
+      query[field] = { namespace: 'attacker', ttlSeconds: 999, maxIds: 9_999_999 };
+      await expect(client.executeQuery(query)).rejects.toThrow('TFP_FORBIDDEN_FIELD');
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
+
   it('rejects nested remote hard-limit injection without issuing HTTP', async () => {
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
     const nested = new SelectQuery('OrderLine') as SelectQuery & Record<string, unknown>;

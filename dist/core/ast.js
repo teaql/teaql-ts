@@ -59,6 +59,8 @@ class SelectQuery {
         Object.defineProperty(this, 'hardLimitValue', { enumerable: false, writable: true, value: 10000 });
         Object.defineProperty(this, 'continuousPageFetchOptions', { enumerable: false, writable: true, value: undefined });
         Object.defineProperty(this, 'continuousPageRuntimeContext', { enumerable: false, writable: true, value: undefined });
+        Object.defineProperty(this, 'idSetPaginationOptions', { enumerable: false, writable: true, value: undefined });
+        Object.defineProperty(this, 'idSetPaginationRuntimeContext', { enumerable: false, writable: true, value: undefined });
     }
     comment(text) {
         this.commentText = text;
@@ -100,6 +102,8 @@ class SelectQuery {
         }));
         copy.commentText = this.commentText;
         copy.purposeText = this.purposeText;
+        copy.idSetPaginationOptions = this.idSetPaginationOptions;
+        copy.idSetPaginationRuntimeContext = this.idSetPaginationRuntimeContext;
         return copy;
     }
     filter(condition) {
@@ -128,6 +132,23 @@ class SelectQuery {
     localContinuousPageOptions() { return this.continuousPageFetchOptions; }
     localContinuousPageRuntime() { return this.continuousPageRuntimeContext; }
     clearContinuousPageRuntime() { this.continuousPageRuntimeContext = undefined; return this; }
+    optimizePaginationWithIdSet() {
+        return this.optimizePaginationWithIdSetConfig('default', 600, 3000000);
+    }
+    optimizePaginationWithIdSetConfig(namespace, ttlSeconds, maxIds) {
+        if (!namespace?.trim())
+            throw new Error('ID set namespace must not be empty');
+        if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0)
+            throw new Error('ID set ttlSeconds must be a positive integer');
+        if (!Number.isSafeInteger(maxIds) || maxIds <= 0)
+            throw new Error('ID set maxIds must be a positive integer');
+        this.idSetPaginationOptions = { namespace, ttlSeconds, maxIds };
+        return this;
+    }
+    bindIdSetPaginationRuntime(runtime) { this.idSetPaginationRuntimeContext = runtime; return this; }
+    localIdSetPaginationOptions() { return this.idSetPaginationOptions; }
+    localIdSetPaginationRuntime() { return this.idSetPaginationRuntimeContext; }
+    clearIdSetPaginationRuntime() { this.idSetPaginationRuntimeContext = undefined; return this; }
     prepareForList() {
         if (!Number.isSafeInteger(this.offsetValue) || this.offsetValue < 0) {
             throw new Error('QUERY_INVALID_OFFSET: offset must be a non-negative safe integer');

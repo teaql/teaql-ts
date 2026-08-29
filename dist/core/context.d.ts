@@ -1,5 +1,14 @@
 import { SelectQuery } from './ast';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
+export type RetainedIdSet = {
+    ids: BigUint64Array;
+    expiresAt: number;
+};
+export interface IdSetPaginationStore {
+    get(key: string): RetainedIdSet | undefined;
+    put(key: string, value: RetainedIdSet): void;
+    invalidate?(key: string): void;
+}
 export type ContextEntityRef = Readonly<{
     entity: string;
     id: string | number | bigint;
@@ -19,15 +28,22 @@ export declare class ContextRootError extends Error {
 export declare class UserContext {
     private readonly resources;
     private readonly continuousPageCursors;
+    private readonly retainedIdSets;
+    private readonly idSetBuilds;
     private readonly continuousPageRuntime;
+    private readonly idSetPaginationRuntime;
     userIdentifier: string;
     continuousPagePlan: string;
     continuousPageCursorId?: string;
+    idSetPaginationPlan: string;
+    idSetPaginationCount?: number;
+    idSetPaginationCountAccuracy: 'EXACT' | 'LOWER_BOUND' | 'UNKNOWN';
     locale: Locale;
     i18nCatalog: I18nCatalog;
     setLocaleCode(code: string): this;
     setLanguageCode(code: string): this;
     installI18nCatalog(catalog: I18nCatalog): this;
+    installIdSetPaginationStore(store: IdSetPaginationStore): this;
     translateCheckResults(results: CheckResult[]): CheckResult[];
     insertResource<T>(name: string, resource: T): this;
     getResource<T>(name: string): T | undefined;
@@ -47,5 +63,9 @@ export declare class UserContext {
     prepareQuery(query: SelectQuery): SelectQuery;
     private getContinuousPageCursor;
     private putContinuousPageCursor;
+    private getRetainedIdSet;
+    private idSetStore;
+    private putRetainedIdSet;
+    private singleFlightIdSetBuild;
 }
 //# sourceMappingURL=context.d.ts.map

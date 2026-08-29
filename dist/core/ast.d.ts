@@ -47,6 +47,8 @@ export declare class SelectQuery {
     private hardLimitValue;
     private continuousPageFetchOptions?;
     private continuousPageRuntimeContext?;
+    private idSetPaginationOptions?;
+    private idSetPaginationRuntimeContext?;
     entity: string;
     filterCondition: any | null;
     limitValue: number;
@@ -85,6 +87,16 @@ export declare class SelectQuery {
     } | undefined;
     localContinuousPageRuntime(): any;
     clearContinuousPageRuntime(): this;
+    optimizePaginationWithIdSet(): this;
+    optimizePaginationWithIdSetConfig(namespace: string, ttlSeconds: number, maxIds: number): this;
+    bindIdSetPaginationRuntime(runtime: any): this;
+    localIdSetPaginationOptions(): {
+        namespace: string;
+        ttlSeconds: number;
+        maxIds: number;
+    } | undefined;
+    localIdSetPaginationRuntime(): any;
+    clearIdSetPaginationRuntime(): this;
     prepareForList(): this;
     forExactCount(alias?: string): SelectQuery;
     private applyListLimit;

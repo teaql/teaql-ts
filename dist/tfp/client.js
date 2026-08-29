@@ -12,7 +12,9 @@ function rejectRemoteHardLimit(value, path = '$') {
         return;
     for (const [key, child] of Object.entries(value)) {
         const normalized = key.replace(/[^a-zA-Z]/g, '').toLowerCase();
-        if (normalized === 'hardlimit' || normalized === 'hardlimitvalue' || normalized.startsWith('continuouspage')) {
+        if (normalized === 'hardlimit' || normalized === 'hardlimitvalue'
+            || normalized.startsWith('continuouspage') || normalized.startsWith('idsetpagination')
+            || normalized.startsWith('paginationwithidset')) {
             throw new Error(`TFP_FORBIDDEN_FIELD: ${path}.${key} is server-local policy`);
         }
         rejectRemoteHardLimit(child, `${path}.${key}`);

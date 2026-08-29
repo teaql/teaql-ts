@@ -8,6 +8,14 @@ describe('AST Classes', () => {
     expect(() => new SelectQuery('Order').optimizeForContinuousPageFetchWith(' ', 30)).toThrow('namespace');
     expect(() => new SelectQuery('Order').optimizeForContinuousPageFetchWith('orders', 0)).toThrow('ttlSeconds');
   });
+  it('keeps ID set pagination local and validates it', () => {
+    const query = new SelectQuery('Order').optimizePaginationWithIdSetConfig('orders', 30, 1_000);
+    expect(query.localIdSetPaginationOptions()).toEqual({ namespace: 'orders', ttlSeconds: 30, maxIds: 1_000 });
+    expect(JSON.stringify(query)).not.toContain('idSetPagination');
+    expect(() => new SelectQuery('Order').optimizePaginationWithIdSetConfig(' ', 30, 1)).toThrow('namespace');
+    expect(() => new SelectQuery('Order').optimizePaginationWithIdSetConfig('orders', 0, 1)).toThrow('ttlSeconds');
+    expect(() => new SelectQuery('Order').optimizePaginationWithIdSetConfig('orders', 30, 0)).toThrow('maxIds');
+  });
   it('enforces a local-only materialized list hard limit', () => {
     expect(new SelectQuery('Order').prepareForList().limitValue).toBe(10_000);
     expect(() => new SelectQuery('Order').limit(10_001).prepareForList()).toThrow('QUERY_HARD_LIMIT_EXCEEDED');

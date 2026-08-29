@@ -126,6 +126,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private orders;
     private compileQuery;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    private prepareIdSetPage;
     executeFacetMembership(outerQuery: SelectQuery, relationName: string): Promise<Map<string, number>>;
     executeCount(query: any): Promise<number>;
     private prepareContinuousPage;
