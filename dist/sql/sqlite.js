@@ -45,6 +45,8 @@ class SQLiteDriver {
         return '?';
     }
     encode(value, column) {
+        if (value === null || value === undefined)
+            return value;
         if (column?.logicalType === 'json' && typeof value !== 'string') {
             return JSON.stringify(value);
         }

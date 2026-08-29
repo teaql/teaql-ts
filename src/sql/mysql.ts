@@ -43,6 +43,7 @@ export class MySQLDriver implements TeaQLSqlDriver {
   }
 
   encode(value: any, column?: ColumnSchema): any {
+    if (value === null || value === undefined) return value;
     if (column?.logicalType === 'json' && typeof value !== 'string') {
       return JSON.stringify(value);
     }

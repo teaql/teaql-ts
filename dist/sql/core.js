@@ -623,6 +623,38 @@ class AbstractSQLTeaQLClient {
                 });
                 return `${quotedField} NOT IN (${placeholders.join(', ')})`;
             }
+            for (const [operator, negative] of [
+                ['$inSubquery', false],
+                ['$notInSubquery', true],
+            ]) {
+                const subquery = predicate?.[operator];
+                if (subquery !== undefined) {
+                    const childQuery = subquery.query;
+                    const childSchema = this.schema(childQuery?.entity);
+                    const projectedField = String(subquery.field);
+                    const projectedColumn = childSchema.columns[projectedField];
+                    if (!projectedColumn) {
+                        throw new Error(`Unknown subquery projection ${projectedField} for ${childQuery?.entity}`);
+                    }
+                    const childPredicates = this.filters(childQuery).map(item => this.compileExpression(item, childSchema, values));
+                    if (childSchema.columns.version) {
+                        childPredicates.push(`${this.driver.identifier(childSchema.columns.version.columnName)} > 0`);
+                    }
+                    // A NULL projected by a NOT IN subquery makes the predicate
+                    // UNKNOWN for every outer row. Orphan relations are handled by
+                    // the explicit unknown predicate and must not poison HaveNo or
+                    // negative relation matching.
+                    if (negative) {
+                        childPredicates.push(`${this.driver.identifier(projectedColumn.columnName)} IS NOT NULL`);
+                    }
+                    const where = childPredicates.length
+                        ? ` WHERE ${childPredicates.join(' AND ')}`
+                        : '';
+                    const sql = `SELECT ${this.driver.identifier(projectedColumn.columnName)} ` +
+                        `FROM ${this.driver.identifier(childSchema.table)}${where}`;
+                    return `${quotedField} ${negative ? 'NOT IN' : 'IN'} (${sql})`;
+                }
+            }
             if (Array.isArray(predicate?.$between) && predicate.$between.length === 2) {
                 values.push(this.encode(predicate.$between[0], column));
                 const lower = this.driver.placeholder(values.length);

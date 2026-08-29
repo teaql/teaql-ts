@@ -74,6 +74,7 @@ export class ExpoSQLiteDriver implements TeaQLSqlDriver {
   }
 
   encode(value: any, column?: ColumnSchema): ExpoSQLiteBindValue {
+    if (value === null || value === undefined) return value as ExpoSQLiteBindValue;
     if (column?.logicalType === 'json' && typeof value !== 'string') {
       return JSON.stringify(value);
     }

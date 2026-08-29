@@ -24,9 +24,128 @@ const schemas: Record<string, EntitySchema> = {
       name: { columnName: 'name', logicalType: 'text', decode: 'native' },
     },
   },
+  QueryRecord: {
+    table: 'query_record',
+    columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      requiredText: { columnName: 'required_text', logicalType: 'text', decode: 'native' },
+      optionalText: { columnName: 'optional_text', logicalType: 'text', decode: 'native' },
+      requiredInteger: { columnName: 'required_integer', logicalType: 'integer', decode: 'number' },
+      optionalLong: { columnName: 'optional_long', logicalType: 'integer', decode: 'string' },
+      requiredDecimal: { columnName: 'required_decimal', logicalType: 'decimal', decode: 'string' },
+      requiredFloat: { columnName: 'required_float', logicalType: 'double', decode: 'number' },
+      requiredDouble: { columnName: 'required_double', logicalType: 'double', decode: 'number' },
+      requiredDate: { columnName: 'required_date', logicalType: 'date', decode: 'date' },
+      requiredTime: { columnName: 'required_time', logicalType: 'integer', decode: 'number' },
+      requiredTimestamp: { columnName: 'required_timestamp', logicalType: 'datetime', decode: 'date' },
+      active: { columnName: 'active', logicalType: 'boolean', decode: 'native' },
+      reviewed: { columnName: 'reviewed', logicalType: 'boolean', decode: 'native' },
+    },
+  },
 };
 
 describe('SQLite relation loading', () => {
+  it('executes the complete scalar fixture including nullable boolean on SQLite', async () => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    const rows = [
+      ['1', 'Alpha', 'optional', 42, '42000000000', '42.125', 42.5, 42.75, '2026-08-29', 34_200_000, '2026-08-29T09:30:00.000Z', true, false],
+      ['2', 'Beta', null, 7, null, '7.500', 7.5, 7.75, '2026-08-30', 36_000_000, '2026-08-30T10:00:00.000Z', false, null],
+      ['3', 'Gamma', 'tail', 99, '99000000000', '99.875', 99.5, 99.75, '2026-08-31', 37_800_000, '2026-08-31T10:30:00.000Z', true, true],
+    ] as const;
+    for (const [id, requiredText, optionalText, requiredInteger, optionalLong,
+      requiredDecimal, requiredFloat, requiredDouble, requiredDate, requiredTime,
+      requiredTimestamp, active, reviewed] of rows) {
+      await client.executeMutation({
+        entity: 'QueryRecord', action: 'Create', id,
+        payload: {
+          requiredText, optionalText, requiredInteger, optionalLong, requiredDecimal,
+          requiredFloat, requiredDouble, requiredDate: new Date(`${requiredDate}T00:00:00.000Z`),
+          requiredTime, requiredTimestamp: new Date(requiredTimestamp), active, reviewed,
+        },
+        comment: 'seed complete query scalar fixture',
+      });
+    }
+
+    const query = (filter: Record<string, unknown>) => client.executeQuery<any>(
+      new SelectQuery('QueryRecord').filter(filter)
+        .comment('what: execute complete scalar predicate')
+        .purpose('why: retain Query conformance evidence')
+        .order(OrderBy.asc('id')),
+    );
+    expect((await query({ requiredText: { $eq: 'Alpha' } })).map(row => row.id)).toEqual(['1']);
+    expect((await query({ requiredText: { $ne: 'Alpha' } })).map(row => row.id)).toEqual(['2', '3']);
+    expect((await query({ requiredText: { $in: ['Alpha', 'Gamma'] } })).map(row => row.id)).toEqual(['1', '3']);
+    expect((await query({ requiredText: { $startsWith: 'Al' } })).map(row => row.id)).toEqual(['1']);
+    expect((await query({ requiredText: { $endsWith: 'ma' } })).map(row => row.id)).toEqual(['3']);
+    expect((await query({ requiredText: { $contains: 'et' } })).map(row => row.id)).toEqual(['2']);
+    expect((await query({ requiredInteger: { $between: [40, 100] } })).map(row => row.id)).toEqual(['1', '3']);
+    expect((await query({ requiredDecimal: { $gt: '50' } })).map(row => row.id)).toEqual(['3']);
+    expect((await query({ requiredFloat: { $lte: 7.5 } })).map(row => row.id)).toEqual(['2']);
+    expect((await query({ requiredDouble: { $gte: 99.75 } })).map(row => row.id)).toEqual(['3']);
+    expect((await query({ requiredDate: { $between: [new Date('2026-08-30T00:00:00.000Z'), new Date('2026-08-31T00:00:00.000Z')] } })).map(row => row.id)).toEqual(['2', '3']);
+    expect((await query({ requiredTime: { $gt: 36_000_000 } })).map(row => row.id)).toEqual(['3']);
+    expect((await query({ requiredTimestamp: { $lt: new Date('2026-08-30T12:00:00.000Z') } })).map(row => row.id)).toEqual(['1', '2']);
+    expect((await query({ optionalText: { $isNull: true } })).map(row => row.id)).toEqual(['2']);
+    expect((await query({ optionalLong: { $isNull: false } })).map(row => row.id)).toEqual(['1', '3']);
+    expect((await query({ active: { $eq: false } })).map(row => row.id)).toEqual(['2']);
+    expect((await query({ reviewed: { $eq: true } })).map(row => row.id)).toEqual(['3']);
+    expect((await query({ reviewed: { $eq: false } })).map(row => row.id)).toEqual(['1']);
+    expect((await query({ reviewed: { $isNull: true } })).map(row => row.id)).toEqual(['2']);
+    await client.close();
+  });
+
+  it('executes positive and negative relation subqueries with bound values', async () => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    await client.executeMutation({ entity: 'Order', action: 'Create', id: '1', payload: {}, comment: 'seed first order' });
+    await client.executeMutation({ entity: 'Order', action: 'Create', id: '2', payload: {}, comment: 'seed second order' });
+    await client.executeMutation({ entity: 'Order', action: 'Create', id: '3', payload: {}, comment: 'seed empty order' });
+    await client.executeMutation({ entity: 'OrderLine', action: 'Create', id: '11', payload: { orderId: '1', name: 'included' }, comment: 'seed included line' });
+    await client.executeMutation({ entity: 'OrderLine', action: 'Create', id: '12', payload: { orderId: '2', name: 'excluded' }, comment: 'seed excluded line' });
+    await client.executeMutation({ entity: 'OrderLine', action: 'Create', id: '13', payload: { orderId: null, name: 'orphan' }, comment: 'seed orphan line' });
+    const firstOrder = new SelectQuery('Order').filter({ id: { $eq: '1' } });
+
+    const included = await client.executeQuery<any>(
+      new SelectQuery('OrderLine')
+        .filter({ orderId: { $inSubquery: { query: firstOrder, field: 'id' } } })
+        .comment('what: select lines of first order')
+        .purpose('why: verify positive relation predicate'),
+    );
+    const excluded = await client.executeQuery<any>(
+      new SelectQuery('OrderLine')
+        .filter({ orderId: { $notInSubquery: { query: firstOrder, field: 'id' } } })
+        .comment('what: exclude lines of first order')
+        .purpose('why: verify negative relation predicate'),
+    );
+
+    expect(included.map(row => row.name)).toEqual(['included']);
+    expect(excluded.map(row => row.name)).toEqual(['excluded']);
+
+    const lineIds = async (filter: Record<string, unknown>) => (await client.executeQuery<any>(
+      new SelectQuery('OrderLine').filter(filter).order(OrderBy.asc('id'))
+        .comment('what: execute complete forward relation predicate')
+        .purpose('why: retain complete relation fixture evidence'),
+    )).map(row => row.id);
+    const orderIds = async (filter: Record<string, unknown>) => (await client.executeQuery<any>(
+      new SelectQuery('Order').filter(filter).order(OrderBy.asc('id'))
+        .comment('what: execute complete reverse relation predicate')
+        .purpose('why: retain complete relation fixture evidence'),
+    )).map(row => row.id);
+    expect(await lineIds({ orderId: { $isNull: false } })).toEqual(['11', '12']);
+    expect(await lineIds({ orderId: { $isNull: true } })).toEqual(['13']);
+    expect(await lineIds({ orderId: { $inSubquery: { query: firstOrder, field: 'id' } } })).toEqual(['11']);
+    expect(await lineIds({ orderId: { $notInSubquery: { query: firstOrder, field: 'id' } } })).toEqual(['12']);
+
+    const allLines = new SelectQuery('OrderLine');
+    expect(await orderIds({ id: { $inSubquery: { query: allLines, field: 'orderId' } } })).toEqual(['1', '2']);
+    expect(await orderIds({ id: { $notInSubquery: { query: allLines, field: 'orderId' } } })).toEqual(['3']);
+    expect(client.sqlTrace.some(sql => sql.includes(' IN (SELECT '))).toBe(true);
+    expect(client.sqlTrace.some(sql => sql.includes(' NOT IN (SELECT '))).toBe(true);
+    await client.close();
+  });
+
   it('counts the exact filtered set without page, order, projection, or relations', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
     await new UserContext().insertResource('dataService', client).ensureSchema();
