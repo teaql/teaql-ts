@@ -10,7 +10,10 @@ class SmartList extends Array {
         return Array;
     }
     constructor(data = [], options = {}) {
-        super(...data);
+        if (typeof data === 'number')
+            super(data);
+        else
+            super(...data);
         Object.setPrototypeOf(this, SmartList.prototype);
         this.totalCount = options.totalCount;
         this.aggregations = options.aggregations ?? {};

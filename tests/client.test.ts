@@ -1,6 +1,7 @@
 import { TeaQLClient } from '../src/tfp/client';
 import { SelectQuery, SortDirection, OrderBy, MutationQuery } from '../src/core/ast';
 import { RuntimeOperation, RuntimeTelemetry, RuntimeTelemetryScope } from '../src/core/telemetry';
+import { SmartList } from '../src/core/smart-list';
 
 class TfpRecordingTelemetry implements RuntimeTelemetry {
   readonly events: Array<{ operation: RuntimeOperation; outcome?: string; cardinality?: number }> = [];
@@ -47,7 +48,8 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     const result = await client.executeQuery(query);
 
     // 4. Assert: Check response and fetch payload
-    expect(result).toEqual(mockData);
+    expect(result).toBeInstanceOf(SmartList);
+    expect(Array.from(result)).toEqual(mockData);
     expect(global.fetch).toHaveBeenCalledTimes(1);
     
     // Check fetch arguments
@@ -65,7 +67,7 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.orderItems[0].direction).toBe(SortDirection.Desc);
   });
 
-  it('rejects facets outside canonical TFP v1', async () => {
+  it('serializes canonical facets and restores SmartList facet metadata', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: async () => ({ data: [], facets: { statusCount: [{ code: 'NEW', count: 5 }] } })
@@ -74,11 +76,18 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
     const query = federalQuery("Task");
     
-    const facetQuery = new SelectQuery("Task").aggregate("Count", "id", "count");
+    const facetQuery = federalQuery("TaskStatus")
+      .select(['id', 'code'])
+      .aggregate("Count", "id", "count");
     query.facetBy("statusCount", "status", { toQuery: () => facetQuery });
 
-    await expect(client.executeQuery(query)).rejects.toThrow('TFP_INVALID_REQUEST');
-    expect(global.fetch).not.toHaveBeenCalled();
+    const result = await client.executeQuery(query);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.facets[0].facetName).toBe('statusCount');
+    expect(body.facets[0].relationName).toBe('status');
+    expect(body.facets[0].query.entity).toBe('TaskStatus');
+    expect(result.facet('statusCount')?.[0]).toEqual({ code: 'NEW', count: 5 });
   });
 
   it('should support mutations and correctly serialize them to /mutate', async () => {

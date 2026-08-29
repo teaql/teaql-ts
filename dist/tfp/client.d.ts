@@ -1,4 +1,5 @@
 import { SelectQuery } from '../core/ast';
+import { SmartList } from '../core/smart-list';
 import { RuntimeTelemetry } from '../core/telemetry';
 export interface TeaQLClientConfig {
     baseUrl: string;
@@ -13,7 +14,7 @@ export declare class TeaQLClient {
     constructor(config: TeaQLClientConfig);
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private requestHeaders;
-    executeQuery<T = any>(query: SelectQuery): Promise<T[]>;
+    executeQuery<T = any>(query: SelectQuery): Promise<SmartList<T>>;
     executeForStream<T = any>(_query: SelectQuery, _chunkSize?: number): AsyncIterable<T[]>;
     executeMutation(query: any): Promise<any>;
 }

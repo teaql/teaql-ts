@@ -1,4 +1,5 @@
 import { SelectQuery } from '../core/ast';
+import { SmartList, SmartListRecord } from '../core/smart-list';
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -20,6 +21,42 @@ function rejectRemoteHardLimit(value: unknown, path = '$'): void {
     }
     rejectRemoteHardLimit(child, `${path}.${key}`);
   }
+}
+
+function serializeQuery(query: SelectQuery, nestedFacet = false): Record<string, unknown> {
+  if (!Number.isSafeInteger(query.offsetValue) || query.offsetValue < 0) {
+    throw new Error('TFP_INVALID_REQUEST: offset must be a non-negative safe integer');
+  }
+  if (query.limitValue && (!Number.isSafeInteger(query.limitValue) || query.limitValue < 1)) {
+    throw new Error('TFP_INVALID_REQUEST: limit must be a positive safe integer');
+  }
+  rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
+  if (!query.commentText?.trim()) throw new Error('TFP_INVALID_REQUEST: commentText is required');
+  if (!query.purposeText?.trim()) throw new Error('TFP_POLICY_VIOLATION: purposeText is required');
+  if (query.relations.length || query.joins.length) {
+    throw new Error('TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1');
+  }
+  if (nestedFacet && query.facets.length) {
+    throw new Error('TFP_INVALID_REQUEST: nested facets are not supported');
+  }
+  return {
+    entity: query.entity,
+    filterCondition: query.filterCondition,
+    limitValue: query.limitValue || undefined,
+    offsetValue: query.offsetValue || undefined,
+    orderItems: query.orderItems,
+    selectItems: query.selectItems,
+    groupByItems: query.groupByItems,
+    aggregateItems: query.aggregateItems,
+    facets: query.facets.map(facet => ({
+      facetName: facet.facetName,
+      relationName: facet.relationName,
+      includeAllFacets: facet.includeAllFacets,
+      query: serializeQuery(facet.query, true),
+    })),
+    commentText: query.commentText,
+    purposeText: query.purposeText,
+  };
 }
 
 export interface TeaQLClientConfig {
@@ -56,26 +93,8 @@ export class TeaQLClient {
       : headers;
   }
 
-  async executeQuery<T = any>(query: SelectQuery): Promise<T[]> {
-    query.prepareForList();
-    rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
-    if (!query.commentText?.trim()) throw new Error('TFP_INVALID_REQUEST: commentText is required');
-    if (!query.purposeText?.trim()) throw new Error('TFP_POLICY_VIOLATION: purposeText is required');
-    if (query.facets.length || query.relations.length || query.joins.length) {
-      throw new Error('TFP_INVALID_REQUEST: facets, relations, and joins are not part of canonical TFP v1');
-    }
-    const payload = {
-      entity: query.entity,
-      filterCondition: query.filterCondition,
-      limitValue: query.limitValue || undefined,
-      offsetValue: query.offsetValue || undefined,
-      orderItems: query.orderItems,
-      selectItems: query.selectItems,
-      groupByItems: query.groupByItems,
-      aggregateItems: query.aggregateItems,
-      commentText: query.commentText,
-      purposeText: query.purposeText,
-    };
+  async executeQuery<T = any>(query: SelectQuery): Promise<SmartList<T>> {
+    const payload = serializeQuery(query);
     const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
     
     return observeRuntimeOperation(
@@ -93,7 +112,11 @@ export class TeaQLClient {
           throw new Error(`TEAQL Query Error [${response.status}]: ${errText}`);
         }
         const responseJson = await response.json();
-        return responseJson.data;
+        const facets: Record<string, SmartList<SmartListRecord>> = {};
+        for (const [name, values] of Object.entries(responseJson.facets ?? {})) {
+          facets[name] = new SmartList(values as SmartListRecord[]);
+        }
+        return new SmartList<T>(responseJson.data ?? [], { facets });
       },
       result => ({ attributes: { 'teaql.result.cardinality': result.length } }),
     );

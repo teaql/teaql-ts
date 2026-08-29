@@ -16,7 +16,7 @@ export class SmartList<T> extends Array<T> {
   isLoaded: boolean;
 
   constructor(
-    data: Iterable<T> = [],
+    data: Iterable<T> | number = [],
     options: {
       totalCount?: number;
       aggregations?: SmartListRecord;
@@ -25,7 +25,8 @@ export class SmartList<T> extends Array<T> {
       isLoaded?: boolean;
     } = {},
   ) {
-    super(...data);
+    if (typeof data === 'number') super(data);
+    else super(...data);
     Object.setPrototypeOf(this, SmartList.prototype);
     this.totalCount = options.totalCount;
     this.aggregations = options.aggregations ?? {};

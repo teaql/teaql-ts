@@ -10,7 +10,7 @@ export declare class SmartList<T> extends Array<T> {
     summary: SmartListRecord;
     facets: Record<string, SmartList<SmartListRecord>>;
     isLoaded: boolean;
-    constructor(data?: Iterable<T>, options?: {
+    constructor(data?: Iterable<T> | number, options?: {
         totalCount?: number;
         aggregations?: SmartListRecord;
         summary?: SmartListRecord;
