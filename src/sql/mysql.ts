@@ -11,6 +11,7 @@ import {
   standardAggregateFunction,
   ensureOptimisticIdFloor,
   TeaQLSqlDriver,
+  canonicalRelationIndexes,
 } from './core';
 
 class MySQLSession implements SqlSession {
@@ -103,6 +104,20 @@ export class MySQLDriver implements TeaQLSqlDriver {
             `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`,
           );
         }
+      }
+    }
+    for (const index of canonicalRelationIndexes(schemas)) {
+      const existing = await this.query(
+        'SELECT 1 FROM information_schema.statistics ' +
+        'WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?',
+        [index.table, index.name],
+      );
+      if (!existing.rowCount) {
+        await this.query(
+          `CREATE INDEX ${this.identifier(index.name)} ON ` +
+          `${this.identifier(index.table)} (` +
+          `${this.identifier(index.foreignColumn)}, ${this.identifier(index.idColumn)} DESC)`,
+        );
       }
     }
     await this.query(

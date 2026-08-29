@@ -75,6 +75,7 @@ export class SelectQuery {
   private continuousPageRuntimeContext?: any;
   private idSetPaginationOptions?: { namespace: string; ttlSeconds: number; maxIds: number };
   private idSetPaginationRuntimeContext?: any;
+  private topNProbeThreshold?: number;
   public entity: string;
   public filterCondition: any | null = null;
   public limitValue: number = 0;
@@ -106,6 +107,7 @@ export class SelectQuery {
     Object.defineProperty(this, 'continuousPageRuntimeContext', { enumerable: false, writable: true, value: undefined });
     Object.defineProperty(this, 'idSetPaginationOptions', { enumerable: false, writable: true, value: undefined });
     Object.defineProperty(this, 'idSetPaginationRuntimeContext', { enumerable: false, writable: true, value: undefined });
+    Object.defineProperty(this, 'topNProbeThreshold', { enumerable: false, writable: true, value: undefined });
   }
 
   comment(text: string): this {
@@ -158,6 +160,7 @@ export class SelectQuery {
     copy.purposeText = this.purposeText;
     copy.idSetPaginationOptions = this.idSetPaginationOptions;
     copy.idSetPaginationRuntimeContext = this.idSetPaginationRuntimeContext;
+    copy.topNProbeThreshold = this.topNProbeThreshold;
     return copy;
   }
 
@@ -206,6 +209,18 @@ export class SelectQuery {
   localIdSetPaginationOptions(): { namespace: string; ttlSeconds: number; maxIds: number } | undefined { return this.idSetPaginationOptions; }
   localIdSetPaginationRuntime(): any { return this.idSetPaginationRuntimeContext; }
   clearIdSetPaginationRuntime(): this { this.idSetPaginationRuntimeContext = undefined; return this; }
+
+  topNProbeParentThreshold(threshold: number): this {
+    if (!Number.isSafeInteger(threshold) || threshold < 0) {
+      throw new Error('topNProbeParentThreshold must be a non-negative safe integer');
+    }
+    this.topNProbeThreshold = threshold;
+    return this;
+  }
+
+  localTopNProbeParentThreshold(): number | undefined {
+    return this.topNProbeThreshold;
+  }
 
   prepareForList(): this {
     if (!Number.isSafeInteger(this.offsetValue) || this.offsetValue < 0) {

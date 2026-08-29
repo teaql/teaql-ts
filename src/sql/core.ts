@@ -40,6 +40,40 @@ export type RelationSchema = {
   many: boolean;
 };
 
+export type CanonicalRelationIndex = {
+  name: string;
+  table: string;
+  foreignColumn: string;
+  idColumn: string;
+};
+
+/** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
+export function canonicalRelationIndexes(
+  schemas: Record<string, EntitySchema>,
+): CanonicalRelationIndex[] {
+  const indexes = new Map<string, CanonicalRelationIndex>();
+  for (const schema of Object.values(schemas)) {
+    for (const relation of Object.values(schema.relations || {})) {
+      if (!relation.many) continue;
+      const target = schemas[relation.targetEntity];
+      const foreignColumn = target?.columns[relation.foreignKey]?.columnName;
+      const idColumn = target?.columns.id?.columnName;
+      if (!target || !foreignColumn || !idColumn) continue;
+      const raw = `idx_${target.table}_${foreignColumn}_${idColumn}`;
+      let hash = 2166136261;
+      for (let i = 0; i < raw.length; i += 1) {
+        hash = Math.imul(hash ^ raw.charCodeAt(i), 16777619);
+      }
+      const suffix = (hash >>> 0).toString(36);
+      const name = raw.length <= 30
+        ? raw
+        : `${raw.slice(0, Math.max(1, 29 - suffix.length))}_${suffix}`;
+      indexes.set(name, { name, table: target.table, foreignColumn, idColumn });
+    }
+  }
+  return [...indexes.values()];
+}
+
 export type SqlQueryResult = {
   rows: any[];
   rowCount: number;
@@ -59,6 +93,7 @@ export interface SqlSession {
 
 export interface TeaQLSqlDriver extends SqlSession {
   readonly databaseKind: SQLDatabaseKind;
+  readonly topNRelationPlanPolicy?: 'window' | 'alwaysProbe';
   stream(sql: string, values?: any[]): AsyncIterable<any>;
   identifier(value: string): string;
   placeholder(index: number): string;
@@ -1237,22 +1272,36 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
     for (const load of query.relations) {
+      const relation = parentSchema.relations?.[load.name];
+      if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
+      const parentIds = parents
+        .map(parent => parent[relation.localKey])
+        .filter(value => value !== undefined && value !== null);
+      const limit = load.query ? this.queryLimit(load.query) : undefined;
+      const threshold = load.query?.localTopNProbeParentThreshold?.();
+      const boundedTopN = relation.many && limit !== undefined;
+      const providerAlwaysProbe = this.driver.topNRelationPlanPolicy === 'alwaysProbe';
+      const useProbes = boundedTopN && (threshold === undefined
+        ? providerAlwaysProbe
+        : threshold > 0 && parentIds.length <= threshold);
+      const selectedPlan = useProbes ? 'bounded_probes' : 'window';
       const relationScope = startRuntimeOperation(this.runtimeTelemetry, {
         family: 'relation_load',
         name: `${query.entity}.${String(load.name)}`,
         attributes: {
           'teaql.entity.type': String(query.entity),
           'teaql.relation.name': String(load.name),
+          'teaql.relation.parent_count': parentIds.length,
+          'teaql.relation.per_parent_limit': limit ?? 0,
+          'teaql.relation.configured_probe_threshold': threshold ?? 'provider-default',
+          'teaql.relation.selected_plan': selectedPlan,
+          'teaql.relation.probe_count': useProbes ? parentIds.length : 0,
         },
       });
       try {
-      const relation = parentSchema.relations?.[load.name];
-      if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
-      const parentIds = parents
-        .map(parent => parent[relation.localKey])
-        .filter(value => value !== undefined && value !== null);
       if (!parentIds.length) {
         for (const parent of parents) parent[load.name] = relation.many ? [] : null;
+        relationScope.success({ attributes: { 'teaql.result.cardinality': 0 } });
         continue;
       }
       const childQuery = {
@@ -1260,14 +1309,30 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         entity: relation.targetEntity,
         _filters: [...this.filters(load.query || {})],
         relations: [...(load.query?.relations || [])],
-        __teaqlPartitionBy: load.query && this.queryLimit(load.query) !== undefined
+        orderItems: [...(load.query?.orderItems || [])],
+        __teaqlPartitionBy: boundedTopN && !useProbes
           ? relation.foreignKey
           : undefined,
       };
+      if (boundedTopN && !childQuery.orderItems.some((order: any) => order.field === 'id')) {
+        childQuery.orderItems.push(OrderBy.asc('id'));
+      }
       if (typeof childQuery.clearContinuousPageRuntime === 'function') childQuery.clearContinuousPageRuntime();
       childQuery[this.internalQueryToken] = true;
-      childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-      const children = await this.executeQuery<any>(childQuery);
+      const children: any[] = [];
+      if (useProbes) {
+        for (const parentId of parentIds) {
+          const probeQuery = {
+            ...childQuery,
+            _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
+            __teaqlPartitionBy: undefined,
+          };
+          children.push(...await this.executeQuery<any>(probeQuery));
+        }
+      } else {
+        childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
+        children.push(...await this.executeQuery<any>(childQuery));
+      }
       for (const child of children) delete child.__teaql_partition_rank;
       const buckets = new Map<any, any[]>();
       for (const child of children) {

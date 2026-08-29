@@ -83,6 +83,15 @@ class MySQLDriver {
                 }
             }
         }
+        for (const index of (0, core_1.canonicalRelationIndexes)(schemas)) {
+            const existing = await this.query('SELECT 1 FROM information_schema.statistics ' +
+                'WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?', [index.table, index.name]);
+            if (!existing.rowCount) {
+                await this.query(`CREATE INDEX ${this.identifier(index.name)} ON ` +
+                    `${this.identifier(index.table)} (` +
+                    `${this.identifier(index.foreignColumn)}, ${this.identifier(index.idColumn)} DESC)`);
+            }
+        }
         await this.query('CREATE TABLE IF NOT EXISTS teaql_id_space (' +
             'type_name VARCHAR(255) PRIMARY KEY, current_level BIGINT NOT NULL)');
     }

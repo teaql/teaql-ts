@@ -10,6 +10,7 @@ import {
   standardAggregateFunction,
   ensureOptimisticIdFloor,
   TeaQLSqlDriver,
+  canonicalRelationIndexes,
 } from './core';
 
 function soundex(value: unknown): string {
@@ -33,6 +34,7 @@ function soundex(value: unknown): string {
 
 export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   readonly databaseKind = 'sqlite' as const;
+  readonly topNRelationPlanPolicy = 'alwaysProbe' as const;
   private readonly database: Database.Database;
   private soundexRegistered = false;
 
@@ -113,6 +115,13 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
           `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`,
         );
       }
+    }
+    for (const index of canonicalRelationIndexes(schemas)) {
+      await this.query(
+        `CREATE INDEX IF NOT EXISTS ${this.identifier(index.name)} ON ` +
+        `${this.identifier(index.table)} (` +
+        `${this.identifier(index.foreignColumn)}, ${this.identifier(index.idColumn)} DESC)`,
+      );
     }
     await this.query(
       'CREATE TABLE IF NOT EXISTS teaql_id_space (' +

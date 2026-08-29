@@ -11,6 +11,7 @@ import {
   standardAggregateFunction,
   ensureOptimisticIdFloor,
   TeaQLSqlDriver,
+  canonicalRelationIndexes,
 } from './core';
 
 class PostgreSQLSession implements SqlSession {
@@ -93,6 +94,13 @@ export class PostgreSQLDriver implements TeaQLSqlDriver {
             `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`,
           );
         }
+      }
+      for (const index of canonicalRelationIndexes(schemas)) {
+        await session.query(
+          `CREATE INDEX IF NOT EXISTS ${this.identifier(index.name)} ON ` +
+          `${this.identifier(index.table)} (` +
+          `${this.identifier(index.foreignColumn)}, ${this.identifier(index.idColumn)} DESC)`,
+        );
       }
       await session.query(
         'CREATE TABLE IF NOT EXISTS teaql_id_space (' +

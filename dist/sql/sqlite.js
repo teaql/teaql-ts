@@ -31,6 +31,7 @@ function soundex(value) {
 class SQLiteDriver {
     constructor(filename) {
         this.databaseKind = 'sqlite';
+        this.topNRelationPlanPolicy = 'alwaysProbe';
         this.soundexRegistered = false;
         if (!filename)
             throw new Error('filename is required');
@@ -103,6 +104,11 @@ class SQLiteDriver {
                 await this.query(`ALTER TABLE ${table} ADD COLUMN ` +
                     `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`);
             }
+        }
+        for (const index of (0, core_1.canonicalRelationIndexes)(schemas)) {
+            await this.query(`CREATE INDEX IF NOT EXISTS ${this.identifier(index.name)} ON ` +
+                `${this.identifier(index.table)} (` +
+                `${this.identifier(index.foreignColumn)}, ${this.identifier(index.idColumn)} DESC)`);
         }
         await this.query('CREATE TABLE IF NOT EXISTS teaql_id_space (' +
             'type_name TEXT PRIMARY KEY, current_level INTEGER NOT NULL)');

@@ -61,6 +61,7 @@ class SelectQuery {
         Object.defineProperty(this, 'continuousPageRuntimeContext', { enumerable: false, writable: true, value: undefined });
         Object.defineProperty(this, 'idSetPaginationOptions', { enumerable: false, writable: true, value: undefined });
         Object.defineProperty(this, 'idSetPaginationRuntimeContext', { enumerable: false, writable: true, value: undefined });
+        Object.defineProperty(this, 'topNProbeThreshold', { enumerable: false, writable: true, value: undefined });
     }
     comment(text) {
         this.commentText = text;
@@ -104,6 +105,7 @@ class SelectQuery {
         copy.purposeText = this.purposeText;
         copy.idSetPaginationOptions = this.idSetPaginationOptions;
         copy.idSetPaginationRuntimeContext = this.idSetPaginationRuntimeContext;
+        copy.topNProbeThreshold = this.topNProbeThreshold;
         return copy;
     }
     filter(condition) {
@@ -149,6 +151,16 @@ class SelectQuery {
     localIdSetPaginationOptions() { return this.idSetPaginationOptions; }
     localIdSetPaginationRuntime() { return this.idSetPaginationRuntimeContext; }
     clearIdSetPaginationRuntime() { this.idSetPaginationRuntimeContext = undefined; return this; }
+    topNProbeParentThreshold(threshold) {
+        if (!Number.isSafeInteger(threshold) || threshold < 0) {
+            throw new Error('topNProbeParentThreshold must be a non-negative safe integer');
+        }
+        this.topNProbeThreshold = threshold;
+        return this;
+    }
+    localTopNProbeParentThreshold() {
+        return this.topNProbeThreshold;
+    }
     prepareForList() {
         if (!Number.isSafeInteger(this.offsetValue) || this.offsetValue < 0) {
             throw new Error('QUERY_INVALID_OFFSET: offset must be a non-negative safe integer');

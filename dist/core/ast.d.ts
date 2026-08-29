@@ -49,6 +49,7 @@ export declare class SelectQuery {
     private continuousPageRuntimeContext?;
     private idSetPaginationOptions?;
     private idSetPaginationRuntimeContext?;
+    private topNProbeThreshold?;
     entity: string;
     filterCondition: any | null;
     limitValue: number;
@@ -97,6 +98,8 @@ export declare class SelectQuery {
     } | undefined;
     localIdSetPaginationRuntime(): any;
     clearIdSetPaginationRuntime(): this;
+    topNProbeParentThreshold(threshold: number): this;
+    localTopNProbeParentThreshold(): number | undefined;
     prepareForList(): this;
     forExactCount(alias?: string): SelectQuery;
     private applyListLimit;

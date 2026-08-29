@@ -1,8 +1,9 @@
 import { UserContext } from '../src/core/context';
 import { OrderBy, SelectQuery } from '../src/core/ast';
 import { EntitySchema } from '../src/sql/core';
-import { SQLiteTeaQLClient } from '../src/sql/sqlite';
+import { SQLiteDriver, SQLiteTeaQLClient } from '../src/sql/sqlite';
 import { executeRelationFacets } from '../src/core/facet';
+import { RuntimeOperation, RuntimeTelemetry } from '../src/core/telemetry';
 
 const schemas: Record<string, EntitySchema> = {
   Order: {
@@ -22,6 +23,7 @@ const schemas: Record<string, EntitySchema> = {
       version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
       orderId: { columnName: 'order_id', logicalType: 'integer', decode: 'string' },
       name: { columnName: 'name', logicalType: 'text', decode: 'native' },
+      state: { columnName: 'state', logicalType: 'text', decode: 'native' },
     },
   },
   QueryRecord: {
@@ -294,5 +296,96 @@ describe('SQLite relation loading', () => {
       (line: any) => line.__teaql_partition_rank === undefined,
     )).toBe(true);
     await client.close();
+  });
+
+  it('TOPN-001..011 selects governed plans with equivalent SQLite results', async () => {
+    const operations: RuntimeOperation[] = [];
+    const telemetry: RuntimeTelemetry = {
+      start(operation) {
+        operations.push(operation);
+        return { success: () => undefined, failure: () => undefined };
+      },
+    };
+    const client = new SQLiteTeaQLClient(':memory:', schemas).setRuntimeTelemetry(telemetry);
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    for (const orderId of ['1', '2', '3']) {
+      await client.executeMutation({
+        entity: 'Order', action: 'Create', id: orderId, payload: {}, comment: 'seed Top-N order',
+      });
+    }
+    for (const [id, orderId, state] of [
+      ['11', '1', 'visible'], ['12', '1', 'visible'], ['13', '1', 'visible'],
+      ['14', '1', 'hidden'], ['21', '2', 'visible'], ['22', '2', 'visible'],
+      ['23', '2', 'visible'],
+    ]) {
+      await client.executeMutation({
+        entity: 'OrderLine', action: 'Create', id,
+        payload: { orderId, name: 'same', state }, comment: 'seed Top-N line',
+      });
+    }
+
+    const load = async (threshold?: number) => {
+      client.sqlTrace.length = 0;
+      const child = new SelectQuery('OrderLine')
+        .filter({ state: { $eq: 'visible' } })
+        .order(OrderBy.desc('name')).limit(2);
+      if (threshold !== undefined) child.topNProbeParentThreshold(threshold);
+      const rows = await client.executeQuery<any>(
+        new SelectQuery('Order').order(OrderBy.asc('id'))
+          .relationQuery('lines', child)
+          .comment('what: load per-parent Top-N fixture')
+          .purpose('why: verify plan equivalence'),
+      );
+      return {
+        result: Object.fromEntries(rows.map(row => [row.id, row.lines.map((line: any) => line.id)])),
+        sql: [...client.sqlTrace],
+      };
+    };
+
+    const probe = await load();
+    const window = await load(0);
+    expect(probe.result).toEqual(window.result);
+    expect(window.result).toEqual({ '1': ['11', '12'], '2': ['21', '22'], '3': [] });
+    expect(probe.sql).toHaveLength(4);
+    expect(window.sql).toHaveLength(2);
+    expect(window.sql[1]).toContain('ROW_NUMBER() OVER');
+    expect([...probe.sql, ...window.sql].some(sql => /count\s*\(/i.test(sql))).toBe(false);
+
+    expect((await load(3)).sql).toHaveLength(4);
+    expect((await load(2)).sql).toHaveLength(2);
+    expect((await load(3)).result).toEqual((await load(3)).result);
+
+    client.sqlTrace.length = 0;
+    const empty = await client.executeQuery<any>(
+      new SelectQuery('Order').filter({ id: { $eq: '999' } })
+        .relationQuery('lines', new SelectQuery('OrderLine').limit(2))
+        .comment('what: load empty Top-N parents').purpose('why: verify typed empty result'),
+    );
+    expect(empty).toEqual([]);
+    expect(client.sqlTrace).toHaveLength(1);
+
+    const relationOperation = [...operations].reverse().find(operation =>
+      operation.family === 'relation_load' && operation.attributes?.['teaql.relation.parent_count'] === 3,
+    );
+    expect(relationOperation?.attributes).toMatchObject({
+      'teaql.relation.parent_count': 3,
+      'teaql.relation.per_parent_limit': 2,
+      'teaql.relation.configured_probe_threshold': 3,
+      'teaql.relation.selected_plan': 'bounded_probes',
+      'teaql.relation.probe_count': 3,
+    });
+    await client.close();
+  });
+
+  it('TOPN-012 ensures the canonical relation index idempotently on SQLite', async () => {
+    const driver = new SQLiteDriver(':memory:');
+    await driver.ensureSchema(schemas);
+    await driver.ensureSchema(schemas);
+    const indexes = await driver.query(
+      "SELECT name, sql FROM sqlite_master WHERE type='index' " +
+      "AND tbl_name='orderline' AND name='idx_orderline_order_id_id'",
+    );
+    expect(indexes.rows).toHaveLength(1);
+    await driver.close();
   });
 });

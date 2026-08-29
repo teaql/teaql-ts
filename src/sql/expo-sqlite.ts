@@ -9,6 +9,7 @@ import {
   standardAggregateFunction,
   ensureOptimisticIdFloor,
   TeaQLSqlDriver,
+  canonicalRelationIndexes,
 } from './core';
 
 export type ExpoSQLiteBindValue = null | number | string | Uint8Array;
@@ -132,6 +133,13 @@ export class ExpoSQLiteDriver implements TeaQLSqlDriver {
           `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`,
         );
       }
+    }
+    for (const index of canonicalRelationIndexes(schemas)) {
+      await this.query(
+        `CREATE INDEX IF NOT EXISTS ${this.identifier(index.name)} ON ` +
+        `${this.identifier(index.table)} (` +
+        `${this.identifier(index.foreignColumn)}, ${this.identifier(index.idColumn)} DESC)`,
+      );
     }
     await this.query(
       'CREATE TABLE IF NOT EXISTS teaql_id_space (' +

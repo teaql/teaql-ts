@@ -77,6 +77,11 @@ class PostgreSQLDriver {
                         `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`);
                 }
             }
+            for (const index of (0, core_1.canonicalRelationIndexes)(schemas)) {
+                await session.query(`CREATE INDEX IF NOT EXISTS ${this.identifier(index.name)} ON ` +
+                    `${this.identifier(index.table)} (` +
+                    `${this.identifier(index.foreignColumn)}, ${this.identifier(index.idColumn)} DESC)`);
+            }
             await session.query('CREATE TABLE IF NOT EXISTS teaql_id_space (' +
                 'type_name VARCHAR(255) PRIMARY KEY, current_level BIGINT NOT NULL)');
         });

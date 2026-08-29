@@ -20,6 +20,14 @@ export type RelationSchema = {
     foreignKey: string;
     many: boolean;
 };
+export type CanonicalRelationIndex = {
+    name: string;
+    table: string;
+    foreignColumn: string;
+    idColumn: string;
+};
+/** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
+export declare function canonicalRelationIndexes(schemas: Record<string, EntitySchema>): CanonicalRelationIndex[];
 export type SqlQueryResult = {
     rows: any[];
     rowCount: number;
@@ -36,6 +44,7 @@ export interface SqlSession {
 }
 export interface TeaQLSqlDriver extends SqlSession {
     readonly databaseKind: SQLDatabaseKind;
+    readonly topNRelationPlanPolicy?: 'window' | 'alwaysProbe';
     stream(sql: string, values?: any[]): AsyncIterable<any>;
     identifier(value: string): string;
     placeholder(index: number): string;

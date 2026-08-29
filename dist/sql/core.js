@@ -1,12 +1,39 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.debugSQL = exports.ensureOptimisticIdFloor = void 0;
+exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.debugSQL = exports.ensureOptimisticIdFloor = exports.canonicalRelationIndexes = void 0;
 const telemetry_1 = require("../core/telemetry");
 const checker_1 = require("../core/checker");
 const context_1 = require("../core/context");
 const runtime_module_1 = require("../core/runtime-module");
 const schema_capability_1 = require("../core/schema-capability");
 const ast_1 = require("../core/ast");
+/** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
+function canonicalRelationIndexes(schemas) {
+    const indexes = new Map();
+    for (const schema of Object.values(schemas)) {
+        for (const relation of Object.values(schema.relations || {})) {
+            if (!relation.many)
+                continue;
+            const target = schemas[relation.targetEntity];
+            const foreignColumn = target?.columns[relation.foreignKey]?.columnName;
+            const idColumn = target?.columns.id?.columnName;
+            if (!target || !foreignColumn || !idColumn)
+                continue;
+            const raw = `idx_${target.table}_${foreignColumn}_${idColumn}`;
+            let hash = 2166136261;
+            for (let i = 0; i < raw.length; i += 1) {
+                hash = Math.imul(hash ^ raw.charCodeAt(i), 16777619);
+            }
+            const suffix = (hash >>> 0).toString(36);
+            const name = raw.length <= 30
+                ? raw
+                : `${raw.slice(0, Math.max(1, 29 - suffix.length))}_${suffix}`;
+            indexes.set(name, { name, table: target.table, foreignColumn, idColumn });
+        }
+    }
+    return [...indexes.values()];
+}
+exports.canonicalRelationIndexes = canonicalRelationIndexes;
 async function ensureOptimisticIdFloor(session, placeholder, entity, floor) {
     const numericFloor = Number(floor);
     if (!Number.isSafeInteger(numericFloor) || numericFloor < 0) {
@@ -1106,24 +1133,38 @@ class AbstractSQLTeaQLClient {
             return;
         const parentSchema = this.schema(query.entity);
         for (const load of query.relations) {
+            const relation = parentSchema.relations?.[load.name];
+            if (!relation)
+                throw new Error(`Missing relation ${query.entity}.${load.name}`);
+            const parentIds = parents
+                .map(parent => parent[relation.localKey])
+                .filter(value => value !== undefined && value !== null);
+            const limit = load.query ? this.queryLimit(load.query) : undefined;
+            const threshold = load.query?.localTopNProbeParentThreshold?.();
+            const boundedTopN = relation.many && limit !== undefined;
+            const providerAlwaysProbe = this.driver.topNRelationPlanPolicy === 'alwaysProbe';
+            const useProbes = boundedTopN && (threshold === undefined
+                ? providerAlwaysProbe
+                : threshold > 0 && parentIds.length <= threshold);
+            const selectedPlan = useProbes ? 'bounded_probes' : 'window';
             const relationScope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
                 family: 'relation_load',
                 name: `${query.entity}.${String(load.name)}`,
                 attributes: {
                     'teaql.entity.type': String(query.entity),
                     'teaql.relation.name': String(load.name),
+                    'teaql.relation.parent_count': parentIds.length,
+                    'teaql.relation.per_parent_limit': limit ?? 0,
+                    'teaql.relation.configured_probe_threshold': threshold ?? 'provider-default',
+                    'teaql.relation.selected_plan': selectedPlan,
+                    'teaql.relation.probe_count': useProbes ? parentIds.length : 0,
                 },
             });
             try {
-                const relation = parentSchema.relations?.[load.name];
-                if (!relation)
-                    throw new Error(`Missing relation ${query.entity}.${load.name}`);
-                const parentIds = parents
-                    .map(parent => parent[relation.localKey])
-                    .filter(value => value !== undefined && value !== null);
                 if (!parentIds.length) {
                     for (const parent of parents)
                         parent[load.name] = relation.many ? [] : null;
+                    relationScope.success({ attributes: { 'teaql.result.cardinality': 0 } });
                     continue;
                 }
                 const childQuery = {
@@ -1131,15 +1172,32 @@ class AbstractSQLTeaQLClient {
                     entity: relation.targetEntity,
                     _filters: [...this.filters(load.query || {})],
                     relations: [...(load.query?.relations || [])],
-                    __teaqlPartitionBy: load.query && this.queryLimit(load.query) !== undefined
+                    orderItems: [...(load.query?.orderItems || [])],
+                    __teaqlPartitionBy: boundedTopN && !useProbes
                         ? relation.foreignKey
                         : undefined,
                 };
+                if (boundedTopN && !childQuery.orderItems.some((order) => order.field === 'id')) {
+                    childQuery.orderItems.push(ast_1.OrderBy.asc('id'));
+                }
                 if (typeof childQuery.clearContinuousPageRuntime === 'function')
                     childQuery.clearContinuousPageRuntime();
                 childQuery[this.internalQueryToken] = true;
-                childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-                const children = await this.executeQuery(childQuery);
+                const children = [];
+                if (useProbes) {
+                    for (const parentId of parentIds) {
+                        const probeQuery = {
+                            ...childQuery,
+                            _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
+                            __teaqlPartitionBy: undefined,
+                        };
+                        children.push(...await this.executeQuery(probeQuery));
+                    }
+                }
+                else {
+                    childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
+                    children.push(...await this.executeQuery(childQuery));
+                }
                 for (const child of children)
                     delete child.__teaql_partition_rank;
                 const buckets = new Map();
