@@ -74,7 +74,7 @@ export class School {
         return new School({ id: String(id) } as Partial<School>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         (this as any)._root.markAsDeleted(this.teaqlEntityKey());
         return this;

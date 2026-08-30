@@ -11,7 +11,7 @@ export class TaskExecutionLog {
         if (init) Object.assign(this, init);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         return this;
     }

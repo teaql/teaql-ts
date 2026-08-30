@@ -64,7 +64,7 @@ async function runNativeExamples() {
 
     console.log(`\n[Execution]: Delete Task (ID: ${newId})`);
     const taskToDelete = new Task({ id: newId, version: updatedVersion });
-    const deleteResult = await taskToDelete.markAsDeleted().auditAs("Clean up the bug").save(ctx);
+    const deleteResult = await taskToDelete.markForDeletion().auditAs("Clean up the bug").save(ctx);
     console.log("Delete Result:", JSON.stringify(deleteResult, null, 2));
 
   } catch (err) {

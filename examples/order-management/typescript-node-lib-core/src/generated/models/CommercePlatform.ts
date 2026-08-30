@@ -23,7 +23,7 @@ export class CommercePlatform {
         return new CommercePlatform({ id: String(id) } as Partial<CommercePlatform>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         return this;
     }

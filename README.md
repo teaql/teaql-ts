@@ -161,7 +161,7 @@ const updatedVersion = updateResult.data[0].saved_data.version;
 
 // Delete a Task
 const taskToDelete = new Task({ id: 9527, version: updatedVersion });
-const deleteResult = await taskToDelete.markAsDeleted().auditAs("Delete obsolete task").save(ctx);
+const deleteResult = await taskToDelete.markForDeletion().auditAs("Delete obsolete task").save(ctx);
 ```
 
 ### The Ultimate Safety for Low Code (Dynamic)

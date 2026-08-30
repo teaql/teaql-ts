@@ -1,4 +1,4 @@
-import { SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext } from '../../teaql-ts';
+import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext } from '../../teaql-ts';
 import { WorkItem } from '../models/WorkItem';
 
 
@@ -304,10 +304,11 @@ export class WorkItemRequest {
         const service = context.requireResource<TeaQLDataService>("dataService");
         const rows = await service.executeQuery(context.prepareQuery(this.query));
         const aggregateOnly = this.query.aggregateItems.length > 0 && this.query.groupByItems.length === 0;
+        const queryRoot = new EntityRoot();
         const data = aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof WorkItem
                 ? row
-                : WorkItem.fromRecord(row as Record<string, unknown>, context.entityRoot));
+                : WorkItem.fromRecord(row as Record<string, unknown>, queryRoot));
         const result = new SmartList<WorkItem>(data);
         if (aggregateOnly && rows[0]) Object.assign(result.aggregations, rows[0]);
 
@@ -333,10 +334,11 @@ export class WorkItemRequest {
         const service = context.requireResource<TeaQLDataService>("dataService");
         const totalCount = await service.executeCount(this.query);
         const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const queryRoot = new EntityRoot();
         const data = new SmartList(rows.map((row: unknown) =>
             row instanceof WorkItem
                 ? row
-                : WorkItem.fromRecord(row as Record<string, unknown>, context.entityRoot)));
+                : WorkItem.fromRecord(row as Record<string, unknown>, queryRoot)));
         data.totalCount = totalCount;
         return { data, totalCount, offset, limit };
     }
@@ -345,11 +347,12 @@ export class WorkItemRequest {
         this.ensureIntent();
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
+        const queryRoot = new EntityRoot();
         for await (const chunk of service.executeForStream(this.query, chunkSize)) {
             for (const entity of chunk) {
                 yield entity instanceof WorkItem
                     ? entity
-                    : WorkItem.fromRecord(entity as Record<string, unknown>, context.entityRoot);
+                    : WorkItem.fromRecord(entity as Record<string, unknown>, queryRoot);
             }
         }
     }

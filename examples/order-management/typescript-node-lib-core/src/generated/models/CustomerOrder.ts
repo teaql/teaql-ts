@@ -23,7 +23,7 @@ export class CustomerOrder {
         return new CustomerOrder({ id: String(id) } as Partial<CustomerOrder>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         return this;
     }

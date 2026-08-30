@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   assert.equal(queried.version, previousVersion + 1);
   console.log(`PASS Update (version ${previousVersion} -> ${queried.version})`);
 
-  await queried.markAsDeleted().auditAs("Delete conformance work item").save(context);
+  await queried.markForDeletion().auditAs("Delete conformance work item").save(context);
   const remaining = await Q.workItems().withIdIs(created.id)
     .comment("Verify soft-deleted work item is excluded")
     .purpose("Verify delete semantics").executeForList(context);

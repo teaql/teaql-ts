@@ -21,7 +21,7 @@ export class OrderSearchPreset {
         return new OrderSearchPreset({ id: String(id) } as Partial<OrderSearchPreset>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         return this;
     }

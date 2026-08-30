@@ -21,7 +21,7 @@ export class Product {
         return new Product({ id: String(id) } as Partial<Product>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         return this;
     }

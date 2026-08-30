@@ -61,7 +61,7 @@ export class WorkItem {
         return new WorkItem({ id: String(id) } as Partial<WorkItem>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         (this as any)._root.markAsDeleted(this.teaqlEntityKey());
         return this;
@@ -79,7 +79,6 @@ export class WorkItem {
         if (!(this as any)._comment?.trim()) {
             throw new Error("Security audit failure: auditAs() must be called before save()");
         }
-        this.teaqlAttachRoot(context.entityRoot);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {

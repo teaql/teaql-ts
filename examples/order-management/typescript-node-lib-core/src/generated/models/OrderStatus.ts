@@ -20,7 +20,7 @@ export class OrderStatus {
         return new OrderStatus({ id: String(id) } as Partial<OrderStatus>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         return this;
     }

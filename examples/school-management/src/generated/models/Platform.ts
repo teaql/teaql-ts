@@ -79,7 +79,7 @@ export class Platform {
         return new Platform({ id: String(id) } as Partial<Platform>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         (this as any)._root.markAsDeleted(this.teaqlEntityKey());
         return this;

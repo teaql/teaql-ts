@@ -21,7 +21,7 @@ export class OrderLine {
         return new OrderLine({ id: String(id) } as Partial<OrderLine>);
     }
 
-    markAsDeleted(): this {
+    markForDeletion(): this {
         (this as any)._action = "Delete";
         return this;
     }
