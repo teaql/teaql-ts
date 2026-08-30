@@ -89,6 +89,7 @@ export class WorkItem {
             version: (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
+            ,ledgerRoot: (this as any)._root
         };
         const service = context.requireResource<TeaQLDataService>("dataService");
         const result = await service.executeMutation(mutation);

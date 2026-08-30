@@ -237,6 +237,7 @@ export class PlatformRequest {
 
         const service = context.requireResource<TeaQLDataService>("dataService");
         const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const queryRoot = new EntityRoot();
         const aggregateOnly = this.query.aggregateItems.length > 0 && this.query.groupByItems.length === 0;
         const queryRoot = new EntityRoot();
         const data = aggregateOnly ? [] : rows.map((row: unknown) =>

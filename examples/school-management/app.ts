@@ -6,8 +6,10 @@ import { UserContext } from "./src/teaql-ts";
 import { RuntimeModule } from "teaql-ts";
 import { GENERATED_RUNTIME_MODULE } from "./src/runtime-module";
 import { SQLiteDriver, SQLiteTeaQLClient } from "./src/teaql-node-sqlite";
+import { mkdirSync } from "node:fs";
 
 async function main(): Promise<void> {
+    mkdirSync(".local", { recursive: true });
     const database = ".local/school.sqlite";
     const cleanup = new SQLiteDriver(database);
     for (const table of ["school_data", "school_type_data", "platform_data", "teaql_id_space"]) {

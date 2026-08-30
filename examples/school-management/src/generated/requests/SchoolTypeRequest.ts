@@ -1,4 +1,4 @@
-import { SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext } from '../../teaql-ts';
+import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext } from '../../teaql-ts';
 import { SchoolType } from '../models/SchoolType';
 
 
@@ -657,11 +657,12 @@ export class SchoolTypeRequest {
 
         const service = context.requireResource<TeaQLDataService>("dataService");
         const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const queryRoot = new EntityRoot();
         const aggregateOnly = this.query.aggregateItems.length > 0 && this.query.groupByItems.length === 0;
         const data = aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof SchoolType
                 ? row
-                : SchoolType.fromRecord(row as Record<string, unknown>, context.entityRoot));
+                : SchoolType.fromRecord(row as Record<string, unknown>, queryRoot));
         const result = new SmartList<SchoolType>(data);
         if (aggregateOnly && rows[0]) Object.assign(result.aggregations, rows[0]);
 
@@ -687,10 +688,11 @@ export class SchoolTypeRequest {
         const service = context.requireResource<TeaQLDataService>("dataService");
         const totalCount = await service.executeCount(this.query);
         const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const queryRoot = new EntityRoot();
         const data = new SmartList(rows.map((row: unknown) =>
             row instanceof SchoolType
                 ? row
-                : SchoolType.fromRecord(row as Record<string, unknown>, context.entityRoot)));
+                : SchoolType.fromRecord(row as Record<string, unknown>, queryRoot)));
         data.totalCount = totalCount;
         return { data, totalCount, offset, limit };
     }
@@ -699,11 +701,12 @@ export class SchoolTypeRequest {
         this.ensureIntent();
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
+        const queryRoot = new EntityRoot();
         for await (const chunk of service.executeForStream(this.query, chunkSize)) {
             for (const entity of chunk) {
                 yield entity instanceof SchoolType
                     ? entity
-                    : SchoolType.fromRecord(entity as Record<string, unknown>, context.entityRoot);
+                    : SchoolType.fromRecord(entity as Record<string, unknown>, queryRoot);
             }
         }
     }
