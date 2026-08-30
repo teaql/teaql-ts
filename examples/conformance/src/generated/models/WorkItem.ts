@@ -79,7 +79,6 @@ export class WorkItem {
         if (!(this as any)._comment?.trim()) {
             throw new Error("Security audit failure: auditAs() must be called before save()");
         }
-        this.teaqlAttachRoot(context.entityRoot);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -90,6 +89,7 @@ export class WorkItem {
             version: (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
+            ,ledgerRoot: (this as any)._root
         };
         const service = context.requireResource<TeaQLDataService>("dataService");
         const result = await service.executeMutation(mutation);
