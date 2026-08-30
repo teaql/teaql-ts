@@ -101,7 +101,8 @@ export class MySQLDriver implements TeaQLSqlDriver {
         if (!existing.rowCount) {
           await this.query(
             `ALTER TABLE ${table} ADD COLUMN ` +
-            `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`,
+            `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}` +
+            `${column.nullable === false ? ' NOT NULL' : ''}`,
           );
         }
       }

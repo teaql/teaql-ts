@@ -13,6 +13,7 @@ export declare class ObjectLocation {
     static property(name: string): ObjectLocation;
     property(name: string): ObjectLocation;
     index(index: number): ObjectLocation;
+    prefixedBy(prefix: ObjectLocation): ObjectLocation;
     modelPath(): string;
     nativePath(): string;
     instancePath(): string;

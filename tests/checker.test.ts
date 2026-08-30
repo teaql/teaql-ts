@@ -102,3 +102,62 @@ test('update checker can add fixes to an immutable mutation ledger snapshot', as
   expect(ledgerRoot.change(ledgerKey).update_time).toBeInstanceOf(Date);
   expect(driver.statements.some(sql => sql.includes('"update_time" = ?'))).toBe(true);
 });
+
+test('one graph captures one fix clock and clears it after commit', async () => {
+  const driver = new Driver();
+  const context = new UserContext();
+  const observed: Date[] = [];
+  const checker: EntityChecker = {
+    checkAndFix(ctx, mutation) {
+      const now = ctx.requireResource<Date>('fixTime');
+      observed.push(now);
+      mutation.payload.create_time = now;
+    },
+  };
+  const client = new Client(driver).setUserContext(context).install(new RuntimeModule({
+    Task: { table: 'task_data', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      createTime: { columnName: 'create_time', modelName: 'create_time', logicalType: 'datetime', decode: 'date' },
+    } },
+  }, { Task: checker }));
+
+  await client.executeGraphSave(async () => {
+    await client.executeMutation({ entity: 'Task', action: 'Create', payload: {}, comment: 'first node' });
+    await new Promise(resolve => setTimeout(resolve, 5));
+    await client.executeMutation({ entity: 'Task', action: 'Create', payload: {}, comment: 'second node' });
+  });
+
+  expect(observed).toHaveLength(2);
+  expect(observed[0]).toBe(observed[1]);
+  expect(driver.transactions).toBe(1);
+  expect(context.getResource('fixTime')).toBeUndefined();
+});
+
+test('independent concurrent graph saves are serialized instead of joining', async () => {
+  const driver = new Driver();
+  const client = new Client(driver).install(new RuntimeModule({
+    Task: { table: 'task_data', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      name: { columnName: 'name', logicalType: 'text', decode: 'string' },
+    } },
+  }));
+  const events: string[] = [];
+
+  const first = client.executeGraphSave(async () => {
+    events.push('first:start');
+    await new Promise(resolve => setTimeout(resolve, 10));
+    await client.executeMutation({ entity: 'Task', action: 'Create', payload: { name: 'first' }, comment: 'first' });
+    events.push('first:end');
+  });
+  const second = client.executeGraphSave(async () => {
+    events.push('second:start');
+    await client.executeMutation({ entity: 'Task', action: 'Create', payload: { name: 'second' }, comment: 'second' });
+    events.push('second:end');
+  });
+
+  await Promise.all([first, second]);
+  expect(events).toEqual(['first:start', 'first:end', 'second:start', 'second:end']);
+  expect(driver.transactions).toBe(2);
+});

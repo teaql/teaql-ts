@@ -8,6 +8,7 @@ export type ColumnSchema = {
     modelName?: string;
     logicalType: LogicalColumnType;
     decode: 'string' | 'number' | 'date' | 'native';
+    nullable?: boolean;
 };
 export type EntitySchema = {
     table: string;
@@ -59,6 +60,10 @@ export interface TeaQLSqlDriver extends SqlSession {
 }
 export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder: (index: number) => string, entity: string, floor: string): Promise<void>;
 export interface TeaQLDataService {
+    executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+    preflightMutation(mutation: any): any;
+    afterGraphCommit(work: () => void): void;
+    afterGraphRollback(work: () => void): void;
     executeMutation(mutation: any): Promise<MutationResult>;
     executeQuery<T = any>(query: any): Promise<T[]>;
     executeCount(query: any): Promise<number>;
@@ -108,6 +113,10 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private readonly checkers;
     private userContext;
     private bootstrap;
+    private graphMutationSession?;
+    private graphCommitActions;
+    private graphRollbackActions;
+    private graphSaveTail;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
@@ -125,6 +134,11 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     [contextSchemaCapability](context: UserContext): Promise<void>;
     private ensureBootstrapData;
     private reconcileBootstrapEntity;
+    executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+    afterGraphCommit(work: () => void): void;
+    afterGraphRollback(work: () => void): void;
+    private withMutationSession;
+    preflightMutation(mutation: any): any;
     executeMutation(mutation: any): Promise<MutationResult>;
     private readPersistedRecord;
     private decodeRowForSchema;

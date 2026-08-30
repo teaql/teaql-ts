@@ -13,6 +13,12 @@ export type ContextEntityRef = Readonly<{
     entity: string;
     id: string | number | bigint;
 }>;
+export type FixEvidence = Readonly<{
+    entityType: string;
+    modelPath: string;
+    source: 'clock' | 'context';
+    sourceLabel: string;
+}>;
 export declare class ContextRootError extends Error {
     readonly reason: 'missing' | 'type_mismatch';
     readonly expectedType: string;
@@ -45,6 +51,10 @@ export declare class UserContext {
     installI18nCatalog(catalog: I18nCatalog): this;
     installIdSetPaginationStore(store: IdSetPaginationStore): this;
     translateCheckResults(results: CheckResult[]): CheckResult[];
+    beginFixEvidence(): this;
+    recordFixEvidence(evidence: FixEvidence): this;
+    finishFixEvidence(): this;
+    lastFixEvidence(): readonly FixEvidence[];
     insertResource<T>(name: string, resource: T): this;
     getResource<T>(name: string): T | undefined;
     removeResource(name: string): this;

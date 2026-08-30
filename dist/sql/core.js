@@ -262,6 +262,9 @@ class AbstractSQLTeaQLClient {
         this.checkers = {};
         this.userContext = new context_1.UserContext();
         this.bootstrap = {};
+        this.graphCommitActions = [];
+        this.graphRollbackActions = [];
+        this.graphSaveTail = Promise.resolve();
     }
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module) {
@@ -398,6 +401,89 @@ class AbstractSQLTeaQLClient {
         }
         await this.driver.ensureIdFloor(session, record.entity, record.id);
     }
+    async executeGraphSave(work) {
+        // Generated child saves call their within-graph entry point directly. Every
+        // public/root save comes through here and is queued, so an unrelated async
+        // save cannot accidentally join another graph's transaction merely because
+        // this client currently has an active session.
+        const predecessor = this.graphSaveTail;
+        let release;
+        this.graphSaveTail = new Promise(resolve => { release = resolve; });
+        await predecessor;
+        this.graphCommitActions = [];
+        this.graphRollbackActions = [];
+        this.userContext.insertResource('fixTime', new Date());
+        this.userContext.beginFixEvidence();
+        try {
+            const result = await this.driver.transaction(async (session) => {
+                this.graphMutationSession = session;
+                try {
+                    return await work();
+                }
+                finally {
+                    this.graphMutationSession = undefined;
+                }
+            });
+            for (const action of this.graphCommitActions)
+                action();
+            return result;
+        }
+        catch (error) {
+            for (const action of [...this.graphRollbackActions].reverse())
+                action();
+            throw error;
+        }
+        finally {
+            this.graphCommitActions = [];
+            this.graphRollbackActions = [];
+            this.userContext.removeResource('fixTime').finishFixEvidence();
+            release();
+        }
+    }
+    afterGraphCommit(work) {
+        if (!this.graphMutationSession)
+            throw new Error('No graph save is active');
+        this.graphCommitActions.push(work);
+    }
+    afterGraphRollback(work) {
+        if (!this.graphMutationSession)
+            throw new Error('No graph save is active');
+        this.graphRollbackActions.push(work);
+    }
+    async withMutationSession(work) {
+        return this.graphMutationSession ? work(this.graphMutationSession) : this.driver.transaction(work);
+    }
+    preflightMutation(mutation) {
+        if (!String(mutation?.comment || '').trim()) {
+            throw new Error('Security audit failure: audit reason is required before mutation');
+        }
+        // The ledger exposes immutable snapshots. Fixers receive a mutable working
+        // payload and every derived value is copied back into the graph ledger.
+        mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+        const checker = this.checkers[String(mutation.entity)];
+        if (!checker)
+            return mutation;
+        const results = [];
+        const ownsFixTime = this.userContext.getResource('fixTime') === undefined;
+        if (ownsFixTime)
+            this.userContext.insertResource('fixTime', new Date()).beginFixEvidence();
+        try {
+            checker.checkAndFix(this.userContext, mutation, results);
+            if (mutation.ledgerKey && mutation.ledgerRoot) {
+                for (const [field, value] of Object.entries(mutation.payload || {})) {
+                    mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+                }
+            }
+            this.userContext.translateCheckResults(results);
+            if (results.length)
+                throw new checker_1.CheckException(results);
+            return mutation;
+        }
+        finally {
+            if (ownsFixTime)
+                this.userContext.removeResource('fixTime').finishFixEvidence();
+        }
+    }
     async executeMutation(mutation) {
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
             family: 'mutation',
@@ -408,32 +494,7 @@ class AbstractSQLTeaQLClient {
             },
         });
         try {
-            if (!String(mutation?.comment || '').trim()) {
-                throw new Error('Security audit failure: audit reason is required before mutation');
-            }
-            // EntityRoot.change() deliberately returns an immutable ledger snapshot.
-            // Checkers also own context-derived fixes, so give that boundary a mutable
-            // working payload without weakening the ledger's immutability contract.
-            mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
-            const checker = this.checkers[String(mutation.entity)];
-            if (checker) {
-                const results = [];
-                this.userContext.insertResource('fixTime', new Date());
-                try {
-                    checker.checkAndFix(this.userContext, mutation, results);
-                    if (mutation.ledgerKey && mutation.ledgerRoot) {
-                        for (const [field, value] of Object.entries(mutation.payload || {})) {
-                            mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
-                        }
-                    }
-                    this.userContext.translateCheckResults(results);
-                    if (results.length)
-                        throw new checker_1.CheckException(results);
-                }
-                finally {
-                    this.userContext.removeResource('fixTime');
-                }
-            }
+            mutation = this.preflightMutation(mutation);
             const schema = this.schema(mutation.entity);
             const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
             const table = this.driver.identifier(schema.table);
@@ -444,7 +505,7 @@ class AbstractSQLTeaQLClient {
                     'teaql.provider.kind': this.driver.databaseKind,
                     'teaql.provider.operation': String(mutation.action).toLowerCase(),
                 },
-            }, () => this.driver.transaction(async (session) => {
+            }, () => this.withMutationSession(async (session) => {
                 if (mutation.action === 'Create') {
                     const id = mutation.id
                         ? String(mutation.id)

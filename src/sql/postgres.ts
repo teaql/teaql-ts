@@ -91,7 +91,8 @@ export class PostgreSQLDriver implements TeaQLSqlDriver {
           if (field === 'id' || field === 'version') continue;
           await session.query(
             `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ` +
-            `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`,
+            `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}` +
+            `${column.nullable === false ? ' NOT NULL' : ''}`,
           );
         }
       }

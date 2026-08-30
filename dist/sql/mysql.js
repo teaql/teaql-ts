@@ -79,7 +79,8 @@ class MySQLDriver {
                     'WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [schema.table, column.columnName]);
                 if (!existing.rowCount) {
                     await this.query(`ALTER TABLE ${table} ADD COLUMN ` +
-                        `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}`);
+                        `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}` +
+                        `${column.nullable === false ? ' NOT NULL' : ''}`);
                 }
             }
         }

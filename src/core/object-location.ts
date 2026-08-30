@@ -26,6 +26,10 @@ export class ObjectLocation {
     return new ObjectLocation([...this.segments, { kind: 'index', index }]);
   }
 
+  prefixedBy(prefix: ObjectLocation): ObjectLocation {
+    return new ObjectLocation([...prefix.segments, ...this.segments]);
+  }
+
   modelPath(): string {
     return this.render(name => name);
   }

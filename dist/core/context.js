@@ -69,6 +69,28 @@ class UserContext {
         return this.insertResource('idSetPaginationStore', store);
     }
     translateCheckResults(results) { return results.map(result => this.i18nCatalog.translate(result, this.locale)); }
+    beginFixEvidence() { return this.insertResource('fixEvidenceCurrent', []); }
+    recordFixEvidence(evidence) {
+        const label = String(evidence.sourceLabel || '');
+        const normalized = label.toLowerCase();
+        if (!evidence.entityType || !evidence.modelPath || !label
+            || normalized.includes('authorization') || normalized.includes('cookie') || normalized.includes('token=')) {
+            throw new TypeError('Fix evidence must contain only safe framework provenance labels');
+        }
+        const current = this.getResource('fixEvidenceCurrent') ?? [];
+        if (!this.getResource('fixEvidenceCurrent'))
+            this.insertResource('fixEvidenceCurrent', current);
+        current.push(Object.freeze({ ...evidence }));
+        return this;
+    }
+    finishFixEvidence() {
+        const current = this.getResource('fixEvidenceCurrent') ?? [];
+        this.insertResource('fixEvidenceLast', Object.freeze([...current]));
+        return this.removeResource('fixEvidenceCurrent');
+    }
+    lastFixEvidence() {
+        return this.getResource('fixEvidenceLast') ?? [];
+    }
     insertResource(name, resource) {
         this.resources.set(name, resource);
         return this;

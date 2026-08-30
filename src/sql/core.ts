@@ -25,6 +25,7 @@ export type ColumnSchema = {
   modelName?: string;
   logicalType: LogicalColumnType;
   decode: 'string' | 'number' | 'date' | 'native';
+  nullable?: boolean;
 };
 
 export type EntitySchema = {
@@ -170,6 +171,10 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 }
 
 export interface TeaQLDataService {
+  executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+  preflightMutation(mutation: any): any;
+  afterGraphCommit(work: () => void): void;
+  afterGraphRollback(work: () => void): void;
   executeMutation(mutation: any): Promise<MutationResult>;
   executeQuery<T = any>(query: any): Promise<T[]>;
   executeCount(query: any): Promise<number>;
@@ -353,6 +358,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly checkers: Record<string, EntityChecker> = {};
   private userContext = new UserContext();
   private bootstrap: RuntimeBootstrap = {};
+  private graphMutationSession?: SqlSession;
+  private graphCommitActions: Array<() => void> = [];
+  private graphRollbackActions: Array<() => void> = [];
+  private graphSaveTail: Promise<void> = Promise.resolve();
 
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
@@ -515,6 +524,79 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     await this.driver.ensureIdFloor(session, record.entity, record.id);
   }
 
+  async executeGraphSave<T>(work: () => Promise<T>): Promise<T> {
+    // Generated child saves call their within-graph entry point directly. Every
+    // public/root save comes through here and is queued, so an unrelated async
+    // save cannot accidentally join another graph's transaction merely because
+    // this client currently has an active session.
+    const predecessor = this.graphSaveTail;
+    let release!: () => void;
+    this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
+    await predecessor;
+    this.graphCommitActions = [];
+    this.graphRollbackActions = [];
+    this.userContext.insertResource('fixTime', new Date());
+    this.userContext.beginFixEvidence();
+    try {
+      const result = await this.driver.transaction(async session => {
+        this.graphMutationSession = session;
+        try { return await work(); }
+        finally { this.graphMutationSession = undefined; }
+      });
+      for (const action of this.graphCommitActions) action();
+      return result;
+    } catch (error) {
+      for (const action of [...this.graphRollbackActions].reverse()) action();
+      throw error;
+    } finally {
+      this.graphCommitActions = [];
+      this.graphRollbackActions = [];
+      this.userContext.removeResource('fixTime').finishFixEvidence();
+      release();
+    }
+  }
+
+  afterGraphCommit(work: () => void): void {
+    if (!this.graphMutationSession) throw new Error('No graph save is active');
+    this.graphCommitActions.push(work);
+  }
+
+  afterGraphRollback(work: () => void): void {
+    if (!this.graphMutationSession) throw new Error('No graph save is active');
+    this.graphRollbackActions.push(work);
+  }
+
+  private async withMutationSession<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
+    return this.graphMutationSession ? work(this.graphMutationSession) : this.driver.transaction(work);
+  }
+
+  preflightMutation(mutation: any): any {
+    if (!String(mutation?.comment || '').trim()) {
+      throw new Error('Security audit failure: audit reason is required before mutation');
+    }
+    // The ledger exposes immutable snapshots. Fixers receive a mutable working
+    // payload and every derived value is copied back into the graph ledger.
+    mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+    const checker = this.checkers[String(mutation.entity)];
+    if (!checker) return mutation;
+    const results: import('../core/i18n').CheckResult[] = [];
+    const ownsFixTime = this.userContext.getResource<Date>('fixTime') === undefined;
+    if (ownsFixTime) this.userContext.insertResource('fixTime', new Date()).beginFixEvidence();
+    try {
+      checker.checkAndFix(this.userContext, mutation, results);
+      if (mutation.ledgerKey && mutation.ledgerRoot) {
+        for (const [field, value] of Object.entries(mutation.payload || {})) {
+          mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+        }
+      }
+      this.userContext.translateCheckResults(results);
+      if (results.length) throw new CheckException(results);
+      return mutation;
+    } finally {
+      if (ownsFixTime) this.userContext.removeResource('fixTime').finishFixEvidence();
+    }
+  }
+
   async executeMutation(mutation: any): Promise<MutationResult> {
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'mutation',
@@ -525,30 +607,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       },
     });
     try {
-      if (!String(mutation?.comment || '').trim()) {
-        throw new Error('Security audit failure: audit reason is required before mutation');
-      }
-      // EntityRoot.change() deliberately returns an immutable ledger snapshot.
-      // Checkers also own context-derived fixes, so give that boundary a mutable
-      // working payload without weakening the ledger's immutability contract.
-      mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
-      const checker = this.checkers[String(mutation.entity)];
-      if (checker) {
-        const results: import('../core/i18n').CheckResult[] = [];
-        this.userContext.insertResource('fixTime', new Date());
-        try {
-          checker.checkAndFix(this.userContext, mutation, results);
-          if (mutation.ledgerKey && mutation.ledgerRoot) {
-            for (const [field, value] of Object.entries(mutation.payload || {})) {
-              mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
-            }
-          }
-          this.userContext.translateCheckResults(results);
-          if (results.length) throw new CheckException(results);
-        } finally {
-          this.userContext.removeResource('fixTime');
-        }
-      }
+      mutation = this.preflightMutation(mutation);
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
       const table = this.driver.identifier(schema.table);
@@ -559,7 +618,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           'teaql.provider.kind': this.driver.databaseKind,
           'teaql.provider.operation': String(mutation.action).toLowerCase(),
         },
-      }, () => this.driver.transaction(async session => {
+      }, () => this.withMutationSession(async session => {
       if (mutation.action === 'Create') {
         const id = mutation.id
           ? String(mutation.id)

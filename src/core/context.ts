@@ -24,6 +24,12 @@ function resourceIdentity(value: unknown): string {
 }
 
 export type ContextEntityRef = Readonly<{ entity: string; id: string | number | bigint }>;
+export type FixEvidence = Readonly<{
+  entityType: string;
+  modelPath: string;
+  source: 'clock' | 'context';
+  sourceLabel: string;
+}>;
 
 export class ContextRootError extends Error {
   constructor(
@@ -79,6 +85,28 @@ export class UserContext {
     return this.insertResource('idSetPaginationStore', store);
   }
   translateCheckResults(results: CheckResult[]): CheckResult[] { return results.map(result=>this.i18nCatalog.translate(result,this.locale)); }
+
+  beginFixEvidence(): this { return this.insertResource('fixEvidenceCurrent', [] as FixEvidence[]); }
+  recordFixEvidence(evidence: FixEvidence): this {
+    const label = String(evidence.sourceLabel || '');
+    const normalized = label.toLowerCase();
+    if (!evidence.entityType || !evidence.modelPath || !label
+        || normalized.includes('authorization') || normalized.includes('cookie') || normalized.includes('token=')) {
+      throw new TypeError('Fix evidence must contain only safe framework provenance labels');
+    }
+    const current = this.getResource<FixEvidence[]>('fixEvidenceCurrent') ?? [];
+    if (!this.getResource<FixEvidence[]>('fixEvidenceCurrent')) this.insertResource('fixEvidenceCurrent', current);
+    current.push(Object.freeze({ ...evidence }));
+    return this;
+  }
+  finishFixEvidence(): this {
+    const current = this.getResource<FixEvidence[]>('fixEvidenceCurrent') ?? [];
+    this.insertResource('fixEvidenceLast', Object.freeze([...current]));
+    return this.removeResource('fixEvidenceCurrent');
+  }
+  lastFixEvidence(): readonly FixEvidence[] {
+    return this.getResource<readonly FixEvidence[]>('fixEvidenceLast') ?? [];
+  }
 
   insertResource<T>(name: string, resource: T): this {
     this.resources.set(name, resource);
