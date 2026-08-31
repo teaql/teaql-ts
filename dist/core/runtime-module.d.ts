@@ -1,5 +1,6 @@
 import type { EntitySchema } from '../sql/core';
 import type { EntityChecker } from './checker';
+import type { UserContext } from './context';
 export type BootstrapEntity = Readonly<{
     entity: string;
     id: string;
@@ -8,6 +9,8 @@ export type BootstrapEntity = Readonly<{
 export type RuntimeBootstrap = Readonly<{
     defaultDomainRoot?: BootstrapEntity;
     constants?: readonly BootstrapEntity[];
+    /** Generated typed Mutation program. Application workspaces cannot replace it. */
+    ensure?: (context: UserContext) => Promise<void>;
 }>;
 export declare function mergeRuntimeBootstrap(left: RuntimeBootstrap, right: RuntimeBootstrap): RuntimeBootstrap;
 export interface RuntimeModuleTarget {

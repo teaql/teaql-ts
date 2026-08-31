@@ -117,6 +117,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     protected readonly driver: TeaQLSqlDriver;
     private readonly schemas;
     private schemaReady?;
+    private bootstrapTail;
     readonly sqlTrace: string[];
     private readonly internalQueryToken;
     private readonly auditEvents;

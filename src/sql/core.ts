@@ -369,6 +369,7 @@ type NormalizedOrder = { field: string; direction: string };
 
 export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private schemaReady?: Promise<void>;
+  private bootstrapTail: Promise<void> = Promise.resolve();
   public readonly sqlTrace: string[] = [];
   private readonly internalQueryToken = Symbol('teaql-internal-query');
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
@@ -494,10 +495,28 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async [contextSchemaCapability](context: UserContext): Promise<void> {
     this.userContext = context;
     if (!this.schemaReady) {
-      this.schemaReady = this.driver.ensureSchema(this.schemas)
-        .then(() => this.ensureBootstrapData());
+      this.schemaReady = this.driver.ensureSchema(this.schemas);
     }
-    return this.schemaReady;
+    await this.schemaReady;
+    const predecessor = this.bootstrapTail;
+    let release!: () => void;
+    this.bootstrapTail = new Promise<void>(resolve => { release = resolve; });
+    await predecessor;
+    try {
+        if (this.bootstrap.ensure) {
+          context.insertResource('bootstrapActor', 'teaql-generated-bootstrap');
+          context.insertResource('bootstrapCategory', 'runtime-bootstrap');
+          try { await this.bootstrap.ensure(context); }
+          finally {
+            context.removeResource('bootstrapActor');
+            context.removeResource('bootstrapCategory');
+          }
+        } else {
+          await this.ensureBootstrapData();
+        }
+    } finally {
+      release();
+    }
   }
 
   private async ensureBootstrapData(): Promise<void> {
@@ -768,6 +787,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         id: String(result.id),
         reason: String(mutation.comment),
         recordedAt: new Date().toISOString(),
+        actor: this.userContext.getResource<string>('bootstrapActor'),
+        category: this.userContext.getResource<string>('bootstrapCategory'),
+        changedFields: Object.keys(mutation.payload || {}).sort(),
+        version: result.version,
       });
       this.auditEvents.push(event);
       if (this.auditSink) {

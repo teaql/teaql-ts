@@ -1,5 +1,6 @@
 import type { EntitySchema } from '../sql/core';
 import type { EntityChecker } from './checker';
+import type { UserContext } from './context';
 
 export type BootstrapEntity = Readonly<{
   entity: string;
@@ -10,6 +11,8 @@ export type BootstrapEntity = Readonly<{
 export type RuntimeBootstrap = Readonly<{
   defaultDomainRoot?: BootstrapEntity;
   constants?: readonly BootstrapEntity[];
+  /** Generated typed Mutation program. Application workspaces cannot replace it. */
+  ensure?: (context: UserContext) => Promise<void>;
 }>;
 
 export function mergeRuntimeBootstrap(
@@ -29,6 +32,9 @@ export function mergeRuntimeBootstrap(
   return {
     defaultDomainRoot: rightRoot ?? leftRoot,
     constants: [...constants.values()],
+    ensure: left.ensure && right.ensure
+      ? async context => { await left.ensure!(context); await right.ensure!(context); }
+      : right.ensure ?? left.ensure,
   };
 }
 
@@ -52,6 +58,7 @@ export class RuntimeModule {
     this.bootstrap = Object.freeze({
       defaultDomainRoot: bootstrap.defaultDomainRoot,
       constants: Object.freeze([...(bootstrap.constants ?? [])]),
+      ensure: bootstrap.ensure,
     });
   }
 

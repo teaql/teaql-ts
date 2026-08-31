@@ -15,6 +15,9 @@ function mergeRuntimeBootstrap(left, right) {
     return {
         defaultDomainRoot: rightRoot ?? leftRoot,
         constants: [...constants.values()],
+        ensure: left.ensure && right.ensure
+            ? async (context) => { await left.ensure(context); await right.ensure(context); }
+            : right.ensure ?? left.ensure,
     };
 }
 exports.mergeRuntimeBootstrap = mergeRuntimeBootstrap;
@@ -26,6 +29,7 @@ class RuntimeModule {
         this.bootstrap = Object.freeze({
             defaultDomainRoot: bootstrap.defaultDomainRoot,
             constants: Object.freeze([...(bootstrap.constants ?? [])]),
+            ensure: bootstrap.ensure,
         });
     }
     and(other) {

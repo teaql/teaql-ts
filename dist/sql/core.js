@@ -266,6 +266,7 @@ class AbstractSQLTeaQLClient {
     constructor(driver, schemas) {
         this.driver = driver;
         this.schemas = schemas;
+        this.bootstrapTail = Promise.resolve();
         this.sqlTrace = [];
         this.internalQueryToken = Symbol('teaql-internal-query');
         this.auditEvents = [];
@@ -369,10 +370,32 @@ class AbstractSQLTeaQLClient {
     async [schema_capability_1.contextSchemaCapability](context) {
         this.userContext = context;
         if (!this.schemaReady) {
-            this.schemaReady = this.driver.ensureSchema(this.schemas)
-                .then(() => this.ensureBootstrapData());
+            this.schemaReady = this.driver.ensureSchema(this.schemas);
         }
-        return this.schemaReady;
+        await this.schemaReady;
+        const predecessor = this.bootstrapTail;
+        let release;
+        this.bootstrapTail = new Promise(resolve => { release = resolve; });
+        await predecessor;
+        try {
+            if (this.bootstrap.ensure) {
+                context.insertResource('bootstrapActor', 'teaql-generated-bootstrap');
+                context.insertResource('bootstrapCategory', 'runtime-bootstrap');
+                try {
+                    await this.bootstrap.ensure(context);
+                }
+                finally {
+                    context.removeResource('bootstrapActor');
+                    context.removeResource('bootstrapCategory');
+                }
+            }
+            else {
+                await this.ensureBootstrapData();
+            }
+        }
+        finally {
+            release();
+        }
     }
     async ensureBootstrapData() {
         const records = [
@@ -617,6 +640,10 @@ class AbstractSQLTeaQLClient {
                 id: String(result.id),
                 reason: String(mutation.comment),
                 recordedAt: new Date().toISOString(),
+                actor: this.userContext.getResource('bootstrapActor'),
+                category: this.userContext.getResource('bootstrapCategory'),
+                changedFields: Object.keys(mutation.payload || {}).sort(),
+                version: result.version,
             });
             this.auditEvents.push(event);
             if (this.auditSink) {
