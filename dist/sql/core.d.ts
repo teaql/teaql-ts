@@ -89,6 +89,19 @@ export declare function debugSQL(parameterizedSQL: string, parameters: readonly 
 export interface RuntimeTelemetrySink {
     record(metadata: SQLExecutionMetadata): void;
 }
+/**
+ * Explicit value-bearing SQL diagnostic surface. Unlike RuntimeTelemetry this
+ * sink may receive secrets and personal data through debugSQL, so it is never
+ * installed by default.
+ */
+export interface DiagnosticSQLLogSink {
+    write(metadata: SQLExecutionMetadata): void;
+}
+export declare class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
+    private readonly writer;
+    constructor(writer?: (text: string) => void);
+    write(metadata: SQLExecutionMetadata): void;
+}
 export declare class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
     private mode;
     private entries;
@@ -109,6 +122,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private readonly auditEvents;
     private auditSink?;
     private telemetrySink?;
+    private diagnosticSQLLogSink?;
     private runtimeTelemetry?;
     private readonly checkers;
     private userContext;
@@ -128,6 +142,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     get auditTrace(): ReadonlyArray<Readonly<Record<string, unknown>>>;
     setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this;
     setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this;
+    setDiagnosticSQLLogSink(sink: DiagnosticSQLLogSink | undefined): this;
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private recordSQL;
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */

@@ -316,6 +316,26 @@ export interface RuntimeTelemetrySink {
   record(metadata: SQLExecutionMetadata): void;
 }
 
+/**
+ * Explicit value-bearing SQL diagnostic surface. Unlike RuntimeTelemetry this
+ * sink may receive secrets and personal data through debugSQL, so it is never
+ * installed by default.
+ */
+export interface DiagnosticSQLLogSink {
+  write(metadata: SQLExecutionMetadata): void;
+}
+
+export class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
+  constructor(private readonly writer: (text: string) => void = text => console.debug(text)) {}
+
+  write(metadata: SQLExecutionMetadata): void {
+    this.writer(
+      `[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}\n` +
+      metadata.debugSQL,
+    );
+  }
+}
+
 export class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
   private mode: 'all' | 'select' | 'mutation' | 'disabled' = 'all';
   private entries: SQLExecutionMetadata[] = [];
@@ -354,6 +374,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
   private telemetrySink?: RuntimeTelemetrySink;
+  private diagnosticSQLLogSink?: DiagnosticSQLLogSink;
   private runtimeTelemetry?: RuntimeTelemetry;
   private readonly checkers: Record<string, EntityChecker> = {};
   private userContext = new UserContext();
@@ -442,6 +463,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this;
   }
 
+  setDiagnosticSQLLogSink(sink: DiagnosticSQLLogSink | undefined): this {
+    this.diagnosticSQLLogSink = sink;
+    return this;
+  }
+
   setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this {
     this.runtimeTelemetry = telemetry;
     return this;
@@ -451,14 +477,17 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     operation: SQLExecutionOperation, parameterizedSQL: string, parameters: readonly unknown[],
     startedAt: number, resultCount?: number, affectedRows?: number,
   ): void {
-    this.telemetrySink?.record(Object.freeze({
+    if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
+    const metadata = Object.freeze({
       operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
       debugSQL: debugSQL(parameterizedSQL, parameters, this.driver.databaseKind),
       elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
       resultCount, affectedRows,
       resultSummary: resultCount !== undefined
         ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
-    }));
+    });
+    this.telemetrySink?.record(metadata);
+    this.diagnosticSQLLogSink?.write(metadata);
   }
 
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */

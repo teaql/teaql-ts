@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.debugSQL = exports.ensureOptimisticIdFloor = exports.canonicalRelationIndexes = void 0;
+exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.TextDiagnosticSQLLogSink = exports.debugSQL = exports.ensureOptimisticIdFloor = exports.canonicalRelationIndexes = void 0;
 const telemetry_1 = require("../core/telemetry");
 const checker_1 = require("../core/checker");
 const context_1 = require("../core/context");
@@ -224,6 +224,16 @@ function sqlLiteral(value, databaseKind) {
 function quoteSQLString(value) {
     return `'${value.replace(/'/g, "''")}'`;
 }
+class TextDiagnosticSQLLogSink {
+    constructor(writer = text => console.debug(text)) {
+        this.writer = writer;
+    }
+    write(metadata) {
+        this.writer(`[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}\n` +
+            metadata.debugSQL);
+    }
+}
+exports.TextDiagnosticSQLLogSink = TextDiagnosticSQLLogSink;
 class SQLExecutionEvidenceStore {
     constructor() {
         this.mode = 'all';
@@ -333,19 +343,27 @@ class AbstractSQLTeaQLClient {
         this.telemetrySink = sink;
         return this;
     }
+    setDiagnosticSQLLogSink(sink) {
+        this.diagnosticSQLLogSink = sink;
+        return this;
+    }
     setRuntimeTelemetry(telemetry) {
         this.runtimeTelemetry = telemetry;
         return this;
     }
     recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows) {
-        this.telemetrySink?.record(Object.freeze({
+        if (!this.telemetrySink && !this.diagnosticSQLLogSink)
+            return;
+        const metadata = Object.freeze({
             operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
             debugSQL: debugSQL(parameterizedSQL, parameters, this.driver.databaseKind),
             elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
             resultCount, affectedRows,
             resultSummary: resultCount !== undefined
                 ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
-        }));
+        });
+        this.telemetrySink?.record(metadata);
+        this.diagnosticSQLLogSink?.write(metadata);
     }
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */
     async [schema_capability_1.contextSchemaCapability](context) {

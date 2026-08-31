@@ -1,6 +1,9 @@
 import { UserContext } from '../src/core/context';
 import { SelectQuery } from '../src/core/ast';
-import { EntitySchema, SQLExecutionEvidenceStore } from '../src/sql/core';
+import Database from 'better-sqlite3';
+import {
+  EntitySchema, SQLExecutionEvidenceStore, TextDiagnosticSQLLogSink,
+} from '../src/sql/core';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
 
 const schemas: Record<string, EntitySchema> = {
@@ -44,6 +47,40 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   expect(store.snapshot()).toHaveLength(0);
   store.disable();
   expect(store.snapshot()).toHaveLength(0);
+  await client.close();
+});
+
+it('emits copy-paste SQL only through the explicit diagnostic sink', async () => {
+  const output: string[] = [];
+  const client = new SQLiteTeaQLClient(':memory:', schemas)
+    .setDiagnosticSQLLogSink(new TextDiagnosticSQLLogSink(line => output.push(line)));
+  await new UserContext().insertResource('dataService', client).ensureSchema();
+  const name = "O'Brien 学校";
+  await client.executeMutation({
+    entity: 'Person', action: 'Create', id: '1', payload: { name }, comment: 'seed diagnostic fixture',
+  });
+  const preparedRows = await client.executeQuery(
+    new SelectQuery('Person').filter({ name: { $eq: name } })
+      .comment('what: copy paste diagnostic ? marker')
+      .purpose('why: prove exact operator SQL'),
+  );
+  const selectLog = output.find(line => line.includes('[select]'));
+  expect(selectLog).toBeDefined();
+  const rendered = selectLog!.split('\n').slice(1).join('\n');
+  expect(rendered).toContain("O''Brien 学校");
+
+  const verification = new Database(':memory:');
+  verification.exec('CREATE TABLE person_data (id INTEGER PRIMARY KEY, version INTEGER, name TEXT)');
+  verification.prepare('INSERT INTO person_data VALUES (?, ?, ?)').run(1, 1, name);
+  const copiedRows = verification.prepare(rendered).all();
+  expect(copiedRows).toHaveLength(preparedRows.length);
+  verification.close();
+
+  client.setDiagnosticSQLLogSink(undefined);
+  output.length = 0;
+  await client.executeQuery(new SelectQuery('Person').filter({ name: { $eq: name } })
+    .comment('disabled diagnostic').purpose('prove values are not logged'));
+  expect(output).toEqual([]);
   await client.close();
 });
 
