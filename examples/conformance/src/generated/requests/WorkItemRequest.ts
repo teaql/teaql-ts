@@ -1,4 +1,4 @@
-import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext } from '../../teaql-ts';
+import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { WorkItem } from '../models/WorkItem';
 
 
@@ -30,6 +30,7 @@ export class WorkItemRequest {
         this._purpose = p;
         return new ExecutableWorkItemRequest(
             (context) => this.executeForListInternal(context),
+            (context) => this.executeForRowsInternal(context),
             (context, offset, limit) => this.executeForPageInternal(context, offset, limit),
             (context, chunkSize) => this.executeForStreamInternal(context, chunkSize),
             () => this.limit(1),
@@ -47,6 +48,21 @@ export class WorkItemRequest {
         return this;
     }
 
+    optimizePaginationWithIdSet(): this {
+        this.query.optimizePaginationWithIdSet();
+        return this;
+    }
+
+    optimizePaginationWithIdSetConfig(namespace: string, ttlSeconds: number, maxIds: number): this {
+        this.query.optimizePaginationWithIdSetConfig(namespace, ttlSeconds, maxIds);
+        return this;
+    }
+
+    topNProbeParentThreshold(threshold: number): this {
+        this.query.topNProbeParentThreshold(threshold);
+        return this;
+    }
+
     limit(n: number): this {
         this.query.limit(n);
         return this;
@@ -58,6 +74,9 @@ export class WorkItemRequest {
     }
 
     toQuery(): SelectQuery {
+        if (this.filters.length > 0) {
+            this.query.filter({ "$and": this.filters });
+        }
         return this.query;
     }
 
@@ -106,9 +125,34 @@ export class WorkItemRequest {
         return this;
     }
 
+    withPlatformMatching(request: { toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "platform": {
+                "$inSubquery": { query: request.toQuery(), field: "id" },
+            },
+        });
+        return this;
+    }
+
+    withoutPlatformMatching(request: { toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "platform": {
+                "$notInSubquery": { query: request.toQuery(), field: "id" },
+            },
+        });
+        return this;
+    }
+
+
+
 
         withIdIs(val: any): this {
             this.filters.push({ "id": { "$eq": val } });
+            return this;
+        }
+
+        withIdIsNot(val: any): this {
+            this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
@@ -117,13 +161,43 @@ export class WorkItemRequest {
             return this;
         }
 
+        withIdNotIn(...vals: any[]): this {
+            this.filters.push({ "id": { "$notIn": vals } });
+            return this;
+        }
+
+        withIdGreaterThan(val: any): this {
+            this.filters.push({ "id": { "$gt": val } });
+            return this;
+        }
+
         withIdGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
+        withIdLessThan(val: any): this {
+            this.filters.push({ "id": { "$lt": val } });
+            return this;
+        }
+
         withIdLessThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$lte": val } });
+            return this;
+        }
+
+        withIdBetween(lower: any, upper: any): this {
+            this.filters.push({ "id": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withIdIsKnown(): this {
+            this.filters.push({ "id": { "$isNull": false } });
+            return this;
+        }
+
+        withIdIsUnknown(): this {
+            this.filters.push({ "id": { "$isNull": true } });
             return this;
         }
 
@@ -137,8 +211,82 @@ export class WorkItemRequest {
             return this;
         }
 
-        withTitleIn(...vals: string[]): this {
+        withTitleIsNot(val: any): this {
+            this.filters.push({ "title": { "$ne": val } });
+            return this;
+        }
+
+        withTitleIn(...vals: any[]): this {
             this.filters.push({ "title": { "$in": vals } });
+            return this;
+        }
+
+        withTitleNotIn(...vals: any[]): this {
+            this.filters.push({ "title": { "$notIn": vals } });
+            return this;
+        }
+
+        withTitleGreaterThan(val: any): this {
+            this.filters.push({ "title": { "$gt": val } });
+            return this;
+        }
+
+        withTitleGreaterThanOrEqualTo(val: any): this {
+            this.filters.push({ "title": { "$gte": val } });
+            return this;
+        }
+
+        withTitleLessThan(val: any): this {
+            this.filters.push({ "title": { "$lt": val } });
+            return this;
+        }
+
+        withTitleLessThanOrEqualTo(val: any): this {
+            this.filters.push({ "title": { "$lte": val } });
+            return this;
+        }
+
+        withTitleBetween(lower: any, upper: any): this {
+            this.filters.push({ "title": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withTitleIsKnown(): this {
+            this.filters.push({ "title": { "$isNull": false } });
+            return this;
+        }
+
+        withTitleIsUnknown(): this {
+            this.filters.push({ "title": { "$isNull": true } });
+            return this;
+        }
+        withTitleNotContaining(val: string): this {
+            this.filters.push({ "title": { "$notContains": val } });
+            return this;
+        }
+
+        withTitleStartingWith(val: string): this {
+            this.filters.push({ "title": { "$startsWith": val } });
+            return this;
+        }
+
+        withTitleNotStartingWith(val: string): this {
+            this.filters.push({ "title": { "$notStartsWith": val } });
+            return this;
+        }
+
+        withTitleEndingWith(val: string): this {
+            this.filters.push({ "title": { "$endsWith": val } });
+            return this;
+        }
+
+        withTitleNotEndingWith(val: string): this {
+            this.filters.push({ "title": { "$notEndsWith": val } });
+            return this;
+        }
+
+        withTitleSoundingLike(val: string): this {
+            this.filters.push({ "title": { "$soundLike": val } });
             return this;
         }
 
@@ -152,8 +300,82 @@ export class WorkItemRequest {
             return this;
         }
 
-        withDescriptionIn(...vals: string[]): this {
+        withDescriptionIsNot(val: any): this {
+            this.filters.push({ "description": { "$ne": val } });
+            return this;
+        }
+
+        withDescriptionIn(...vals: any[]): this {
             this.filters.push({ "description": { "$in": vals } });
+            return this;
+        }
+
+        withDescriptionNotIn(...vals: any[]): this {
+            this.filters.push({ "description": { "$notIn": vals } });
+            return this;
+        }
+
+        withDescriptionGreaterThan(val: any): this {
+            this.filters.push({ "description": { "$gt": val } });
+            return this;
+        }
+
+        withDescriptionGreaterThanOrEqualTo(val: any): this {
+            this.filters.push({ "description": { "$gte": val } });
+            return this;
+        }
+
+        withDescriptionLessThan(val: any): this {
+            this.filters.push({ "description": { "$lt": val } });
+            return this;
+        }
+
+        withDescriptionLessThanOrEqualTo(val: any): this {
+            this.filters.push({ "description": { "$lte": val } });
+            return this;
+        }
+
+        withDescriptionBetween(lower: any, upper: any): this {
+            this.filters.push({ "description": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withDescriptionIsKnown(): this {
+            this.filters.push({ "description": { "$isNull": false } });
+            return this;
+        }
+
+        withDescriptionIsUnknown(): this {
+            this.filters.push({ "description": { "$isNull": true } });
+            return this;
+        }
+        withDescriptionNotContaining(val: string): this {
+            this.filters.push({ "description": { "$notContains": val } });
+            return this;
+        }
+
+        withDescriptionStartingWith(val: string): this {
+            this.filters.push({ "description": { "$startsWith": val } });
+            return this;
+        }
+
+        withDescriptionNotStartingWith(val: string): this {
+            this.filters.push({ "description": { "$notStartsWith": val } });
+            return this;
+        }
+
+        withDescriptionEndingWith(val: string): this {
+            this.filters.push({ "description": { "$endsWith": val } });
+            return this;
+        }
+
+        withDescriptionNotEndingWith(val: string): this {
+            this.filters.push({ "description": { "$notEndsWith": val } });
+            return this;
+        }
+
+        withDescriptionSoundingLike(val: string): this {
+            this.filters.push({ "description": { "$soundLike": val } });
             return this;
         }
 
@@ -167,8 +389,23 @@ export class WorkItemRequest {
             return this;
         }
 
+        withPlatformIsKnown(): this {
+            this.filters.push({ "platform": { "$isNull": false } });
+            return this;
+        }
+
+        withPlatformIsUnknown(): this {
+            this.filters.push({ "platform": { "$isNull": true } });
+            return this;
+        }
+
         withVersionIs(val: any): this {
             this.filters.push({ "version": { "$eq": val } });
+            return this;
+        }
+
+        withVersionIsNot(val: any): this {
+            this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
@@ -177,13 +414,43 @@ export class WorkItemRequest {
             return this;
         }
 
+        withVersionNotIn(...vals: any[]): this {
+            this.filters.push({ "version": { "$notIn": vals } });
+            return this;
+        }
+
+        withVersionGreaterThan(val: any): this {
+            this.filters.push({ "version": { "$gt": val } });
+            return this;
+        }
+
         withVersionGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
+        withVersionLessThan(val: any): this {
+            this.filters.push({ "version": { "$lt": val } });
+            return this;
+        }
+
         withVersionLessThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$lte": val } });
+            return this;
+        }
+
+        withVersionBetween(lower: any, upper: any): this {
+            this.filters.push({ "version": { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withVersionIsKnown(): this {
+            this.filters.push({ "version": { "$isNull": false } });
+            return this;
+        }
+
+        withVersionIsUnknown(): this {
+            this.filters.push({ "version": { "$isNull": true } });
             return this;
         }
 
@@ -289,8 +556,12 @@ export class WorkItemRequest {
     }
 
     // --- Facets ---
-    facetByPlatformAs(facetName: string, request: any): this {
-        this.query.facetBy(facetName, "PLATFORM_PROPERTY", request);
+    facetByPlatformAs(
+        facetName: string,
+        request: { toQuery(): SelectQuery },
+        includeAllFacets = true,
+    ): this {
+        this.query.facetBy(facetName, "platform", request, includeAllFacets);
         return this;
     }
 
@@ -305,7 +576,6 @@ export class WorkItemRequest {
         const rows = await service.executeQuery(context.prepareQuery(this.query));
         const queryRoot = new EntityRoot();
         const aggregateOnly = this.query.aggregateItems.length > 0 && this.query.groupByItems.length === 0;
-        const queryRoot = new EntityRoot();
         const data = aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof WorkItem
                 ? row
@@ -313,17 +583,20 @@ export class WorkItemRequest {
         const result = new SmartList<WorkItem>(data);
         if (aggregateOnly && rows[0]) Object.assign(result.aggregations, rows[0]);
 
-        if (this.query.facets && this.query.facets.length > 0) {
-            for (const f of this.query.facets) {
-                if (this.filters.length > 0) {
-                    f.query.filter({ "$and": this.filters });
-                }
-                result.facets[f.facetName] = new SmartList(
-                    await service.executeQuery(context.prepareQuery(f.query)));
-            }
+        if (this.query.facets.length > 0) {
+            result.facets = await executeRelationFacets(
+                service, (query: any) => context.prepareQuery(query), this.query, this.query.facets);
         }
 
         return result;
+    }
+
+    private async executeForRowsInternal(context: UserContext): Promise<SmartList<Record<string, unknown>>> {
+        this.ensureIntent();
+        if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        return new SmartList<Record<string, unknown>>(
+            await service.executeQuery(context.prepareQuery(this.query)) as Record<string, unknown>[]);
     }
 
     private async executeForPageInternal(
@@ -333,8 +606,12 @@ export class WorkItemRequest {
         this.query.offset(offset).limit(limit);
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
-        const totalCount = await service.executeCount(this.query);
+        const useIdSet = this.query.localIdSetPaginationOptions() !== undefined;
+        const totalCountBeforeRows = useIdSet ? undefined : await service.executeCount(this.query);
         const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
+            ? context.idSetPaginationCount!
+            : (totalCountBeforeRows ?? await service.executeCount(this.query));
         const queryRoot = new EntityRoot();
         const data = new SmartList(rows.map((row: unknown) =>
             row instanceof WorkItem
@@ -372,6 +649,7 @@ export class WorkItemRequest {
 export class ExecutableWorkItemRequest {
     constructor(
         private readonly execute: (context: UserContext) => Promise<SmartList<WorkItem>>,
+        private readonly executeRows: (context: UserContext) => Promise<SmartList<Record<string, unknown>>>,
         private readonly page: (
             context: UserContext, offset: number, limit: number,
         ) => Promise<TeaQLPage<WorkItem>>,
@@ -394,6 +672,11 @@ export class ExecutableWorkItemRequest {
     executeForList(context: UserContext): Promise<SmartList<WorkItem>> {
         this.ensureIntent();
         return this.execute(context);
+    }
+
+    executeForRows(context: UserContext): Promise<SmartList<Record<string, unknown>>> {
+        this.ensureIntent();
+        return this.executeRows(context);
     }
 
     executeForPage(

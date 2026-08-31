@@ -1,4 +1,4 @@
-import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext } from '../../teaql-ts';
+import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { Platform } from '../models/Platform';
 
 
@@ -30,6 +30,7 @@ export class PlatformRequest {
         this._purpose = p;
         return new ExecutablePlatformRequest(
             (context) => this.executeForListInternal(context),
+            (context) => this.executeForRowsInternal(context),
             (context, offset, limit) => this.executeForPageInternal(context, offset, limit),
             (context, chunkSize) => this.executeForStreamInternal(context, chunkSize),
             () => this.limit(1),
@@ -47,6 +48,21 @@ export class PlatformRequest {
         return this;
     }
 
+    optimizePaginationWithIdSet(): this {
+        this.query.optimizePaginationWithIdSet();
+        return this;
+    }
+
+    optimizePaginationWithIdSetConfig(namespace: string, ttlSeconds: number, maxIds: number): this {
+        this.query.optimizePaginationWithIdSetConfig(namespace, ttlSeconds, maxIds);
+        return this;
+    }
+
+    topNProbeParentThreshold(threshold: number): this {
+        this.query.topNProbeParentThreshold(threshold);
+        return this;
+    }
+
     limit(n: number): this {
         this.query.limit(n);
         return this;
@@ -58,6 +74,9 @@ export class PlatformRequest {
     }
 
     toQuery(): SelectQuery {
+        if (this.filters.length > 0) {
+            this.query.filter({ "$and": this.filters });
+        }
         return this.query;
     }
 
@@ -109,6 +128,7 @@ export class PlatformRequest {
 
 
 
+
     selectSchoolTypeListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "schoolTypeList", request.toQuery(), "id", "platform", true);
@@ -117,6 +137,280 @@ export class PlatformRequest {
     selectSchoolListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "schoolList", request.toQuery(), "id", "platform", true);
+        return this;
+    }
+
+    haveSchoolTypes(): this {
+        return this.withSchoolTypeListMatching({
+            toQuery: () => new SelectQuery("SchoolType"),
+        });
+    }
+
+    haveNoSchoolTypes(): this {
+        return this.withoutSchoolTypeListMatching({
+            toQuery: () => new SelectQuery("SchoolType"),
+        });
+    }
+
+    withSchoolTypeListMatching(request: { toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$inSubquery": {
+                    query: request.toQuery(), field: "platform",
+                },
+            },
+        });
+        return this;
+    }
+
+    withoutSchoolTypeListMatching(request: { toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$notInSubquery": {
+                    query: request.toQuery(), field: "platform",
+                },
+            },
+        });
+        return this;
+    }
+    haveSchools(): this {
+        return this.withSchoolListMatching({
+            toQuery: () => new SelectQuery("School"),
+        });
+    }
+
+    haveNoSchools(): this {
+        return this.withoutSchoolListMatching({
+            toQuery: () => new SelectQuery("School"),
+        });
+    }
+
+    withSchoolListMatching(request: { toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$inSubquery": {
+                    query: request.toQuery(), field: "platform",
+                },
+            },
+        });
+        return this;
+    }
+
+    withoutSchoolListMatching(request: { toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$notInSubquery": {
+                    query: request.toQuery(), field: "platform",
+                },
+            },
+        });
+        return this;
+    }
+
+    countSchoolTypes(): this {
+        return this.countSchoolTypesAs("countSchoolTypes");
+    }
+
+    countSchoolTypesAs(alias: string): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.countSchoolTypesWith(alias, { toQuery: () => query });
+    }
+
+    countSchoolTypesWith(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("Count", "id", alias);
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+
+    minDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.minDisplayOrderOfSchoolTypesAs(
+            "minOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    minDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("min", "displayOrder", "min_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    maxDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.maxDisplayOrderOfSchoolTypesAs(
+            "maxOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    maxDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("max", "displayOrder", "max_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    sumDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.sumDisplayOrderOfSchoolTypesAs(
+            "sumOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    sumDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("sum", "displayOrder", "sum_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    avgDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.avgDisplayOrderOfSchoolTypesAs(
+            "avgOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    avgDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("avg", "displayOrder", "avg_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    standardDeviationDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.standardDeviationDisplayOrderOfSchoolTypesAs(
+            "standardDeviationOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    standardDeviationDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("stddev", "displayOrder", "standardDeviation_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    squareRootOfPopulationStandardDeviationDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.squareRootOfPopulationStandardDeviationDisplayOrderOfSchoolTypesAs(
+            "squareRootOfPopulationStandardDeviationOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    squareRootOfPopulationStandardDeviationDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("stddev_pop", "displayOrder", "squareRootOfPopulationStandardDeviation_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    sampleVarianceDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.sampleVarianceDisplayOrderOfSchoolTypesAs(
+            "sampleVarianceOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    sampleVarianceDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("var_samp", "displayOrder", "sampleVariance_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    samplePopulationVarianceDisplayOrderOfSchoolTypes(): this {
+        const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
+        return this.samplePopulationVarianceDisplayOrderOfSchoolTypesAs(
+            "samplePopulationVarianceOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
+    }
+
+    samplePopulationVarianceDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("var_pop", "displayOrder", "samplePopulationVariance_displayOrder");
+        this.query.relationAggregate("schoolTypeList", alias, child.toQuery(), true);
+        return this;
+    }
+    countSchools(): this {
+        return this.countSchoolsAs("countSchools");
+    }
+
+    countSchoolsAs(alias: string): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.countSchoolsWith(alias, { toQuery: () => query });
+    }
+
+    countSchoolsWith(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("Count", "id", alias);
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+
+    minStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.minStudentCapacityOfSchoolsAs(
+            "minOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    minStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("min", "studentCapacity", "min_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+    maxStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.maxStudentCapacityOfSchoolsAs(
+            "maxOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    maxStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("max", "studentCapacity", "max_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+    sumStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.sumStudentCapacityOfSchoolsAs(
+            "sumOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    sumStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("sum", "studentCapacity", "sum_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+    avgStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.avgStudentCapacityOfSchoolsAs(
+            "avgOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    avgStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("avg", "studentCapacity", "avg_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+    standardDeviationStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.standardDeviationStudentCapacityOfSchoolsAs(
+            "standardDeviationOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    standardDeviationStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("stddev", "studentCapacity", "standardDeviation_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+    squareRootOfPopulationStandardDeviationStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.squareRootOfPopulationStandardDeviationStudentCapacityOfSchoolsAs(
+            "squareRootOfPopulationStandardDeviationOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    squareRootOfPopulationStandardDeviationStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("stddev_pop", "studentCapacity", "squareRootOfPopulationStandardDeviation_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+    sampleVarianceStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.sampleVarianceStudentCapacityOfSchoolsAs(
+            "sampleVarianceOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    sampleVarianceStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("var_samp", "studentCapacity", "sampleVariance_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
+        return this;
+    }
+    samplePopulationVarianceStudentCapacityOfSchools(): this {
+        const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
+        return this.samplePopulationVarianceStudentCapacityOfSchoolsAs(
+            "samplePopulationVarianceOfStudentCapacityOfSchools", { toQuery: () => query });
+    }
+
+    samplePopulationVarianceStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+        child.toQuery().aggregate("var_pop", "studentCapacity", "samplePopulationVariance_studentCapacity");
+        this.query.relationAggregate("schoolList", alias, child.toQuery(), true);
         return this;
     }
 
@@ -259,6 +553,11 @@ export class PlatformRequest {
             return this;
         }
 
+        withNameSoundingLike(val: string): this {
+            this.filters.push({ "name": { "$soundLike": val } });
+            return this;
+        }
+
         withBaseUrlContaining(val: string): this {
             this.filters.push({ "baseUrl": { "$contains": val } });
             return this;
@@ -340,6 +639,11 @@ export class PlatformRequest {
 
         withBaseUrlNotEndingWith(val: string): this {
             this.filters.push({ "baseUrl": { "$notEndsWith": val } });
+            return this;
+        }
+
+        withBaseUrlSoundingLike(val: string): this {
+            this.filters.push({ "baseUrl": { "$soundLike": val } });
             return this;
         }
 
@@ -656,17 +960,20 @@ export class PlatformRequest {
         const result = new SmartList<Platform>(data);
         if (aggregateOnly && rows[0]) Object.assign(result.aggregations, rows[0]);
 
-        if (this.query.facets && this.query.facets.length > 0) {
-            for (const f of this.query.facets) {
-                if (this.filters.length > 0) {
-                    f.query.filter({ "$and": this.filters });
-                }
-                result.facets[f.facetName] = new SmartList(
-                    await service.executeQuery(context.prepareQuery(f.query)));
-            }
+        if (this.query.facets.length > 0) {
+            result.facets = await executeRelationFacets(
+                service, (query: any) => context.prepareQuery(query), this.query, this.query.facets);
         }
 
         return result;
+    }
+
+    private async executeForRowsInternal(context: UserContext): Promise<SmartList<Record<string, unknown>>> {
+        this.ensureIntent();
+        if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        return new SmartList<Record<string, unknown>>(
+            await service.executeQuery(context.prepareQuery(this.query)) as Record<string, unknown>[]);
     }
 
     private async executeForPageInternal(
@@ -676,8 +983,12 @@ export class PlatformRequest {
         this.query.offset(offset).limit(limit);
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
-        const totalCount = await service.executeCount(this.query);
+        const useIdSet = this.query.localIdSetPaginationOptions() !== undefined;
+        const totalCountBeforeRows = useIdSet ? undefined : await service.executeCount(this.query);
         const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
+            ? context.idSetPaginationCount!
+            : (totalCountBeforeRows ?? await service.executeCount(this.query));
         const queryRoot = new EntityRoot();
         const data = new SmartList(rows.map((row: unknown) =>
             row instanceof Platform
@@ -715,6 +1026,7 @@ export class PlatformRequest {
 export class ExecutablePlatformRequest {
     constructor(
         private readonly execute: (context: UserContext) => Promise<SmartList<Platform>>,
+        private readonly executeRows: (context: UserContext) => Promise<SmartList<Record<string, unknown>>>,
         private readonly page: (
             context: UserContext, offset: number, limit: number,
         ) => Promise<TeaQLPage<Platform>>,
@@ -737,6 +1049,11 @@ export class ExecutablePlatformRequest {
     executeForList(context: UserContext): Promise<SmartList<Platform>> {
         this.ensureIntent();
         return this.execute(context);
+    }
+
+    executeForRows(context: UserContext): Promise<SmartList<Record<string, unknown>>> {
+        this.ensureIntent();
+        return this.executeRows(context);
     }
 
     executeForPage(

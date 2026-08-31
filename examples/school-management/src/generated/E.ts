@@ -363,28 +363,28 @@ export class SchoolExpression {
         return new ValueExpression<string>(this.value.establishedDate);
     }
 
-    studentCapacity(): ValueExpression<unknown> {
-        if (this.notLoaded) return ValueExpression.notLoaded<unknown>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<unknown>();
+    studentCapacity(): ValueExpression<number> {
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        if (!this.value) return ValueExpression.missing<number>();
         const path = expressionPath(this.path, 'studentCapacity');
         if (!this.value.isLoaded('studentCapacity')) {
-            return ValueExpression.notLoaded<unknown>(
+            return ValueExpression.notLoaded<number>(
                 new TeaQLNotLoadedError(this.root, path, 'studentCapacity'),
             );
         }
-        return new ValueExpression<unknown>(this.value.studentCapacity);
+        return new ValueExpression<number>(this.value.studentCapacity);
     }
 
-    active(): ValueExpression<unknown> {
-        if (this.notLoaded) return ValueExpression.notLoaded<unknown>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<unknown>();
+    active(): ValueExpression<boolean> {
+        if (this.notLoaded) return ValueExpression.notLoaded<boolean>(this.notLoaded);
+        if (!this.value) return ValueExpression.missing<boolean>();
         const path = expressionPath(this.path, 'active');
         if (!this.value.isLoaded('active')) {
-            return ValueExpression.notLoaded<unknown>(
+            return ValueExpression.notLoaded<boolean>(
                 new TeaQLNotLoadedError(this.root, path, 'active'),
             );
         }
-        return new ValueExpression<unknown>(this.value.active);
+        return new ValueExpression<boolean>(this.value.active);
     }
 
     createTime(): ValueExpression<string> {

@@ -1,4 +1,4 @@
-import { EntityKey, EntityRoot, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 import { SchoolType } from './SchoolType';
 
@@ -10,7 +10,7 @@ export class School {
         name?: string;
         address?: string;
         establishedDate?: string;
-        studentCapacity?: any;
+        studentCapacity?: number;
         active?: boolean;
         createTime?: string;
         updateTime?: string;
@@ -74,6 +74,11 @@ export class School {
         return new School({ id: String(id) } as Partial<School>);
     }
 
+    /** @internal Generated Runtime Module fixed-ID construction capability. */
+    static teaqlBootstrapNew(id: string | number): School {
+        return new School().updateId(String(id));
+    }
+
     markForDeletion(): this {
         (this as any)._action = "Delete";
         (this as any)._root.markAsDeleted(this.teaqlEntityKey());
@@ -89,6 +94,43 @@ export class School {
     }
 
     async save(context: UserContext): Promise<School> {
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        return service.executeGraphSave(async () => {
+            this.teaqlPreflightGraph(context, service);
+            return this.teaqlSaveWithinGraph(context, service);
+        });
+    }
+
+    /** @internal Validates and fixes the complete graph before its first mutation. */
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService): void {
+        if (!(this as any)._comment?.trim()) {
+            throw new Error("Security audit failure: auditAs() must be called before save()");
+        }
+        const action = (this as any)._action;
+        if (action === "Update") {
+            const notLoaded = [{ member: "id", canonical: "id" }, { member: "platform", canonical: "platform" }, { member: "schoolType", canonical: "school_type" }, { member: "name", canonical: "name" }, { member: "address", canonical: "address" }, { member: "establishedDate", canonical: "established_date" }, { member: "studentCapacity", canonical: "student_capacity" }, { member: "active", canonical: "active" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]
+                .find(field => !this.isLoaded(field.member));
+            if (notLoaded) {
+                throw new CheckException([{
+                    ruleId: "invalid_type",
+                    location: ObjectLocation.property(notLoaded.canonical),
+                    message: "Mutation requires a fully loaded entity",
+                }]);
+            }
+        }
+        service.preflightMutation({
+            entity: "School", action,
+            payload: action === "Update"
+                ? (this as any)._root.change(this.teaqlEntityKey())
+                : this.teaqlMutationPayload(),
+            id: (this as any).id, version: (this as any).version,
+            comment: (this as any)._comment,
+            ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
+        });
+    }
+
+    /** @internal Used by generated relation cascades inside the root graph transaction. */
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService): Promise<School> {
         if (!(this as any)._comment?.trim()) {
             throw new Error("Security audit failure: auditAs() must be called before save()");
         }
@@ -104,7 +146,6 @@ export class School {
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
-        const service = context.requireResource<TeaQLDataService>("dataService");
         const result = await service.executeMutation(mutation);
         for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
             if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
@@ -112,16 +153,33 @@ export class School {
         if (!result.persistedRecord) {
             throw new Error("Mutation did not return the authoritative persisted record");
         }
+        const rollbackState = {
+            payload: this.teaqlMutationPayload(),
+            ledgerId: (this as any)._ledgerId,
+            action: (this as any)._action,
+            loadedFields: new Set((this as any)._loadedFields),
+            fullyLoaded: (this as any)._fullyLoaded,
+        };
         const oldKey = this.teaqlEntityKey();
         Object.assign(this, result.persistedRecord);
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
+        service.afterGraphRollback(() => {
+            Object.assign(this, rollbackState.payload);
+            (this as any)._ledgerId = rollbackState.ledgerId;
+            (this as any)._action = rollbackState.action;
+            (this as any)._loadedFields = rollbackState.loadedFields;
+            (this as any)._fullyLoaded = rollbackState.fullyLoaded;
+            (this as any)._root.rekey(newKey, oldKey);
+        });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
         if (mutation.action !== "Delete") (this as any)._action = "Update";
-        (this as any)._root.clearEntity(newKey);
-        if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(newKey, Number((this as any).version));
+        service.afterGraphCommit(() => {
+            (this as any)._root.clearEntity(newKey);
+            if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(newKey, Number((this as any).version));
+        });
         return this;
     }
 
@@ -169,7 +227,7 @@ export class School {
         return this;
     }
 
-    updateStudentCapacity(value: any): this {
+    updateStudentCapacity(value: number): this {
         this.studentCapacity = value;
         this.markLoaded("studentCapacity");
         (this as any)._root.set(this.teaqlEntityKey(), "student_capacity", value);

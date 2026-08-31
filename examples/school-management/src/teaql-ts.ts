@@ -1,11 +1,28 @@
 import {
     CheckException, EntityChecker, RuntimeModule,
     SelectQuery as RuntimeSelectQuery, UserContext,
+    executeRelationFacets,
 } from "teaql-ts";
 
-export { CheckException, EntityRoot, SmartList, UserContext } from "teaql-ts";
+export { CheckException, EntityRoot, ObjectLocation, SmartList, UserContext, executeRelationFacets } from "teaql-ts";
 export type { EntityKey } from "teaql-ts";
 export type { TeaQLPage } from "teaql-ts";
+
+function soundex(input: unknown): string {
+    const text = String(input ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+    if (!text) return "";
+    const code = (char: string): string => "BFPV".includes(char) ? "1"
+        : "CGJKQSXZ".includes(char) ? "2" : "DT".includes(char) ? "3"
+        : char === "L" ? "4" : "MN".includes(char) ? "5" : char === "R" ? "6" : "";
+    let result = text[0], previous = code(text[0]);
+    for (const char of text.slice(1)) {
+        const current = code(char);
+        if (current && current !== previous) result += current;
+        previous = current;
+        if (result.length === 4) break;
+    }
+    return (result + "000").slice(0, 4);
+}
 
 /** Generated naming adapter; query policy and execution remain in the formal runtime. */
 export class SelectQuery extends RuntimeSelectQuery {
@@ -22,6 +39,10 @@ export class SelectQuery extends RuntimeSelectQuery {
 }
 
 export interface TeaQLDataService {
+    executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+    preflightMutation(mutation: any): any;
+    afterGraphCommit(work: () => void): void;
+    afterGraphRollback(work: () => void): void;
     executeMutation(mutation: any): Promise<any>;
     executeQuery(query: any): Promise<any[]>;
     executeCount(query: any): Promise<number>;
@@ -34,6 +55,10 @@ export class TeaQLClient implements TeaQLDataService {
     private nextIds: Record<string, number> = {};
     private readonly checkers: Record<string, EntityChecker> = {};
     private userContext = new UserContext();
+    private graphSaveActive = false;
+    private graphCommitActions: Array<() => void> = [];
+    private graphRollbackActions: Array<() => void> = [];
+    private graphSaveTail: Promise<void> = Promise.resolve();
 
     constructor(private storagePath?: string) {
         if (storagePath) {
@@ -67,27 +92,74 @@ export class TeaQLClient implements TeaQLDataService {
         fs.renameSync(temporaryPath, this.storagePath);
     }
 
-    async executeMutation(mutation: any): Promise<any> {
-        mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
-        const checker = this.checkers[String(mutation.entity)];
-        if (checker) {
-            const results: any[] = [];
-            this.userContext.insertResource("fixTime", new Date());
-            try {
-                checker.checkAndFix(this.userContext, mutation, results);
-                this.userContext.translateCheckResults(results);
-                if (results.length) throw new CheckException(results);
-            } finally {
-                this.userContext.removeResource("fixTime");
-            }
+    async executeGraphSave<T>(work: () => Promise<T>): Promise<T> {
+        const predecessor = this.graphSaveTail;
+        let release!: () => void;
+        this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
+        await predecessor;
+        const dataSnapshot = JSON.parse(JSON.stringify(this.data));
+        const nextIdsSnapshot = { ...this.nextIds };
+        this.graphSaveActive = true;
+        this.graphCommitActions = [];
+        this.graphRollbackActions = [];
+        this.userContext.insertResource("fixTime", new Date());
+        this.userContext.beginFixEvidence();
+        try {
+            const result = await work();
+            this.persist();
+            for (const action of this.graphCommitActions) action();
+            return result;
+        } catch (error) {
+            this.data = dataSnapshot;
+            this.nextIds = nextIdsSnapshot;
+            for (const action of [...this.graphRollbackActions].reverse()) action();
+            throw error;
+        } finally {
+            this.graphSaveActive = false;
+            this.graphCommitActions = [];
+            this.graphRollbackActions = [];
+            this.userContext.removeResource("fixTime");
+            this.userContext.finishFixEvidence();
+            release();
         }
+    }
+
+    afterGraphCommit(work: () => void): void {
+        if (!this.graphSaveActive) throw new Error("No graph save is active");
+        this.graphCommitActions.push(work);
+    }
+
+    afterGraphRollback(work: () => void): void {
+        if (!this.graphSaveActive) throw new Error("No graph save is active");
+        this.graphRollbackActions.push(work);
+    }
+
+    preflightMutation(mutation: any): any {
+        if (!String(mutation?.comment || "").trim()) throw new Error("Security audit failure: audit reason is required before mutation");
+        mutation = { ...mutation, payload: { ...(mutation?.payload || {}) } };
+        const checker = this.checkers[String(mutation.entity)];
+        if (!checker) return mutation;
+        const results: any[] = [];
+        const ownsFixTime = this.userContext.getResource("fixTime") === undefined;
+        if (ownsFixTime) this.userContext.insertResource("fixTime", new Date()).beginFixEvidence();
+        try {
+            checker.checkAndFix(this.userContext, mutation, results);
+            if (mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+            this.userContext.translateCheckResults(results);
+            if (results.length) throw new CheckException(results);
+            return mutation;
+        } finally { if (ownsFixTime) this.userContext.removeResource("fixTime").finishFixEvidence(); }
+    }
+
+    async executeMutation(mutation: any): Promise<any> {
+        mutation = this.preflightMutation(mutation);
         const table = this.data[mutation.entity] ||= {};
         if (mutation.action === "Create") {
             const id = mutation.id ?? String(this.nextIds[mutation.entity] || 1);
             this.nextIds[mutation.entity] = Number(id) + 1;
             const record = { ...mutation.payload, id: String(id), version: Number(mutation.version || 0) + 1 };
             table[String(id)] = record;
-            this.persist();
+            if (!this.graphSaveActive) this.persist();
             return { success: true, id: String(id), version: record.version, persistedRecord: { ...record } };
         }
         if (mutation.action === "Update") {
@@ -100,7 +172,7 @@ export class TeaQLClient implements TeaQLDataService {
                     `Optimistic lock conflict for ${mutation.entity}(${id}): expected ${expectedVersion}, current ${currentVersion}`);
             }
             table[id] = { ...table[id], ...mutation.payload, id, version: Number(table[id].version || 0) + 1 };
-            this.persist();
+            if (!this.graphSaveActive) this.persist();
             return { success: true, id, version: table[id].version, persistedRecord: { ...table[id] } };
         }
         if (mutation.action === "Delete") {
@@ -113,7 +185,7 @@ export class TeaQLClient implements TeaQLDataService {
                     `Optimistic lock conflict for ${mutation.entity}(${id}): expected ${expectedVersion}, current ${currentVersion}`);
             }
             table[id] = { ...table[id], id, version: -(currentVersion + 1) };
-            this.persist();
+            if (!this.graphSaveActive) this.persist();
             return { success: true, id, version: table[id].version, deleted: true, persistedRecord: { ...table[id] } };
         }
         throw new Error(`Unsupported mutation action: ${mutation.action}`);
@@ -131,9 +203,22 @@ export class TeaQLClient implements TeaQLDataService {
             if (expression?.$and) return expression.$and.every((item: any) => matches(row, item));
             return Object.entries(expression || {}).every(([field, predicate]: [string, any]) => {
                 if (predicate?.$eq !== undefined) return row[field] === (predicate.$eq?.id ?? predicate.$eq);
+                if (predicate?.$ne !== undefined) return row[field] !== (predicate.$ne?.id ?? predicate.$ne);
                 if (predicate?.$contains !== undefined) return String(row[field] ?? "").includes(String(predicate.$contains));
+                if (predicate?.$notContains !== undefined) return !String(row[field] ?? "").includes(String(predicate.$notContains));
+                if (predicate?.$startsWith !== undefined) return String(row[field] ?? "").startsWith(String(predicate.$startsWith));
+                if (predicate?.$notStartsWith !== undefined) return !String(row[field] ?? "").startsWith(String(predicate.$notStartsWith));
+                if (predicate?.$endsWith !== undefined) return String(row[field] ?? "").endsWith(String(predicate.$endsWith));
+                if (predicate?.$notEndsWith !== undefined) return !String(row[field] ?? "").endsWith(String(predicate.$notEndsWith));
+                if (predicate?.$soundLike !== undefined) return soundex(row[field]) === soundex(predicate.$soundLike);
                 if (predicate?.$in !== undefined) return predicate.$in.some((value: any) => row[field] === (value?.id ?? value));
+                if (predicate?.$notIn !== undefined) return !predicate.$notIn.some((value: any) => row[field] === (value?.id ?? value));
+                if (predicate?.$between !== undefined) return row[field] >= predicate.$between[0] && row[field] <= predicate.$between[1];
+                if (predicate?.$isNull === true) return row[field] === null || row[field] === undefined;
+                if (predicate?.$isNull === false) return row[field] !== null && row[field] !== undefined;
+                if (predicate?.$gt !== undefined) return row[field] > predicate.$gt;
                 if (predicate?.$gte !== undefined) return row[field] >= predicate.$gte;
+                if (predicate?.$lt !== undefined) return row[field] < predicate.$lt;
                 if (predicate?.$lte !== undefined) return row[field] <= predicate.$lte;
                 return true;
             });

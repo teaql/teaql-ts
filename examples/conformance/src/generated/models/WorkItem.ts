@@ -1,4 +1,4 @@
-import { EntityKey, EntityRoot, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 
 export class WorkItem {
@@ -61,6 +61,11 @@ export class WorkItem {
         return new WorkItem({ id: String(id) } as Partial<WorkItem>);
     }
 
+    /** @internal Generated Runtime Module fixed-ID construction capability. */
+    static teaqlBootstrapNew(id: string | number): WorkItem {
+        return new WorkItem().updateId(String(id));
+    }
+
     markForDeletion(): this {
         (this as any)._action = "Delete";
         (this as any)._root.markAsDeleted(this.teaqlEntityKey());
@@ -76,6 +81,43 @@ export class WorkItem {
     }
 
     async save(context: UserContext): Promise<WorkItem> {
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        return service.executeGraphSave(async () => {
+            this.teaqlPreflightGraph(context, service);
+            return this.teaqlSaveWithinGraph(context, service);
+        });
+    }
+
+    /** @internal Validates and fixes the complete graph before its first mutation. */
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService): void {
+        if (!(this as any)._comment?.trim()) {
+            throw new Error("Security audit failure: auditAs() must be called before save()");
+        }
+        const action = (this as any)._action;
+        if (action === "Update") {
+            const notLoaded = [{ member: "id", canonical: "id" }, { member: "title", canonical: "title" }, { member: "description", canonical: "description" }, { member: "platform", canonical: "platform" }, { member: "version", canonical: "version" }]
+                .find(field => !this.isLoaded(field.member));
+            if (notLoaded) {
+                throw new CheckException([{
+                    ruleId: "invalid_type",
+                    location: ObjectLocation.property(notLoaded.canonical),
+                    message: "Mutation requires a fully loaded entity",
+                }]);
+            }
+        }
+        service.preflightMutation({
+            entity: "WorkItem", action,
+            payload: action === "Update"
+                ? (this as any)._root.change(this.teaqlEntityKey())
+                : this.teaqlMutationPayload(),
+            id: (this as any).id, version: (this as any).version,
+            comment: (this as any)._comment,
+            ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
+        });
+    }
+
+    /** @internal Used by generated relation cascades inside the root graph transaction. */
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService): Promise<WorkItem> {
         if (!(this as any)._comment?.trim()) {
             throw new Error("Security audit failure: auditAs() must be called before save()");
         }
@@ -91,7 +133,6 @@ export class WorkItem {
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
-        const service = context.requireResource<TeaQLDataService>("dataService");
         const result = await service.executeMutation(mutation);
         for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
             if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
@@ -99,16 +140,33 @@ export class WorkItem {
         if (!result.persistedRecord) {
             throw new Error("Mutation did not return the authoritative persisted record");
         }
+        const rollbackState = {
+            payload: this.teaqlMutationPayload(),
+            ledgerId: (this as any)._ledgerId,
+            action: (this as any)._action,
+            loadedFields: new Set((this as any)._loadedFields),
+            fullyLoaded: (this as any)._fullyLoaded,
+        };
         const oldKey = this.teaqlEntityKey();
         Object.assign(this, result.persistedRecord);
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
+        service.afterGraphRollback(() => {
+            Object.assign(this, rollbackState.payload);
+            (this as any)._ledgerId = rollbackState.ledgerId;
+            (this as any)._action = rollbackState.action;
+            (this as any)._loadedFields = rollbackState.loadedFields;
+            (this as any)._fullyLoaded = rollbackState.fullyLoaded;
+            (this as any)._root.rekey(newKey, oldKey);
+        });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
         if (mutation.action !== "Delete") (this as any)._action = "Update";
-        (this as any)._root.clearEntity(newKey);
-        if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(newKey, Number((this as any).version));
+        service.afterGraphCommit(() => {
+            (this as any)._root.clearEntity(newKey);
+            if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(newKey, Number((this as any).version));
+        });
         return this;
     }
 
