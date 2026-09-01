@@ -1,5 +1,6 @@
 import { ObjectLocation, RuntimeModule } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-node-sql";
+import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
 /** Passive generated metadata manifest. It never modifies the database schema. */
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
@@ -26,7 +27,7 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 
     },
   }
-}, {
+}, { ...{
   defaultDomainRoot: { entity: "Platform", id: "1", values: { "name": "Runtime Example" } },
   constants: []
-});
+}, ensure: ensureGeneratedBootstrap });

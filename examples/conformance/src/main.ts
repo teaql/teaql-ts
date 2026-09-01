@@ -37,10 +37,12 @@ async function main(): Promise<void> {
   console.log(`PASS Create (id=${created.id}, version=${created.version})`);
 
   const queried = await Q.workItems().withIdIs(created.id)
+    .selectPlatformWith(Q.platforms().selectName())
     .comment("Load the complete work item before mutation")
     .purpose("Verify typed Q API and update semantics").executeForOne(context);
   assert(queried);
   assert.equal(queried.title, "Verify TypeScript runtime");
+  assert.equal(E.workItem(queried).platform().name().eval(), "Runtime Example");
   console.log("PASS Q API (typed WorkItem)");
 
   assert.equal(E.workItem(queried).title().eval(), "Verify TypeScript runtime");

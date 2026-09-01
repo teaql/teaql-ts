@@ -25,8 +25,16 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   await client.executeMutation({
     entity: 'Person', action: 'Create', id: '1', payload: { name: secret }, comment: 'seed evidence',
   });
-  await client.executeQuery(new SelectQuery('Person').filter({ name: { $eq: secret } })
-    .comment('read evidence').purpose('prove parameterized SQL'));
+  const governedQuery = new SelectQuery('Person').filter({ name: { $eq: secret } })
+    .comment('read evidence').purpose('prove parameterized SQL');
+  (governedQuery as any).__teaqlTracePath = [
+    { level: 0, kind: 'operation', name: 'query' },
+    { level: 1, kind: 'request', name: 'Person' },
+    { level: 2, kind: 'relation', name: 'Person.organization' },
+    { level: 3, kind: 'relation', name: 'Organization.region' },
+    { level: 4, kind: 'relation', name: 'Region.country' },
+  ];
+  await client.executeQuery(governedQuery);
 
   const entries = store.snapshot();
   expect(entries.some(entry => entry.operation === 'insert')).toBe(true);
@@ -36,6 +44,12 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   expect(entries.some(entry => entry.debugSQL.includes(`'${secret}'`))).toBe(true);
   expect(entries.some(entry => entry.resultCount !== undefined)).toBe(true);
   expect(entries.some(entry => entry.affectedRows !== undefined)).toBe(true);
+  const select = entries.find(entry => entry.operation === 'select')!;
+  expect(select.comment).toBe('read evidence');
+  expect(select.purpose).toBe('prove parameterized SQL');
+  expect(select.tracePath.map(frame => frame.kind)).toEqual([
+    'operation', 'request', 'relation', 'relation', 'relation', 'provider', 'sql',
+  ]);
 
   store.enableSelect();
   await client.executeMutation({
@@ -50,7 +64,41 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   await client.close();
 });
 
-it('emits copy-paste SQL only through the explicit diagnostic sink', async () => {
+it('enables query and mutation logs by default and disables them independently', async () => {
+  const output: string[] = [];
+  const client = new SQLiteTeaQLClient(':memory:', schemas)
+    .setDiagnosticSQLLogSink(new TextDiagnosticSQLLogSink(line => output.push(line)));
+  await new UserContext().insertResource('dataService', client).ensureSchema();
+  await client.executeMutation({
+    entity: 'Person', action: 'Create', id: '1', payload: { name: 'Ada' }, comment: 'seed',
+  });
+  await client.executeQuery(new SelectQuery('Person').comment('read').purpose('verify defaults'));
+  expect(output.some(line => line.includes('[insert]'))).toBe(true);
+  expect(output.some(line => line.includes('[select]'))).toBe(true);
+
+  output.length = 0;
+  client.setQueryLoggingEnabled(false);
+  await client.executeQuery(new SelectQuery('Person').comment('hidden').purpose('query off'));
+  await client.executeMutation({
+    entity: 'Person', action: 'Update', id: '1', version: 1,
+    payload: { name: 'Grace' }, comment: 'mutation remains on',
+  });
+  expect(output.some(line => line.includes('[select]'))).toBe(false);
+  expect(output.some(line => line.includes('[update]'))).toBe(true);
+
+  output.length = 0;
+  client.setQueryLoggingEnabled(true).setMutationLoggingEnabled(false);
+  await client.executeMutation({
+    entity: 'Person', action: 'Update', id: '1', version: 2,
+    payload: { name: 'Lin' }, comment: 'mutation off',
+  });
+  await client.executeQuery(new SelectQuery('Person').comment('visible').purpose('query on'));
+  expect(output.some(line => line.includes('[update]'))).toBe(false);
+  expect(output.some(line => line.includes('[select]'))).toBe(true);
+  await client.close();
+});
+
+it('emits both SQL forms through the default-enabled diagnostic contract', async () => {
   const output: string[] = [];
   const client = new SQLiteTeaQLClient(':memory:', schemas)
     .setDiagnosticSQLLogSink(new TextDiagnosticSQLLogSink(line => output.push(line)));
@@ -66,7 +114,10 @@ it('emits copy-paste SQL only through the explicit diagnostic sink', async () =>
   );
   const selectLog = output.find(line => line.includes('[select]'));
   expect(selectLog).toBeDefined();
-  const rendered = selectLog!.split('\n').slice(1).join('\n');
+  expect(selectLog).toContain('Parameterized SQL:');
+  expect(selectLog).toContain('comment=what: copy paste diagnostic ? marker');
+  expect(selectLog).toContain('purpose=why: prove exact operator SQL');
+  const rendered = selectLog!.split('Debug SQL: ')[1];
   expect(rendered).toContain("O''Brien 学校");
 
   const verification = new Database(':memory:');

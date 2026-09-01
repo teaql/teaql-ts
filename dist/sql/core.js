@@ -84,6 +84,14 @@ function sameBootstrapValue(left, right) {
     return left !== null && left !== undefined && right !== null && right !== undefined &&
         String(left) === String(right);
 }
+function mutationTracePath(mutation, provider, sqlOperation) {
+    return [
+        { level: 0, kind: 'operation', name: 'mutation' },
+        { level: 1, kind: 'entity', name: String(mutation.entity) },
+        { level: 2, kind: 'provider', name: provider },
+        { level: 3, kind: 'sql', name: sqlOperation },
+    ];
+}
 function debugSQL(parameterizedSQL, parameters, databaseKind = 'sqlite') {
     let positionalIndex = 0;
     let result = '';
@@ -230,10 +238,16 @@ class TextDiagnosticSQLLogSink {
     }
     write(metadata) {
         this.writer(`[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}\n` +
-            metadata.debugSQL);
+            `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
+            `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}\n` +
+            `Parameterized SQL: ${metadata.parameterizedSQL} params=${diagnosticJSON(metadata.parameters)}\n` +
+            `Debug SQL: ${metadata.debugSQL}`);
     }
 }
 exports.TextDiagnosticSQLLogSink = TextDiagnosticSQLLogSink;
+function diagnosticJSON(value) {
+    return JSON.stringify(value, (_key, item) => typeof item === 'bigint' ? item.toString() : item);
+}
 class SQLExecutionEvidenceStore {
     constructor() {
         this.mode = 'all';
@@ -270,6 +284,9 @@ class AbstractSQLTeaQLClient {
         this.sqlTrace = [];
         this.internalQueryToken = Symbol('teaql-internal-query');
         this.auditEvents = [];
+        this.diagnosticSQLLogSink = new TextDiagnosticSQLLogSink();
+        this.queryLoggingEnabled = true;
+        this.mutationLoggingEnabled = true;
         this.checkers = {};
         this.userContext = new context_1.UserContext();
         this.bootstrap = {};
@@ -348,20 +365,33 @@ class AbstractSQLTeaQLClient {
         this.diagnosticSQLLogSink = sink;
         return this;
     }
+    setQueryLoggingEnabled(enabled) {
+        this.queryLoggingEnabled = enabled;
+        return this;
+    }
+    setMutationLoggingEnabled(enabled) {
+        this.mutationLoggingEnabled = enabled;
+        return this;
+    }
     setRuntimeTelemetry(telemetry) {
         this.runtimeTelemetry = telemetry;
         return this;
     }
-    recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows) {
+    recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows, intent = {}) {
+        const isSelect = operation === 'select';
+        if ((isSelect && !this.queryLoggingEnabled) || (!isSelect && !this.mutationLoggingEnabled))
+            return;
         if (!this.telemetrySink && !this.diagnosticSQLLogSink)
             return;
         const metadata = Object.freeze({
-            operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
+            operation, ...intent,
+            tracePath: Object.freeze([...(intent.tracePath ?? [])]),
+            parameterizedSQL, parameters: Object.freeze([...parameters]),
             debugSQL: debugSQL(parameterizedSQL, parameters, this.driver.databaseKind),
             elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
             resultCount, affectedRows,
             resultSummary: resultCount !== undefined
-                ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
+                ? `${resultCount} rows returned` : `${affectedRows ?? 0} rows affected`,
         });
         this.telemetrySink?.record(metadata);
         this.diagnosticSQLLogSink?.write(metadata);
@@ -564,7 +594,10 @@ class AbstractSQLTeaQLClient {
                     const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
                     const startedAt = Date.now();
                     const mutationResult = await session.query(sql, values);
-                    this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
+                    this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount, {
+                        auditReason: String(mutation.comment),
+                        tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'insert'),
+                    });
                     return {
                         success: true,
                         id,
@@ -592,7 +625,10 @@ class AbstractSQLTeaQLClient {
                         `WHERE ${predicates.join(' AND ')}`;
                     const startedAt = Date.now();
                     const result = await session.query(sql, values);
-                    this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount);
+                    this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount, {
+                        auditReason: String(mutation.comment),
+                        tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'update'),
+                    });
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                     }
@@ -619,7 +655,10 @@ class AbstractSQLTeaQLClient {
                         `WHERE ${predicates.join(' AND ')}`;
                     const startedAt = Date.now();
                     const result = await session.query(sql, values);
-                    this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount);
+                    this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount, {
+                        auditReason: String(mutation.comment),
+                        tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'delete'),
+                    });
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                     }
@@ -981,7 +1020,22 @@ class AbstractSQLTeaQLClient {
                     'teaql.provider.operation': 'query',
                 },
             }, () => this.driver.query(sql, values));
-            this.recordSQL('select', sql, values, startedAt, result.rowCount);
+            const queryComment = query?._comment ?? query?.commentText;
+            const queryPurpose = query?._purpose ?? query?.purposeText;
+            const inheritedTrace = Array.isArray(query?.__teaqlTracePath)
+                ? query.__teaqlTracePath : [
+                { level: 0, kind: 'operation', name: 'query' },
+                { level: 1, kind: 'request', name: String(query.entity) },
+            ];
+            const tracePath = [...inheritedTrace,
+                { level: inheritedTrace.length, kind: 'provider', name: this.driver.databaseKind },
+                { level: inheritedTrace.length + 1, kind: 'sql', name: 'select' },
+            ];
+            this.recordSQL('select', sql, values, startedAt, result.rowCount, undefined, {
+                comment: queryComment,
+                purpose: queryPurpose,
+                tracePath,
+            });
             const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
             if (idSetPrepared.execution?.pageIds) {
                 const positions = new Map(idSetPrepared.execution.pageIds.map((id, index) => [String(id), index]));
@@ -1282,6 +1336,19 @@ class AbstractSQLTeaQLClient {
                     __teaqlPartitionBy: boundedTopN && !useProbes
                         ? relation.foreignKey
                         : undefined,
+                    __teaqlTracePath: [
+                        ...(Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath : [
+                            { level: 0, kind: 'operation', name: 'query' },
+                            { level: 1, kind: 'request', name: String(query.entity) },
+                        ]),
+                        {
+                            level: (Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath.length : 2),
+                            kind: 'relation',
+                            name: `${String(query.entity)}.${String(load.name)}`,
+                        },
+                    ],
+                    commentText: query?._comment ?? query?.commentText,
+                    purposeText: query?._purpose ?? query?.purposeText,
                 };
                 if (boundedTopN && !childQuery.orderItems.some((order) => order.field === 'id')) {
                     childQuery.orderItems.push(ast_1.OrderBy.asc('id'));

@@ -185,8 +185,31 @@ export interface TeaQLDataService {
 
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 
+export type SQLTraceFrame = Readonly<{
+  level: number;
+  kind: 'operation' | 'request' | 'relation' | 'entity' | 'provider' | 'sql';
+  name: string;
+}>;
+
+function mutationTracePath(
+  mutation: any,
+  provider: string,
+  sqlOperation: SQLExecutionOperation,
+): SQLTraceFrame[] {
+  return [
+    { level: 0, kind: 'operation', name: 'mutation' },
+    { level: 1, kind: 'entity', name: String(mutation.entity) },
+    { level: 2, kind: 'provider', name: provider },
+    { level: 3, kind: 'sql', name: sqlOperation },
+  ];
+}
+
 export type SQLExecutionMetadata = Readonly<{
   operation: SQLExecutionOperation;
+  comment?: string;
+  purpose?: string;
+  auditReason?: string;
+  tracePath: readonly SQLTraceFrame[];
   parameterizedSQL: string;
   parameters: readonly unknown[];
   /** SQL with bind values rendered as literals, intended only for diagnostics. */
@@ -318,8 +341,9 @@ export interface RuntimeTelemetrySink {
 
 /**
  * Explicit value-bearing SQL diagnostic surface. Unlike RuntimeTelemetry this
- * sink may receive secrets and personal data through debugSQL, so it is never
- * installed by default.
+ * sink may receive secrets and personal data through debugSQL. The text sink
+ * is installed by default and can be disabled independently for queries and
+ * mutations; production applications should route it deliberately.
  */
 export interface DiagnosticSQLLogSink {
   write(metadata: SQLExecutionMetadata): void;
@@ -331,9 +355,17 @@ export class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
   write(metadata: SQLExecutionMetadata): void {
     this.writer(
       `[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}\n` +
-      metadata.debugSQL,
+      `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
+      `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}\n` +
+      `Parameterized SQL: ${metadata.parameterizedSQL} params=${diagnosticJSON(metadata.parameters)}\n` +
+      `Debug SQL: ${metadata.debugSQL}`,
     );
   }
+}
+
+function diagnosticJSON(value: unknown): string {
+  return JSON.stringify(value, (_key, item) =>
+    typeof item === 'bigint' ? item.toString() : item);
 }
 
 export class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
@@ -375,7 +407,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
   private telemetrySink?: RuntimeTelemetrySink;
-  private diagnosticSQLLogSink?: DiagnosticSQLLogSink;
+  private diagnosticSQLLogSink?: DiagnosticSQLLogSink = new TextDiagnosticSQLLogSink();
+  private queryLoggingEnabled = true;
+  private mutationLoggingEnabled = true;
   private runtimeTelemetry?: RuntimeTelemetry;
   private readonly checkers: Record<string, EntityChecker> = {};
   private userContext = new UserContext();
@@ -469,6 +503,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this;
   }
 
+  setQueryLoggingEnabled(enabled: boolean): this {
+    this.queryLoggingEnabled = enabled;
+    return this;
+  }
+
+  setMutationLoggingEnabled(enabled: boolean): this {
+    this.mutationLoggingEnabled = enabled;
+    return this;
+  }
+
   setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this {
     this.runtimeTelemetry = telemetry;
     return this;
@@ -477,15 +521,20 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private recordSQL(
     operation: SQLExecutionOperation, parameterizedSQL: string, parameters: readonly unknown[],
     startedAt: number, resultCount?: number, affectedRows?: number,
+    intent: { comment?: string; purpose?: string; auditReason?: string; tracePath?: SQLTraceFrame[] } = {},
   ): void {
+    const isSelect = operation === 'select';
+    if ((isSelect && !this.queryLoggingEnabled) || (!isSelect && !this.mutationLoggingEnabled)) return;
     if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
     const metadata = Object.freeze({
-      operation, parameterizedSQL, parameters: Object.freeze([...parameters]),
+      operation, ...intent,
+      tracePath: Object.freeze([...(intent.tracePath ?? [])]),
+      parameterizedSQL, parameters: Object.freeze([...parameters]),
       debugSQL: debugSQL(parameterizedSQL, parameters, this.driver.databaseKind),
       elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
       resultCount, affectedRows,
       resultSummary: resultCount !== undefined
-        ? `Fetched ${resultCount} rows` : `Affected ${affectedRows ?? 0} rows`,
+        ? `${resultCount} rows returned` : `${affectedRows ?? 0} rows affected`,
     });
     this.telemetrySink?.record(metadata);
     this.diagnosticSQLLogSink?.write(metadata);
@@ -690,7 +739,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
         const startedAt = Date.now();
         const mutationResult = await session.query(sql, values);
-        this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount);
+        this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount, {
+          auditReason: String(mutation.comment),
+          tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'insert'),
+        });
         return {
           success: true,
           id,
@@ -727,7 +779,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           `WHERE ${predicates.join(' AND ')}`;
         const startedAt = Date.now();
         const result = await session.query(sql, values);
-        this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount);
+        this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount, {
+          auditReason: String(mutation.comment),
+          tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'update'),
+        });
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
@@ -761,7 +816,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           `WHERE ${predicates.join(' AND ')}`;
         const startedAt = Date.now();
         const result = await session.query(sql, values);
-        this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount);
+        this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount, {
+          auditReason: String(mutation.comment),
+          tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'delete'),
+        });
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
@@ -1155,7 +1213,22 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         'teaql.provider.operation': 'query',
       },
     }, () => this.driver.query(sql, values));
-    this.recordSQL('select', sql, values, startedAt, result.rowCount);
+    const queryComment = query?._comment ?? query?.commentText;
+    const queryPurpose = query?._purpose ?? query?.purposeText;
+    const inheritedTrace: SQLTraceFrame[] = Array.isArray(query?.__teaqlTracePath)
+      ? query.__teaqlTracePath : [
+        { level: 0, kind: 'operation', name: 'query' },
+        { level: 1, kind: 'request', name: String(query.entity) },
+      ];
+    const tracePath = [...inheritedTrace,
+      { level: inheritedTrace.length, kind: 'provider' as const, name: this.driver.databaseKind },
+      { level: inheritedTrace.length + 1, kind: 'sql' as const, name: 'select' },
+    ];
+    this.recordSQL('select', sql, values, startedAt, result.rowCount, undefined, {
+      comment: queryComment,
+      purpose: queryPurpose,
+      tracePath,
+    });
     const rows = result.rows.map(row =>
       this.decodeRow(query.entity, row, aggregateNames),
     );
@@ -1424,6 +1497,19 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         __teaqlPartitionBy: boundedTopN && !useProbes
           ? relation.foreignKey
           : undefined,
+        __teaqlTracePath: [
+          ...(Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath : [
+            { level: 0, kind: 'operation', name: 'query' },
+            { level: 1, kind: 'request', name: String(query.entity) },
+          ]),
+          {
+            level: (Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath.length : 2),
+            kind: 'relation',
+            name: `${String(query.entity)}.${String(load.name)}`,
+          },
+        ],
+        commentText: query?._comment ?? query?.commentText,
+        purposeText: query?._purpose ?? query?.purposeText,
       };
       if (boundedTopN && !childQuery.orderItems.some((order: any) => order.field === 'id')) {
         childQuery.orderItems.push(OrderBy.asc('id'));

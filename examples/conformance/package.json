@@ -1,7 +1,8 @@
 {
-  "name": "runtime-example-conformance-service-console",
+  "name": "runtime-example-conformance-service-lib",
   "version": "1.0.0",
-  "private": true,
+  "description": "Generated typescript library",
+  "main": "src/generated/Q.ts",
   "scripts": {
     "build": "tsc --noEmit",
     "start": "ts-node src/main.ts"
@@ -10,8 +11,8 @@
     "teaql-ts": "file:../..",
     "better-sqlite3": "^12.10.0"},
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "ts-node": "^10.9.2",
     "typescript": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^22.0.0",
     "@types/better-sqlite3": "^7.6.12"}
 }

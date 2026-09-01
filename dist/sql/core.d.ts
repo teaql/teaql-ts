@@ -72,8 +72,17 @@ export interface TeaQLDataService {
     close?(): Promise<void>;
 }
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
+export type SQLTraceFrame = Readonly<{
+    level: number;
+    kind: 'operation' | 'request' | 'relation' | 'entity' | 'provider' | 'sql';
+    name: string;
+}>;
 export type SQLExecutionMetadata = Readonly<{
     operation: SQLExecutionOperation;
+    comment?: string;
+    purpose?: string;
+    auditReason?: string;
+    tracePath: readonly SQLTraceFrame[];
     parameterizedSQL: string;
     parameters: readonly unknown[];
     /** SQL with bind values rendered as literals, intended only for diagnostics. */
@@ -91,8 +100,9 @@ export interface RuntimeTelemetrySink {
 }
 /**
  * Explicit value-bearing SQL diagnostic surface. Unlike RuntimeTelemetry this
- * sink may receive secrets and personal data through debugSQL, so it is never
- * installed by default.
+ * sink may receive secrets and personal data through debugSQL. The text sink
+ * is installed by default and can be disabled independently for queries and
+ * mutations; production applications should route it deliberately.
  */
 export interface DiagnosticSQLLogSink {
     write(metadata: SQLExecutionMetadata): void;
@@ -124,6 +134,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private auditSink?;
     private telemetrySink?;
     private diagnosticSQLLogSink?;
+    private queryLoggingEnabled;
+    private mutationLoggingEnabled;
     private runtimeTelemetry?;
     private readonly checkers;
     private userContext;
@@ -144,6 +156,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this;
     setRuntimeTelemetrySink(sink: RuntimeTelemetrySink | undefined): this;
     setDiagnosticSQLLogSink(sink: DiagnosticSQLLogSink | undefined): this;
+    setQueryLoggingEnabled(enabled: boolean): this;
+    setMutationLoggingEnabled(enabled: boolean): this;
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private recordSQL;
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */
