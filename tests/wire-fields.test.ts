@@ -2,8 +2,10 @@ import {
   createWireEntityMetadata,
   encodeWireOutput,
   normalizeWireInput,
+  retainSubmittedPaths,
   WireInputError,
 } from '../src/core/wire-fields';
+import { ObjectLocation } from '../src/core/object-location';
 
 describe('generated wire-field metadata reference adapter', () => {
   test.each([
@@ -28,6 +30,13 @@ describe('generated wire-field metadata reference adapter', () => {
     const normalized = normalizeWireInput({ user_url: '/legacy' }, metadata, '/profile');
     expect(normalized.values).toEqual({ user_url: '/legacy' });
     expect(normalized.sourceInstancePaths).toEqual({ user_url: '/profile/user_url' });
+    expect(retainSubmittedPaths([{
+      ruleId: 'required', entityType: 'UserProfile',
+      location: ObjectLocation.property('user_url'),
+    }], normalized)[0]).toMatchObject({
+      sourceInstancePath: '/profile/user_url',
+      location: ObjectLocation.property('user_url'),
+    });
   });
 
   it('rejects canonical and alias spellings before checker or mutation execution', () => {

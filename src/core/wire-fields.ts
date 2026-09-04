@@ -2,6 +2,7 @@ import {
   JsonFieldNamingProfile,
   renderJsonFieldName,
 } from './object-location';
+import type { CheckResult } from './i18n';
 
 export interface WireFieldMetadata {
   readonly canonicalName: string;
@@ -125,6 +126,19 @@ export function encodeWireOutput(
     output[field.wireName] = value;
   }
   return Object.freeze(output);
+}
+
+/** Add submitted alias provenance to checker results without changing location identity. */
+export function retainSubmittedPaths(
+  results: readonly CheckResult[],
+  normalized: NormalizedWireInput,
+): CheckResult[] {
+  return results.map(result => {
+    const firstProperty = result.location.segments.find(segment => segment.kind === 'property');
+    if (!firstProperty || firstProperty.kind !== 'property') return { ...result };
+    const sourceInstancePath = normalized.sourceInstancePaths[firstProperty.name];
+    return sourceInstancePath === undefined ? { ...result } : { ...result, sourceInstancePath };
+  });
 }
 
 function escapeJsonPointer(value: string): string {
