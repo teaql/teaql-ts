@@ -15,5 +15,5 @@ for example in conformance ensure-schema-bootstrap school-management; do
 done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
 (cd "$repo/examples/task-board" && npm install && npm run build)
-(cd "$repo/examples/browser-sqlite" && npm install && npm run build)
+(cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke)
 echo "PASS: all TypeScript examples"
