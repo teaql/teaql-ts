@@ -53,7 +53,7 @@ test('date, millisecond timestamp and decimal validation retain exact values', (
   const result = normalizeDynamicSearch({filter: {date: '2024-02-29', created: 1709164800000,
     amount: '9007199254740993.01'}}, 'Ledger', typed);
   expect(result.search.filter!.amount).toEqual({$eq: '9007199254740993.01'});
-  for (const filter of [{date: '2025-02-29'}, {created: '2024-02-29'}, {created: 1.5},
+  for (const filter of [{date: '2025-02-29'}, {date: '0000-01-01'}, {created: '2024-02-29'}, {created: 1.5},
     {amount: 'NaN'}, {amount: Infinity}]) {
     expect(() => normalizeDynamicSearch({filter}, 'Ledger', typed)).toThrow();
   }
