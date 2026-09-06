@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "$repo/.local"
-expected=(conformance ensure-schema-bootstrap order-management school-management task-board)
+expected=(browser-sqlite conformance ensure-schema-bootstrap order-management school-management task-board)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2
@@ -15,4 +15,5 @@ for example in conformance ensure-schema-bootstrap school-management; do
 done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
 (cd "$repo/examples/task-board" && npm install && npm run build)
+(cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke)
 echo "PASS: all TypeScript examples"

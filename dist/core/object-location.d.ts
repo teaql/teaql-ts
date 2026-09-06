@@ -5,6 +5,8 @@ export type ObjectLocationSegment = {
     readonly kind: 'index';
     readonly index: number;
 };
+export type JsonFieldNamingProfile = 'camelCase' | 'snake_case' | 'PascalCase';
+export declare function renderJsonFieldName(name: string, profile: JsonFieldNamingProfile): string;
 /** A casing-neutral location expressed with canonical KSML property names. */
 export declare class ObjectLocation {
     readonly segments: readonly ObjectLocationSegment[];
@@ -16,7 +18,7 @@ export declare class ObjectLocation {
     prefixedBy(prefix: ObjectLocation): ObjectLocation;
     modelPath(): string;
     nativePath(): string;
-    instancePath(): string;
+    instancePath(profile?: JsonFieldNamingProfile): string;
     toString(): string;
     private render;
 }

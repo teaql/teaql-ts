@@ -1,5 +1,5 @@
 import builtinJson from './builtin-messages-v1.json';
-import { ObjectLocation } from './object-location';
+import { JsonFieldNamingProfile, ObjectLocation, ObjectLocationSegment } from './object-location';
 
 export const locales = ['en','zh-CN','zh-TW','ja','ko','de','fr','es','pt','ar','th','id','fil','uk','vi'] as const;
 export type Locale = typeof locales[number];
@@ -8,7 +8,9 @@ const aliases:Record<string,Locale>={'en-us':'en','en-gb':'en','zh':'zh-CN','zh-
 export function parseLocale(code:unknown):Locale{if(typeof code!=='string'||!code.trim())throw new UnsupportedLocaleError(code);const normalized=code.trim().replace(/_/g,'-').toLowerCase();const canonical=locales.find(v=>v.toLowerCase()===normalized);if(canonical)return canonical;const alias=aliases[normalized];if(!alias)throw new UnsupportedLocaleError(code);return alias;}
 type LocaleData={messages:Record<string,string>;vocabulary:Record<string,string>};
 export type CatalogData={schema:string;defaultLocale:string;locales:Record<string,LocaleData>};
-export interface CheckResult{ruleId:string;location:ObjectLocation;inputValue?:unknown;systemValue?:unknown;message?:string}
+export interface CheckResult{ruleId:string;entityType?:string;location:ObjectLocation;sourceInstancePath?:string;inputValue?:unknown;systemValue?:unknown;message?:string}
+export interface WireCheckResult{ruleId:string;entityType?:string;location:readonly ObjectLocationSegment[];instancePath:string;sourceInstancePath?:string;inputValue?:unknown;systemValue?:unknown;message?:string}
+export function checkResultToWire(result:CheckResult,profile:JsonFieldNamingProfile='camelCase'):WireCheckResult{return {ruleId:result.ruleId,entityType:result.entityType,location:result.location.segments,instancePath:result.location.instancePath(profile),sourceInstancePath:result.sourceInstancePath,inputValue:result.inputValue,systemValue:result.systemValue,message:result.message};}
 export class I18nCatalog{
  static readonly builtin=new I18nCatalog(builtinJson as CatalogData);
  constructor(private readonly data:CatalogData,private readonly fallback?:I18nCatalog){if(data.schema!=='teaql.i18n/v1')throw new Error('Unsupported i18n schema');Object.keys(data.locales).forEach(parseLocale);}

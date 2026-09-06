@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>TeaQL Browser SQLite</title>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">TEAQL TYPESCRIPT RUNTIME</p>
+      <h1>Browser-local Data Service</h1>
+      <p>Generated Q APIs and audited mutations, backed by SQLite/WASM.</p>
+      <div class="controls">
+        <label><input id="persist" type="checkbox" /> Persist locally with OPFS</label>
+        <button id="reset">Reset demo data</button>
+      </div>
+      <p id="status">Starting SQLite/WASM…</p>
+      <pre id="result"></pre>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -162,6 +162,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private recordSQL;
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */
     [contextSchemaCapability](context: UserContext): Promise<void>;
+    /** Allows a provider which replaces its physical store to require explicit schema reconciliation again. */
+    protected invalidateSchemaState(): void;
     private ensureBootstrapData;
     private reconcileBootstrapEntity;
     executeGraphSave<T>(work: () => Promise<T>): Promise<T>;

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.I18nCatalog = exports.parseLocale = exports.UnsupportedLocaleError = exports.locales = void 0;
+exports.I18nCatalog = exports.checkResultToWire = exports.parseLocale = exports.UnsupportedLocaleError = exports.locales = void 0;
 const builtin_messages_v1_json_1 = __importDefault(require("./builtin-messages-v1.json"));
 exports.locales = ['en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ar', 'th', 'id', 'fil', 'uk', 'vi'];
 class UnsupportedLocaleError extends Error {
@@ -19,6 +19,8 @@ function parseLocale(code) { if (typeof code !== 'string' || !code.trim())
     return canonical; const alias = aliases[normalized]; if (!alias)
     throw new UnsupportedLocaleError(code); return alias; }
 exports.parseLocale = parseLocale;
+function checkResultToWire(result, profile = 'camelCase') { return { ruleId: result.ruleId, entityType: result.entityType, location: result.location.segments, instancePath: result.location.instancePath(profile), sourceInstancePath: result.sourceInstancePath, inputValue: result.inputValue, systemValue: result.systemValue, message: result.message }; }
+exports.checkResultToWire = checkResultToWire;
 class I18nCatalog {
     constructor(data, fallback) {
         this.data = data;

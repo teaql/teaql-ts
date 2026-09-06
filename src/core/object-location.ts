@@ -2,9 +2,18 @@ export type ObjectLocationSegment =
   | { readonly kind: 'property'; readonly name: string }
   | { readonly kind: 'index'; readonly index: number };
 
+export type JsonFieldNamingProfile = 'camelCase' | 'snake_case' | 'PascalCase';
+
 function lowerCamel(name: string): string {
   const parts = name.split('_');
   return parts[0] + parts.slice(1).map(part => part ? part[0].toUpperCase() + part.slice(1) : '').join('');
+}
+
+export function renderJsonFieldName(name: string, profile: JsonFieldNamingProfile): string {
+  if (profile === 'snake_case') return name;
+  const camel = lowerCamel(name);
+  if (profile === 'camelCase' || !camel) return camel;
+  return camel[0].toUpperCase() + camel.slice(1);
 }
 
 function escapeJsonPointer(value: string): string {
@@ -38,10 +47,10 @@ export class ObjectLocation {
     return this.render(lowerCamel);
   }
 
-  instancePath(): string {
+  instancePath(profile: JsonFieldNamingProfile = 'camelCase'): string {
     return this.segments.map(segment => segment.kind === 'index'
       ? String(segment.index)
-      : escapeJsonPointer(lowerCamel(segment.name))).map(value => `/${value}`).join('');
+      : escapeJsonPointer(renderJsonFieldName(segment.name, profile))).map(value => `/${value}`).join('');
   }
 
   toString(): string { return this.nativePath(); }

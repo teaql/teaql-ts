@@ -23,11 +23,13 @@ profile needed by the application:
 | MySQL | `teaql-ts/sql/mysql` | Node.js | `mysql2` |
 | SQLite | `teaql-ts/sql/sqlite` | Node.js | `better-sqlite3` |
 | Expo SQLite | `teaql-ts/sql/expo-sqlite` | React Native / Expo | `expo-sqlite` |
+| Browser SQLite | `teaql-ts/sql/browser-sqlite` | Browser Web Worker | `@sqlite.org/sqlite-wasm` |
 
 ### Browser / TFP profile
 
-The default entry point contains the AST, parser, and TFP HTTP client. It does
-not import or bundle PostgreSQL, MySQL, or SQLite drivers.
+The default entry point contains the AST, Peggy-generated controlled query
+parser, and TFP HTTP client. It does not import or bundle PostgreSQL, MySQL, or
+SQLite drivers.
 
 ```bash
 npm install teaql-ts
@@ -114,6 +116,50 @@ TFP client for authenticated server queries. Tenant, user, permission, purpose
 policy, hard-limit policy, and continuous-page cursor policy must be supplied
 by trusted runtime context; they are not accepted from federation JSON.
 
+### Browser SQLite/WASM profile
+
+Browser-local applications can execute the same generated Q API, E API,
+Checker/Fix rules, audited mutations, and Runtime Module bootstrap without a
+backend. Install the official SQLite/WASM package and create an
+application-owned worker entry point so bundlers can package the worker and
+WASM assets correctly:
+
+```bash
+npm install teaql-ts @sqlite.org/sqlite-wasm
+```
+
+```typescript title="sqlite.worker.ts"
+import sqliteWasmUrl from "@sqlite.org/sqlite-wasm/sqlite3.wasm?url";
+import { startBrowserSQLiteWorker } from "teaql-ts/sql/browser-sqlite-worker";
+
+startBrowserSQLiteWorker({ wasmUrl: sqliteWasmUrl });
+```
+
+```typescript
+import { BrowserSQLiteTeaQLClient } from "teaql-ts/sql/browser-sqlite";
+
+const worker = new Worker(new URL("./sqlite.worker.ts", import.meta.url), {
+  type: "module",
+});
+const client = await BrowserSQLiteTeaQLClient.open(worker, ENTITY_SCHEMAS, {
+  storage: "memory", // deterministic default; use "opfs" only by explicit choice
+});
+client.install(GENERATED_RUNTIME_MODULE);
+const context = new UserContext().insertResource("dataService", client);
+client.setUserContext(context);
+await context.ensureSchema();
+```
+
+`client.reset(context)` drops browser-local tables, explicitly reconciles the
+schema again, and runs the generated mutation bootstrap. OPFS requires the
+COOP/COEP headers documented by SQLite. The first browser profile deliberately
+buffers stream results and does not promise multi-tab database coordination.
+It is intended for Playground, offline, and local-data scenarios—not as a
+trusted authorization boundary for tenant or permission enforcement.
+
+See [`examples/browser-sqlite`](./examples/browser-sqlite) for the executable
+memory, OPFS, generated-mutation seed, Q API, and reset verification.
+
 ## 🌟 Why Will It Make You Say "Wow"?
 
 Take a look at this code driven by `teaql-ts`, and you will feel the beauty of perfectly combining **type safety** with **declarative expression**. You no longer need to manually concatenate GraphQL strings or deal with tedious RESTful parameters, just write this:
@@ -171,8 +217,9 @@ If you are building a "No-Code Platform" or "Dynamic Reporting", you can pass th
 // Raw string received from a frontend input box
 const userQuery = 'Q.tasks().withNameContaining("bug").facetByStatusAs("statusFacet", Q.taskStatuses().count())';
 
-// Securely parse into an AST request and execute
-const request = QueryParser.parse(userQuery);
+// Securely parse the complete source into a controlled AST, then invoke only
+// methods exposed by the generated Q entry point. No eval/new Function is used.
+const request = QueryParser.parse(userQuery, Q);
 const result = await request.executeForList(ctx);
 ```
 

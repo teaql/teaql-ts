@@ -11,36 +11,55 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./sql/core": {
       "types": "./dist/sql/core.d.ts",
+      "import": "./dist/esm/sql/core.js",
       "require": "./dist/sql/core.js",
       "default": "./dist/sql/core.js"
     },
     "./sql/postgres": {
       "types": "./dist/sql/postgres.d.ts",
+      "import": "./dist/esm/sql/postgres.js",
       "require": "./dist/sql/postgres.js",
       "default": "./dist/sql/postgres.js"
     },
     "./sql/mysql": {
       "types": "./dist/sql/mysql.d.ts",
+      "import": "./dist/esm/sql/mysql.js",
       "require": "./dist/sql/mysql.js",
       "default": "./dist/sql/mysql.js"
     },
     "./sql/sqlite": {
       "types": "./dist/sql/sqlite.d.ts",
+      "import": "./dist/esm/sql/sqlite.js",
       "require": "./dist/sql/sqlite.js",
       "default": "./dist/sql/sqlite.js"
     },
     "./sql/expo-sqlite": {
       "types": "./dist/sql/expo-sqlite.d.ts",
+      "import": "./dist/esm/sql/expo-sqlite.js",
       "require": "./dist/sql/expo-sqlite.js",
       "default": "./dist/sql/expo-sqlite.js"
     },
+    "./sql/browser-sqlite": {
+      "types": "./dist/sql/browser-sqlite.d.ts",
+      "import": "./dist/esm/sql/browser-sqlite.js",
+      "require": "./dist/sql/browser-sqlite.js",
+      "default": "./dist/sql/browser-sqlite.js"
+    },
+    "./sql/browser-sqlite-worker": {
+      "types": "./dist/sql/browser-sqlite-worker.d.ts",
+      "import": "./dist/esm/sql/browser-sqlite-worker.js",
+      "require": "./dist/sql/browser-sqlite-worker.js",
+      "default": "./dist/sql/browser-sqlite-worker.js"
+    },
     "./telemetry/opentelemetry": {
       "types": "./dist/telemetry/opentelemetry.d.ts",
+      "import": "./dist/esm/telemetry/opentelemetry.js",
       "require": "./dist/telemetry/opentelemetry.js",
       "default": "./dist/telemetry/opentelemetry.js"
     }
@@ -61,11 +80,18 @@
       ],
       "sql/expo-sqlite": [
         "dist/sql/expo-sqlite.d.ts"
+      ],
+      "sql/browser-sqlite": [
+        "dist/sql/browser-sqlite.d.ts"
+      ],
+      "sql/browser-sqlite-worker": [
+        "dist/sql/browser-sqlite-worker.d.ts"
       ]
     }
   },
   "scripts": {
-    "build": "tsc",
+    "generate:query-parser": "node scripts/generate-query-parser.mjs",
+    "build": "npm run generate:query-parser && tsc && node scripts/build-esm.mjs",
     "test": "jest",
     "prepack": "npm run build"
   },
@@ -99,14 +125,17 @@
     "@opentelemetry/sdk-logs": "^0.221.0",
     "@opentelemetry/sdk-metrics": "^2.10.0",
     "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
     "@types/better-sqlite3": "^7.6.12",
     "@types/jest": "^29.5.0",
     "@types/node-fetch": "^2.6.13",
     "@types/pg": "^8.11.0",
     "better-sqlite3": "^12.10.0",
+    "esbuild": "^0.28.2",
     "jest": "^29.5.0",
     "jest-util": "^29.7.0",
     "mysql2": "^3.11.0",
+    "peggy": "^5.1.0",
     "pg": "^8.12.0",
     "pg-query-stream": "^4.7.0",
     "ts-jest": "^29.1.0",
@@ -118,6 +147,7 @@
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.221.0",
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
     "better-sqlite3": "^12.10.0",
     "expo-sqlite": "*",
     "mysql2": "^3.11.0",
@@ -129,6 +159,9 @@
       "optional": true
     },
     "@opentelemetry/api-logs": {
+      "optional": true
+    },
+    "@sqlite.org/sqlite-wasm": {
       "optional": true
     },
     "better-sqlite3": {
@@ -146,5 +179,10 @@
     "expo-sqlite": {
       "optional": true
     }
-  }
+  },
+  "directories": {
+    "example": "examples",
+    "test": "tests"
+  },
+  "type": "commonjs"
 }

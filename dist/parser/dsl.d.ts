@@ -1,4 +1,4 @@
 export declare class QueryParser {
-    static parse(queryStr: string, entryPoint: any): any;
+    static parse(querySource: string, entryPoint: object): any;
 }
 //# sourceMappingURL=dsl.d.ts.map
