@@ -1,0 +1,9 @@
+:root { font: 16px/1.5 Inter, system-ui, sans-serif; color: #e8edf5; background: #090b10; }
+body { margin: 0; }
+main { width: min(760px, calc(100% - 40px)); margin: 10vh auto; }
+.eyebrow { color: #d9ff52; font-size: 12px; font-weight: 800; letter-spacing: .16em; }
+h1 { margin: 8px 0; font-size: clamp(36px, 7vw, 68px); letter-spacing: -.05em; }
+.controls { display: flex; gap: 18px; align-items: center; margin: 32px 0; }
+button { border: 0; border-radius: 5px; padding: 10px 14px; background: #d9ff52; font-weight: 800; }
+#status { color: #aab4c4; }
+pre { min-height: 260px; padding: 22px; overflow: auto; border: 1px solid #2b323e; border-radius: 8px; background: #11151c; color: #c6d1df; }

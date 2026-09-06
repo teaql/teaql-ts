@@ -568,6 +568,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
   }
 
+  /** Allows a provider which replaces its physical store to require explicit schema reconciliation again. */
+  protected invalidateSchemaState(): void {
+    this.schemaReady = undefined;
+  }
+
   private async ensureBootstrapData(): Promise<void> {
     const records = [
       ...(this.bootstrap.defaultDomainRoot ? [this.bootstrap.defaultDomainRoot] : []),

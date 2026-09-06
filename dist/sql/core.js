@@ -427,6 +427,10 @@ class AbstractSQLTeaQLClient {
             release();
         }
     }
+    /** Allows a provider which replaces its physical store to require explicit schema reconciliation again. */
+    invalidateSchemaState() {
+        this.schemaReady = undefined;
+    }
     async ensureBootstrapData() {
         const records = [
             ...(this.bootstrap.defaultDomainRoot ? [this.bootstrap.defaultDomainRoot] : []),
