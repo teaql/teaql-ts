@@ -1,10 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ObjectLocation = void 0;
+exports.ObjectLocation = exports.renderJsonFieldName = void 0;
 function lowerCamel(name) {
     const parts = name.split('_');
     return parts[0] + parts.slice(1).map(part => part ? part[0].toUpperCase() + part.slice(1) : '').join('');
 }
+function renderJsonFieldName(name, profile) {
+    if (profile === 'snake_case')
+        return name;
+    const camel = lowerCamel(name);
+    if (profile === 'camelCase' || !camel)
+        return camel;
+    return camel[0].toUpperCase() + camel.slice(1);
+}
+exports.renderJsonFieldName = renderJsonFieldName;
 function escapeJsonPointer(value) {
     return value.replace(/~/g, '~0').replace(/\//g, '~1');
 }
@@ -30,10 +39,10 @@ class ObjectLocation {
     nativePath() {
         return this.render(lowerCamel);
     }
-    instancePath() {
+    instancePath(profile = 'camelCase') {
         return this.segments.map(segment => segment.kind === 'index'
             ? String(segment.index)
-            : escapeJsonPointer(lowerCamel(segment.name))).map(value => `/${value}`).join('');
+            : escapeJsonPointer(renderJsonFieldName(segment.name, profile))).map(value => `/${value}`).join('');
     }
     toString() { return this.nativePath(); }
     render(propertyName) {

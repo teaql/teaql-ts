@@ -1,4 +1,4 @@
-import { ObjectLocation } from './object-location';
+import { JsonFieldNamingProfile, ObjectLocation, ObjectLocationSegment } from './object-location';
 export declare const locales: readonly ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr", "es", "pt", "ar", "th", "id", "fil", "uk", "vi"];
 export type Locale = typeof locales[number];
 export declare class UnsupportedLocaleError extends Error {
@@ -17,11 +17,24 @@ export type CatalogData = {
 };
 export interface CheckResult {
     ruleId: string;
+    entityType?: string;
     location: ObjectLocation;
+    sourceInstancePath?: string;
     inputValue?: unknown;
     systemValue?: unknown;
     message?: string;
 }
+export interface WireCheckResult {
+    ruleId: string;
+    entityType?: string;
+    location: readonly ObjectLocationSegment[];
+    instancePath: string;
+    sourceInstancePath?: string;
+    inputValue?: unknown;
+    systemValue?: unknown;
+    message?: string;
+}
+export declare function checkResultToWire(result: CheckResult, profile?: JsonFieldNamingProfile): WireCheckResult;
 export declare class I18nCatalog {
     private readonly data;
     private readonly fallback?;

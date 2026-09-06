@@ -3,6 +3,7 @@ export * from './core/context';
 export * from './core/entity-root';
 export * from './core/checker';
 export * from './core/object-location';
+export * from './core/wire-fields';
 export * from './core/i18n';
 export * from './core/tools';
 export * from './core/local-cache';
