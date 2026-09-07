@@ -1,13 +1,25 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { CheckException, UserContext } from "./teaql-ts";
+import { CheckException, EntityRoot, UserContext } from "./teaql-ts";
 import { E, TeaQLNotLoadedError } from "./generated/E";
 import { Q } from "./generated/Q";
 import { WorkItem } from "./generated/models/WorkItem";
 import { SQLiteTeaQLClient } from "./teaql-node-sqlite";
 
 async function main(): Promise<void> {
+  const orderKey = { entity: "Order", id: 1 } as const;
+  const executionKey = { entity: "InferenceExecution", id: 1 } as const;
+  const target = new EntityRoot();
+  const source = new EntityRoot();
+  target.setOriginalVersion(orderKey, 3);
+  source.setOriginalVersion(executionKey, 9);
+  source.set(executionKey, "execution_status", "COMPLETED");
+  target.mergeFrom(source);
+  assert.equal(target.originalVersion(orderKey), 3);
+  assert.equal(target.originalVersion(executionKey), 9);
+  console.log("PASS Mutation ledger identity (same ID, different entity types keep versions 3/9)");
+
   const database = path.resolve(__dirname, "../.local/conformance.sqlite");
   fs.mkdirSync(path.dirname(database), { recursive: true });
   fs.rmSync(database, { force: true });
@@ -68,7 +80,7 @@ async function main(): Promise<void> {
   console.log("PASS Delete (default Q excludes deleted rows)");
 
   await client.close();
-  console.log("PASS TypeScript minimum runtime conformance: 7/7");
+  console.log("PASS TypeScript minimum runtime conformance: 8/8");
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
