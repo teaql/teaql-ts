@@ -137,6 +137,7 @@ export class SelectQuery {
 
   clone(): SelectQuery {
     const copy = new SelectQuery(this.entity);
+    copy.hardLimitValue = this.hardLimitValue;
     copy.filterCondition = this.filterCondition;
     copy.limitValue = this.limitValue;
     copy.offsetValue = this.offsetValue;

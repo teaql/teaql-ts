@@ -3,7 +3,7 @@ import { E } from "./src/generated/E";
 import { Platform } from "./src/generated/models/Platform";
 import { SchoolType } from "./src/generated/models/SchoolType";
 import { UserContext } from "./src/teaql-ts";
-import { RuntimeModule } from "teaql-ts";
+import { RuntimeModule, normalizeDynamicSearch, SearchModel } from "teaql-ts";
 import { GENERATED_RUNTIME_MODULE } from "./src/runtime-module";
 import { SQLiteDriver, SQLiteTeaQLClient } from "./src/teaql-node-sqlite";
 import { mkdirSync } from "node:fs";
@@ -69,6 +69,7 @@ async function main(): Promise<void> {
     school.updateActive(true);
     await school.auditAs("Create Riverside Primary School").save(context);
 
+    await verifyDynamicSearch(context);
     const primarySchools = await Q.schools().withSchoolTypeIsPrimary()
         .comment("Read schools linked through the PRIMARY helper")
         .purpose("Verify constant helper mutation-ledger semantics")
@@ -139,6 +140,39 @@ async function main(): Promise<void> {
     }
     console.log("PASS TypeScript School Management: bootstrap, portable Query parity, relations, and Update");
     await client.close();
+}
+
+async function verifyDynamicSearch(context: UserContext): Promise<void> {
+    const models: Record<string, SearchModel> = {
+        School: {fields: {name: "string"}, relations: {platform: "Platform"}},
+        Platform: {fields: {name: "string"}, relations: {}},
+    };
+    const populated = {filter: {name: "Riverside Primary School", "platform.name": "Campus Learning Platform",
+        removed: "SECRET_VALUE", "platform.removed": "SECRET_VALUE"},
+        orderBy: [{field: "removed", direction: "asc"}]};
+    for (const authorizedPlatform of ["1", "2"]) {
+        for (const input of [populated, {}]) {
+            // Server authorization is independent from optional client search fields.
+            let request = Q.schools().withNameIs("Riverside Primary School")
+                .withPlatformMatching(Q.platforms().withIdIs(authorizedPlatform));
+            const normalized = normalizeDynamicSearch(input, "School", models, () => {});
+            for (const [field, predicate] of Object.entries(normalized.search.filter ?? {})) {
+                const value = (predicate as {$eq?: unknown}).$eq;
+                if (typeof value !== "string") throw new Error("Demo binding supports string equality only");
+                if (field === "name") request = request.withNameIs(value);
+                else if (field === "platform.name") request = request.withPlatformMatching(Q.platforms().withNameIs(value));
+                else throw new Error("Missing trusted demo binding");
+            }
+            const rows = await request.orderByIdDescending().limit(2)
+                .comment("what: generated School dynamic search")
+                .purpose("why: preserve related authorization with stale or absent search fields")
+                .executeForList(context);
+            if (rows.length !== (authorizedPlatform === "1" ? 1 : 0)) throw new Error("Dynamic search bypassed scope");
+            if (normalized.warnings.length !== (input === populated ? 3 : 0)) throw new Error("Drift warnings mismatch");
+            if (JSON.stringify(normalized.warnings).includes("SECRET_VALUE")) throw new Error("Warning value leak");
+        }
+    }
+    console.log("PASS TypeScript generated School dynamic search: independent related scope and typed Q bindings");
 }
 
 main().catch(error => { console.error(error); process.exit(1); });
