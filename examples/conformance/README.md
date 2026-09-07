@@ -1,6 +1,6 @@
 # TypeScript runtime conformance example
 
-This retained SQLite example is generated from `model.xml` and verifies the minimum runtime-owned contract: explicit `ensureSchema`, Create, Update, Delete, typed Q, E loaded/null/not-loaded semantics, and Checker rejection before SQL.
+This retained SQLite example is generated from `model.xml` and verifies the minimum runtime-owned contract: explicit `ensureSchema`, Create, Update, Delete, typed Q, E loaded/null/not-loaded semantics, Checker rejection before SQL, and optimistic-version isolation for different entity types that share a numeric ID.
 
 ```bash
 npm install
