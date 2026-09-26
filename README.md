@@ -25,6 +25,28 @@ profile needed by the application:
 | Expo SQLite | `teaql-ts/sql/expo-sqlite` | React Native / Expo | `expo-sqlite` |
 | Browser SQLite | `teaql-ts/sql/browser-sqlite` | Browser Web Worker | `@sqlite.org/sqlite-wasm` |
 
+## Security Boundary
+
+The browser/TFP profile is a client, not a key-custody service. It produces a
+controlled AST and sends declared comment/purpose to a trusted TeaQL backend;
+it cannot override server tenant, role, field, hard-limit, or optimistic-lock
+policy. Browser SQLite is local application storage and does not turn the
+browser into a public TFP server.
+
+When a Java, Rust, Go, or .NET backend returns a TeaQL opaque entity reference,
+TypeScript treats it as an indivisible string and returns it only for the
+operation and purpose for which it was issued. Client code must not parse,
+rewrite, log, or manufacture the token, and must not fall back to exposing a raw
+internal ID/version pair. The current TypeScript profile deliberately does not
+hold backend AES keys or provide local encode/decode APIs; this is a supported
+frontend boundary rather than a conformance defect.
+
+Local SQL logging should remain parameterized and value-free by default.
+Copy/paste SQL or submitted values belong only in an explicit, access-controlled
+diagnostic surface. The server-side envelope, golden vector, stable errors, and
+development-only raw-reference acknowledgement are defined in the canonical
+[opaque entity reference contract](https://github.com/teaql/teaql-conformance/blob/main/design/opaque-entity-references.md).
+
 ### Browser / TFP profile
 
 The default entry point contains the AST, Peggy-generated controlled query
