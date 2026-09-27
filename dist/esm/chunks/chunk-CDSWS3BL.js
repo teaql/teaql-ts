@@ -425,45 +425,6 @@ var CheckException = class extends Error {
   }
 };
 
-// src/core/runtime-module.ts
-function mergeRuntimeBootstrap(left, right) {
-  const leftRoot = left.defaultDomainRoot;
-  const rightRoot = right.defaultDomainRoot;
-  if (leftRoot && rightRoot && (leftRoot.entity !== rightRoot.entity || leftRoot.id !== rightRoot.id)) {
-    throw new Error("Cannot compose Runtime Modules with different Default Domain Roots");
-  }
-  const constants = /* @__PURE__ */ new Map();
-  for (const value of [...left.constants ?? [], ...right.constants ?? []]) {
-    constants.set(`${value.entity}:${value.id}`, value);
-  }
-  return {
-    defaultDomainRoot: rightRoot ?? leftRoot,
-    constants: [...constants.values()],
-    ensure: left.ensure && right.ensure ? async (context) => {
-      await left.ensure(context);
-      await right.ensure(context);
-    } : right.ensure ?? left.ensure
-  };
-}
-var RuntimeModule = class _RuntimeModule {
-  constructor(schemas = {}, checkers = {}, bootstrap = {}) {
-    this.schemas = Object.freeze({ ...schemas });
-    this.checkers = Object.freeze({ ...checkers });
-    this.bootstrap = Object.freeze({
-      defaultDomainRoot: bootstrap.defaultDomainRoot,
-      constants: Object.freeze([...bootstrap.constants ?? []]),
-      ensure: bootstrap.ensure
-    });
-  }
-  and(other) {
-    return new _RuntimeModule(
-      { ...this.schemas, ...other.schemas },
-      { ...this.checkers, ...other.checkers },
-      mergeRuntimeBootstrap(this.bootstrap, other.bootstrap)
-    );
-  }
-};
-
 // src/core/ast.ts
 var SortDirection = /* @__PURE__ */ ((SortDirection2) => {
   SortDirection2["Asc"] = "Asc";
@@ -547,6 +508,7 @@ var SelectQuery = class _SelectQuery {
   }
   clone() {
     const copy = new _SelectQuery(this.entity);
+    copy.hardLimitValue = this.hardLimitValue;
     copy.filterCondition = this.filterCondition;
     copy.limitValue = this.limitValue;
     copy.offsetValue = this.offsetValue;
@@ -726,6 +688,45 @@ var MutationQuery = class {
   }
 };
 
+// src/core/runtime-module.ts
+function mergeRuntimeBootstrap(left, right) {
+  const leftRoot = left.defaultDomainRoot;
+  const rightRoot = right.defaultDomainRoot;
+  if (leftRoot && rightRoot && (leftRoot.entity !== rightRoot.entity || leftRoot.id !== rightRoot.id)) {
+    throw new Error("Cannot compose Runtime Modules with different Default Domain Roots");
+  }
+  const constants = /* @__PURE__ */ new Map();
+  for (const value of [...left.constants ?? [], ...right.constants ?? []]) {
+    constants.set(`${value.entity}:${value.id}`, value);
+  }
+  return {
+    defaultDomainRoot: rightRoot ?? leftRoot,
+    constants: [...constants.values()],
+    ensure: left.ensure && right.ensure ? async (context) => {
+      await left.ensure(context);
+      await right.ensure(context);
+    } : right.ensure ?? left.ensure
+  };
+}
+var RuntimeModule = class _RuntimeModule {
+  constructor(schemas = {}, checkers = {}, bootstrap = {}) {
+    this.schemas = Object.freeze({ ...schemas });
+    this.checkers = Object.freeze({ ...checkers });
+    this.bootstrap = Object.freeze({
+      defaultDomainRoot: bootstrap.defaultDomainRoot,
+      constants: Object.freeze([...bootstrap.constants ?? []]),
+      ensure: bootstrap.ensure
+    });
+  }
+  and(other) {
+    return new _RuntimeModule(
+      { ...this.schemas, ...other.schemas },
+      { ...this.checkers, ...other.checkers },
+      mergeRuntimeBootstrap(this.bootstrap, other.bootstrap)
+    );
+  }
+};
+
 export {
   locales,
   UnsupportedLocaleError,
@@ -736,12 +737,12 @@ export {
   ContextRootError,
   UserContext,
   CheckException,
-  mergeRuntimeBootstrap,
-  RuntimeModule,
   SortDirection,
   OrderBy,
   AggregationCacheOptions,
   SelectQuery,
-  MutationQuery
+  MutationQuery,
+  mergeRuntimeBootstrap,
+  RuntimeModule
 };
-//# sourceMappingURL=chunk-65WCFPGD.js.map
+//# sourceMappingURL=chunk-CDSWS3BL.js.map

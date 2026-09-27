@@ -7,6 +7,7 @@ const context_1 = require("../core/context");
 const runtime_module_1 = require("../core/runtime-module");
 const schema_capability_1 = require("../core/schema-capability");
 const ast_1 = require("../core/ast");
+const log_privacy_1 = require("../core/log-privacy");
 /** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
 function canonicalRelationIndexes(schemas) {
     const indexes = new Map();
@@ -237,6 +238,7 @@ class TextDiagnosticSQLLogSink {
         this.writer = writer;
     }
     write(metadata) {
+        metadata = (0, log_privacy_1.projectSQLLog)(metadata);
         this.writer(`[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}\n` +
             `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
             `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}\n` +
@@ -393,8 +395,9 @@ class AbstractSQLTeaQLClient {
             resultSummary: resultCount !== undefined
                 ? `${resultCount} rows returned` : `${affectedRows ?? 0} rows affected`,
         });
-        this.telemetrySink?.record(metadata);
-        this.diagnosticSQLLogSink?.write(metadata);
+        const projected = (0, log_privacy_1.projectSQLLog)(metadata);
+        this.telemetrySink?.record(projected);
+        this.diagnosticSQLLogSink?.write(projected);
     }
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */
     async [schema_capability_1.contextSchemaCapability](context) {
@@ -681,7 +684,7 @@ class AbstractSQLTeaQLClient {
                 entity: mutation.entity,
                 action: mutation.action,
                 id: String(result.id),
-                reason: String(mutation.comment),
+                reason: (0, log_privacy_1.scrubLogText)(String(mutation.comment), (0, log_privacy_1.logValueStrings)(mutation.payload)),
                 recordedAt: new Date().toISOString(),
                 actor: this.userContext.getResource('bootstrapActor'),
                 category: this.userContext.getResource('bootstrapCategory'),
