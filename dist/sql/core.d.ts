@@ -99,10 +99,8 @@ export interface RuntimeTelemetrySink {
     record(metadata: SQLExecutionMetadata): void;
 }
 /**
- * Explicit value-bearing SQL diagnostic surface. Unlike RuntimeTelemetry this
- * sink may receive secrets and personal data through debugSQL. The text sink
- * is installed by default and can be disabled independently for queries and
- * mutations; production applications should route it deliberately.
+ * Policy-projected SQL diagnostic surface. Values are redacted by default;
+ * selecting a custom sink does not grant plaintext access.
  */
 export interface DiagnosticSQLLogSink {
     write(metadata: SQLExecutionMetadata): void;

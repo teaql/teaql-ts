@@ -1,10 +1,21 @@
 import { UserContext } from '../src/core/context';
 import { SelectQuery } from '../src/core/ast';
 import Database from 'better-sqlite3';
+import { appendFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   EntitySchema, SQLExecutionEvidenceStore, TextDiagnosticSQLLogSink,
 } from '../src/sql/core';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
+import { PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK } from '../src/core/log-privacy';
+
+const originalLogSetting = process.env[PLAINTEXT_LOG_ENV];
+beforeEach(() => { delete process.env[PLAINTEXT_LOG_ENV]; });
+afterEach(() => {
+  if (originalLogSetting === undefined) delete process.env[PLAINTEXT_LOG_ENV];
+  else process.env[PLAINTEXT_LOG_ENV] = originalLogSetting;
+});
 
 const schemas: Record<string, EntitySchema> = {
   Person: {
@@ -16,6 +27,38 @@ const schemas: Record<string, EntitySchema> = {
     },
   },
 };
+
+it('persists original SQLite CRUD values while file and custom logs remain redacted on failure', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'teaql-crud-privacy-'));
+  const logPath = join(directory, 'runtime.log');
+  const evidence = new SQLExecutionEvidenceStore();
+  const client = new SQLiteTeaQLClient(join(directory, 'data.db'), schemas)
+    .setRuntimeTelemetrySink(evidence)
+    .setDiagnosticSQLLogSink(new TextDiagnosticSQLLogSink(line => appendFileSync(logPath, line + '\n')));
+  const first = 'PRIVATE-CREATE-CANARY';
+  const second = 'PRIVATE-UPDATE-CANARY';
+  const failed = 'PRIVATE-FAILURE-CANARY';
+  try {
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    const created = await client.executeMutation({ entity: 'Person', action: 'Create',
+      id: '1', payload: { name: first }, comment: 'create fixture' });
+    const read = () => client.executeQuery(new SelectQuery('Person').limit(1)
+      .comment('read fixture').purpose('verify persisted values'));
+    expect((await read())[0].name).toBe(first);
+    const updated = await client.executeMutation({ entity: 'Person', action: 'Update',
+      id: '1', version: created.version, payload: { name: second }, comment: 'update fixture' });
+    expect((await read())[0].name).toBe(second);
+    await expect(client.executeMutation({ entity: 'Person', action: 'Create',
+      id: '1', payload: { name: failed }, comment: 'duplicate fixture' })).rejects.toThrow();
+    expect((await read())[0].name).toBe(second);
+    await client.executeMutation({ entity: 'Person', action: 'Delete', id: '1',
+      version: updated.version, payload: {}, comment: 'delete fixture' });
+    expect(await read()).toHaveLength(0);
+    const log = readFileSync(logPath, 'utf8') + JSON.stringify(evidence.snapshot());
+    for (const marker of [first, second, failed]) expect(log).not.toContain(marker);
+    for (const operation of ['insert', 'select', 'update']) expect(log).toContain(operation);
+  } finally { await client.close(); }
+});
 
 it('captures parameterized safe SQL evidence with exact modes', async () => {
   const store = new SQLExecutionEvidenceStore();
@@ -41,7 +84,8 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   expect(entries.some(entry => entry.operation === 'select')).toBe(true);
   expect(entries.every(entry => !entry.parameterizedSQL.includes(secret))).toBe(true);
   expect(entries.every(entry => entry.parameters.length > 0)).toBe(true);
-  expect(entries.some(entry => entry.debugSQL.includes(`'${secret}'`))).toBe(true);
+  expect(JSON.stringify(entries)).not.toContain(secret);
+  expect(entries.every(entry => entry.parameters.every(value => value === null))).toBe(true);
   expect(entries.some(entry => entry.resultCount !== undefined)).toBe(true);
   expect(entries.some(entry => entry.affectedRows !== undefined)).toBe(true);
   const select = entries.find(entry => entry.operation === 'select')!;
@@ -98,7 +142,8 @@ it('enables query and mutation logs by default and disables them independently',
   await client.close();
 });
 
-it('emits both SQL forms through the default-enabled diagnostic contract', async () => {
+it('emits both SQL forms only with the exact plaintext debug acknowledgement', async () => {
+  process.env[PLAINTEXT_LOG_ENV] = PLAINTEXT_LOG_ACK;
   const output: string[] = [];
   const client = new SQLiteTeaQLClient(':memory:', schemas)
     .setDiagnosticSQLLogSink(new TextDiagnosticSQLLogSink(line => output.push(line)));

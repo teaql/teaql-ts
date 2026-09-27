@@ -9,6 +9,7 @@ import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { OrderBy, SelectQuery } from '../core/ast';
+import { projectSQLLog, logValueStrings, scrubLogText } from '../core/log-privacy';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -340,10 +341,8 @@ export interface RuntimeTelemetrySink {
 }
 
 /**
- * Explicit value-bearing SQL diagnostic surface. Unlike RuntimeTelemetry this
- * sink may receive secrets and personal data through debugSQL. The text sink
- * is installed by default and can be disabled independently for queries and
- * mutations; production applications should route it deliberately.
+ * Policy-projected SQL diagnostic surface. Values are redacted by default;
+ * selecting a custom sink does not grant plaintext access.
  */
 export interface DiagnosticSQLLogSink {
   write(metadata: SQLExecutionMetadata): void;
@@ -353,6 +352,7 @@ export class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
   constructor(private readonly writer: (text: string) => void = text => console.debug(text)) {}
 
   write(metadata: SQLExecutionMetadata): void {
+    metadata = projectSQLLog(metadata);
     this.writer(
       `[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}\n` +
       `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
@@ -536,8 +536,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       resultSummary: resultCount !== undefined
         ? `${resultCount} rows returned` : `${affectedRows ?? 0} rows affected`,
     });
-    this.telemetrySink?.record(metadata);
-    this.diagnosticSQLLogSink?.write(metadata);
+    const projected = projectSQLLog(metadata);
+    this.telemetrySink?.record(projected);
+    this.diagnosticSQLLogSink?.write(projected);
   }
 
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */
@@ -848,7 +849,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         entity: mutation.entity,
         action: mutation.action,
         id: String(result.id),
-        reason: String(mutation.comment),
+        reason: scrubLogText(String(mutation.comment), logValueStrings(mutation.payload)),
         recordedAt: new Date().toISOString(),
         actor: this.userContext.getResource<string>('bootstrapActor'),
         category: this.userContext.getResource<string>('bootstrapCategory'),

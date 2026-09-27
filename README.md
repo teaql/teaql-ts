@@ -1,5 +1,27 @@
 # TeaQL-TS (TypeScript Runtime)
 
+## Sensitive log data
+
+Runtime diagnostic logs redact payload values by default, before delivery to
+file, console, buffers, or custom logging sinks. Selecting a diagnostic sink
+alone does not authorize plaintext. For controlled troubleshooting only:
+
+```bash
+export TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS=I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK
+```
+
+Only this exact value enables plaintext permission; empty values, `true`, and
+whitespace variants do not. Enabling it emits a warning. Credential-classified
+fields remain redacted. The flag does not force every sink to expose values.
+SQL without reliable field/literal provenance may be suppressed and marked
+`NOT REPLAYABLE`. Execution parameters and persisted business data are unchanged.
+
+Do not put sensitive data in free-text comments or purpose declarations.
+TeaQL cannot govern arbitrary application prints or independent driver loggers;
+configure those separately. This setting does not erase older plaintext files.
+Restrict access and retention when using plaintext diagnostics, then unset the
+variable and restart processes when troubleshooting is complete.
+
 `teaql-ts` is the core TypeScript runtime framework for the **TEAQL Federation Protocol (TFP)**. It provides an ultra-lightweight engine responsible for securely translating elegant chained DSLs into cross-language ASTs, allowing you to enjoy a strongly-typed, highly expressive data fetching experience on the frontend (or Node.js).
 
 ## Recommended Agent Harness
