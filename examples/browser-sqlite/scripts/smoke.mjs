@@ -3,7 +3,8 @@ import puppeteer from 'puppeteer-core';
 
 const port = 4174;
 const server = spawn(process.execPath, [
-  'node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port),
+  // Verify the built deployment, not Vite's first-load dependency optimizer.
+  'node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort',
 ], {
   stdio: ['ignore', 'pipe', 'pipe'],
 });
