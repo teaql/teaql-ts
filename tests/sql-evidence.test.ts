@@ -49,7 +49,8 @@ it('persists original SQLite CRUD values while file and custom logs remain redac
       id: '1', version: created.version, payload: { name: second }, comment: 'update fixture' });
     expect((await read())[0].name).toBe(second);
     await expect(client.executeMutation({ entity: 'Person', action: 'Create',
-      id: '1', payload: { name: failed }, comment: 'duplicate fixture' })).rejects.toThrow();
+      id: '1', payload: { name: failed }, comment: 'duplicate fixture' }))
+      .rejects.toMatchObject({ code: 'SQLITE_CONSTRAINT_PRIMARYKEY' });
     expect((await read())[0].name).toBe(second);
     await client.executeMutation({ entity: 'Person', action: 'Delete', id: '1',
       version: updated.version, payload: {}, comment: 'delete fixture' });
