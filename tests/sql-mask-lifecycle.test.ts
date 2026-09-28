@@ -158,6 +158,32 @@ it.each(['Create', 'Update', 'Delete'])('records failed %s with audit reason, no
   } finally { await f.client.close(); }
 });
 
+it.each(['Create', 'Update', 'Delete'])(
+  'scrubs the target id from successful %s audit reason but keeps the typed id', async action => {
+    const f = await fixture();
+    try {
+      if (action !== 'Create') {
+        await f.client.executeMutation({
+          entity: 'Customer', action: 'Create', id: '1001',
+          payload: { displayName: 'Seed', publicAddress: 'Seed Road' },
+          comment: 'seed audit target',
+        });
+      }
+      const mutation = {
+        entity: 'Customer', action, id: '1001', version: 1,
+        payload: action === 'Delete' ? {} : { displayName: 'Changed' },
+        comment: `${action.toLowerCase()} target 1001`,
+      };
+      await f.client.executeMutation(mutation);
+      const auditTrace = f.client.auditTrace;
+      const audit = auditTrace[auditTrace.length - 1];
+      expect(audit?.id).toBe('1001');
+      expect(audit?.reason).toBe(`${action.toLowerCase()} target [REDACTED]`);
+      expect(mutation.id).toBe('1001');
+      expect(mutation.comment).toContain('1001');
+    } finally { await f.client.close(); }
+  });
+
 it('does not report prefetched but undelivered rows on a stream failure', async () => {
   const f = await fixture();
   const fault = new Error('DRIVER-CANARY');

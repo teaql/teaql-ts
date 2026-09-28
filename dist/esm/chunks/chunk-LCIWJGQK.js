@@ -934,7 +934,10 @@ var AbstractSQLTeaQLClient = class {
         entity: mutation.entity,
         action: mutation.action,
         id: String(result.id),
-        reason: scrubLogText(String(mutation.comment), logValueStrings(mutation.payload)),
+        reason: scrubLogText(String(mutation.comment), [
+          ...logValueStrings(mutation.payload),
+          ...logValueStrings(mutation.id)
+        ]),
         recordedAt: (/* @__PURE__ */ new Date()).toISOString(),
         actor: this.userContext.getResource("bootstrapActor"),
         category: this.userContext.getResource("bootstrapCategory"),
@@ -1788,4 +1791,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-6ZBMIZTE.js.map
+//# sourceMappingURL=chunk-LCIWJGQK.js.map

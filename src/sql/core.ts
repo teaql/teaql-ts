@@ -818,7 +818,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         entity: mutation.entity,
         action: mutation.action,
         id: String(result.id),
-        reason: scrubLogText(String(mutation.comment), logValueStrings(mutation.payload)),
+        reason: scrubLogText(String(mutation.comment), [
+          ...logValueStrings(mutation.payload), ...logValueStrings(mutation.id),
+        ]),
         recordedAt: new Date().toISOString(),
         actor: this.userContext.getResource<string>('bootstrapActor'),
         category: this.userContext.getResource<string>('bootstrapCategory'),

@@ -612,7 +612,9 @@ class AbstractSQLTeaQLClient {
                 entity: mutation.entity,
                 action: mutation.action,
                 id: String(result.id),
-                reason: (0, log_privacy_1.scrubLogText)(String(mutation.comment), (0, log_privacy_1.logValueStrings)(mutation.payload)),
+                reason: (0, log_privacy_1.scrubLogText)(String(mutation.comment), [
+                    ...(0, log_privacy_1.logValueStrings)(mutation.payload), ...(0, log_privacy_1.logValueStrings)(mutation.id),
+                ]),
                 recordedAt: new Date().toISOString(),
                 actor: this.userContext.getResource('bootstrapActor'),
                 category: this.userContext.getResource('bootstrapCategory'),
