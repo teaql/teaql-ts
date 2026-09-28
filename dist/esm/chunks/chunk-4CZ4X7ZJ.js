@@ -249,22 +249,22 @@ function businessMask(value) {
   if (typeof value === "object" && !(value instanceof Date)) return redacted;
   return maskAuditValue(value instanceof Date ? value.toISOString() : String(value));
 }
-function projectSQLLog(metadata, inherited) {
+function projectSQLLog(metadata, inherited, intentValues = []) {
   const allow = plaintextLogsEnabled() && metadata.logMode !== "masked";
   const prior = projections.get(metadata);
   if (prior !== void 0 && (!prior || allow)) return metadata;
   const safe = safeAlternatives.get(metadata);
   if (!allow && safe) return safe;
-  const projected = projectWithPolicy(metadata, allow, inherited);
+  const projected = projectWithPolicy(metadata, allow, inherited, intentValues);
   projections.set(projected, allow);
   if (allow) {
-    const alternative = projectWithPolicy(metadata, false, inherited);
+    const alternative = projectWithPolicy(metadata, false, inherited, intentValues);
     projections.set(alternative, false);
     safeAlternatives.set(projected, alternative);
   }
   return projected;
 }
-function projectWithPolicy(metadata, allow, inherited) {
+function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
   const supplied = metadata.parameterLogPolicies;
   const policiesValid = !supplied || supplied.length === metadata.parameters.length;
   const credentialStatement = credentialName(metadata.parameterizedSQL) && (metadata.sqlOrigin !== "generated" || !supplied || !policiesValid);
@@ -275,8 +275,9 @@ function projectWithPolicy(metadata, allow, inherited) {
     const inheritedPolicies = bindingPolicies(inherited);
     secrets.push(...inherited.parameters.flatMap((value, index) => bindingIsMasked(inheritedPolicies[index], allow) ? logValueStrings(value) : []));
   }
+  const intentSecrets = [...secrets, ...intentValues.flatMap(logValueStrings)];
   const unknownDebugIntent = !allow && metadata.logMode === "debug-plaintext" && !inherited;
-  const intentText = (value) => unknownDebugIntent && value ? redacted : scrubLogText(value, secrets);
+  const intentText = (value) => unknownDebugIntent && value ? redacted : scrubLogText(value, intentSecrets);
   const safeValues = metadata.parameters.map((value, index) => {
     if (!masked[index]) return copyLogValue(value);
     return policies[index] === "masked" ? businessMask(value) : redacted;
@@ -308,7 +309,7 @@ function projectWithPolicy(metadata, allow, inherited) {
     purpose: intentText(metadata.purpose),
     auditReason: intentText(metadata.auditReason),
     // Counts are operational metadata, not a copy of a masked numeric binding.
-    resultSummary: metadata.resultCount !== void 0 ? `${metadata.resultCount} rows returned` : metadata.affectedRows !== void 0 ? `${metadata.affectedRows} rows affected` : intentText(metadata.resultSummary),
+    resultSummary: metadata.resultCount !== void 0 ? `${metadata.resultCount} rows returned` : metadata.affectedRows !== void 0 ? `${metadata.affectedRows} rows affected` : scrubLogText(metadata.resultSummary, secrets),
     tracePath: Object.freeze(metadata.tracePath.map((frame) => Object.freeze(
       Object.fromEntries(Object.entries(frame).map(([key, value]) => [key, typeof value === "string" ? intentText(value) : value]))
     )))
@@ -567,9 +568,10 @@ var AbstractSQLTeaQLClient = class {
     if (isSelect && !this.queryLoggingEnabled || !isSelect && !this.mutationLoggingEnabled) return;
     if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
     try {
+      const { targetID, ...visibleIntent } = intent;
       const metadata = Object.freeze({
         operation,
-        ...intent,
+        ...visibleIntent,
         executionOutcome,
         tracePath: Object.freeze([...intent.tracePath ?? []]),
         parameterizedSQL,
@@ -584,7 +586,7 @@ var AbstractSQLTeaQLClient = class {
         affectedRows,
         resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
       });
-      const projected = projectSQLLog(metadata, inherited);
+      const projected = projectSQLLog(metadata, inherited, targetID === void 0 ? [] : [targetID]);
       try {
         this.telemetrySink?.record(projected);
       } catch {
@@ -829,7 +831,8 @@ var AbstractSQLTeaQLClient = class {
           const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
           const intent = {
             auditReason: String(mutation.comment),
-            tracePath: mutationTracePath(mutation, this.driver.databaseKind, "insert")
+            tracePath: mutationTracePath(mutation, this.driver.databaseKind, "insert"),
+            targetID: id
           };
           await this.executeLoggedSQL("insert", sql, values, intent, () => session.query(sql, values));
           return {
@@ -865,7 +868,8 @@ var AbstractSQLTeaQLClient = class {
           const sql = `UPDATE ${table} SET ${assignments.join(", ")} WHERE ${predicates.join(" AND ")}`;
           const intent = {
             auditReason: String(mutation.comment),
-            tracePath: mutationTracePath(mutation, this.driver.databaseKind, "update")
+            tracePath: mutationTracePath(mutation, this.driver.databaseKind, "update"),
+            targetID: mutation.id
           };
           const result2 = await this.executeLoggedSQL("update", sql, values, intent, () => session.query(sql, values));
           if (result2.rowCount !== 1) {
@@ -904,7 +908,8 @@ var AbstractSQLTeaQLClient = class {
           const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) WHERE ${predicates.join(" AND ")}`;
           const intent = {
             auditReason: String(mutation.comment),
-            tracePath: mutationTracePath(mutation, this.driver.databaseKind, "delete")
+            tracePath: mutationTracePath(mutation, this.driver.databaseKind, "delete"),
+            targetID: mutation.id
           };
           const result2 = await this.executeLoggedSQL("delete", sql, values, intent, () => session.query(sql, values));
           if (result2.rowCount !== 1) {
@@ -1791,4 +1796,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-LCIWJGQK.js.map
+//# sourceMappingURL=chunk-4CZ4X7ZJ.js.map

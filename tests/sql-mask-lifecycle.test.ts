@@ -145,16 +145,29 @@ it.each(['Create', 'Update', 'Delete'])('records failed %s with audit reason, no
   const fault = new Error('Riverside DRIVER-CANARY PASSWORD-CANARY');
   f.driver.fault = fault;
   try {
-    await expect(f.client.executeMutation({ entity: 'Customer', action, id: action === 'Create' ? '4' : '1',
+    const targetID = action === 'Create' ? '4' : '1';
+    await expect(f.client.executeMutation({ entity: 'Customer', action, id: targetID,
       version: 1, payload: { displayName: 'Riverside', publicAddress: '1 Runtime Road', passwordHash: 'PASSWORD-CANARY' },
-      comment: 'verify failed mutation' })).rejects.toBe(fault);
+      comment: `verify failed mutation ${targetID}` })).rejects.toBe(fault);
     expect(f.logs).toHaveLength(1);
     expect(f.logs[0].executionOutcome).toBe('failure');
-    expect(f.logs[0].auditReason).toBe('verify failed mutation');
+    expect(f.logs[0].auditReason).toBe('verify failed mutation [REDACTED]');
     expect(f.logs[0].affectedRows).toBeUndefined();
     const all = JSON.stringify([f.logs, f.output, f.evidence.snapshot()]);
     expect(all).not.toMatch(/Riverside|PASSWORD-CANARY|DRIVER-CANARY/);
     expect(f.logs[0].debugSQL).not.toContain('?');
+  } finally { await f.client.close(); }
+});
+
+it('does not redact a structural row count when the target ID is short', async () => {
+  const f = await fixture();
+  try {
+    await f.client.executeMutation({entity:'Customer',action:'Update',id:'1',version:1,
+      payload:{publicAddress:'Changed Road'},comment:'update target 1'});
+    expect(f.logs).toHaveLength(1);
+    expect(f.logs[0].auditReason).toBe('update target [REDACTED]');
+    expect(f.logs[0].resultSummary).toBe('1 rows affected');
+    expect(f.logs[0].parameters).toContain('1');
   } finally { await f.client.close(); }
 });
 
@@ -179,6 +192,11 @@ it.each(['Create', 'Update', 'Delete'])(
       const audit = auditTrace[auditTrace.length - 1];
       expect(audit?.id).toBe('1001');
       expect(audit?.reason).toBe(`${action.toLowerCase()} target [REDACTED]`);
+      const sqlEntry = f.logs[f.logs.length - 1];
+      expect(sqlEntry.auditReason).toBe(`${action.toLowerCase()} target [REDACTED]`);
+      expect(JSON.stringify(sqlEntry.tracePath)).not.toContain('1001');
+      expect(sqlEntry).not.toHaveProperty('targetID');
+      expect(sqlEntry.parameters).toContain('1001');
       expect(mutation.id).toBe('1001');
       expect(mutation.comment).toContain('1001');
     } finally { await f.client.close(); }

@@ -268,8 +268,9 @@ class AbstractSQLTeaQLClient {
         if (!this.telemetrySink && !this.diagnosticSQLLogSink)
             return;
         try {
+            const { targetID, ...visibleIntent } = intent;
             const metadata = Object.freeze({
-                operation, ...intent, executionOutcome,
+                operation, ...visibleIntent, executionOutcome,
                 tracePath: Object.freeze([...(intent.tracePath ?? [])]),
                 parameterizedSQL, parameters: Object.freeze([...parameters]),
                 // Never build a plaintext SQL copy before the log policy boundary.
@@ -281,7 +282,7 @@ class AbstractSQLTeaQLClient {
                     ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
                     : `statement ${executionOutcome}; row count unknown`,
             });
-            const projected = (0, log_privacy_1.projectSQLLog)(metadata, inherited);
+            const projected = (0, log_privacy_1.projectSQLLog)(metadata, inherited, targetID === undefined ? [] : [targetID]);
             // Runtime diagnostics are fail-open and each sink is independent. A
             // broken application sink must not roll back a successful SQL mutation.
             try {
@@ -531,6 +532,7 @@ class AbstractSQLTeaQLClient {
                     const intent = {
                         auditReason: String(mutation.comment),
                         tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'insert'),
+                        targetID: id,
                     };
                     await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values));
                     return {
@@ -562,6 +564,7 @@ class AbstractSQLTeaQLClient {
                     const intent = {
                         auditReason: String(mutation.comment),
                         tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'update'),
+                        targetID: mutation.id,
                     };
                     const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values));
                     if (result.rowCount !== 1) {
@@ -592,6 +595,7 @@ class AbstractSQLTeaQLClient {
                     const intent = {
                         auditReason: String(mutation.comment),
                         tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'delete'),
+                        targetID: mutation.id,
                     };
                     const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values));
                     if (result.rowCount !== 1) {

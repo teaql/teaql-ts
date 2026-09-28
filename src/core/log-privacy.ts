@@ -108,24 +108,26 @@ function businessMask(value: unknown): unknown {
   return maskAuditValue(value instanceof Date ? value.toISOString() : String(value));
 }
 
-export function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLogBindingSource): SQLExecutionMetadata {
+export function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLogBindingSource,
+  intentValues: readonly unknown[] = []): SQLExecutionMetadata {
   const allow = plaintextLogsEnabled() && metadata.logMode !== 'masked';
   const prior = projections.get(metadata);
   // Safe projections cannot recover raw values. If debug gets disabled, reproject.
   if (prior !== undefined && (!prior || allow)) return metadata;
   const safe = safeAlternatives.get(metadata);
   if (!allow && safe) return safe;
-  const projected = projectWithPolicy(metadata, allow, inherited);
+  const projected = projectWithPolicy(metadata, allow, inherited, intentValues);
   projections.set(projected, allow);
   if (allow) {
-    const alternative = projectWithPolicy(metadata, false, inherited);
+    const alternative = projectWithPolicy(metadata, false, inherited, intentValues);
     projections.set(alternative, false);
     safeAlternatives.set(projected, alternative);
   }
   return projected;
 }
 
-function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inherited?: SQLLogBindingSource): SQLExecutionMetadata {
+function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inherited?: SQLLogBindingSource,
+  intentValues: readonly unknown[] = []): SQLExecutionMetadata {
   const supplied = metadata.parameterLogPolicies;
   const policiesValid = !supplied || supplied.length === metadata.parameters.length;
   // Compiler-owned bindings identify credentials individually. Selecting a
@@ -140,11 +142,12 @@ function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inher
     secrets.push(...inherited.parameters.flatMap((value, index) =>
       bindingIsMasked(inheritedPolicies[index], allow) ? logValueStrings(value) : []));
   }
+  const intentSecrets = [...secrets, ...intentValues.flatMap(logValueStrings)];
   // Copies/serialization discard the private safe alternative. Their old debug
   // intent has unknown provenance, so fail closed when returning to safe mode.
   const unknownDebugIntent = !allow && metadata.logMode === 'debug-plaintext' && !inherited;
   const intentText = (value: string | undefined): string | undefined =>
-    unknownDebugIntent && value ? redacted : scrubLogText(value, secrets);
+    unknownDebugIntent && value ? redacted : scrubLogText(value, intentSecrets);
   const safeValues = metadata.parameters.map((value, index) => {
     if (!masked[index]) return copyLogValue(value);
     return policies[index] === 'masked' ? businessMask(value) : redacted;
@@ -187,7 +190,7 @@ function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inher
     // Counts are operational metadata, not a copy of a masked numeric binding.
     resultSummary: metadata.resultCount !== undefined ? `${metadata.resultCount} rows returned`
       : metadata.affectedRows !== undefined ? `${metadata.affectedRows} rows affected`
-      : intentText(metadata.resultSummary)!,
+      : scrubLogText(metadata.resultSummary, secrets)!,
     tracePath: Object.freeze(metadata.tracePath.map(frame => Object.freeze(
       Object.fromEntries(Object.entries(frame).map(([key,value]) =>
         [key, typeof value === 'string' ? intentText(value) : value])),

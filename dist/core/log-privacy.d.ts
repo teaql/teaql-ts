@@ -13,5 +13,5 @@ export type SQLLogBindingSource = Pick<SQLExecutionMetadata, 'parameterizedSQL' 
 /** Internal compiler plumbing: snapshot and flatten ancestor binding policies.
  * Never attach this raw provenance to a query payload or projected log record. */
 export declare function inheritSQLLogBindings(source: SQLLogBindingSource, inherited?: SQLLogBindingSource): SQLLogBindingSource;
-export declare function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLogBindingSource): SQLExecutionMetadata;
+export declare function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLogBindingSource, intentValues?: readonly unknown[]): SQLExecutionMetadata;
 //# sourceMappingURL=log-privacy.d.ts.map
