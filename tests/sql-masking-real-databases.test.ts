@@ -14,10 +14,12 @@ const cases = [
 ] as const;
 
 describe.each(cases)('%s live SQL masking', (name, envName, createClient, createDriver) => {
-  const url = process.env[envName];
-  const testIfConfigured = url ? test : test.skip;
+  const url = process.env[envName]?.trim();
+  const required = process.env.TEAQL_REQUIRE_LIVE_DB?.toLowerCase() === 'true';
+  const testIfConfigured = url || required ? test : test.skip;
 
   testIfConfigured('preserves execution values while rendering field-aware Q and mutation logs', async () => {
+    if (!url) throw new Error(`${envName} is required for live provider tests`);
     const table = `teaql_mask_${name.toLowerCase()}_${process.pid}_${Date.now()}`;
     const schemas: Record<string, EntitySchema> = { Customer: {
       table,
