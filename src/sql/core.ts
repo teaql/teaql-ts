@@ -9,7 +9,9 @@ import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { OrderBy, SelectQuery } from '../core/ast';
-import { projectSQLLog, logValueStrings, scrubLogText } from '../core/log-privacy';
+import { projectSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings } from '../core/log-privacy';
+import type { SQLLogBindingSource } from '../core/log-privacy';
+import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -27,12 +29,15 @@ export type ColumnSchema = {
   logicalType: LogicalColumnType;
   decode: 'string' | 'number' | 'date' | 'native';
   nullable?: boolean;
+  /** Trusted model/application log policy, never taken from a query payload. */
+  logPolicy?: SQLParameterLogPolicy;
 };
 
 export type EntitySchema = {
   table: string;
   columns: Record<string, ColumnSchema>;
   relations?: Record<string, RelationSchema>;
+  auditMaskFields?: readonly string[];
 };
 
 export type RelationSchema = {
@@ -185,6 +190,10 @@ export interface TeaQLDataService {
 }
 
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
+/** Statement/cursor completion, not transaction commit or business success. */
+export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
+
+type SQLLogIntent = { comment?: string; purpose?: string; auditReason?: string; tracePath?: SQLTraceFrame[] };
 
 export type SQLTraceFrame = Readonly<{
   level: number;
@@ -207,6 +216,7 @@ function mutationTracePath(
 
 export type SQLExecutionMetadata = Readonly<{
   operation: SQLExecutionOperation;
+  executionOutcome?: SQLExecutionOutcome;
   comment?: string;
   purpose?: string;
   auditReason?: string;
@@ -215,126 +225,20 @@ export type SQLExecutionMetadata = Readonly<{
   parameters: readonly unknown[];
   /** SQL with bind values rendered as literals, intended only for diagnostics. */
   debugSQL: string;
+  databaseKind?: SQLDatabaseKind;
+  parameterLogPolicies?: readonly SQLParameterLogPolicy[];
+  /** Set by the runtime SQL compiler, not by the incoming Q/TFP request. */
+  sqlOrigin?: 'generated';
+  maskedParameters?: readonly boolean[];
+  logMode?: 'masked' | 'debug-plaintext';
+  omissionReason?: 'untrusted-literal-sql' | 'policy-count-mismatch' | 'unsupported-or-mismatched-bindings';
   elapsedMicros: number;
   resultCount?: number;
   affectedRows?: number;
   resultSummary: string;
 }>;
 
-/** Render provider placeholders as SQL literals so the statement can be copied into a SQL client. */
-export type SQLDatabaseKind = 'postgresql' | 'mysql' | 'sqlite';
-
-export function debugSQL(
-  parameterizedSQL: string,
-  parameters: readonly unknown[],
-  databaseKind: SQLDatabaseKind = 'sqlite',
-): string {
-  let positionalIndex = 0;
-  let result = '';
-  let state: 'sql' | 'single' | 'double' | 'line-comment' | 'block-comment' = 'sql';
-  for (let index = 0; index < parameterizedSQL.length; index++) {
-    const char = parameterizedSQL[index];
-    const next = parameterizedSQL[index + 1] ?? '';
-    if (state === 'sql' && char === "'") {
-      result += char;
-      state = 'single';
-      continue;
-    }
-    if (state === 'sql' && char === '"') { result += char; state = 'double'; continue; }
-    if (state === 'sql' && char === '-' && next === '-') {
-      result += '--'; index++; state = 'line-comment'; continue;
-    }
-    if (state === 'sql' && char === '/' && next === '*') {
-      result += '/*'; index++; state = 'block-comment'; continue;
-    }
-    if (state === 'single') {
-      result += char;
-      if (char === "'" && next === "'") result += parameterizedSQL[++index];
-      else if (char === "'") state = 'sql';
-      continue;
-    }
-    if (state === 'double') {
-      result += char;
-      if (char === '"' && next === '"') result += parameterizedSQL[++index];
-      else if (char === '"') state = 'sql';
-      continue;
-    }
-    if (state === 'line-comment') {
-      result += char;
-      if (char === '\r' || char === '\n') state = 'sql';
-      continue;
-    }
-    if (state === 'block-comment') {
-      result += char;
-      if (char === '*' && next === '/') { result += '/'; index++; state = 'sql'; }
-      continue;
-    }
-    if (char === '?') {
-      result += positionalIndex < parameters.length
-        ? sqlLiteral(parameters[positionalIndex++], databaseKind) : char;
-      continue;
-    }
-    if (char === '$' && /[0-9]/.test(parameterizedSQL[index + 1] ?? '')) {
-      let end = index + 1;
-      while (/[0-9]/.test(parameterizedSQL[end] ?? '')) end++;
-      const parameterIndex = Number(parameterizedSQL.slice(index + 1, end)) - 1;
-      result += parameterIndex >= 0 && parameterIndex < parameters.length
-        ? sqlLiteral(parameters[parameterIndex], databaseKind) : parameterizedSQL.slice(index, end);
-      index = end - 1;
-      continue;
-    }
-    if (parameterizedSQL.slice(index).match(/^@p[0-9]+/i)) {
-      const placeholder = parameterizedSQL.slice(index).match(/^@p([0-9]+)/i)!;
-      const parameterIndex = Number(placeholder[1]) - 1;
-      result += parameterIndex >= 0 && parameterIndex < parameters.length
-        ? sqlLiteral(parameters[parameterIndex], databaseKind) : placeholder[0];
-      index += placeholder[0].length - 1;
-      continue;
-    }
-    result += char;
-  }
-  return result;
-}
-
-function sqlLiteral(value: unknown, databaseKind: SQLDatabaseKind): string {
-  if (value && typeof value === 'object' && 'type' in value) {
-    const typed = value as { type: string; value?: unknown };
-    if (typed.type === 'Null' || typed.type === 'TypedNull') return 'NULL';
-    if (typed.type === 'Date') {
-      const date = typed.value instanceof Date
-        ? typed.value.toISOString().slice(0, 10) : String(typed.value);
-      if (databaseKind === 'postgresql') return `DATE ${quoteSQLString(date)}`;
-      if (databaseKind === 'mysql') return `CAST(${quoteSQLString(date)} AS DATE)`;
-      return quoteSQLString(date);
-    }
-    if (typed.type === 'Timestamp') {
-      if (databaseKind === 'sqlite') return String(typed.value);
-      const iso = new Date(Number(typed.value)).toISOString();
-      if (databaseKind === 'postgresql') return `TIMESTAMPTZ ${quoteSQLString(iso)}`;
-      return `CAST(${quoteSQLString(iso.slice(0, 23).replace('T', ' '))} AS DATETIME(3))`;
-    }
-    if (typed.type === 'Bool') return typed.value ? 'TRUE' : 'FALSE';
-    if (['I64', 'U64', 'F64', 'Decimal'].includes(typed.type)) return String(typed.value);
-    if (typed.type === 'Text') return quoteSQLString(String(typed.value));
-  }
-  if (value === null || value === undefined) return 'NULL';
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  if (typeof value === 'number' || typeof value === 'bigint') return String(value);
-  if (value instanceof Date) {
-    if (databaseKind === 'sqlite') return String(value.getTime());
-    if (databaseKind === 'postgresql') return `TIMESTAMPTZ ${quoteSQLString(value.toISOString())}`;
-    return `CAST(${quoteSQLString(value.toISOString().slice(0, 23).replace('T', ' '))} AS DATETIME(3))`;
-  }
-  if (value instanceof Uint8Array) {
-    return `X'${Array.from(value, byte => byte.toString(16).padStart(2, '0')).join('')}'`;
-  }
-  if (typeof value === 'object') return quoteSQLString(JSON.stringify(value));
-  return quoteSQLString(String(value));
-}
-
-function quoteSQLString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+export { debugSQL, SQLDatabaseKind } from './log-rendering';
 
 export interface RuntimeTelemetrySink {
   record(metadata: SQLExecutionMetadata): void;
@@ -354,10 +258,11 @@ export class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
   write(metadata: SQLExecutionMetadata): void {
     metadata = projectSQLLog(metadata);
     this.writer(
-      `[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}\n` +
+      `[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}` +
+      `${metadata.executionOutcome ? ` outcome=${metadata.executionOutcome}` : ''}\n` +
       `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
       `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}\n` +
-      `Parameterized SQL: ${metadata.parameterizedSQL} params=${diagnosticJSON(metadata.parameters)}\n` +
+      (metadata.omissionReason ? `SQL omitted: ${metadata.omissionReason}\n` : '') +
       `Debug SQL: ${metadata.debugSQL}`,
     );
   }
@@ -404,6 +309,23 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private bootstrapTail: Promise<void> = Promise.resolve();
   public readonly sqlTrace: string[] = [];
   private readonly internalQueryToken = Symbol('teaql-internal-query');
+  private readonly bindLogPolicies = new WeakMap<readonly unknown[], SQLParameterLogPolicy[]>();
+  private readonly derivedQueryBindings = new WeakMap<object, SQLLogBindingSource>();
+
+  private fieldLogPolicy(schema: EntitySchema, field: string): SQLParameterLogPolicy {
+    const column = schema.columns[field];
+    const name = column?.modelName ?? column?.columnName ?? field;
+    if (credentialName(name) || credentialName(field)) return 'credential';
+    if (schema.auditMaskFields?.includes(name) || schema.auditMaskFields?.includes(field)) return 'masked';
+    return column?.logPolicy ?? 'unknown';
+  }
+
+  private bindValue(values: any[], value: unknown, policy: SQLParameterLogPolicy): void {
+    const policies = this.bindLogPolicies.get(values) ?? values.map(() => 'unknown' as const);
+    values.push(value);
+    policies.push(policy);
+    this.bindLogPolicies.set(values, policies);
+  }
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
   private telemetrySink?: RuntimeTelemetrySink;
@@ -521,24 +443,66 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private recordSQL(
     operation: SQLExecutionOperation, parameterizedSQL: string, parameters: readonly unknown[],
     startedAt: number, resultCount?: number, affectedRows?: number,
-    intent: { comment?: string; purpose?: string; auditReason?: string; tracePath?: SQLTraceFrame[] } = {},
+    intent: SQLLogIntent = {},
+    executionOutcome: SQLExecutionOutcome = 'success',
+    inherited?: SQLLogBindingSource,
   ): void {
     const isSelect = operation === 'select';
     if ((isSelect && !this.queryLoggingEnabled) || (!isSelect && !this.mutationLoggingEnabled)) return;
     if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
     const metadata = Object.freeze({
-      operation, ...intent,
+      operation, ...intent, executionOutcome,
       tracePath: Object.freeze([...(intent.tracePath ?? [])]),
       parameterizedSQL, parameters: Object.freeze([...parameters]),
-      debugSQL: debugSQL(parameterizedSQL, parameters, this.driver.databaseKind),
+      // Never build a plaintext SQL copy before the log policy boundary.
+      debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated' as const,
+      parameterLogPolicies: this.bindLogPolicies.get(parameters),
       elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
       resultCount, affectedRows,
       resultSummary: resultCount !== undefined
-        ? `${resultCount} rows returned` : `${affectedRows ?? 0} rows affected`,
+        ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
+          : `statement ${executionOutcome}; row count unknown`,
     });
-    const projected = projectSQLLog(metadata);
+    const projected = projectSQLLog(metadata, inherited);
     this.telemetrySink?.record(projected);
     this.diagnosticSQLLogSink?.write(projected);
+  }
+
+  private queryLogIntent(query: any, operation = 'query'): {
+    comment?: string; purpose?: string; tracePath: SQLTraceFrame[];
+  } {
+    const inherited: SQLTraceFrame[] = Array.isArray(query?.__teaqlTracePath) ? query.__teaqlTracePath : [
+      { level: 0, kind: 'operation', name: operation },
+      { level: 1, kind: 'request', name: String(query.entity) },
+    ];
+    return {
+      comment: query?._comment ?? query?.commentText,
+      purpose: query?._purpose ?? query?.purposeText,
+      tracePath: [...inherited,
+        { level: inherited.length, kind: 'provider', name: this.driver.databaseKind },
+        { level: inherited.length + 1, kind: 'sql', name: 'select' }],
+    };
+  }
+
+  private async executeLoggedSQL(
+    operation: SQLExecutionOperation, sql: string, values: any[],
+    intent: SQLLogIntent,
+    execute: () => Promise<SqlQueryResult>,
+    inherited?: SQLLogBindingSource,
+  ): Promise<SqlQueryResult> {
+    const startedAt = Date.now();
+    let result: SqlQueryResult;
+    try { result = await execute(); }
+    catch (error) {
+      // No exception text/cause/driver object enters a diagnostic sink. Preserve
+      // the original error for the caller, even if a sink itself is broken.
+      try { this.recordSQL(operation, sql, values, startedAt, undefined, undefined, intent, 'failure', inherited); }
+      finally { throw error; }
+    }
+    this.recordSQL(operation, sql, values, startedAt,
+      operation === 'select' ? result.rowCount : undefined,
+      operation === 'select' ? undefined : result.rowCount, intent, 'success', inherited);
+    return result;
   }
 
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */
@@ -742,18 +706,18 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const values = fields.map(field =>
           this.encode(record[field], schema.columns[field]),
         );
+        this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
         const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-        const startedAt = Date.now();
-        const mutationResult = await session.query(sql, values);
-        this.recordSQL('insert', sql, values, startedAt, undefined, mutationResult.rowCount, {
+        const intent = {
           auditReason: String(mutation.comment),
           tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'insert'),
-        });
+        };
+        await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values));
         return {
           success: true,
           id,
           version,
-          persistedRecord: await this.readPersistedRecord(session, schema, id),
+          persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values),
         };
       }
 
@@ -765,37 +729,37 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const values = fields.map(field =>
           this.encode(mutationRecord[field], schema.columns[field]),
         );
+        this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
         const assignments = fields.map((field, index) =>
           `${this.driver.identifier(schema.columns[field].columnName)} = ` +
           this.driver.placeholder(index + 1),
         );
         const versionColumn = this.driver.identifier('version');
         assignments.push(`${versionColumn} = ${versionColumn} + 1`);
-        values.push(String(mutation.id));
+        this.bindValue(values, String(mutation.id), this.fieldLogPolicy(schema, 'id'));
         const predicates = [
           `${this.driver.identifier('id')} = ${this.driver.placeholder(values.length)}`,
         ];
         if (mutation.version !== undefined && mutation.version !== null) {
-          values.push(Number(mutation.version));
+          this.bindValue(values, Number(mutation.version), this.fieldLogPolicy(schema, 'version'));
           predicates.push(
             `${versionColumn} = ${this.driver.placeholder(values.length)}`,
           );
         }
         const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
           `WHERE ${predicates.join(' AND ')}`;
-        const startedAt = Date.now();
-        const result = await session.query(sql, values);
-        this.recordSQL('update', sql, values, startedAt, undefined, result.rowCount, {
+        const intent = {
           auditReason: String(mutation.comment),
           tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'update'),
-        });
+        };
+        const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values));
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
           );
         }
         const persistedRecord = await this.readPersistedRecord(
-          session, schema, String(mutation.id),
+          session, schema, String(mutation.id), intent, sql, values,
         );
         return {
           success: true,
@@ -808,11 +772,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (mutation.action === 'Delete') {
         const versionColumn = this.driver.identifier('version');
         const values: any[] = [String(mutation.id)];
+        this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
         const predicates = [
           `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
         ];
         if (mutation.version !== undefined && mutation.version !== null) {
-          values.push(Number(mutation.version));
+          this.bindValue(values, Number(mutation.version), this.fieldLogPolicy(schema, 'version'));
           predicates.push(
             `${this.driver.identifier('version')} = ` +
             this.driver.placeholder(values.length),
@@ -820,19 +785,18 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         }
         const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
           `WHERE ${predicates.join(' AND ')}`;
-        const startedAt = Date.now();
-        const result = await session.query(sql, values);
-        this.recordSQL('delete', sql, values, startedAt, undefined, result.rowCount, {
+        const intent = {
           auditReason: String(mutation.comment),
           tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'delete'),
-        });
+        };
+        const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values));
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
           );
         }
         const persistedRecord = await this.readPersistedRecord(
-          session, schema, String(mutation.id),
+          session, schema, String(mutation.id), intent, sql, values,
         );
         return {
           success: true,
@@ -878,19 +842,35 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   private async readPersistedRecord(
     session: SqlSession, schema: EntitySchema, id: string,
+    intent: SQLLogIntent, writeSQL: string, writeValues: any[],
   ): Promise<Record<string, unknown>> {
     const projection = Object.entries(schema.columns).map(([field, column]) =>
       `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`,
     ).join(', ');
-    const result = await session.query(
-      `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
-      `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
-      [id],
-    );
-    if (result.rowCount !== 1) {
-      throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
+    const sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
+      `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`;
+    const values = [id];
+    this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
+    const startedAt = Date.now();
+    let result: SqlQueryResult | undefined;
+    try {
+      result = await session.query(sql, values);
+      if (result.rowCount !== 1) throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
+      return this.decodeRowForSchema(schema, result.rows[0]);
+    } catch (error) {
+      // Write success remains a separate statement fact. A snapshot validation
+      // failure means SELECT success with its real count, not a driver failure.
+      const outcome: SQLExecutionOutcome = result ? 'success'
+        : error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
+          ? 'cancelled' : 'failure';
+      const inherited: SQLLogBindingSource = { parameterizedSQL: writeSQL, parameters: writeValues,
+        parameterLogPolicies: this.bindLogPolicies.get(writeValues), sqlOrigin: 'generated' };
+      try {
+        this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined,
+          { ...intent, tracePath: [...(intent.tracePath ?? []),
+            {level: intent.tracePath?.length ?? 0, kind:'sql', name:'readback'}] }, outcome, inherited);
+      } finally { throw error; }
     }
-    return this.decodeRowForSchema(schema, result.rows[0]);
   }
 
   private decodeRowForSchema(schema: EntitySchema, row: any): Record<string, unknown> {
@@ -922,31 +902,32 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const column = schema.columns[field];
         if (!column) throw new Error(`Unknown field ${field} for SQL query`);
         const quotedField = this.driver.identifier(column.columnName);
+        const logPolicy = this.fieldLogPolicy(schema, field);
         if (predicate?.$eq !== undefined) {
           const value = predicate.$eq?.id ?? predicate.$eq;
           if (value === null) return `${quotedField} IS NULL`;
-          values.push(this.encode(value, column));
+          this.bindValue(values, this.encode(value, column), logPolicy);
           return `${quotedField} = ${this.driver.placeholder(values.length)}`;
         }
         if (predicate?.$ne !== undefined) {
           const value = predicate.$ne?.id ?? predicate.$ne;
           if (value === null) return `${quotedField} IS NOT NULL`;
-          values.push(this.encode(value, column));
+          this.bindValue(values, this.encode(value, column), logPolicy);
           return `${quotedField} <> ${this.driver.placeholder(values.length)}`;
         }
         if (predicate?.$soundLike !== undefined) {
-          values.push(String(predicate.$soundLike));
+          this.bindValue(values, String(predicate.$soundLike), logPolicy);
           return `SOUNDEX(${quotedField}) = SOUNDEX(${this.driver.placeholder(values.length)})`;
         }
         if (predicate?.$contains !== undefined) {
-          values.push(String(predicate.$contains));
+          this.bindValue(values, String(predicate.$contains), logPolicy);
           return this.driver.contains(
             quotedField,
             this.driver.placeholder(values.length),
           );
         }
         if (predicate?.$notContains !== undefined) {
-          values.push(String(predicate.$notContains));
+          this.bindValue(values, String(predicate.$notContains), logPolicy);
           return `NOT (${this.driver.contains(quotedField, this.driver.placeholder(values.length))})`;
         }
         for (const [operator, prefix, suffix, negative] of [
@@ -956,7 +937,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           ['$notEndsWith', '%', '', true],
         ] as const) {
           if (predicate?.[operator] !== undefined) {
-            values.push(`${prefix}${String(predicate[operator])}${suffix}`);
+            this.bindValue(values, `${prefix}${String(predicate[operator])}${suffix}`, logPolicy);
             const like = `${quotedField} LIKE ${this.driver.placeholder(values.length)}`;
             return negative ? `NOT (${like})` : like;
           }
@@ -964,7 +945,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         if (Array.isArray(predicate?.$in)) {
           if (!predicate.$in.length) return 'FALSE';
           const placeholders = predicate.$in.map((value: any) => {
-            values.push(this.encode(value?.id ?? value, column));
+            this.bindValue(values, this.encode(value?.id ?? value, column), logPolicy);
             return this.driver.placeholder(values.length);
           });
           return `${quotedField} IN (${placeholders.join(', ')})`;
@@ -972,7 +953,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         if (Array.isArray(predicate?.$notIn)) {
           if (!predicate.$notIn.length) return 'TRUE';
           const placeholders = predicate.$notIn.map((value: any) => {
-            values.push(this.encode(value?.id ?? value, column));
+            this.bindValue(values, this.encode(value?.id ?? value, column), logPolicy);
             return this.driver.placeholder(values.length);
           });
           return `${quotedField} NOT IN (${placeholders.join(', ')})`;
@@ -1018,28 +999,28 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           }
         }
         if (Array.isArray(predicate?.$between) && predicate.$between.length === 2) {
-          values.push(this.encode(predicate.$between[0], column));
+          this.bindValue(values, this.encode(predicate.$between[0], column), logPolicy);
           const lower = this.driver.placeholder(values.length);
-          values.push(this.encode(predicate.$between[1], column));
+          this.bindValue(values, this.encode(predicate.$between[1], column), logPolicy);
           const upper = this.driver.placeholder(values.length);
           return `${quotedField} BETWEEN ${lower} AND ${upper}`;
         }
         if (predicate?.$isNull === true) return `${quotedField} IS NULL`;
         if (predicate?.$isNull === false) return `${quotedField} IS NOT NULL`;
         if (predicate?.$gte !== undefined) {
-          values.push(this.encode(predicate.$gte, column));
+          this.bindValue(values, this.encode(predicate.$gte, column), logPolicy);
           return `${quotedField} >= ${this.driver.placeholder(values.length)}`;
         }
         if (predicate?.$lte !== undefined) {
-          values.push(this.encode(predicate.$lte, column));
+          this.bindValue(values, this.encode(predicate.$lte, column), logPolicy);
           return `${quotedField} <= ${this.driver.placeholder(values.length)}`;
         }
         if (predicate?.$gt !== undefined) {
-          values.push(this.encode(predicate.$gt, column));
+          this.bindValue(values, this.encode(predicate.$gt, column), logPolicy);
           return `${quotedField} > ${this.driver.placeholder(values.length)}`;
         }
         if (predicate?.$lt !== undefined) {
-          values.push(this.encode(predicate.$lt, column));
+          this.bindValue(values, this.encode(predicate.$lt, column), logPolicy);
           return `${quotedField} < ${this.driver.placeholder(values.length)}`;
         }
         throw new Error(`Unsupported query predicate for ${field}: ${JSON.stringify(predicate)}`);
@@ -1169,10 +1150,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (partitionBy) {
       const rank = this.driver.identifier('__teaql_partition_rank');
       const predicates: string[] = [];
-      values.push(offset);
+      this.bindValue(values, offset, 'plain');
       predicates.push(`${rank} > ${this.driver.placeholder(values.length)}`);
       if (limit > 0) {
-        values.push(offset + limit);
+        this.bindValue(values, offset + limit, 'plain');
         predicates.push(`${rank} <= ${this.driver.placeholder(values.length)}`);
       }
       sql = `SELECT * FROM (${sql}) AS ${this.driver.identifier('__teaql_partitioned')} ` +
@@ -1181,11 +1162,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       sql += ` ORDER BY ${orderClauses.join(', ')}`;
     }
     if (!partitionBy && limit > 0) {
-      values.push(limit);
+      this.bindValue(values, limit, 'plain');
       sql += ` LIMIT ${this.driver.placeholder(values.length)}`;
     }
     if (!partitionBy && offset > 0) {
-      values.push(offset);
+      this.bindValue(values, offset, 'plain');
       sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
     }
     this.sqlTrace.push(sql);
@@ -1193,6 +1174,24 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeQuery<T = any>(query: any): Promise<T[]> {
+    return this.executeQueryWithIntent<T>(query, this.derivedQueryBindings.get(query));
+  }
+
+  private async executeDerivedQuery<T>(query: object, inherited?: SQLLogBindingSource): Promise<T[]> {
+    // Only fresh execution-local child requests are registered. Keep virtual
+    // executeQuery dispatch for existing subclasses; no provenance on wire data.
+    if (inherited) this.derivedQueryBindings.set(query, inherited);
+    try { return await this.executeQuery<T>(query); }
+    finally { this.derivedQueryBindings.delete(query); }
+  }
+
+  private descendantBindings(query: any, sql: string, values: any[], inherited?: SQLLogBindingSource): SQLLogBindingSource | undefined {
+    if (!query.relations?.length && !query.relationAggregates?.length) return undefined;
+    return inheritSQLLogBindings({ parameterizedSQL: sql, parameters: values,
+      parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
+  }
+
+  private async executeQueryWithIntent<T = any>(query: any, inherited?: SQLLogBindingSource): Promise<T[]> {
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'query',
       name: `${String(query?.entity || 'unknown')}.list`,
@@ -1210,31 +1209,15 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
     query = prepared.query;
     const { sql, values, aggregateNames } = await this.compileQuery(query);
-    const startedAt = Date.now();
-    const result = await observeRuntimeOperation(this.runtimeTelemetry, {
+    const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query),
+      () => observeRuntimeOperation(this.runtimeTelemetry, {
       family: 'provider',
       name: `${this.driver.databaseKind}.query`,
       attributes: {
         'teaql.provider.kind': this.driver.databaseKind,
         'teaql.provider.operation': 'query',
       },
-    }, () => this.driver.query(sql, values));
-    const queryComment = query?._comment ?? query?.commentText;
-    const queryPurpose = query?._purpose ?? query?.purposeText;
-    const inheritedTrace: SQLTraceFrame[] = Array.isArray(query?.__teaqlTracePath)
-      ? query.__teaqlTracePath : [
-        { level: 0, kind: 'operation', name: 'query' },
-        { level: 1, kind: 'request', name: String(query.entity) },
-      ];
-    const tracePath = [...inheritedTrace,
-      { level: inheritedTrace.length, kind: 'provider' as const, name: this.driver.databaseKind },
-      { level: inheritedTrace.length + 1, kind: 'sql' as const, name: 'select' },
-    ];
-    this.recordSQL('select', sql, values, startedAt, result.rowCount, undefined, {
-      comment: queryComment,
-      purpose: queryPurpose,
-      tracePath,
-    });
+    }, () => this.driver.query(sql, values)), inherited);
     const rows = result.rows.map(row =>
       this.decodeRow(query.entity, row, aggregateNames),
     );
@@ -1248,8 +1231,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         (positions.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER)
         - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER));
     }
-    await this.enhanceRelations(rows, query);
-    await this.enhanceRelationAggregates(rows, query);
+    const descendantBindings = this.descendantBindings(query, sql, values, inherited);
+    await this.enhanceRelations(rows, query, descendantBindings);
+    await this.enhanceRelationAggregates(rows, query, descendantBindings);
     if (!internal) await this.registerContinuousPage(query, prepared.execution, rows);
     scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
     return rows as T[];
@@ -1443,22 +1427,44 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
     }
     const { sql, values, aggregateNames } = await this.compileQuery(query);
+    const startedAt = Date.now();
+    let outcome: SQLExecutionOutcome = 'cancelled';
+    let delivered = 0;
     let chunk: any[] = [];
-    for await (const rawRow of this.driver.stream(sql, values)) {
-      chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
-      if (chunk.length === chunkSize) {
-        await this.enhanceRelations(chunk, query);
-        yield chunk as T[];
-        chunk = [];
+    const descendantBindings = this.descendantBindings(query, sql, values);
+    try {
+      for await (const rawRow of this.driver.stream(sql, values)) {
+        chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
+        if (chunk.length === chunkSize) {
+          await this.enhanceRelations(chunk, query, descendantBindings);
+          delivered += chunk.length;
+          yield chunk as T[];
+          chunk = [];
+        }
       }
-    }
-    if (chunk.length) {
-      await this.enhanceRelations(chunk, query);
-      yield chunk as T[];
+      if (chunk.length) {
+        await this.enhanceRelations(chunk, query, descendantBindings);
+        delivered += chunk.length;
+        yield chunk as T[];
+      }
+      outcome = 'success';
+    } catch (error) {
+      outcome = 'failure';
+      throw error;
+    } finally {
+      // Generator.return()/consumer break also closes the driver's cursor. Report
+      // only delivered rows, not prefetched rows, and never stringify an error.
+      if (outcome === 'failure') {
+        try { this.recordSQL('select', sql, values, startedAt, delivered, undefined,
+          this.queryLogIntent(query, 'stream'), outcome); } catch { /* preserve driver failure */ }
+      } else {
+        this.recordSQL('select', sql, values, startedAt, delivered, undefined,
+          this.queryLogIntent(query, 'stream'), outcome);
+      }
     }
   }
 
-  private async enhanceRelations(parents: any[], query: any): Promise<void> {
+  private async enhanceRelations(parents: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
     for (const load of query.relations) {
@@ -1530,11 +1536,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
             __teaqlPartitionBy: undefined,
           };
-          children.push(...await this.executeQuery<any>(probeQuery));
+          children.push(...await this.executeDerivedQuery<any>(probeQuery, inherited));
         }
       } else {
         childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-        children.push(...await this.executeQuery<any>(childQuery));
+        children.push(...await this.executeDerivedQuery<any>(childQuery, inherited));
       }
       for (const child of children) delete child.__teaql_partition_rank;
       const buckets = new Map<any, any[]>();
@@ -1556,7 +1562,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
   }
 
-  private async enhanceRelationAggregates(parents: any[], query: any): Promise<void> {
+  private async enhanceRelationAggregates(parents: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {
     const aggregates = query.relationAggregates;
     if (!parents.length || !Array.isArray(aggregates) || !aggregates.length) return;
     const parentSchema = this.schema(query.entity);
@@ -1594,7 +1600,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         [relation.foreignKey]: { $in: parentIds },
       };
       (childQuery as any)[this.internalQueryToken] = true;
-      const rows = await this.executeQuery<any>(childQuery);
+      childQuery.commentText = query?._comment ?? query?.commentText;
+      childQuery.purposeText = query?._purpose ?? query?.purposeText;
+      (childQuery as any).__teaqlTracePath = [
+        ...(query.__teaqlTracePath ?? [
+          { level: 0, kind: 'operation', name: 'query' },
+          { level: 1, kind: 'request', name: String(query.entity) },
+        ]),
+        { level: query.__teaqlTracePath?.length ?? 2, kind: 'relation', name: `${query.entity}.${aggregate.relationName}` },
+      ];
+      const rows = await this.executeDerivedQuery<any>(childQuery, inherited);
       const buckets = new Map<any, any>();
       for (const row of rows) buckets.set(row[relation.foreignKey], row);
       for (const parent of parents) {
