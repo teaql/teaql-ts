@@ -201,6 +201,36 @@ it('does not replace a driver error with a diagnostic-sink error', async () => {
   } finally { await f.client.close(); }
 });
 
+it('keeps successful SQL and graph mutation independent of broken diagnostic sinks', async () => {
+  const f = await fixture();
+  let evidenceCalls = 0;
+  let diagnosticCalls = 0;
+  f.client.setRuntimeTelemetrySink({ record(entry) {
+    evidenceCalls++;
+    expect(JSON.stringify(entry)).not.toContain('PASSWORD-CANARY');
+    throw new Error('EVIDENCE-SINK-FAILURE');
+  } }).setDiagnosticSQLLogSink({ write(entry) {
+    diagnosticCalls++;
+    expect(JSON.stringify(entry)).not.toContain('PASSWORD-CANARY');
+    throw new Error('DIAGNOSTIC-SINK-FAILURE');
+  } });
+  try {
+    await expect(f.client.executeMutation({
+      entity: 'Customer', action: 'Create', id: '4',
+      payload: { displayName: 'Riverside', publicAddress: '1 Runtime Road',
+        passwordHash: 'PASSWORD-CANARY' },
+      comment: 'what: create customer despite logging failure',
+    })).resolves.toMatchObject({ success: true, id: '4' });
+    const rows = await f.client.executeQuery(query());
+    expect(rows).toHaveLength(4);
+    const driverFault = new Error('DRIVER-CANARY');
+    f.driver.fault = driverFault;
+    await expect(f.client.executeQuery(query())).rejects.toBe(driverFault);
+    expect(evidenceCalls).toBeGreaterThan(0);
+    expect(diagnosticCalls).toBeGreaterThan(0);
+  } finally { await f.client.close(); }
+});
+
 it.each(['Create', 'Update', 'Delete'].flatMap(action => ['error','empty','multiple'].map(mode => ({action,mode}))))(
   'retains independent write/readback facts for $action/$mode', async ({action,mode}) => {
     const f = await fixture();

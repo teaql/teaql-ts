@@ -295,7 +295,7 @@ function escapeJsonPointer2(value) {
 }
 
 // src/core/dynamic-search.ts
-function mergeDynamicSearch(base, source, models, bindings, warn = (warning) => console.warn(warning)) {
+function mergeDynamicSearch(base, source, models, bindings, warn = (warning) => console.warn({ ...warning, fieldPath: "<omitted>" })) {
   const normalized = normalizeDynamicSearch(source, base.entity, models, () => {
   });
   const filters = Object.entries(normalized.search.filter ?? {}).map(([path, predicate]) => bindings.filter(path, predicate));
@@ -314,7 +314,7 @@ var own = (object2, key) => Object.prototype.hasOwnProperty.call(object2, key);
 var object = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var forbidden = /* @__PURE__ */ new Set(["__proto__", "prototype", "constructor"]);
 var operators = /* @__PURE__ */ new Set(["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$notIn", "$contains"]);
-function normalizeDynamicSearch(source, entity, models, warn = (warning) => console.warn(warning), maxClauses = 100) {
+function normalizeDynamicSearch(source, entity, models, warn = (warning) => console.warn({ ...warning, fieldPath: "<omitted>" }), maxClauses = 100) {
   if (!Number.isSafeInteger(maxClauses) || maxClauses < 1) throw new Error("Invalid search limit");
   if (!own(models, entity)) throw new Error("Unknown search entity");
   let input;

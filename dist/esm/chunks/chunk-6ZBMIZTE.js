@@ -474,6 +474,7 @@ var AbstractSQLTeaQLClient = class {
     const column = schema.columns[field];
     const name = column?.modelName ?? column?.columnName ?? field;
     if (credentialName(name) || credentialName(field)) return "credential";
+    if (!schema.auditMaskFields) return "unknown";
     if (schema.auditMaskFields?.includes(name) || schema.auditMaskFields?.includes(field)) return "masked";
     return column?.logPolicy ?? "unknown";
   }
@@ -565,26 +566,35 @@ var AbstractSQLTeaQLClient = class {
     const isSelect = operation === "select";
     if (isSelect && !this.queryLoggingEnabled || !isSelect && !this.mutationLoggingEnabled) return;
     if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
-    const metadata = Object.freeze({
-      operation,
-      ...intent,
-      executionOutcome,
-      tracePath: Object.freeze([...intent.tracePath ?? []]),
-      parameterizedSQL,
-      parameters: Object.freeze([...parameters]),
-      // Never build a plaintext SQL copy before the log policy boundary.
-      debugSQL: "",
-      databaseKind: this.driver.databaseKind,
-      sqlOrigin: "generated",
-      parameterLogPolicies: this.bindLogPolicies.get(parameters),
-      elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1e3),
-      resultCount,
-      affectedRows,
-      resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
-    });
-    const projected = projectSQLLog(metadata, inherited);
-    this.telemetrySink?.record(projected);
-    this.diagnosticSQLLogSink?.write(projected);
+    try {
+      const metadata = Object.freeze({
+        operation,
+        ...intent,
+        executionOutcome,
+        tracePath: Object.freeze([...intent.tracePath ?? []]),
+        parameterizedSQL,
+        parameters: Object.freeze([...parameters]),
+        // Never build a plaintext SQL copy before the log policy boundary.
+        debugSQL: "",
+        databaseKind: this.driver.databaseKind,
+        sqlOrigin: "generated",
+        parameterLogPolicies: this.bindLogPolicies.get(parameters),
+        elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1e3),
+        resultCount,
+        affectedRows,
+        resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
+      });
+      const projected = projectSQLLog(metadata, inherited);
+      try {
+        this.telemetrySink?.record(projected);
+      } catch {
+      }
+      try {
+        this.diagnosticSQLLogSink?.write(projected);
+      } catch {
+      }
+    } catch {
+    }
   }
   queryLogIntent(query, operation = "query") {
     const inherited = Array.isArray(query?.__teaqlTracePath) ? query.__teaqlTracePath : [
@@ -1778,4 +1788,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-5DRBI6BI.js.map
+//# sourceMappingURL=chunk-6ZBMIZTE.js.map

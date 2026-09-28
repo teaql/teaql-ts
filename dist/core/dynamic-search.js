@@ -4,7 +4,7 @@ exports.normalizeDynamicSearch = exports.mergeDynamicSearch = void 0;
 /** Local UI-search normalization. This is deliberately not a federation decoder. */
 const ast_1 = require("./ast");
 /** Add validated search clauses to an existing scoped query; never replace its policies. */
-function mergeDynamicSearch(base, source, models, bindings, warn = warning => console.warn(warning)) {
+function mergeDynamicSearch(base, source, models, bindings, warn = warning => console.warn({ ...warning, fieldPath: '<omitted>' })) {
     const normalized = normalizeDynamicSearch(source, base.entity, models, () => { });
     const filters = Object.entries(normalized.search.filter ?? {})
         .map(([path, predicate]) => bindings.filter(path, predicate));
@@ -34,7 +34,7 @@ const operators = new Set(['$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$
  * No caller-supplied context, limits, SQL, subqueries or arbitrary AST are accepted.
  * Returned clauses still require the normal query authorization/execution pipeline.
  */
-function normalizeDynamicSearch(source, entity, models, warn = warning => console.warn(warning), maxClauses = 100) {
+function normalizeDynamicSearch(source, entity, models, warn = warning => console.warn({ ...warning, fieldPath: '<omitted>' }), maxClauses = 100) {
     if (!Number.isSafeInteger(maxClauses) || maxClauses < 1)
         throw new Error('Invalid search limit');
     if (!own(models, entity))

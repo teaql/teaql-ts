@@ -147,6 +147,8 @@ class AbstractSQLTeaQLClient {
         const name = column?.modelName ?? column?.columnName ?? field;
         if ((0, log_privacy_1.credentialName)(name) || (0, log_privacy_1.credentialName)(field))
             return 'credential';
+        if (!schema.auditMaskFields)
+            return 'unknown';
         if (schema.auditMaskFields?.includes(name) || schema.auditMaskFields?.includes(field))
             return 'masked';
         return column?.logPolicy ?? 'unknown';
@@ -265,22 +267,33 @@ class AbstractSQLTeaQLClient {
             return;
         if (!this.telemetrySink && !this.diagnosticSQLLogSink)
             return;
-        const metadata = Object.freeze({
-            operation, ...intent, executionOutcome,
-            tracePath: Object.freeze([...(intent.tracePath ?? [])]),
-            parameterizedSQL, parameters: Object.freeze([...parameters]),
-            // Never build a plaintext SQL copy before the log policy boundary.
-            debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated',
-            parameterLogPolicies: this.bindLogPolicies.get(parameters),
-            elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
-            resultCount, affectedRows,
-            resultSummary: resultCount !== undefined
-                ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
-                : `statement ${executionOutcome}; row count unknown`,
-        });
-        const projected = (0, log_privacy_1.projectSQLLog)(metadata, inherited);
-        this.telemetrySink?.record(projected);
-        this.diagnosticSQLLogSink?.write(projected);
+        try {
+            const metadata = Object.freeze({
+                operation, ...intent, executionOutcome,
+                tracePath: Object.freeze([...(intent.tracePath ?? [])]),
+                parameterizedSQL, parameters: Object.freeze([...parameters]),
+                // Never build a plaintext SQL copy before the log policy boundary.
+                debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated',
+                parameterLogPolicies: this.bindLogPolicies.get(parameters),
+                elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
+                resultCount, affectedRows,
+                resultSummary: resultCount !== undefined
+                    ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
+                    : `statement ${executionOutcome}; row count unknown`,
+            });
+            const projected = (0, log_privacy_1.projectSQLLog)(metadata, inherited);
+            // Runtime diagnostics are fail-open and each sink is independent. A
+            // broken application sink must not roll back a successful SQL mutation.
+            try {
+                this.telemetrySink?.record(projected);
+            }
+            catch { /* diagnostic sink failed */ }
+            try {
+                this.diagnosticSQLLogSink?.write(projected);
+            }
+            catch { /* diagnostic sink failed */ }
+        }
+        catch { /* projection failure must not alter database execution */ }
     }
     queryLogIntent(query, operation = 'query') {
         const inherited = Array.isArray(query?.__teaqlTracePath) ? query.__teaqlTracePath : [

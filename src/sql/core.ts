@@ -451,22 +451,26 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const isSelect = operation === 'select';
     if ((isSelect && !this.queryLoggingEnabled) || (!isSelect && !this.mutationLoggingEnabled)) return;
     if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
-    const metadata = Object.freeze({
-      operation, ...intent, executionOutcome,
-      tracePath: Object.freeze([...(intent.tracePath ?? [])]),
-      parameterizedSQL, parameters: Object.freeze([...parameters]),
-      // Never build a plaintext SQL copy before the log policy boundary.
-      debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated' as const,
-      parameterLogPolicies: this.bindLogPolicies.get(parameters),
-      elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
-      resultCount, affectedRows,
-      resultSummary: resultCount !== undefined
-        ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
-          : `statement ${executionOutcome}; row count unknown`,
-    });
-    const projected = projectSQLLog(metadata, inherited);
-    this.telemetrySink?.record(projected);
-    this.diagnosticSQLLogSink?.write(projected);
+    try {
+      const metadata = Object.freeze({
+        operation, ...intent, executionOutcome,
+        tracePath: Object.freeze([...(intent.tracePath ?? [])]),
+        parameterizedSQL, parameters: Object.freeze([...parameters]),
+        // Never build a plaintext SQL copy before the log policy boundary.
+        debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated' as const,
+        parameterLogPolicies: this.bindLogPolicies.get(parameters),
+        elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
+        resultCount, affectedRows,
+        resultSummary: resultCount !== undefined
+          ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
+            : `statement ${executionOutcome}; row count unknown`,
+      });
+      const projected = projectSQLLog(metadata, inherited);
+      // Runtime diagnostics are fail-open and each sink is independent. A
+      // broken application sink must not roll back a successful SQL mutation.
+      try { this.telemetrySink?.record(projected); } catch { /* diagnostic sink failed */ }
+      try { this.diagnosticSQLLogSink?.write(projected); } catch { /* diagnostic sink failed */ }
+    } catch { /* projection failure must not alter database execution */ }
   }
 
   private queryLogIntent(query: any, operation = 'query'): {
