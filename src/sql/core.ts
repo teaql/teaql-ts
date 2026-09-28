@@ -316,6 +316,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const column = schema.columns[field];
     const name = column?.modelName ?? column?.columnName ?? field;
     if (credentialName(name) || credentialName(field)) return 'credential';
+    if (!schema.auditMaskFields) return 'unknown';
     if (schema.auditMaskFields?.includes(name) || schema.auditMaskFields?.includes(field)) return 'masked';
     return column?.logPolicy ?? 'unknown';
   }

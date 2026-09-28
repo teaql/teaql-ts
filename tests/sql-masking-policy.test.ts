@@ -207,3 +207,38 @@ it('compiles trusted field policies on real SQLite mutations and predicates befo
     expect(output.join('\n')).not.toContain("O''Reilly");
   } finally { await client.close(); }
 });
+
+it.each([false, true])('distinguishes old missing mask metadata from explicit empty (declared=%s)', async declared => {
+  const customer: EntitySchema = {
+    table: 'customer_data',
+    columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string', logPolicy: 'plain' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number', logPolicy: 'plain' },
+      displayName: { columnName: 'display_name', logicalType: 'text', decode: 'native', logPolicy: 'plain' },
+    },
+  };
+  if (declared) customer.auditMaskFields = [];
+  const captured: SQLExecutionMetadata[] = [];
+  const output: string[] = [];
+  const text = new TextDiagnosticSQLLogSink(line => output.push(line));
+  const client = new SQLiteTeaQLClient(':memory:', { Customer: customer }).setDiagnosticSQLLogSink({
+    write: entry => { captured.push(entry); text.write(entry); },
+  });
+  try {
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    await client.executeMutation({ entity: 'Customer', action: 'Create', id: '1',
+      payload: { displayName: 'Riverside' }, comment: 'seed old descriptor fixture' });
+    const rows = await client.executeQuery(new SelectQuery('Customer')
+      .filter({ displayName: { $eq: 'Riverside' } }).limit(1)
+      .comment('what: find old descriptor').purpose('why: verify fail-closed upgrade'));
+    expect(rows[0].displayName).toBe('Riverside');
+    const logged = captured.find(entry => entry.operation === 'select' &&
+      entry.comment === 'what: find old descriptor');
+    expect(logged?.parameterLogPolicies).toContain(declared ? 'plain' : 'unknown');
+    if (declared) expect(output.join('\n')).toContain('Riverside');
+    else {
+      expect(output.join('\n')).toContain('[REDACTED]');
+      expect(output.join('\n')).not.toContain('Riverside');
+    }
+  } finally { await client.close(); }
+});
