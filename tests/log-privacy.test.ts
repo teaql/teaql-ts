@@ -40,7 +40,7 @@ it('accepts only the exact opt-in and warns without values', () => {
   const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
   const output: string[] = [];
   try {
-    new TextDiagnosticSQLLogSink(text => output.push(text)).write(fixture());
+    new TextDiagnosticSQLLogSink(text => output.push(text)).write({ ...fixture(), parameterLogPolicies: ['masked'] });
     expect(output[0]).toContain('PRIVATE-CUSTOMER-CANARY');
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('may be written to disk'));
     expect(JSON.stringify(warning.mock.calls)).not.toContain('PRIVATE-CUSTOMER-CANARY');

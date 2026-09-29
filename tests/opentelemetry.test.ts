@@ -96,6 +96,62 @@ test('exports safe balanced spans through the official OpenTelemetry SDK', async
   metrics.disable();
 });
 
+test('failure telemetry does not export driver error messages', async () => {
+  context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+  const spanExporter = new InMemorySpanExporter();
+  const tracerProvider = new BasicTracerProvider({
+    spanProcessors: [new SimpleSpanProcessor(spanExporter)],
+  });
+  const logExporter = new InMemoryLogRecordExporter();
+  const loggerProvider = new LoggerProvider({
+    processors: [new SimpleLogRecordProcessor({ exporter: logExporter })],
+  });
+  const meterProvider = new MeterProvider();
+  const telemetry = new OpenTelemetryRuntimeTelemetry(
+    tracerProvider.getTracer('io.teaql.runtime'),
+    meterProvider.getMeter('io.teaql.runtime'),
+    {},
+    loggerProvider.getLogger('io.teaql.runtime'),
+  );
+  const original = new Error('SQL failed for password=OTEL-FAILURE-CANARY');
+
+  try {
+    await expect(observeRuntimeOperation(
+      telemetry,
+      { family: 'provider', name: 'sqlite.query' },
+      async () => { throw original; },
+    )).rejects.toBe(original);
+
+    const spans = spanExporter.getFinishedSpans();
+    const logs = logExporter.getFinishedLogRecords();
+    expect(spans).toHaveLength(1);
+    expect(logs).toHaveLength(1);
+    expect(spans[0].attributes).toMatchObject({
+      'teaql.error.type': 'Error',
+      'teaql.error.category': 'internal',
+    });
+    expect(logs[0].attributes).toMatchObject({
+      'teaql.operation.outcome': 'failure',
+      'teaql.error.category': 'internal',
+    });
+    const exported = JSON.stringify({
+      spanName: spans[0].name,
+      spanAttributes: spans[0].attributes,
+      spanStatus: spans[0].status,
+      spanEvents: spans[0].events,
+      logBody: logs[0].body,
+      logAttributes: logs[0].attributes,
+    });
+    expect(exported).not.toContain('OTEL-FAILURE-CANARY');
+    expect(exported).not.toContain('password=');
+  } finally {
+    await tracerProvider.shutdown();
+    await loggerProvider.shutdown();
+    await meterProvider.shutdown();
+    context.disable();
+  }
+});
+
 test('injects the active operation span using W3C Trace Context', async () => {
   context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
   propagation.setGlobalPropagator(new W3CTraceContextPropagator());

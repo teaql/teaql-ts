@@ -17,6 +17,22 @@ test('DYN-WARN-001 through 006: complete unknown clauses vanish, siblings remain
   expect(JSON.stringify(warn.mock.calls)).not.toContain('SECRET');
 });
 
+test('DYN-WARN-008: default log omits untrusted path, returned warning retains it', () => {
+  const path = 'CLIENT_SECRET_FIELD_PATH_91';
+  const log = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    const result = normalizeDynamicSearch({filter: {[path]: 'SECRET_VALUE_99'}}, 'Order', models);
+    expect(result.warnings[0].fieldPath).toBe(path);
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({
+      code: 'DYNAMIC_SEARCH_UNKNOWN_FIELD', fieldPath: '<omitted>',
+    }));
+    expect(JSON.stringify(log.mock.calls)).not.toContain(path);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('SECRET_VALUE_99');
+  } finally {
+    log.mockRestore();
+  }
+});
+
 test('valid nested fields are retained without partial relation construction', () => {
   expect(normalizeDynamicSearch({filter: {'customer.name': {$contains: 'Ada'}}}, 'Order', models).search.filter)
     .toEqual({'customer.name': {$contains: 'Ada'}});

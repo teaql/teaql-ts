@@ -28,7 +28,7 @@ export function mergeDynamicSearch(
   source: unknown,
   models: Readonly<Record<string, SearchModel>>,
   bindings: DynamicSearchBindings,
-  warn: (warning: DynamicSearchWarning) => void = warning => console.warn(warning),
+  warn: (warning: DynamicSearchWarning) => void = warning => console.warn({ ...warning, fieldPath: '<omitted>' }),
 ): { query: SelectQuery; warnings: DynamicSearchWarning[] } {
   const normalized = normalizeDynamicSearch(source, base.entity, models, () => {});
   const filters = Object.entries(normalized.search.filter ?? {})
@@ -61,7 +61,7 @@ export function normalizeDynamicSearch(
   source: string | unknown,
   entity: string,
   models: Readonly<Record<string, SearchModel>>,
-  warn: (warning: DynamicSearchWarning) => void = warning => console.warn(warning),
+  warn: (warning: DynamicSearchWarning) => void = warning => console.warn({ ...warning, fieldPath: '<omitted>' }),
   maxClauses = 100,
 ): { search: DynamicSearchInput; warnings: DynamicSearchWarning[] } {
   if (!Number.isSafeInteger(maxClauses) || maxClauses < 1) throw new Error('Invalid search limit');

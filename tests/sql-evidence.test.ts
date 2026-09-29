@@ -8,7 +8,7 @@ import {
   EntitySchema, SQLExecutionEvidenceStore, TextDiagnosticSQLLogSink,
 } from '../src/sql/core';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
-import { PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK } from '../src/core/log-privacy';
+import { PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK, maskAuditValue } from '../src/core/log-privacy';
 
 const originalLogSetting = process.env[PLAINTEXT_LOG_ENV];
 beforeEach(() => { delete process.env[PLAINTEXT_LOG_ENV]; });
@@ -20,6 +20,7 @@ afterEach(() => {
 const schemas: Record<string, EntitySchema> = {
   Person: {
     table: 'person_data',
+    auditMaskFields: ['name'],
     columns: {
       id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
       version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
@@ -61,7 +62,7 @@ it('persists original SQLite CRUD values while file and custom logs remain redac
   } finally { await client.close(); }
 });
 
-it('captures parameterized safe SQL evidence with exact modes', async () => {
+it('captures safe expanded SQL evidence with exact modes', async () => {
   const store = new SQLExecutionEvidenceStore();
   const client = new SQLiteTeaQLClient(':memory:', schemas).setRuntimeTelemetrySink(store);
   await new UserContext().insertResource('dataService', client).ensureSchema();
@@ -86,7 +87,18 @@ it('captures parameterized safe SQL evidence with exact modes', async () => {
   expect(entries.every(entry => !entry.parameterizedSQL.includes(secret))).toBe(true);
   expect(entries.every(entry => entry.parameters.length > 0)).toBe(true);
   expect(JSON.stringify(entries)).not.toContain(secret);
-  expect(entries.every(entry => entry.parameters.every(value => value === null))).toBe(true);
+  // #34/#58: diagnostics retain expanded SQL and per-bind masking, not null-only
+  // parameter arrays. Structural bounds can remain visible; business values cannot.
+  for (const entry of entries) {
+    expect(entry.maskedParameters).toHaveLength(entry.parameters.length);
+    entry.parameters.forEach((value, index) => {
+      if (entry.maskedParameters![index]) expect(value).toBe(
+        entry.parameterLogPolicies![index] === 'masked' ? maskAuditValue(secret) : '[REDACTED]');
+      else expect(entry.parameterLogPolicies![index]).toBe('plain');
+    });
+    expect(entry.debugSQL).toContain('/* masked */');
+    expect(entry.debugSQL).not.toContain('REDACTED SQL');
+  }
   expect(entries.some(entry => entry.resultCount !== undefined)).toBe(true);
   expect(entries.some(entry => entry.affectedRows !== undefined)).toBe(true);
   const select = entries.find(entry => entry.operation === 'select')!;
@@ -143,7 +155,7 @@ it('enables query and mutation logs by default and disables them independently',
   await client.close();
 });
 
-it('emits both SQL forms only with the exact plaintext debug acknowledgement', async () => {
+it('emits replayable expanded SQL only with the exact plaintext debug acknowledgement', async () => {
   process.env[PLAINTEXT_LOG_ENV] = PLAINTEXT_LOG_ACK;
   const output: string[] = [];
   const client = new SQLiteTeaQLClient(':memory:', schemas)
@@ -160,7 +172,8 @@ it('emits both SQL forms only with the exact plaintext debug acknowledgement', a
   );
   const selectLog = output.find(line => line.includes('[select]'));
   expect(selectLog).toBeDefined();
-  expect(selectLog).toContain('Parameterized SQL:');
+  expect(selectLog).not.toContain('Parameterized SQL:');
+  expect(selectLog).toContain('DEBUG PLAINTEXT; EXPLICIT OPT-IN');
   expect(selectLog).toContain('comment=what: copy paste diagnostic ? marker');
   expect(selectLog).toContain('purpose=why: prove exact operator SQL');
   const rendered = selectLog!.split('Debug SQL: ')[1];

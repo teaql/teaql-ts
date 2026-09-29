@@ -2,6 +2,7 @@ import { RuntimeTelemetry } from '../core/telemetry';
 import { UserContext } from '../core/context';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { SelectQuery } from '../core/ast';
+import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
     columnName: string;
@@ -9,11 +10,14 @@ export type ColumnSchema = {
     logicalType: LogicalColumnType;
     decode: 'string' | 'number' | 'date' | 'native';
     nullable?: boolean;
+    /** Trusted model/application log policy, never taken from a query payload. */
+    logPolicy?: SQLParameterLogPolicy;
 };
 export type EntitySchema = {
     table: string;
     columns: Record<string, ColumnSchema>;
     relations?: Record<string, RelationSchema>;
+    auditMaskFields?: readonly string[];
 };
 export type RelationSchema = {
     targetEntity: string;
@@ -72,6 +76,8 @@ export interface TeaQLDataService {
     close?(): Promise<void>;
 }
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
+/** Statement/cursor completion, not transaction commit or business success. */
+export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
 export type SQLTraceFrame = Readonly<{
     level: number;
     kind: 'operation' | 'request' | 'relation' | 'entity' | 'provider' | 'sql';
@@ -79,6 +85,7 @@ export type SQLTraceFrame = Readonly<{
 }>;
 export type SQLExecutionMetadata = Readonly<{
     operation: SQLExecutionOperation;
+    executionOutcome?: SQLExecutionOutcome;
     comment?: string;
     purpose?: string;
     auditReason?: string;
@@ -87,14 +94,19 @@ export type SQLExecutionMetadata = Readonly<{
     parameters: readonly unknown[];
     /** SQL with bind values rendered as literals, intended only for diagnostics. */
     debugSQL: string;
+    databaseKind?: SQLDatabaseKind;
+    parameterLogPolicies?: readonly SQLParameterLogPolicy[];
+    /** Set by the runtime SQL compiler, not by the incoming Q/TFP request. */
+    sqlOrigin?: 'generated';
+    maskedParameters?: readonly boolean[];
+    logMode?: 'masked' | 'debug-plaintext';
+    omissionReason?: 'untrusted-literal-sql' | 'policy-count-mismatch' | 'unsupported-or-mismatched-bindings';
     elapsedMicros: number;
     resultCount?: number;
     affectedRows?: number;
     resultSummary: string;
 }>;
-/** Render provider placeholders as SQL literals so the statement can be copied into a SQL client. */
-export type SQLDatabaseKind = 'postgresql' | 'mysql' | 'sqlite';
-export declare function debugSQL(parameterizedSQL: string, parameters: readonly unknown[], databaseKind?: SQLDatabaseKind): string;
+export { debugSQL, SQLDatabaseKind } from './log-rendering';
 export interface RuntimeTelemetrySink {
     record(metadata: SQLExecutionMetadata): void;
 }
@@ -128,6 +140,10 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private bootstrapTail;
     readonly sqlTrace: string[];
     private readonly internalQueryToken;
+    private readonly bindLogPolicies;
+    private readonly derivedQueryBindings;
+    private fieldLogPolicy;
+    private bindValue;
     private readonly auditEvents;
     private auditSink?;
     private telemetrySink?;
@@ -158,6 +174,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     setMutationLoggingEnabled(enabled: boolean): this;
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
     private recordSQL;
+    private queryLogIntent;
+    private executeLoggedSQL;
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */
     [contextSchemaCapability](context: UserContext): Promise<void>;
     /** Allows a provider which replaces its physical store to require explicit schema reconciliation again. */
@@ -179,6 +197,9 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private orders;
     private compileQuery;
     executeQuery<T = any>(query: any): Promise<T[]>;
+    private executeDerivedQuery;
+    private descendantBindings;
+    private executeQueryWithIntent;
     private prepareIdSetPage;
     executeFacetMembership(outerQuery: SelectQuery, relationName: string): Promise<Map<string, number>>;
     executeCount(query: any): Promise<number>;

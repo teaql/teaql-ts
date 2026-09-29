@@ -6,6 +6,7 @@ import { E, TeaQLNotLoadedError } from "./generated/E";
 import { Q } from "./generated/Q";
 import { WorkItem } from "./generated/models/WorkItem";
 import { SQLiteTeaQLClient } from "./teaql-node-sqlite";
+import { verifyMaskingLifecycle } from './masking-verification';
 
 async function main(): Promise<void> {
   const orderKey = { entity: "Order", id: 1 } as const;
@@ -81,6 +82,7 @@ async function main(): Promise<void> {
 
   await client.close();
   console.log("PASS TypeScript minimum runtime conformance: 8/8");
+  await verifyMaskingLifecycle();
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
