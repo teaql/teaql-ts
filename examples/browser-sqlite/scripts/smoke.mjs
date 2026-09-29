@@ -54,6 +54,10 @@ try {
     throw new Error(`${error.message}\nstatus: ${currentStatus}\nconsole: ${browserErrors.join('\n')}`);
   }
   const first = await page.$eval('#result', element => element.textContent || '');
+  const firstStatus = await page.$eval('#status', element => element.textContent || '');
+  if (!firstStatus.includes('policy installed')) {
+    throw new Error(`Browser runtime did not install Mutation Policy: ${firstStatus}`);
+  }
   if (!first.includes('Evaluate semantic model') || !first.includes('Verify browser runtime')) {
     throw new Error(`Generated Q API did not return mutation-seeded rows:\n${first}`);
   }
@@ -81,7 +85,7 @@ try {
     throw new Error('OPFS preference or data did not survive a browser reload');
   }
   if (browserErrors.length) throw new Error(`Browser console errors:\n${browserErrors.join('\n')}`);
-  console.log('PASS browser SQLite/WASM memory, OPFS persistence, mutation seed, Q API, and reset');
+  console.log('PASS browser SQLite/WASM memory, OPFS persistence, Mutation Policy, mutation seed, Q API, and reset');
 } finally {
   await browser?.close();
   server.kill('SIGTERM');

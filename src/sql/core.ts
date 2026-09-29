@@ -608,14 +608,23 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     let release!: () => void;
     this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
     await predecessor;
-    this.graphCommitActions = [];
-    this.graphRollbackActions = [];
-    this.userContext.insertResource('fixTime', new Date());
-    this.userContext.beginFixEvidence();
+    let fixEvidenceStarted = false;
+    let mutationPolicyGraphStarted = false;
     try {
+      this.graphCommitActions = [];
+      this.graphRollbackActions = [];
+      this.userContext.insertResource('fixTime', new Date());
+      this.userContext.beginFixEvidence();
+      fixEvidenceStarted = true;
+      this.userContext.beginMutationPolicyGraph();
+      mutationPolicyGraphStarted = true;
       const result = await this.driver.transaction(async session => {
         this.graphMutationSession = session;
-        try { return await work(); }
+        try {
+          const value = await work();
+          this.userContext.ensureMutationPolicyGraphComplete();
+          return value;
+        }
         finally { this.graphMutationSession = undefined; }
       });
       for (const action of this.graphCommitActions) action();
@@ -626,7 +635,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     } finally {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
-      this.userContext.removeResource('fixTime').finishFixEvidence();
+      if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
+      this.userContext.removeResource('fixTime');
+      if (fixEvidenceStarted) this.userContext.finishFixEvidence();
       release();
     }
   }
@@ -646,6 +657,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   preflightMutation(mutation: any): any {
+    mutation = this.checkAndFixMutation(mutation);
+    this.userContext.recordMutationPolicyPreflight(mutation);
+    return mutation;
+  }
+
+  private checkAndFixMutation(mutation: any): any {
     if (!String(mutation?.comment || '').trim()) {
       throw new Error('Security audit failure: audit reason is required before mutation');
     }
@@ -682,7 +699,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       },
     });
     try {
-      mutation = this.preflightMutation(mutation);
+      mutation = this.checkAndFixMutation(mutation);
+      const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
       const table = this.driver.identifier(schema.table);
@@ -832,6 +850,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         category: this.userContext.getResource<string>('bootstrapCategory'),
         changedFields: Object.keys(mutation.payload || {}).sort(),
         version: result.version,
+        mutationGovernance,
       });
       this.auditEvents.push(event);
       if (this.auditSink) {

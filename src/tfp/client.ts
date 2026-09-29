@@ -1,5 +1,7 @@
 import { SelectQuery } from '../core/ast';
 import { SmartList, SmartListRecord } from '../core/smart-list';
+import { UserContext } from '../core/context';
+import { MutationGovernanceSnapshot } from '../core/mutation-policy';
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -66,23 +68,38 @@ export interface TeaQLClientConfig {
   fetch?: typeof fetch;
   getHeaders?: () => Record<string, string> | Promise<Record<string, string>>;
   runtimeTelemetry?: RuntimeTelemetry;
+  /** Trusted local context; never serialized into the TFP request. */
+  userContext?: UserContext;
 }
 
 export class TeaQLClient {
   private config: TeaQLClientConfig;
   private fetchImpl: typeof fetch;
   private runtimeTelemetry: RuntimeTelemetry;
+  private userContext: UserContext;
+  private readonly mutationGovernanceEvents: MutationGovernanceSnapshot[] = [];
 
   constructor(config: TeaQLClientConfig) {
     this.config = config;
     // Fallback to global fetch if available
     this.fetchImpl = config.fetch ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch);
     this.runtimeTelemetry = config.runtimeTelemetry ?? NOOP_RUNTIME_TELEMETRY;
+    this.userContext = config.userContext ?? new UserContext();
   }
 
   setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this {
     this.runtimeTelemetry = telemetry ?? NOOP_RUNTIME_TELEMETRY;
     return this;
+  }
+
+  setUserContext(context: UserContext): this {
+    if (!context) throw new TypeError('UserContext is required');
+    this.userContext = context;
+    return this;
+  }
+
+  get mutationGovernanceTrace(): readonly MutationGovernanceSnapshot[] {
+    return [...this.mutationGovernanceEvents];
   }
 
   private async requestHeaders(): Promise<Record<string, string>> {
@@ -142,6 +159,10 @@ export class TeaQLClient {
       id: query.id, expectedVersion: query.expectedVersion, comment: query.comment,
     };
     rejectRemoteHardLimit(payload);
+    // Client policy is defense in depth for browser/Node applications. The
+    // receiving TeaQL server remains authoritative and evaluates its own policy.
+    const mutationGovernance = this.userContext.enterMutationPolicy(payload);
+    this.mutationGovernanceEvents.push(mutationGovernance);
     return observeRuntimeOperation(
       this.runtimeTelemetry,
       { family: 'tfp', name: 'client.mutation', attributes: { 'teaql.tfp.role': 'client' } },

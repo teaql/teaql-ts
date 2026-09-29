@@ -4,6 +4,14 @@ import {
   contextSchemaCapability,
   InternalContextSchemaExecutor,
 } from './schema-capability';
+import {
+  MutationGovernanceSink,
+  MutationGovernanceSnapshot,
+  MutationPlan,
+  MutationPolicyApprovalProvider,
+  MutationPolicyRegistry,
+  MutationPolicyRuntimeState,
+} from './mutation-policy';
 
 type Cursor = { cursorId: string; boundary: any; expiresAt: number };
 export type RetainedIdSet = { ids: BigUint64Array; expiresAt: number };
@@ -43,6 +51,7 @@ export class ContextRootError extends Error {
 }
 
 export class UserContext {
+  private readonly mutationPolicy = new MutationPolicyRuntimeState();
   private readonly resources = new Map<string, unknown>();
   private readonly continuousPageCursors = new Map<string, Cursor>();
   private readonly retainedIdSets = new Map<string, RetainedIdSet>();
@@ -85,6 +94,49 @@ export class UserContext {
     return this.insertResource('idSetPaginationStore', store);
   }
   translateCheckResults(results: CheckResult[]): CheckResult[] { return results.map(result=>this.i18nCatalog.translate(result,this.locale)); }
+
+  withMutationPolicyRegistry(registry: MutationPolicyRegistry): this {
+    if (!registry || typeof registry.resolve !== 'function') {
+      throw new TypeError('mutation policy registry must expose resolve(requestKey)');
+    }
+    this.mutationPolicy.setRegistry(registry);
+    return this;
+  }
+
+  withMutationPolicyApprovalProvider(provider: MutationPolicyApprovalProvider): this {
+    if (!provider || typeof provider.findApproval !== 'function') {
+      throw new TypeError('mutation policy approval provider must expose findApproval(identity)');
+    }
+    this.mutationPolicy.setApprovalProvider(provider);
+    return this;
+  }
+
+  withMutationGovernanceSink(sink: MutationGovernanceSink): this {
+    if (!sink || typeof sink.onWarning !== 'function') {
+      throw new TypeError('mutation governance sink must expose onWarning(context, warning)');
+    }
+    this.mutationPolicy.setWarningSink(sink);
+    return this;
+  }
+
+  reviewMutationPlan(plan: MutationPlan): MutationGovernanceSnapshot {
+    return this.mutationPolicy.review(this, plan);
+  }
+
+  /** @internal Used by governed data-service graph orchestration. */
+  beginMutationPolicyGraph(): void { this.mutationPolicy.beginGraph(); }
+  /** @internal Used by generated preflight after Checker/Fix. */
+  recordMutationPolicyPreflight(mutation: unknown): void {
+    this.mutationPolicy.recordPreflight(mutation);
+  }
+  /** @internal Called at the provider mutation boundary. */
+  enterMutationPolicy(mutation: unknown): MutationGovernanceSnapshot {
+    return this.mutationPolicy.enterMutation(this, mutation).snapshot;
+  }
+  /** @internal Must run before the surrounding graph transaction commits. */
+  ensureMutationPolicyGraphComplete(): void { this.mutationPolicy.ensureGraphComplete(); }
+  /** @internal Always runs when the graph operation leaves its transaction. */
+  endMutationPolicyGraph(): void { this.mutationPolicy.endGraph(); }
 
   beginFixEvidence(): this { return this.insertResource('fixEvidenceCurrent', [] as FixEvidence[]); }
   recordFixEvidence(evidence: FixEvidence): this {

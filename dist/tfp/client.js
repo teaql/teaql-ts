@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TeaQLClient = void 0;
 const smart_list_1 = require("../core/smart-list");
+const context_1 = require("../core/context");
 const telemetry_1 = require("../core/telemetry");
 function rejectRemoteHardLimit(value, path = '$') {
     if (Array.isArray(value)) {
@@ -59,14 +60,25 @@ function serializeQuery(query, nestedFacet = false) {
 }
 class TeaQLClient {
     constructor(config) {
+        this.mutationGovernanceEvents = [];
         this.config = config;
         // Fallback to global fetch if available
         this.fetchImpl = config.fetch ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch);
         this.runtimeTelemetry = config.runtimeTelemetry ?? telemetry_1.NOOP_RUNTIME_TELEMETRY;
+        this.userContext = config.userContext ?? new context_1.UserContext();
     }
     setRuntimeTelemetry(telemetry) {
         this.runtimeTelemetry = telemetry ?? telemetry_1.NOOP_RUNTIME_TELEMETRY;
         return this;
+    }
+    setUserContext(context) {
+        if (!context)
+            throw new TypeError('UserContext is required');
+        this.userContext = context;
+        return this;
+    }
+    get mutationGovernanceTrace() {
+        return [...this.mutationGovernanceEvents];
     }
     async requestHeaders() {
         const headers = {
@@ -109,6 +121,10 @@ class TeaQLClient {
             id: query.id, expectedVersion: query.expectedVersion, comment: query.comment,
         };
         rejectRemoteHardLimit(payload);
+        // Client policy is defense in depth for browser/Node applications. The
+        // receiving TeaQL server remains authoritative and evaluates its own policy.
+        const mutationGovernance = this.userContext.enterMutationPolicy(payload);
+        this.mutationGovernanceEvents.push(mutationGovernance);
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.mutation', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
             const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
             const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {

@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.executeRelationFacets = exports.SortDirection = exports.OrderBy = exports.AggregationCacheOptions = exports.MutationQuery = exports.SelectQuery = void 0;
 __exportStar(require("./core/value"), exports);
 __exportStar(require("./core/context"), exports);
+__exportStar(require("./core/mutation-policy"), exports);
 __exportStar(require("./core/entity-root"), exports);
 __exportStar(require("./core/checker"), exports);
 __exportStar(require("./core/object-location"), exports);

@@ -2,7 +2,14 @@ import {
   AggregationCacheOptions,
   CheckException,
   ContextRootError,
+  DelegatingMutationGovernanceSink,
+  DelegatingMutationPolicyApprovalProvider,
+  DelegatingMutationPolicyRegistry,
   I18nCatalog,
+  MISSING_MUTATION_POLICY,
+  MISSING_MUTATION_POLICY_APPROVAL,
+  MutationPolicyError,
+  MutationPolicyRuntimeState,
   MutationQuery,
   OrderBy,
   RuntimeModule,
@@ -14,7 +21,7 @@ import {
   locales,
   mergeRuntimeBootstrap,
   parseLocale
-} from "./chunks/chunk-CDSWS3BL.js";
+} from "./chunks/chunk-DI6F3FE7.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -811,13 +818,23 @@ function serializeQuery(query, nestedFacet = false) {
 }
 var TeaQLClient = class {
   constructor(config) {
+    this.mutationGovernanceEvents = [];
     this.config = config;
     this.fetchImpl = config.fetch ?? (typeof window !== "undefined" ? window.fetch.bind(window) : fetch);
     this.runtimeTelemetry = config.runtimeTelemetry ?? NOOP_RUNTIME_TELEMETRY;
+    this.userContext = config.userContext ?? new UserContext();
   }
   setRuntimeTelemetry(telemetry) {
     this.runtimeTelemetry = telemetry ?? NOOP_RUNTIME_TELEMETRY;
     return this;
+  }
+  setUserContext(context) {
+    if (!context) throw new TypeError("UserContext is required");
+    this.userContext = context;
+    return this;
+  }
+  get mutationGovernanceTrace() {
+    return [...this.mutationGovernanceEvents];
   }
   async requestHeaders() {
     const headers = {
@@ -874,6 +891,8 @@ var TeaQLClient = class {
       comment: query.comment
     };
     rejectRemoteHardLimit(payload);
+    const mutationGovernance = this.userContext.enterMutationPolicy(payload);
+    this.mutationGovernanceEvents.push(mutationGovernance);
     return observeRuntimeOperation(
       this.runtimeTelemetry,
       { family: "tfp", name: "client.mutation", attributes: { "teaql.tfp.role": "client" } },
@@ -2234,12 +2253,19 @@ export {
   ContextTools,
   ContextToolsBuilder,
   DataType,
+  DelegatingMutationGovernanceSink,
+  DelegatingMutationPolicyApprovalProvider,
+  DelegatingMutationPolicyRegistry,
   EntityDescriptor,
   EntityRoot,
   FetchHttpToolProvider,
   HTTP_TOOL,
   I18nCatalog,
   LocalCache,
+  MISSING_MUTATION_POLICY,
+  MISSING_MUTATION_POLICY_APPROVAL,
+  MutationPolicyError,
+  MutationPolicyRuntimeState,
   MutationQuery,
   NOOP_RUNTIME_TELEMETRY,
   ObjectLocation,

@@ -187,6 +187,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     afterGraphRollback(work: () => void): void;
     private withMutationSession;
     preflightMutation(mutation: any): any;
+    private checkAndFixMutation;
     executeMutation(mutation: any): Promise<MutationResult>;
     private readPersistedRecord;
     private decodeRowForSchema;
