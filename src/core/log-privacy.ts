@@ -17,7 +17,10 @@ export function maskAuditValue(value: string): string {
 
 export function plaintextLogsEnabled(): boolean {
   // Browsers have no trusted process environment: remain redacted there.
-  const enabled = typeof process !== 'undefined' && process.env?.[PLAINTEXT_LOG_ENV] === PLAINTEXT_LOG_ACK;
+  const environment = (globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+  }).process?.env;
+  const enabled = environment?.[PLAINTEXT_LOG_ENV] === PLAINTEXT_LOG_ACK;
   if (enabled && !warned) {
     warned = true;
     console.warn('TeaQL: sensitive plaintext logging enabled; application data may be written to disk. Authentication secrets remain redacted.');
