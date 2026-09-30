@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserContext = exports.ContextRootError = void 0;
 const i18n_1 = require("./i18n");
 const schema_capability_1 = require("./schema-capability");
+const mutation_policy_1 = require("./mutation-policy");
 const resourceIdentities = new WeakMap();
 let nextResourceIdentity = 1;
 function resourceIdentity(value) {
@@ -28,6 +29,7 @@ class ContextRootError extends Error {
 exports.ContextRootError = ContextRootError;
 class UserContext {
     constructor() {
+        this.mutationPolicy = new mutation_policy_1.MutationPolicyRuntimeState();
         this.resources = new Map();
         this.continuousPageCursors = new Map();
         this.retainedIdSets = new Map();
@@ -69,6 +71,44 @@ class UserContext {
         return this.insertResource('idSetPaginationStore', store);
     }
     translateCheckResults(results) { return results.map(result => this.i18nCatalog.translate(result, this.locale)); }
+    withMutationPolicyRegistry(registry) {
+        if (!registry || typeof registry.resolve !== 'function') {
+            throw new TypeError('mutation policy registry must expose resolve(requestKey)');
+        }
+        this.mutationPolicy.setRegistry(registry);
+        return this;
+    }
+    withMutationPolicyApprovalProvider(provider) {
+        if (!provider || typeof provider.findApproval !== 'function') {
+            throw new TypeError('mutation policy approval provider must expose findApproval(identity)');
+        }
+        this.mutationPolicy.setApprovalProvider(provider);
+        return this;
+    }
+    withMutationGovernanceSink(sink) {
+        if (!sink || typeof sink.onWarning !== 'function') {
+            throw new TypeError('mutation governance sink must expose onWarning(context, warning)');
+        }
+        this.mutationPolicy.setWarningSink(sink);
+        return this;
+    }
+    reviewMutationPlan(plan) {
+        return this.mutationPolicy.review(this, plan);
+    }
+    /** @internal Used by governed data-service graph orchestration. */
+    beginMutationPolicyGraph() { this.mutationPolicy.beginGraph(); }
+    /** @internal Used by generated preflight after Checker/Fix. */
+    recordMutationPolicyPreflight(mutation) {
+        this.mutationPolicy.recordPreflight(mutation);
+    }
+    /** @internal Called at the provider mutation boundary. */
+    enterMutationPolicy(mutation) {
+        return this.mutationPolicy.enterMutation(this, mutation).snapshot;
+    }
+    /** @internal Must run before the surrounding graph transaction commits. */
+    ensureMutationPolicyGraphComplete() { this.mutationPolicy.ensureGraphComplete(); }
+    /** @internal Always runs when the graph operation leaves its transaction. */
+    endMutationPolicyGraph() { this.mutationPolicy.endGraph(); }
     beginFixEvidence() { return this.insertResource('fixEvidenceCurrent', []); }
     recordFixEvidence(evidence) {
         const label = String(evidence.sourceLabel || '');

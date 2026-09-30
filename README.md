@@ -69,6 +69,29 @@ diagnostic surface. The server-side envelope, golden vector, stable errors, and
 development-only raw-reference acknowledgement are defined in the canonical
 [opaque entity reference contract](https://github.com/teaql/teaql-conformance/blob/main/design/opaque-entity-references.md).
 
+## Mutation Policy installation
+
+All profiles support the same application-owned Mutation Policy identity,
+approval, warning, and evidence contract. Node SQL and browser SQLite review a
+complete generated graph after Checker/Fix and before the first provider
+mutation. The TFP browser/Node client applies the policy before `fetch` as
+defense in depth; the receiving server still performs the authoritative review.
+
+```typescript
+const context = new UserContext()
+  .withMutationPolicyRegistry(policyRegistry)
+  .withMutationPolicyApprovalProvider(approvalProvider)
+  .withMutationGovernanceSink(warningSink);
+
+client.setUserContext(context);
+```
+
+A customer policy denial reaches neither SQL, the browser SQLite worker, nor a
+TFP mutation request. Missing customer policy or exact approval uses stable
+warning codes and remains fail-open, while explicit denial and incomplete graph
+plans fail closed. Policy implementations are installed only through trusted
+context assembly and are never accepted from JSON or TFP payloads.
+
 ### Browser / TFP profile
 
 The default entry point contains the AST, Peggy-generated controlled query
@@ -202,7 +225,8 @@ It is intended for Playground, offline, and local-data scenarios—not as a
 trusted authorization boundary for tenant or permission enforcement.
 
 See [`examples/browser-sqlite`](./examples/browser-sqlite) for the executable
-memory, OPFS, generated-mutation seed, Q API, and reset verification.
+memory, OPFS, Mutation Policy, generated-mutation seed, Q API, and reset
+verification.
 
 ## 🌟 Why Will It Make You Say "Wow"?
 

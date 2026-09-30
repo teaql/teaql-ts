@@ -2,6 +2,12 @@ import { TeaQLClient } from '../src/tfp/client';
 import { SelectQuery, SortDirection, OrderBy, MutationQuery } from '../src/core/ast';
 import { RuntimeOperation, RuntimeTelemetry, RuntimeTelemetryScope } from '../src/core/telemetry';
 import { SmartList } from '../src/core/smart-list';
+import {
+  DelegatingMutationPolicyApprovalProvider,
+  DelegatingMutationPolicyRegistry,
+  MutationPolicyError,
+} from '../src/core/mutation-policy';
+import { UserContext } from '../src/core/context';
 
 class TfpRecordingTelemetry implements RuntimeTelemetry {
   readonly events: Array<{ operation: RuntimeOperation; outcome?: string; cardinality?: number }> = [];
@@ -114,6 +120,47 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.action).toBe("Create");
     expect(body.payload.name).toBe("Created");
     expect(body.comment).toBe("create task");
+  });
+
+  it('applies client-profile Mutation Policy before issuing a TFP mutation', async () => {
+    const context = new UserContext().withMutationPolicyRegistry(
+      new DelegatingMutationPolicyRegistry(() => ({
+        identity: { policyId: 'client-demo', version: '1', fingerprint: 'sha256:client' },
+        review: () => ({ verdict: 'deny', code: 'CLIENT_DENIED', message: 'disabled' }),
+      })),
+    );
+    const client = new TeaQLClient({
+      baseUrl: 'http://localhost:8080/api', userContext: context,
+    });
+
+    await expect(client.executeMutation(
+      new MutationQuery('Task', 'Create', { name: 'blocked' }, undefined, 'demo'),
+    )).rejects.toThrow(MutationPolicyError);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('retains approved client-profile governance without serializing it', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, json: async () => ({ success: true }),
+    });
+    const identity = { policyId: 'client-demo', version: '1', fingerprint: 'sha256:client' };
+    const context = new UserContext()
+      .withMutationPolicyRegistry(new DelegatingMutationPolicyRegistry(() => ({
+        identity, review: () => ({ verdict: 'allow' }),
+      })))
+      .withMutationPolicyApprovalProvider(new DelegatingMutationPolicyApprovalProvider(
+        policy => ({ policy, approvedBy: 'demo-owner', approvedAt: new Date() }),
+      ));
+    const client = new TeaQLClient({
+      baseUrl: 'http://localhost:8080/api', userContext: context,
+    });
+
+    await client.executeMutation(
+      new MutationQuery('Task', 'Create', { name: 'allowed' }, undefined, 'demo'),
+    );
+    expect(client.mutationGovernanceTrace[0].approvalStatus).toBe('approved');
+    expect((global.fetch as jest.Mock).mock.calls[0][1].body)
+      .not.toContain('mutationGovernance');
   });
 
   it('records balanced TFP client query and mutation lifecycles', async () => {

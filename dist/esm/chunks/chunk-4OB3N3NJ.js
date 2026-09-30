@@ -4,7 +4,7 @@ import {
   UserContext,
   contextSchemaCapability,
   mergeRuntimeBootstrap
-} from "./chunk-CDSWS3BL.js";
+} from "./chunk-DI6F3FE7.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -729,15 +729,22 @@ var AbstractSQLTeaQLClient = class {
       release = resolve;
     });
     await predecessor;
-    this.graphCommitActions = [];
-    this.graphRollbackActions = [];
-    this.userContext.insertResource("fixTime", /* @__PURE__ */ new Date());
-    this.userContext.beginFixEvidence();
+    let fixEvidenceStarted = false;
+    let mutationPolicyGraphStarted = false;
     try {
+      this.graphCommitActions = [];
+      this.graphRollbackActions = [];
+      this.userContext.insertResource("fixTime", /* @__PURE__ */ new Date());
+      this.userContext.beginFixEvidence();
+      fixEvidenceStarted = true;
+      this.userContext.beginMutationPolicyGraph();
+      mutationPolicyGraphStarted = true;
       const result = await this.driver.transaction(async (session) => {
         this.graphMutationSession = session;
         try {
-          return await work();
+          const value = await work();
+          this.userContext.ensureMutationPolicyGraphComplete();
+          return value;
         } finally {
           this.graphMutationSession = void 0;
         }
@@ -750,7 +757,9 @@ var AbstractSQLTeaQLClient = class {
     } finally {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
-      this.userContext.removeResource("fixTime").finishFixEvidence();
+      if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
+      this.userContext.removeResource("fixTime");
+      if (fixEvidenceStarted) this.userContext.finishFixEvidence();
       release();
     }
   }
@@ -766,6 +775,11 @@ var AbstractSQLTeaQLClient = class {
     return this.graphMutationSession ? work(this.graphMutationSession) : this.driver.transaction(work);
   }
   preflightMutation(mutation) {
+    mutation = this.checkAndFixMutation(mutation);
+    this.userContext.recordMutationPolicyPreflight(mutation);
+    return mutation;
+  }
+  checkAndFixMutation(mutation) {
     if (!String(mutation?.comment || "").trim()) {
       throw new Error("Security audit failure: audit reason is required before mutation");
     }
@@ -799,7 +813,8 @@ var AbstractSQLTeaQLClient = class {
       }
     });
     try {
-      mutation = this.preflightMutation(mutation);
+      mutation = this.checkAndFixMutation(mutation);
+      const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
       const table = this.driver.identifier(schema.table);
@@ -948,7 +963,8 @@ var AbstractSQLTeaQLClient = class {
         actor: this.userContext.getResource("bootstrapActor"),
         category: this.userContext.getResource("bootstrapCategory"),
         changedFields: Object.keys(mutation.payload || {}).sort(),
-        version: result.version
+        version: result.version,
+        mutationGovernance
       });
       this.auditEvents.push(event);
       if (this.auditSink) {
@@ -1797,4 +1813,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-3DGDFKEW.js.map
+//# sourceMappingURL=chunk-4OB3N3NJ.js.map

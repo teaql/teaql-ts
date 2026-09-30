@@ -1,5 +1,9 @@
 import { UserContext } from '../src/core/context';
 import {
+  DelegatingMutationPolicyRegistry,
+  MutationPolicyError,
+} from '../src/core/mutation-policy';
+import {
   BrowserSQLiteDriver,
   BrowserSQLiteTeaQLClient,
   BrowserSQLiteWorkerLike,
@@ -109,4 +113,26 @@ describe('BrowserSQLiteDriver', () => {
       databaseName: '../outside.sqlite3',
     })).rejects.toThrow('simple file name');
   });
+
+  test.each(['memory', 'opfs'] as const)(
+    '%s profile applies Mutation Policy before sending SQL to the worker',
+    async storage => {
+      const worker = new FakeWorker();
+      const client = await BrowserSQLiteTeaQLClient.open(worker, {}, { storage });
+      const context = new UserContext().withMutationPolicyRegistry(
+        new DelegatingMutationPolicyRegistry(() => ({
+          identity: { policyId: 'browser-demo', version: '1', fingerprint: 'sha256:demo' },
+          review: () => ({ verdict: 'deny', code: 'DEMO_DENIED', message: 'disabled' }),
+        })),
+      );
+      client.setUserContext(context);
+      const queriesBefore = worker.requests.filter(request => request.operation === 'query').length;
+
+      await expect(client.executeMutation({
+        entity: 'Demo', action: 'Create', payload: { name: 'blocked' }, comment: 'demo',
+      })).rejects.toThrow(MutationPolicyError);
+      expect(worker.requests.filter(request => request.operation === 'query')).toHaveLength(queriesBefore);
+      await client.close();
+    },
+  );
 });

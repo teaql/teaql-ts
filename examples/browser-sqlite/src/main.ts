@@ -2,7 +2,11 @@ import {
   BrowserSQLiteStorage,
   BrowserSQLiteTeaQLClient,
 } from 'teaql-ts/sql/browser-sqlite';
-import { UserContext } from 'teaql-ts';
+import {
+  DelegatingMutationPolicyApprovalProvider,
+  DelegatingMutationPolicyRegistry,
+  UserContext,
+} from 'teaql-ts';
 import { Q } from '../../conformance/src/generated/Q';
 import { WorkItem } from '../../conformance/src/generated/models/WorkItem';
 import { GENERATED_RUNTIME_MODULE } from '../../conformance/src/runtime-module';
@@ -26,7 +30,22 @@ async function openRuntime(storage: BrowserSQLiteStorage): Promise<Runtime> {
     databaseName: 'teaql-browser-example.sqlite3',
   });
   client.install(GENERATED_RUNTIME_MODULE);
-  const context = new UserContext().insertResource('dataService', client);
+  const policyIdentity = Object.freeze({
+    policyId: 'browser-demo-seed',
+    version: '1',
+    fingerprint: 'sha256:browser-demo-seed-v1',
+  });
+  const context = new UserContext()
+    .insertResource('dataService', client)
+    .withMutationPolicyRegistry(new DelegatingMutationPolicyRegistry(() => ({
+      identity: policyIdentity,
+      review: (_context, plan) => plan.operations.length > 0
+        ? { verdict: 'allow' }
+        : { verdict: 'deny', code: 'EMPTY_GRAPH', message: 'empty mutation graph' },
+    })))
+    .withMutationPolicyApprovalProvider(new DelegatingMutationPolicyApprovalProvider(
+      identity => ({ policy: identity, approvedBy: 'browser-demo-owner', approvedAt: new Date() }),
+    ));
   client.setUserContext(context);
   await context.ensureSchema();
   return { client, context };
@@ -56,7 +75,7 @@ async function showData(active: Runtime): Promise<void> {
     .purpose('why: prove the generated Q API runs without a backend')
     .executeForList(active.context);
   result.textContent = JSON.stringify(rows, null, 2);
-  status.textContent = `${active.client.storage!.toUpperCase()} · ${rows.length} rows · ready`;
+  status.textContent = `${active.client.storage!.toUpperCase()} · ${rows.length} rows · policy installed · ready`;
 }
 
 async function replaceRuntime(storage: BrowserSQLiteStorage): Promise<void> {

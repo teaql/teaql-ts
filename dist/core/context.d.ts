@@ -1,5 +1,6 @@
 import { SelectQuery } from './ast';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
+import { MutationGovernanceSink, MutationGovernanceSnapshot, MutationPlan, MutationPolicyApprovalProvider, MutationPolicyRegistry } from './mutation-policy';
 export type RetainedIdSet = {
     ids: BigUint64Array;
     expiresAt: number;
@@ -32,6 +33,7 @@ export declare class ContextRootError extends Error {
     }> | undefined);
 }
 export declare class UserContext {
+    private readonly mutationPolicy;
     private readonly resources;
     private readonly continuousPageCursors;
     private readonly retainedIdSets;
@@ -51,6 +53,20 @@ export declare class UserContext {
     installI18nCatalog(catalog: I18nCatalog): this;
     installIdSetPaginationStore(store: IdSetPaginationStore): this;
     translateCheckResults(results: CheckResult[]): CheckResult[];
+    withMutationPolicyRegistry(registry: MutationPolicyRegistry): this;
+    withMutationPolicyApprovalProvider(provider: MutationPolicyApprovalProvider): this;
+    withMutationGovernanceSink(sink: MutationGovernanceSink): this;
+    reviewMutationPlan(plan: MutationPlan): MutationGovernanceSnapshot;
+    /** @internal Used by governed data-service graph orchestration. */
+    beginMutationPolicyGraph(): void;
+    /** @internal Used by generated preflight after Checker/Fix. */
+    recordMutationPolicyPreflight(mutation: unknown): void;
+    /** @internal Called at the provider mutation boundary. */
+    enterMutationPolicy(mutation: unknown): MutationGovernanceSnapshot;
+    /** @internal Must run before the surrounding graph transaction commits. */
+    ensureMutationPolicyGraphComplete(): void;
+    /** @internal Always runs when the graph operation leaves its transaction. */
+    endMutationPolicyGraph(): void;
     beginFixEvidence(): this;
     recordFixEvidence(evidence: FixEvidence): this;
     finishFixEvidence(): this;
