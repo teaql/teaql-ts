@@ -3,10 +3,12 @@ import { E } from "./src/generated/E";
 import { Platform } from "./src/generated/models/Platform";
 import { SchoolType } from "./src/generated/models/SchoolType";
 import { UserContext } from "./src/teaql-ts";
-import { RuntimeModule, normalizeDynamicSearch, SearchModel } from "teaql-ts";
+import { normalizeDynamicSearch, SearchModel } from "teaql-ts";
 import { GENERATED_RUNTIME_MODULE } from "./src/runtime-module";
 import { SQLiteDriver, SQLiteTeaQLClient } from "./src/teaql-node-sqlite";
 import { mkdirSync } from "node:fs";
+import { verifyRequestIntent } from './request-intent';
+import { SQLiteTeaQLClient as ReconciledSQLiteTeaQLClient } from './src/reconciled/teaql-node-sqlite';
 
 async function main(): Promise<void> {
     mkdirSync(".local", { recursive: true });
@@ -22,6 +24,7 @@ async function main(): Promise<void> {
     const context = new UserContext().insertResource("dataService", client);
     await context.ensureSchema();
     await context.ensureSchema();
+    await verifyRequestIntent(context, client);
 
     const roots = await Q.platforms().comment("Read repeated root seed")
         .purpose("Verify School bootstrap idempotency").executeForList(context);
@@ -31,17 +34,11 @@ async function main(): Promise<void> {
     if (types.length !== 2 || !types.some(value => value.id === "1001") || !types.some(value => value.id === "1002")) {
         throw new Error("SchoolType bootstrap is not idempotent");
     }
-    const changedConstants = GENERATED_RUNTIME_MODULE.bootstrap.constants?.map(value =>
-        value.entity === "SchoolType" && value.id === "1001"
-            ? { ...value, values: { ...value.values, name: "Primary School" } }
-            : value) ?? [];
-    const changedModule = new RuntimeModule({}, {}, {
-        defaultDomainRoot: GENERATED_RUNTIME_MODULE.bootstrap.defaultDomainRoot,
-        constants: changedConstants,
-    });
-    const changedClient = new SQLiteTeaQLClient(database);
-    changedClient.install(GENERATED_RUNTIME_MODULE).install(changedModule);
+    // Retained second generated library changes only Primary's presentation name.
+    // Its managed mutation bootstrap reconciles the existing SQLite file.
+    const changedClient = new ReconciledSQLiteTeaQLClient(database);
     const changedContext = new UserContext().insertResource("dataService", changedClient);
+    await changedContext.ensureSchema();
     await changedContext.ensureSchema();
     const changedPrimary = await Q.schoolTypes().withIdIs("1001")
         .comment("Read reconciled Primary constant")

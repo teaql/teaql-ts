@@ -1,5 +1,6 @@
 import { FacetRequest, SelectQuery } from './ast';
 import { SmartList, SmartListRecord } from './smart-list';
+import { QueryRequest } from './request-intent';
 
 export interface FacetQueryService {
   executeQuery(query: SelectQuery): Promise<SmartListRecord[]>;
@@ -40,6 +41,8 @@ export async function executeRelationFacets(
   outerQuery: SelectQuery,
   facets: readonly FacetRequest[],
 ): Promise<Record<string, SmartList<SmartListRecord>>> {
+  const request = new QueryRequest(outerQuery);
+  outerQuery = request.query;
   const result: Record<string, SmartList<SmartListRecord>> = {};
   for (const facet of facets) {
     let counts: Map<string, number>;
@@ -66,7 +69,7 @@ export async function executeRelationFacets(
       }
     }
 
-    const nestedQuery = facet.query.clone();
+    const nestedQuery = new QueryRequest(facet.query.clone(), request.intent).query;
     nestedQuery.facets = [];
     const countAliases = nestedQuery.aggregateItems
       .filter(item => String(item.function).toLowerCase() === 'count')

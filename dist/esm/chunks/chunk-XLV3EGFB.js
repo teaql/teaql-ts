@@ -1,3 +1,9 @@
+import {
+  __privateAdd,
+  __privateGet,
+  __privateSet
+} from "./chunk-IQGZNIAK.js";
+
 // src/core/builtin-messages-v1.json
 var builtin_messages_v1_default = {
   schema: "teaql.i18n/v1",
@@ -202,6 +208,129 @@ var I18nCatalog = _I18nCatalog;
 // src/core/schema-capability.ts
 var contextSchemaCapability = /* @__PURE__ */ Symbol("teaql.context.schema-capability");
 
+// src/core/request-intent.ts
+var RequestIntentError = class extends Error {
+  constructor(code, field, requestKind) {
+    super(`${code}: ${requestKind} request requires a non-blank ${field}; supply it at the request entry point`);
+    this.code = code;
+    this.field = field;
+    this.requestKind = requestKind;
+    this.name = "RequestIntentError";
+  }
+};
+function requireText(value, field, kind) {
+  if (typeof value !== "string" || /^\p{White_Space}*$/u.test(value)) {
+    throw new RequestIntentError(
+      field === "comment" ? "REQUEST_COMMENT_REQUIRED" : "QUERY_PURPOSE_REQUIRED",
+      field,
+      kind
+    );
+  }
+  return value;
+}
+var _comment, _purpose;
+var QueryIntent = class {
+  constructor(comment, purpose) {
+    __privateAdd(this, _comment);
+    __privateAdd(this, _purpose);
+    __privateSet(this, _comment, requireText(comment, "comment", "query"));
+    __privateSet(this, _purpose, requireText(purpose, "purpose", "query"));
+    Object.freeze(this);
+  }
+  get comment() {
+    return __privateGet(this, _comment);
+  }
+  get purpose() {
+    return __privateGet(this, _purpose);
+  }
+};
+_comment = new WeakMap();
+_purpose = new WeakMap();
+var _comment2;
+var MutationIntent = class {
+  constructor(comment) {
+    __privateAdd(this, _comment2);
+    __privateSet(this, _comment2, requireText(comment, "comment", "mutation"));
+    Object.freeze(this);
+  }
+  get comment() {
+    return __privateGet(this, _comment2);
+  }
+  get auditReason() {
+    return __privateGet(this, _comment2);
+  }
+  readbackIntent() {
+    return new QueryIntent(__privateGet(this, _comment2), "verify persisted mutation result");
+  }
+};
+_comment2 = new WeakMap();
+var _intent, _query;
+var QueryRequest = class {
+  constructor(query, intent) {
+    __privateAdd(this, _intent);
+    __privateAdd(this, _query);
+    const source = query;
+    __privateSet(this, _intent, intent === void 0 ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText) : new QueryIntent(intent?.comment, intent?.purpose));
+    __privateSet(this, _query, Object.create(Object.getPrototypeOf(query), Object.getOwnPropertyDescriptors(query)));
+    const captured = __privateGet(this, _query);
+    for (const [field, value] of [
+      ["commentText", this.comment],
+      ["purposeText", this.purpose],
+      ["_comment", this.comment],
+      ["_purpose", this.purpose]
+    ]) {
+      Object.defineProperty(captured, field, {
+        value,
+        enumerable: !field.startsWith("_"),
+        configurable: true,
+        writable: false
+      });
+    }
+    Object.freeze(this);
+  }
+  get intent() {
+    return __privateGet(this, _intent);
+  }
+  get query() {
+    return __privateGet(this, _query);
+  }
+  get comment() {
+    return __privateGet(this, _intent).comment;
+  }
+  get purpose() {
+    return __privateGet(this, _intent).purpose;
+  }
+};
+_intent = new WeakMap();
+_query = new WeakMap();
+var _intent2, _mutation;
+var MutationRequest = class {
+  constructor(mutation, intent) {
+    __privateAdd(this, _intent2);
+    __privateAdd(this, _mutation);
+    __privateSet(this, _intent2, new MutationIntent(intent === void 0 ? mutation?.comment : intent?.comment));
+    __privateSet(this, _mutation, { ...mutation });
+    Object.defineProperty(__privateGet(this, _mutation), "comment", {
+      value: __privateGet(this, _intent2).comment,
+      enumerable: true,
+      writable: false,
+      configurable: false
+    });
+    Object.freeze(this);
+  }
+  get intent() {
+    return __privateGet(this, _intent2);
+  }
+  get mutation() {
+    return __privateGet(this, _mutation);
+  }
+  get comment() {
+    return __privateGet(this, _intent2).comment;
+  }
+};
+_intent2 = new WeakMap();
+_mutation = new WeakMap();
+
 // src/core/mutation-policy.ts
 var MISSING_MUTATION_POLICY = "MUTATION-POLICY-001";
 var MISSING_MUTATION_POLICY_APPROVAL = "MUTATION-POLICY-002";
@@ -393,7 +522,7 @@ var MutationPolicyRuntimeState = class {
       executionId: `teaql-mutation-${executionSequence}`,
       requestKey: `${root}.saveGraph`,
       rootEntityType: root,
-      auditReason: reason,
+      auditReason: new MutationIntent(reason).comment,
       operations
     });
   }
@@ -444,10 +573,10 @@ function operationFromMutation(value) {
   });
 }
 function mutationComment(value) {
-  const comment = value?.comment;
-  return typeof comment === "string" && comment.trim() ? comment.trim() : void 0;
+  return new MutationIntent(value?.comment).comment;
 }
 function validatePlan(plan) {
+  new MutationIntent(plan?.auditReason);
   if (!plan.executionId?.trim()) throw new MutationPolicyError("execution id is required");
   if (!plan.requestKey?.trim()) throw new MutationPolicyError("request key is required");
   if (!plan.rootEntityType?.trim()) throw new MutationPolicyError("root entity type is required");
@@ -1115,6 +1244,11 @@ export {
   checkResultToWire,
   I18nCatalog,
   contextSchemaCapability,
+  RequestIntentError,
+  QueryIntent,
+  MutationIntent,
+  QueryRequest,
+  MutationRequest,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
   MutationPolicyError,
@@ -1133,4 +1267,4 @@ export {
   mergeRuntimeBootstrap,
   RuntimeModule
 };
-//# sourceMappingURL=chunk-DI6F3FE7.js.map
+//# sourceMappingURL=chunk-XLV3EGFB.js.map

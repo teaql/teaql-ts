@@ -14,7 +14,16 @@ if [[ "${actual[*]}" != "${expected[*]}" ]]; then
 fi
 
 for example in conformance ensure-schema-bootstrap school-management; do
-  (cd "$repo/examples/$example" && npm install && npm run build && { [[ "$example" == school-management ]] && npx ts-node app.ts || npm start; })
+  (
+    cd "$repo/examples/$example"
+    npm install
+    npm run build
+    if [[ "$example" == school-management ]]; then
+      npx ts-node app.ts
+    else
+      npm start
+    fi
+  )
 done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
 (cd "$repo/examples/task-board" && npm install && npm run build)

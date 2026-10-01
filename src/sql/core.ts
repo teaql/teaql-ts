@@ -9,6 +9,7 @@ import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { OrderBy, SelectQuery } from '../core/ast';
+import { MutationRequest, QueryIntent, QueryRequest } from '../core/request-intent';
 import { projectSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings } from '../core/log-privacy';
 import type { SQLLogBindingSource } from '../core/log-privacy';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
@@ -663,12 +664,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   private checkAndFixMutation(mutation: any): any {
-    if (!String(mutation?.comment || '').trim()) {
-      throw new Error('Security audit failure: audit reason is required before mutation');
-    }
+    const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    mutation = request.mutation;
     // The ledger exposes immutable snapshots. Fixers receive a mutable working
     // payload and every derived value is copied back into the graph ledger.
     mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+    Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
     const checker = this.checkers[String(mutation.entity)];
     if (!checker) return mutation;
     const results: import('../core/i18n').CheckResult[] = [];
@@ -690,6 +691,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeMutation(mutation: any): Promise<MutationResult> {
+    // Validate before Checker, policy, telemetry and transaction/provider work.
+    const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    mutation = request.mutation;
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'mutation',
       name: `${String(mutation?.entity || 'unknown')}.${String(mutation?.action || 'unknown').toLowerCase()}`,
@@ -1097,12 +1101,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     values: any[];
     aggregateNames: string[];
   }> {
-    const internal = query?.[this.internalQueryToken] === true;
-    const purpose = query?._purpose ?? query?.purposeText;
-    const comment = query?._comment ?? query?.commentText;
-    if (!internal && (!String(purpose || '').trim() || !String(comment || '').trim())) {
-      throw new Error('Security audit failure: purpose and comment are required before query execution');
-    }
+    // Internal execution changes query shape/limits, never the intent contract.
+    new QueryIntent(query?._comment ?? query?.commentText, query?._purpose ?? query?.purposeText);
     const schema = this.schema(query.entity);
     const values: any[] = [];
     const groupProperties = this.groupBy(query);
@@ -1206,15 +1206,22 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeQuery<T = any>(query: any): Promise<T[]> {
-    return this.executeQueryWithIntent<T>(query, this.derivedQueryBindings.get(query));
+    const request = query instanceof QueryRequest ? query : new QueryRequest(query);
+    // Keep the existing builder hard-limit normalization contract. Intent is
+    // already validated; the private execution snapshot is normalized again.
+    if (!(query instanceof QueryRequest) && query?.[this.internalQueryToken] !== true
+      && typeof query?.prepareForList === 'function') query.prepareForList();
+    return this.executeQueryWithIntent<T>(request.query, this.derivedQueryBindings.get(query));
   }
 
-  private async executeDerivedQuery<T>(query: object, inherited?: SQLLogBindingSource): Promise<T[]> {
+  private async executeDerivedQuery<T>(query: object, inherited: SQLLogBindingSource | undefined,
+    intent: QueryIntent): Promise<T[]> {
     // Only fresh execution-local child requests are registered. Keep virtual
     // executeQuery dispatch for existing subclasses; no provenance on wire data.
-    if (inherited) this.derivedQueryBindings.set(query, inherited);
-    try { return await this.executeQuery<T>(query); }
-    finally { this.derivedQueryBindings.delete(query); }
+    const captured = new QueryRequest(query, intent).query;
+    if (inherited) this.derivedQueryBindings.set(captured, inherited);
+    try { return await this.executeQuery<T>(captured); }
+    finally { this.derivedQueryBindings.delete(captured); }
   }
 
   private descendantBindings(query: any, sql: string, values: any[], inherited?: SQLLogBindingSource): SQLLogBindingSource | undefined {
@@ -1368,6 +1375,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     outerQuery: SelectQuery,
     relationName: string,
   ): Promise<Map<string, number>> {
+    outerQuery = new QueryRequest(outerQuery).query;
     const query = outerQuery.clone();
     query.facets = [];
     query.relations = [];
@@ -1387,6 +1395,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeCount(query: any): Promise<number> {
+    query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
     if (typeof query?.forExactCount !== 'function') {
       throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
     }
@@ -1452,6 +1461,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async *executeForStream<T = any>(query: any, chunkSize = 1000): AsyncIterable<T[]> {
+    query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
       throw new Error('stream chunk size must be a positive integer');
     }
@@ -1499,6 +1509,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private async enhanceRelations(parents: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
+    const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
     for (const load of query.relations) {
       const relation = parentSchema.relations?.[load.name];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
@@ -1568,11 +1579,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
             __teaqlPartitionBy: undefined,
           };
-          children.push(...await this.executeDerivedQuery<any>(probeQuery, inherited));
+          children.push(...await this.executeDerivedQuery<any>(probeQuery, inherited, intent));
         }
       } else {
         childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-        children.push(...await this.executeDerivedQuery<any>(childQuery, inherited));
+        children.push(...await this.executeDerivedQuery<any>(childQuery, inherited, intent));
       }
       for (const child of children) delete child.__teaql_partition_rank;
       const buckets = new Map<any, any[]>();
@@ -1598,6 +1609,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const aggregates = query.relationAggregates;
     if (!parents.length || !Array.isArray(aggregates) || !aggregates.length) return;
     const parentSchema = this.schema(query.entity);
+    const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
     for (const aggregate of aggregates) {
       const relation = parentSchema.relations?.[aggregate.relationName];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${aggregate.relationName}`);
@@ -1641,7 +1653,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         ]),
         { level: query.__teaqlTracePath?.length ?? 2, kind: 'relation', name: `${query.entity}.${aggregate.relationName}` },
       ];
-      const rows = await this.executeDerivedQuery<any>(childQuery, inherited);
+      const rows = await this.executeDerivedQuery<any>(childQuery, inherited, intent);
       const buckets = new Map<any, any>();
       for (const row of rows) buckets.set(row[relation.foreignKey], row);
       for (const parent of parents) {

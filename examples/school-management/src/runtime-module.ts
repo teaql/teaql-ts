@@ -1,15 +1,73 @@
 import { ObjectLocation, RuntimeModule } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-node-sql";
+import { ensureGeneratedBootstrap } from "./generated-bootstrap";
+
+/** Generated canonical KSML to selected-wire mapping. Never infer this from TS members. */
+export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
+  profile: "camelCase" as const,
+  entities: Object.freeze({
+    "Platform": Object.freeze({
+      entityType: "Platform",
+      profile: "camelCase" as const,
+      fields: Object.freeze({
+        "id": Object.freeze({ canonicalName: "id", wireName: "id", aliases: Object.freeze([] as string[]) }),
+        "name": Object.freeze({ canonicalName: "name", wireName: "name", aliases: Object.freeze([] as string[]) }),
+        "base_url": Object.freeze({ canonicalName: "base_url", wireName: "baseUrl", aliases: Object.freeze([] as string[]) }),
+        "create_time": Object.freeze({ canonicalName: "create_time", wireName: "createTime", aliases: Object.freeze([] as string[]) }),
+        "update_time": Object.freeze({ canonicalName: "update_time", wireName: "updateTime", aliases: Object.freeze([] as string[]) }),
+        "version": Object.freeze({ canonicalName: "version", wireName: "version", aliases: Object.freeze([] as string[]) })
+      }),
+    }),
+    "SchoolType": Object.freeze({
+      entityType: "SchoolType",
+      profile: "camelCase" as const,
+      fields: Object.freeze({
+        "platform": Object.freeze({ canonicalName: "platform", wireName: "platform", aliases: Object.freeze([] as string[]) }),
+        "id": Object.freeze({ canonicalName: "id", wireName: "id", aliases: Object.freeze([] as string[]) }),
+        "name": Object.freeze({ canonicalName: "name", wireName: "name", aliases: Object.freeze([] as string[]) }),
+        "code": Object.freeze({ canonicalName: "code", wireName: "code", aliases: Object.freeze([] as string[]) }),
+        "display_order": Object.freeze({ canonicalName: "display_order", wireName: "displayOrder", aliases: Object.freeze([] as string[]) }),
+        "version": Object.freeze({ canonicalName: "version", wireName: "version", aliases: Object.freeze([] as string[]) })
+      }),
+    }),
+    "School": Object.freeze({
+      entityType: "School",
+      profile: "camelCase" as const,
+      fields: Object.freeze({
+        "id": Object.freeze({ canonicalName: "id", wireName: "id", aliases: Object.freeze([] as string[]) }),
+        "platform": Object.freeze({ canonicalName: "platform", wireName: "platform", aliases: Object.freeze([] as string[]) }),
+        "school_type": Object.freeze({ canonicalName: "school_type", wireName: "schoolType", aliases: Object.freeze([] as string[]) }),
+        "name": Object.freeze({ canonicalName: "name", wireName: "name", aliases: Object.freeze([] as string[]) }),
+        "address": Object.freeze({ canonicalName: "address", wireName: "address", aliases: Object.freeze([] as string[]) }),
+        "established_date": Object.freeze({ canonicalName: "established_date", wireName: "establishedDate", aliases: Object.freeze([] as string[]) }),
+        "student_capacity": Object.freeze({ canonicalName: "student_capacity", wireName: "studentCapacity", aliases: Object.freeze([] as string[]) }),
+        "active": Object.freeze({ canonicalName: "active", wireName: "active", aliases: Object.freeze([] as string[]) }),
+        "create_time": Object.freeze({ canonicalName: "create_time", wireName: "createTime", aliases: Object.freeze([] as string[]) }),
+        "update_time": Object.freeze({ canonicalName: "update_time", wireName: "updateTime", aliases: Object.freeze([] as string[]) }),
+        "version": Object.freeze({ canonicalName: "version", wireName: "version", aliases: Object.freeze([] as string[]) })
+      }),
+    })
+  }),
+});
 
 /** Passive generated metadata manifest. It never modifies the database schema. */
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "Platform": {
     checkAndFix(context, mutation, results) {
       const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) mutation.payload["create_time"] = now;
+      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
+        mutation.payload["create_time"] = now;
+        context.recordFixEvidence({ entityType: "Platform", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) mutation.payload["update_time"] = now;
-      if (mutation.action === "Update") mutation.payload["update_time"] = now;
+      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
+        mutation.payload["update_time"] = now;
+        context.recordFixEvidence({ entityType: "Platform", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      }
+      if (mutation.action === "Update") {
+        mutation.payload["update_time"] = now;
+        context.recordFixEvidence({ entityType: "Platform", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      }
 
 
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
@@ -45,10 +103,19 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "School": {
     checkAndFix(context, mutation, results) {
       const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) mutation.payload["create_time"] = now;
+      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
+        mutation.payload["create_time"] = now;
+        context.recordFixEvidence({ entityType: "School", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) mutation.payload["update_time"] = now;
-      if (mutation.action === "Update") mutation.payload["update_time"] = now;
+      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
+        mutation.payload["update_time"] = now;
+        context.recordFixEvidence({ entityType: "School", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      }
+      if (mutation.action === "Update") {
+        mutation.payload["update_time"] = now;
+        context.recordFixEvidence({ entityType: "School", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      }
 
 
       if ((mutation.action === "Create" && mutation.payload["platform"] === undefined) || mutation.payload["platform"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("platform") });
@@ -74,10 +141,10 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 
     },
   }
-}, {
+}, { ...{
   defaultDomainRoot: { entity: "Platform", id: "1", values: { "name": "Campus Learning Platform", "baseUrl": "https://campus.example.com", "createTime": "createTime()", "updateTime": "updateTime()" } },
   constants: [
-    { entity: "SchoolType", id: "1001", values: { "platform": "1", "name": "Primary", "code": "PRIMARY", "displayOrder": "1" } },
-    { entity: "SchoolType", id: "1002", values: { "platform": "1", "name": "Secondary", "code": "SECONDARY", "displayOrder": "2" } }
+    { entity: "SchoolType", id: "1001", values: { "platform": "1", "name": "Primary", "code": "PRIMARY", "displayOrder": 1 } },
+    { entity: "SchoolType", id: "1002", values: { "platform": "1", "name": "Secondary", "code": "SECONDARY", "displayOrder": 2 } }
   ]
-});
+}, ensure: ensureGeneratedBootstrap });

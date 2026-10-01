@@ -189,9 +189,11 @@ describe('SQLite relation loading', () => {
   it('enforces runtime governance and sends immutable audit events to the app sink', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
     await new UserContext().insertResource('dataService', client).ensureSchema();
-    await expect(client.executeQuery(new SelectQuery('Order'))).rejects.toThrow(/purpose and comment/);
+    await expect(client.executeQuery(new SelectQuery('Order'))).rejects.toMatchObject({
+      code: 'REQUEST_COMMENT_REQUIRED', field: 'comment', requestKind: 'query',
+    });
     await expect(client.executeMutation({ entity: 'Order', action: 'Create', payload: {} }))
-      .rejects.toThrow(/audit reason/);
+      .rejects.toMatchObject({ code: 'REQUEST_COMMENT_REQUIRED', field: 'comment', requestKind: 'mutation' });
     const sink: Readonly<Record<string, unknown>>[] = [];
     client.setAuditSink(event => { sink.push(event); });
     await client.executeMutation({ entity: 'Order', action: 'Create', id: '10', payload: {}, comment: 'create governed order' });

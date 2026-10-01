@@ -1,4 +1,4 @@
-import { CheckException, EntityKey, EntityRoot, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, MutationIntent, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 import { SchoolType } from './SchoolType';
 
@@ -86,14 +86,12 @@ export class School {
     }
 
     auditAs(comment: string): this {
-        if (!comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() requires a non-empty reason");
-        }
-        (this as any)._comment = comment;
+        (this as any)._comment = new MutationIntent(comment).comment;
         return this;
     }
 
     async save(context: UserContext): Promise<School> {
+        new MutationIntent((this as any)._comment);
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(async () => {
             this.teaqlPreflightGraph(context, service);
@@ -103,9 +101,7 @@ export class School {
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService): void {
-        if (!(this as any)._comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() must be called before save()");
-        }
+        new MutationIntent((this as any)._comment);
         const action = (this as any)._action;
         if (action === "Update") {
             const notLoaded = [{ member: "id", canonical: "id" }, { member: "platform", canonical: "platform" }, { member: "schoolType", canonical: "school_type" }, { member: "name", canonical: "name" }, { member: "address", canonical: "address" }, { member: "establishedDate", canonical: "established_date" }, { member: "studentCapacity", canonical: "student_capacity" }, { member: "active", canonical: "active" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]
@@ -131,9 +127,7 @@ export class School {
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
     async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService): Promise<School> {
-        if (!(this as any)._comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() must be called before save()");
-        }
+        new MutationIntent((this as any)._comment);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {

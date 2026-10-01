@@ -7,6 +7,7 @@ const context_1 = require("../core/context");
 const runtime_module_1 = require("../core/runtime-module");
 const schema_capability_1 = require("../core/schema-capability");
 const ast_1 = require("../core/ast");
+const request_intent_1 = require("../core/request-intent");
 const log_privacy_1 = require("../core/log-privacy");
 /** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
 function canonicalRelationIndexes(schemas) {
@@ -477,12 +478,12 @@ class AbstractSQLTeaQLClient {
         return mutation;
     }
     checkAndFixMutation(mutation) {
-        if (!String(mutation?.comment || '').trim()) {
-            throw new Error('Security audit failure: audit reason is required before mutation');
-        }
+        const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        mutation = request.mutation;
         // The ledger exposes immutable snapshots. Fixers receive a mutable working
         // payload and every derived value is copied back into the graph ledger.
         mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+        Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
         const checker = this.checkers[String(mutation.entity)];
         if (!checker)
             return mutation;
@@ -508,6 +509,9 @@ class AbstractSQLTeaQLClient {
         }
     }
     async executeMutation(mutation) {
+        // Validate before Checker, policy, telemetry and transaction/provider work.
+        const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        mutation = request.mutation;
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
             family: 'mutation',
             name: `${String(mutation?.entity || 'unknown')}.${String(mutation?.action || 'unknown').toLowerCase()}`,
@@ -871,12 +875,8 @@ class AbstractSQLTeaQLClient {
         }));
     }
     async compileQuery(query) {
-        const internal = query?.[this.internalQueryToken] === true;
-        const purpose = query?._purpose ?? query?.purposeText;
-        const comment = query?._comment ?? query?.commentText;
-        if (!internal && (!String(purpose || '').trim() || !String(comment || '').trim())) {
-            throw new Error('Security audit failure: purpose and comment are required before query execution');
-        }
+        // Internal execution changes query shape/limits, never the intent contract.
+        new request_intent_1.QueryIntent(query?._comment ?? query?.commentText, query?._purpose ?? query?.purposeText);
         const schema = this.schema(query.entity);
         const values = [];
         const groupProperties = this.groupBy(query);
@@ -976,18 +976,25 @@ class AbstractSQLTeaQLClient {
         return { sql, values, aggregateNames };
     }
     async executeQuery(query) {
-        return this.executeQueryWithIntent(query, this.derivedQueryBindings.get(query));
+        const request = query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query);
+        // Keep the existing builder hard-limit normalization contract. Intent is
+        // already validated; the private execution snapshot is normalized again.
+        if (!(query instanceof request_intent_1.QueryRequest) && query?.[this.internalQueryToken] !== true
+            && typeof query?.prepareForList === 'function')
+            query.prepareForList();
+        return this.executeQueryWithIntent(request.query, this.derivedQueryBindings.get(query));
     }
-    async executeDerivedQuery(query, inherited) {
+    async executeDerivedQuery(query, inherited, intent) {
         // Only fresh execution-local child requests are registered. Keep virtual
         // executeQuery dispatch for existing subclasses; no provenance on wire data.
+        const captured = new request_intent_1.QueryRequest(query, intent).query;
         if (inherited)
-            this.derivedQueryBindings.set(query, inherited);
+            this.derivedQueryBindings.set(captured, inherited);
         try {
-            return await this.executeQuery(query);
+            return await this.executeQuery(captured);
         }
         finally {
-            this.derivedQueryBindings.delete(query);
+            this.derivedQueryBindings.delete(captured);
         }
     }
     descendantBindings(query, sql, values, inherited) {
@@ -1147,6 +1154,7 @@ class AbstractSQLTeaQLClient {
         return { query: page, execution: { pageIds, totalCount: retained.ids.length } };
     }
     async executeFacetMembership(outerQuery, relationName) {
+        outerQuery = new request_intent_1.QueryRequest(outerQuery).query;
         const query = outerQuery.clone();
         query.facets = [];
         query.relations = [];
@@ -1165,6 +1173,7 @@ class AbstractSQLTeaQLClient {
         }));
     }
     async executeCount(query) {
+        query = (query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query)).query;
         if (typeof query?.forExactCount !== 'function') {
             throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
         }
@@ -1254,6 +1263,7 @@ class AbstractSQLTeaQLClient {
             execution.runtime.observe('CURSOR_SEEK', execution.cursorId);
     }
     async *executeForStream(query, chunkSize = 1000) {
+        query = (query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query)).query;
         if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
             throw new Error('stream chunk size must be a positive integer');
         }
@@ -1305,6 +1315,7 @@ class AbstractSQLTeaQLClient {
         if (!parents.length || !Array.isArray(query.relations) || !query.relations.length)
             return;
         const parentSchema = this.schema(query.entity);
+        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
         for (const load of query.relations) {
             const relation = parentSchema.relations?.[load.name];
             if (!relation)
@@ -1377,12 +1388,12 @@ class AbstractSQLTeaQLClient {
                             _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
                             __teaqlPartitionBy: undefined,
                         };
-                        children.push(...await this.executeDerivedQuery(probeQuery, inherited));
+                        children.push(...await this.executeDerivedQuery(probeQuery, inherited, intent));
                     }
                 }
                 else {
                     childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-                    children.push(...await this.executeDerivedQuery(childQuery, inherited));
+                    children.push(...await this.executeDerivedQuery(childQuery, inherited, intent));
                 }
                 for (const child of children)
                     delete child.__teaql_partition_rank;
@@ -1410,6 +1421,7 @@ class AbstractSQLTeaQLClient {
         if (!parents.length || !Array.isArray(aggregates) || !aggregates.length)
             return;
         const parentSchema = this.schema(query.entity);
+        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
         for (const aggregate of aggregates) {
             const relation = parentSchema.relations?.[aggregate.relationName];
             if (!relation)
@@ -1454,7 +1466,7 @@ class AbstractSQLTeaQLClient {
                 ]),
                 { level: query.__teaqlTracePath?.length ?? 2, kind: 'relation', name: `${query.entity}.${aggregate.relationName}` },
             ];
-            const rows = await this.executeDerivedQuery(childQuery, inherited);
+            const rows = await this.executeDerivedQuery(childQuery, inherited, intent);
             const buckets = new Map();
             for (const row of rows)
                 buckets.set(row[relation.foreignKey], row);

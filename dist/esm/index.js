@@ -8,10 +8,15 @@ import {
   I18nCatalog,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
+  MutationIntent,
   MutationPolicyError,
   MutationPolicyRuntimeState,
   MutationQuery,
+  MutationRequest,
   OrderBy,
+  QueryIntent,
+  QueryRequest,
+  RequestIntentError,
   RuntimeModule,
   SelectQuery,
   SortDirection,
@@ -21,7 +26,7 @@ import {
   locales,
   mergeRuntimeBootstrap,
   parseLocale
-} from "./chunks/chunk-DI6F3FE7.js";
+} from "./chunks/chunk-XLV3EGFB.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -30,6 +35,7 @@ import {
   safeRuntimeOperation,
   startRuntimeOperation
 } from "./chunks/chunk-WZ3T4PU6.js";
+import "./chunks/chunk-IQGZNIAK.js";
 
 // src/core/value.ts
 var Values = {
@@ -589,6 +595,8 @@ function relationId(row, relationName) {
   return void 0;
 }
 async function executeRelationFacets(service, prepareQuery, outerQuery, facets) {
+  const request = new QueryRequest(outerQuery);
+  outerQuery = request.query;
   const result = {};
   for (const facet of facets) {
     let counts;
@@ -616,7 +624,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
     }
-    const nestedQuery = facet.query.clone();
+    const nestedQuery = new QueryRequest(facet.query.clone(), request.intent).query;
     nestedQuery.facets = [];
     const countAliases = nestedQuery.aggregateItems.filter((item) => String(item.function).toLowerCase() === "count").map((item) => String(item.alias));
     nestedQuery.aggregateItems = [];
@@ -781,7 +789,9 @@ function rejectRemoteHardLimit(value, path = "$") {
     rejectRemoteHardLimit(child, `${path}.${key}`);
   }
 }
-function serializeQuery(query, nestedFacet = false) {
+function serializeQuery(query, nestedFacet = false, intent) {
+  const request = new QueryRequest(query, intent);
+  query = request.query;
   if (!Number.isSafeInteger(query.offsetValue) || query.offsetValue < 0) {
     throw new Error("TFP_INVALID_REQUEST: offset must be a non-negative safe integer");
   }
@@ -789,8 +799,6 @@ function serializeQuery(query, nestedFacet = false) {
     throw new Error("TFP_INVALID_REQUEST: limit must be a positive safe integer");
   }
   rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
-  if (!query.commentText?.trim()) throw new Error("TFP_INVALID_REQUEST: commentText is required");
-  if (!query.purposeText?.trim()) throw new Error("TFP_POLICY_VIOLATION: purposeText is required");
   if (query.relations.length || query.joins.length) {
     throw new Error("TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1");
   }
@@ -810,7 +818,7 @@ function serializeQuery(query, nestedFacet = false) {
       facetName: facet.facetName,
       relationName: facet.relationName,
       includeAllFacets: facet.includeAllFacets,
-      query: serializeQuery(facet.query, true)
+      query: serializeQuery(facet.query, true, request.intent)
     })),
     commentText: query.commentText,
     purposeText: query.purposeText
@@ -844,7 +852,8 @@ var TeaQLClient = class {
     return this.config.getHeaders ? { ...headers, ...await this.config.getHeaders() } : headers;
   }
   async executeQuery(query) {
-    const payload = serializeQuery(query);
+    const request = query instanceof QueryRequest ? query : new QueryRequest(query);
+    const payload = serializeQuery(request.query, false, request.intent);
     const url = `${this.config.baseUrl.replace(/\/$/, "")}/query`;
     return observeRuntimeOperation(
       this.runtimeTelemetry,
@@ -874,14 +883,14 @@ var TeaQLClient = class {
     );
   }
   async *executeForStream(_query, _chunkSize = 1e3) {
+    new QueryRequest(_query);
     throw new Error(
       "TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol"
     );
   }
   async executeMutation(query) {
-    if (!query?.comment?.trim?.()) {
-      throw new Error("TFP_AUDIT_REASON_REQUIRED: mutation audit reason is required");
-    }
+    const request = query instanceof MutationRequest ? query : new MutationRequest(query);
+    query = request.mutation;
     const payload = {
       entity: query.entity,
       action: query.action,
@@ -2264,15 +2273,20 @@ export {
   LocalCache,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
+  MutationIntent,
   MutationPolicyError,
   MutationPolicyRuntimeState,
   MutationQuery,
+  MutationRequest,
   NOOP_RUNTIME_TELEMETRY,
   ObjectLocation,
   OrderBy,
   PropertyDescriptor,
+  QueryIntent,
   QueryParser,
+  QueryRequest,
   RelationDescriptor,
+  RequestIntentError,
   RuntimeModule,
   SelectQuery,
   SmartList,

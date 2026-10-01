@@ -42,7 +42,7 @@ describe('SQLite true streaming query', () => {
       for await (const _chunk of stream) { /* consume */ }
     };
     await expect(consume(client.executeForStream(new SelectQuery('Order'), 10)))
-      .rejects.toThrow(/purpose and comment/);
+      .rejects.toMatchObject({ code: 'REQUEST_COMMENT_REQUIRED', field: 'comment', requestKind: 'query' });
     const query = new SelectQuery('Order').comment('invalid size').purpose('verify validation');
     await expect(consume(client.executeForStream(query, 0))).rejects.toThrow(/positive integer/);
     await client.close();

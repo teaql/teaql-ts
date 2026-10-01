@@ -1,7 +1,8 @@
 "use strict";
-/** Governed application policy for complete mutation graphs. */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MutationPolicyRuntimeState = exports.DelegatingMutationGovernanceSink = exports.DelegatingMutationPolicyApprovalProvider = exports.DelegatingMutationPolicyRegistry = exports.MutationPolicyError = exports.MISSING_MUTATION_POLICY_APPROVAL = exports.MISSING_MUTATION_POLICY = void 0;
+/** Governed application policy for complete mutation graphs. */
+const request_intent_1 = require("./request-intent");
 exports.MISSING_MUTATION_POLICY = 'MUTATION-POLICY-001';
 exports.MISSING_MUTATION_POLICY_APPROVAL = 'MUTATION-POLICY-002';
 class MutationPolicyError extends Error {
@@ -185,7 +186,7 @@ class MutationPolicyRuntimeState {
             executionId: `teaql-mutation-${executionSequence}`,
             requestKey: `${root}.saveGraph`,
             rootEntityType: root,
-            auditReason: reason,
+            auditReason: new request_intent_1.MutationIntent(reason).comment,
             operations,
         });
     }
@@ -237,10 +238,10 @@ function operationFromMutation(value) {
     });
 }
 function mutationComment(value) {
-    const comment = value?.comment;
-    return typeof comment === 'string' && comment.trim() ? comment.trim() : undefined;
+    return new request_intent_1.MutationIntent(value?.comment).comment;
 }
 function validatePlan(plan) {
+    new request_intent_1.MutationIntent(plan?.auditReason);
     if (!plan.executionId?.trim())
         throw new MutationPolicyError('execution id is required');
     if (!plan.requestKey?.trim())

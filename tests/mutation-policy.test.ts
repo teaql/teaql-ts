@@ -183,6 +183,7 @@ test('missing policy and approval warnings are stable, deduplicated, and fail op
   );
   const plan: MutationPlan = {
     executionId: 'warning-1', requestKey: 'Order.saveGraph', rootEntityType: 'Order',
+    auditReason: 'verify missing-policy warnings',
     operations: [{ kind: 'update', entity: 'Order', entityId: '1',
       originalVersion: 1, changedValues: { name: 'updated' } }],
   };
@@ -245,6 +246,7 @@ test('cyclic policy values fail explicitly instead of overflowing the stack', ()
   const context = new UserContext();
   expect(() => context.reviewMutationPlan({
     executionId: 'cyclic-plan', requestKey: 'Order.saveGraph', rootEntityType: 'Order',
+    auditReason: 'reject cyclic policy values',
     operations: [{ kind: 'update', entity: 'Order', entityId: '1',
       originalVersion: 1, changedValues: payload }],
   })).toThrow(/must not contain cycles/);

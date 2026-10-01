@@ -1,10 +1,13 @@
 import {
   CheckException,
+  MutationRequest,
   OrderBy,
+  QueryIntent,
+  QueryRequest,
   UserContext,
   contextSchemaCapability,
   mergeRuntimeBootstrap
-} from "./chunk-DI6F3FE7.js";
+} from "./chunk-XLV3EGFB.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -780,10 +783,10 @@ var AbstractSQLTeaQLClient = class {
     return mutation;
   }
   checkAndFixMutation(mutation) {
-    if (!String(mutation?.comment || "").trim()) {
-      throw new Error("Security audit failure: audit reason is required before mutation");
-    }
+    const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    mutation = request.mutation;
     mutation = { ...mutation, payload: { ...mutation?.payload ?? {} } };
+    Object.defineProperty(mutation, "comment", { value: request.comment, enumerable: true });
     const checker = this.checkers[String(mutation.entity)];
     if (!checker) return mutation;
     const results = [];
@@ -804,6 +807,8 @@ var AbstractSQLTeaQLClient = class {
     }
   }
   async executeMutation(mutation) {
+    const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    mutation = request.mutation;
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: "mutation",
       name: `${String(mutation?.entity || "unknown")}.${String(mutation?.action || "unknown").toLowerCase()}`,
@@ -1197,12 +1202,7 @@ var AbstractSQLTeaQLClient = class {
     }));
   }
   async compileQuery(query) {
-    const internal = query?.[this.internalQueryToken] === true;
-    const purpose = query?._purpose ?? query?.purposeText;
-    const comment = query?._comment ?? query?.commentText;
-    if (!internal && (!String(purpose || "").trim() || !String(comment || "").trim())) {
-      throw new Error("Security audit failure: purpose and comment are required before query execution");
-    }
+    new QueryIntent(query?._comment ?? query?.commentText, query?._purpose ?? query?.purposeText);
     const schema = this.schema(query.entity);
     const values = [];
     const groupProperties = this.groupBy(query);
@@ -1289,14 +1289,17 @@ var AbstractSQLTeaQLClient = class {
     return { sql, values, aggregateNames };
   }
   async executeQuery(query) {
-    return this.executeQueryWithIntent(query, this.derivedQueryBindings.get(query));
+    const request = query instanceof QueryRequest ? query : new QueryRequest(query);
+    if (!(query instanceof QueryRequest) && query?.[this.internalQueryToken] !== true && typeof query?.prepareForList === "function") query.prepareForList();
+    return this.executeQueryWithIntent(request.query, this.derivedQueryBindings.get(query));
   }
-  async executeDerivedQuery(query, inherited) {
-    if (inherited) this.derivedQueryBindings.set(query, inherited);
+  async executeDerivedQuery(query, inherited, intent) {
+    const captured = new QueryRequest(query, intent).query;
+    if (inherited) this.derivedQueryBindings.set(captured, inherited);
     try {
-      return await this.executeQuery(query);
+      return await this.executeQuery(captured);
     } finally {
-      this.derivedQueryBindings.delete(query);
+      this.derivedQueryBindings.delete(captured);
     }
   }
   descendantBindings(query, sql, values, inherited) {
@@ -1457,6 +1460,7 @@ var AbstractSQLTeaQLClient = class {
     return { query: page, execution: { pageIds, totalCount: retained.ids.length } };
   }
   async executeFacetMembership(outerQuery, relationName) {
+    outerQuery = new QueryRequest(outerQuery).query;
     const query = outerQuery.clone();
     query.facets = [];
     query.relations = [];
@@ -1475,6 +1479,7 @@ var AbstractSQLTeaQLClient = class {
     }));
   }
   async executeCount(query) {
+    query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
     if (typeof query?.forExactCount !== "function") {
       throw new Error("TeaQL exact count requires the formal runtime SelectQuery");
     }
@@ -1558,6 +1563,7 @@ var AbstractSQLTeaQLClient = class {
     if (execution.optimized) execution.runtime.observe("CURSOR_SEEK", execution.cursorId);
   }
   async *executeForStream(query, chunkSize = 1e3) {
+    query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
       throw new Error("stream chunk size must be a positive integer");
     }
@@ -1621,6 +1627,7 @@ var AbstractSQLTeaQLClient = class {
   async enhanceRelations(parents, query, inherited) {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
+    const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
     for (const load of query.relations) {
       const relation = parentSchema.relations?.[load.name];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
@@ -1684,11 +1691,11 @@ var AbstractSQLTeaQLClient = class {
               _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
               __teaqlPartitionBy: void 0
             };
-            children.push(...await this.executeDerivedQuery(probeQuery, inherited));
+            children.push(...await this.executeDerivedQuery(probeQuery, inherited, intent));
           }
         } else {
           childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-          children.push(...await this.executeDerivedQuery(childQuery, inherited));
+          children.push(...await this.executeDerivedQuery(childQuery, inherited, intent));
         }
         for (const child of children) delete child.__teaql_partition_rank;
         const buckets = /* @__PURE__ */ new Map();
@@ -1713,6 +1720,7 @@ var AbstractSQLTeaQLClient = class {
     const aggregates = query.relationAggregates;
     if (!parents.length || !Array.isArray(aggregates) || !aggregates.length) return;
     const parentSchema = this.schema(query.entity);
+    const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
     for (const aggregate of aggregates) {
       const relation = parentSchema.relations?.[aggregate.relationName];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${aggregate.relationName}`);
@@ -1752,7 +1760,7 @@ var AbstractSQLTeaQLClient = class {
         ],
         { level: query.__teaqlTracePath?.length ?? 2, kind: "relation", name: `${query.entity}.${aggregate.relationName}` }
       ];
-      const rows = await this.executeDerivedQuery(childQuery, inherited);
+      const rows = await this.executeDerivedQuery(childQuery, inherited, intent);
       const buckets = /* @__PURE__ */ new Map();
       for (const row of rows) buckets.set(row[relation.foreignKey], row);
       for (const parent of parents) {
@@ -1813,4 +1821,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-4OB3N3NJ.js.map
+//# sourceMappingURL=chunk-BYB7Y6OU.js.map

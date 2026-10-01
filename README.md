@@ -1,5 +1,33 @@
 # TeaQL-TS (TypeScript Runtime)
 
+## Request intent on the feature branch
+
+`feature/request-trace-chain` adds validated, request-owned `QueryIntent` and
+`MutationIntent`. This is a local source checkpoint, not a published `0.2.10`
+capability. Query Request requires non-blank `comment` and `purpose`; Mutation
+Request requires non-blank `comment`, also exposed to policy/audit as its root
+reason. Existing generated `.comment(...).purpose(...)` and `.auditAs(...)`
+spelling stays unchanged after regeneration.
+
+Missing intent fails with `REQUEST_COMMENT_REQUIRED` at `comment`, or
+`QUERY_PURPOSE_REQUIRED` at `purpose`, before policies and provider access.
+The errors identify the request kind without echoing payload values. Context
+resources, fabricated trace frames, child comments, and logging switches do
+not supply a missing request property. Unicode whitespace validation follows
+Rust; valid text is preserved without trimming.
+
+Low-level adapters can construct `QueryRequest(query)` or
+`MutationRequest(mutation)`. Envelopes capture intent independently of mutable
+builders. SQL relations, aggregates, Facets and TFP Facet serialization inherit
+the root intent. Generated library guards delegate to the runtime validators;
+pair the changed generator with this local runtime before testing.
+
+This request foundation is not the complete graph Trace Chain: graph callback
+envelopes, immutable per-entity lineage, late-ID enrichment, commit-only audit
+delivery and the normative multi-entity/concurrency gate remain open. Verify
+local source with `npm test -- --runInBand` and
+`bash scripts/verify-examples.sh` before any internal artifact or public release.
+
 ## Sensitive log data
 
 Runtime diagnostic logs redact payload values by default, before delivery to

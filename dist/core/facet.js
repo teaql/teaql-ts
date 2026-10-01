@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.executeRelationFacets = void 0;
 const smart_list_1 = require("./smart-list");
+const request_intent_1 = require("./request-intent");
 function snakeCase(value) {
     return value.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 }
@@ -27,6 +28,8 @@ function relationId(row, relationName) {
  * determines which facet entities and fields are returned.
  */
 async function executeRelationFacets(service, prepareQuery, outerQuery, facets) {
+    const request = new request_intent_1.QueryRequest(outerQuery);
+    outerQuery = request.query;
     const result = {};
     for (const facet of facets) {
         let counts;
@@ -53,7 +56,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
                 counts.set(key, (counts.get(key) ?? 0) + 1);
             }
         }
-        const nestedQuery = facet.query.clone();
+        const nestedQuery = new request_intent_1.QueryRequest(facet.query.clone(), request.intent).query;
         nestedQuery.facets = [];
         const countAliases = nestedQuery.aggregateItems
             .filter(item => String(item.function).toLowerCase() === 'count')

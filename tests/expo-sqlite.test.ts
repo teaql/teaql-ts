@@ -102,7 +102,7 @@ describe('Expo SQLite TeaQL driver', () => {
 
     await expect(client.executeMutation(
       new MutationQuery('Order', 'Create', { name: 'unsafe' }),
-    )).rejects.toThrow(/audit reason/);
+    )).rejects.toMatchObject({ code: 'REQUEST_COMMENT_REQUIRED', field: 'comment', requestKind: 'mutation' });
 
     const created = await client.executeMutation(
       new MutationQuery(

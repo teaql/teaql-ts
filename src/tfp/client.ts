@@ -2,6 +2,7 @@ import { SelectQuery } from '../core/ast';
 import { SmartList, SmartListRecord } from '../core/smart-list';
 import { UserContext } from '../core/context';
 import { MutationGovernanceSnapshot } from '../core/mutation-policy';
+import { MutationRequest, QueryIntent, QueryRequest } from '../core/request-intent';
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -27,7 +28,10 @@ function rejectRemoteHardLimit(value: unknown, path = '$'): void {
   }
 }
 
-function serializeQuery(query: SelectQuery, nestedFacet = false): Record<string, unknown> {
+function serializeQuery(query: SelectQuery, nestedFacet = false,
+  intent?: QueryIntent): Record<string, unknown> {
+  const request = new QueryRequest(query, intent);
+  query = request.query;
   if (!Number.isSafeInteger(query.offsetValue) || query.offsetValue < 0) {
     throw new Error('TFP_INVALID_REQUEST: offset must be a non-negative safe integer');
   }
@@ -35,8 +39,6 @@ function serializeQuery(query: SelectQuery, nestedFacet = false): Record<string,
     throw new Error('TFP_INVALID_REQUEST: limit must be a positive safe integer');
   }
   rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
-  if (!query.commentText?.trim()) throw new Error('TFP_INVALID_REQUEST: commentText is required');
-  if (!query.purposeText?.trim()) throw new Error('TFP_POLICY_VIOLATION: purposeText is required');
   if (query.relations.length || query.joins.length) {
     throw new Error('TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1');
   }
@@ -56,7 +58,7 @@ function serializeQuery(query: SelectQuery, nestedFacet = false): Record<string,
       facetName: facet.facetName,
       relationName: facet.relationName,
       includeAllFacets: facet.includeAllFacets,
-      query: serializeQuery(facet.query, true),
+      query: serializeQuery(facet.query, true, request.intent),
     })),
     commentText: query.commentText,
     purposeText: query.purposeText,
@@ -112,8 +114,9 @@ export class TeaQLClient {
       : headers;
   }
 
-  async executeQuery<T = any>(query: SelectQuery): Promise<SmartList<T>> {
-    const payload = serializeQuery(query);
+  async executeQuery<T = any>(query: SelectQuery | QueryRequest): Promise<SmartList<T>> {
+    const request = query instanceof QueryRequest ? query : new QueryRequest(query);
+    const payload = serializeQuery(request.query, false, request.intent);
     const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
     
     return observeRuntimeOperation(
@@ -145,15 +148,15 @@ export class TeaQLClient {
     _query: SelectQuery,
     _chunkSize = 1000,
   ): AsyncIterable<T[]> {
+    new QueryRequest(_query);
     throw new Error(
       'TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol',
     );
   }
 
   async executeMutation(query: any): Promise<any> {
-    if (!query?.comment?.trim?.()) {
-      throw new Error('TFP_AUDIT_REASON_REQUIRED: mutation audit reason is required');
-    }
+    const request = query instanceof MutationRequest ? query : new MutationRequest(query);
+    query = request.mutation;
     const payload = {
       entity: query.entity, action: query.action, payload: query.payload,
       id: query.id, expectedVersion: query.expectedVersion, comment: query.comment,

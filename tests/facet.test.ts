@@ -30,7 +30,8 @@ describe('relation facets', () => {
   }
 
   it('merges the outer filter into counts and preserves all facet values by default', async () => {
-    const outer = new SelectQuery('School').filter({ $and: [{ name: { $contains: 'Riverside' } }] });
+    const outer = new SelectQuery('School').filter({ $and: [{ name: { $contains: 'Riverside' } }] })
+      .comment('load school facets').purpose('verify filtered facet membership');
     const nested = new SelectQuery('SchoolType').aggregate('Count', 'id', 'schoolCount');
     const request = { toQuery: () => nested };
     outer.facetBy('types', 'schoolType', request);
@@ -42,7 +43,8 @@ describe('relation facets', () => {
   });
 
   it('can restrict facet values to the filtered outer result', async () => {
-    const outer = new SelectQuery('School').filter({ $and: [{ name: { $contains: 'Riverside' } }] });
+    const outer = new SelectQuery('School').filter({ $and: [{ name: { $contains: 'Riverside' } }] })
+      .comment('load school facets').purpose('verify filtered facet membership');
     const nested = new SelectQuery('SchoolType').aggregate('Count', 'id', 'schoolCount');
     outer.facetBy('types', 'schoolType', { toQuery: () => nested }, false);
 

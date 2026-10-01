@@ -1,5 +1,6 @@
 export * from './core/value';
 export * from './core/context';
+export * from './core/request-intent';
 export * from './core/mutation-policy';
 export * from './core/entity-root';
 export * from './core/checker';
