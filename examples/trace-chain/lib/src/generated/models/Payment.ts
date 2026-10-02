@@ -42,15 +42,20 @@ export class Payment {
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "Payment", id: (this as any)._ledgerId }; }
-    private teaqlAttachRoot(root: EntityRoot): this {
-        if ((this as any)._root !== root) { root.mergeFrom((this as any)._root); (this as any)._root = root; }
-        for (const child of (this as any)._paymentAttemptList) child.teaqlAttachRoot(root);
+    private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
+        if ((this as any)._root !== root) {
+            const source = (this as any)._root as EntityRoot;
+            const key = this.teaqlEntityKey();
+            root.mergeEntityFrom(source, key);
+            if (hydration || source.hasPending(key)) (this as any)._root = root;
+        }
+        for (const child of (this as any)._paymentAttemptList) child.teaqlAttachRoot(root, hydration);
         return this;
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): Payment {
         const entity = new Payment(record as Partial<Payment>);
-        return root ? entity.teaqlAttachRoot(root) : entity;
+        return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
     isLoaded(field: string): boolean {
@@ -100,7 +105,8 @@ export class Payment {
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession): void {
         const action = (this as any)._action;
-        if (action === "Update") {
+        const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        if (action === "Update" && pending) {
             const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
@@ -111,18 +117,20 @@ export class Payment {
                 }]);
             }
         }
-        service.preflightMutation(graph.request({
+        if (pending) service.preflightMutation(graph.request({
             entity: "Payment", action,
             payload: action === "Update"
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
-            id: (this as any).id, version: (this as any).version,
+            id: (this as any).id,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }));
         for (const [index, child] of (this as any)._paymentAttemptList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updatePayment(this);
+            if (this.id === undefined || String((child.payment as any)?.id ?? child.payment) !== String(this.id))
+                child.updatePayment(this);
             try { child.teaqlPreflightGraph(context, service, graph); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -144,12 +152,29 @@ export class Payment {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any).version,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
         const request = graph.request(mutation, parent, (this as any)._comment);
+        if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
+            const activeScope = request.scopeFor(this.teaqlEntityKey());
+            for (const [index, child] of (this as any)._paymentAttemptList.entries()) {
+                child.teaqlAttachRoot((this as any)._root);
+                if (this.id === undefined || String((child.payment as any)?.id ?? child.payment) !== String(this.id))
+                    child.updatePayment(this);
+                try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+                catch (error) {
+                    if (!(error instanceof CheckException)) throw error;
+                    const prefix = ObjectLocation.property("payment_attempt_list").index(index);
+                    throw new CheckException(error.violations.map(violation => ({
+                        ...violation, location: violation.location.prefixedBy(prefix),
+                    })));
+                }
+            }
+            return this;
+        }
         const result = await service.executeMutation(request);
         for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
             if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
@@ -183,7 +208,8 @@ export class Payment {
         if (mutation.action !== "Delete") (this as any)._action = "Update";
         for (const [index, child] of (this as any)._paymentAttemptList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updatePayment(this);
+            if (this.id === undefined || String((child.payment as any)?.id ?? child.payment) !== String(this.id))
+                child.updatePayment(this);
             try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -195,7 +221,7 @@ export class Payment {
         }
         service.afterGraphCommit(() => {
             (this as any)._root.clearEntity(newKey);
-            if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(newKey, Number((this as any).version));
+            if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
         });
         return this;
     }

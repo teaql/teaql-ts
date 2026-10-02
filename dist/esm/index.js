@@ -116,11 +116,28 @@ var EntityRoot = class {
   }
   mergeFrom(other) {
     if (other === this) return;
+    for (const entry of other.snapshotVersions()) this.requireMatchingVersion(entry.key, entry.version);
     for (const entry of other.snapshot()) for (const [field, value] of Object.entries(entry.values)) this.set(entry.key, field, value);
     for (const key of other.newKeys.values()) this.markAsNew(key);
     for (const key of other.deletedKeys.values()) this.markAsDeleted(key);
     for (const entry of other.snapshotVersions()) this.setOriginalVersion(entry.key, entry.version);
     for (const entry of other.traces.values()) this.setTraceChain(entry.key, entry.nodes);
+  }
+  /** Import one explicitly reached entity, never its foreign graph or ownership. */
+  mergeEntityFrom(other, key) {
+    if (other === this) return;
+    const version = other.originalVersion(key);
+    if (version !== void 0) this.requireMatchingVersion(key, version);
+    for (const [field, value] of Object.entries(other.change(key))) this.set(key, field, value);
+    if (other.isNew(key)) this.markAsNew(key);
+    if (other.isDeleted(key)) this.markAsDeleted(key);
+    if (version !== void 0) this.setOriginalVersion(key, version);
+    const trace = other.traceChain(key);
+    if (trace) this.setTraceChain(key, trace);
+  }
+  hasPending(key) {
+    const id = identity(key);
+    return this.newKeys.has(id) || this.deletedKeys.has(id) || Object.keys(this.changes.get(id)?.values ?? {}).length > 0;
   }
   snapshotVersions() {
     return [...this.originalVersions.values()];
@@ -129,6 +146,8 @@ var EntityRoot = class {
     const oldId = identity(oldKey);
     const newId = identity(newKey);
     if (oldId === newId) return;
+    const loadedVersion = this.originalVersion(oldKey);
+    if (loadedVersion !== void 0) this.requireMatchingVersion(newKey, loadedVersion);
     const entry = this.changes.get(oldId);
     if (entry) {
       this.changes.delete(oldId);
@@ -154,7 +173,19 @@ var EntityRoot = class {
     this.deletedKeys.delete(id);
     this.traces.delete(id);
   }
+  requireMatchingVersion(key, version) {
+    const original = this.originalVersion(key);
+    if (original !== void 0 && original !== version) {
+      throw new Error("ENTITY_VERSION_CONFLICT: one graph cannot contain different loaded versions of the same typed entity");
+    }
+  }
   setOriginalVersion(key, version) {
+    this.requireMatchingVersion(key, version);
+    this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
+  }
+  /** @internal Accept only the authoritative result after this key committed. */
+  acceptCommittedVersion(key, version) {
+    if (this.hasPending(key)) throw new Error("ENTITY_COMMIT_PENDING: clear committed changes before accepting the persisted version");
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
   }
   originalVersion(key) {

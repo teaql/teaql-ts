@@ -65,17 +65,22 @@ export class CustomerOrder {
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "CustomerOrder", id: (this as any)._ledgerId }; }
-    private teaqlAttachRoot(root: EntityRoot): this {
-        if ((this as any)._root !== root) { root.mergeFrom((this as any)._root); (this as any)._root = root; }
-        for (const child of (this as any)._orderItemList) child.teaqlAttachRoot(root);
-        for (const child of (this as any)._paymentList) child.teaqlAttachRoot(root);
-        for (const child of (this as any)._shipmentList) child.teaqlAttachRoot(root);
+    private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
+        if ((this as any)._root !== root) {
+            const source = (this as any)._root as EntityRoot;
+            const key = this.teaqlEntityKey();
+            root.mergeEntityFrom(source, key);
+            if (hydration || source.hasPending(key)) (this as any)._root = root;
+        }
+        for (const child of (this as any)._orderItemList) child.teaqlAttachRoot(root, hydration);
+        for (const child of (this as any)._paymentList) child.teaqlAttachRoot(root, hydration);
+        for (const child of (this as any)._shipmentList) child.teaqlAttachRoot(root, hydration);
         return this;
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): CustomerOrder {
         const entity = new CustomerOrder(record as Partial<CustomerOrder>);
-        return root ? entity.teaqlAttachRoot(root) : entity;
+        return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
     isLoaded(field: string): boolean {
@@ -125,7 +130,8 @@ export class CustomerOrder {
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession): void {
         const action = (this as any)._action;
-        if (action === "Update") {
+        const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        if (action === "Update" && pending) {
             const notLoaded = [{ member: "id", canonical: "id" }, { member: "platform", canonical: "platform" }, { member: "orderNumber", canonical: "order_number" }, { member: "description", canonical: "description" }, { member: "version", canonical: "version" }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
@@ -136,18 +142,20 @@ export class CustomerOrder {
                 }]);
             }
         }
-        service.preflightMutation(graph.request({
+        if (pending) service.preflightMutation(graph.request({
             entity: "CustomerOrder", action,
             payload: action === "Update"
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
-            id: (this as any).id, version: (this as any).version,
+            id: (this as any).id,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }));
         for (const [index, child] of (this as any)._orderItemList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updateCustomerOrder(this);
+            if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                child.updateCustomerOrder(this);
             try { child.teaqlPreflightGraph(context, service, graph); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -159,7 +167,8 @@ export class CustomerOrder {
         }
         for (const [index, child] of (this as any)._paymentList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updateCustomerOrder(this);
+            if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                child.updateCustomerOrder(this);
             try { child.teaqlPreflightGraph(context, service, graph); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -171,7 +180,8 @@ export class CustomerOrder {
         }
         for (const [index, child] of (this as any)._shipmentList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updateCustomerOrder(this);
+            if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                child.updateCustomerOrder(this);
             try { child.teaqlPreflightGraph(context, service, graph); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -193,12 +203,55 @@ export class CustomerOrder {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any).version,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
         const request = graph.request(mutation, parent, (this as any)._comment);
+        if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
+            const activeScope = request.scopeFor(this.teaqlEntityKey());
+            for (const [index, child] of (this as any)._orderItemList.entries()) {
+                child.teaqlAttachRoot((this as any)._root);
+                if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                    child.updateCustomerOrder(this);
+                try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+                catch (error) {
+                    if (!(error instanceof CheckException)) throw error;
+                    const prefix = ObjectLocation.property("order_item_list").index(index);
+                    throw new CheckException(error.violations.map(violation => ({
+                        ...violation, location: violation.location.prefixedBy(prefix),
+                    })));
+                }
+            }
+            for (const [index, child] of (this as any)._paymentList.entries()) {
+                child.teaqlAttachRoot((this as any)._root);
+                if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                    child.updateCustomerOrder(this);
+                try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+                catch (error) {
+                    if (!(error instanceof CheckException)) throw error;
+                    const prefix = ObjectLocation.property("payment_list").index(index);
+                    throw new CheckException(error.violations.map(violation => ({
+                        ...violation, location: violation.location.prefixedBy(prefix),
+                    })));
+                }
+            }
+            for (const [index, child] of (this as any)._shipmentList.entries()) {
+                child.teaqlAttachRoot((this as any)._root);
+                if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                    child.updateCustomerOrder(this);
+                try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+                catch (error) {
+                    if (!(error instanceof CheckException)) throw error;
+                    const prefix = ObjectLocation.property("shipment_list").index(index);
+                    throw new CheckException(error.violations.map(violation => ({
+                        ...violation, location: violation.location.prefixedBy(prefix),
+                    })));
+                }
+            }
+            return this;
+        }
         const result = await service.executeMutation(request);
         for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
             if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
@@ -232,7 +285,8 @@ export class CustomerOrder {
         if (mutation.action !== "Delete") (this as any)._action = "Update";
         for (const [index, child] of (this as any)._orderItemList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updateCustomerOrder(this);
+            if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                child.updateCustomerOrder(this);
             try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -244,7 +298,8 @@ export class CustomerOrder {
         }
         for (const [index, child] of (this as any)._paymentList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updateCustomerOrder(this);
+            if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                child.updateCustomerOrder(this);
             try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -256,7 +311,8 @@ export class CustomerOrder {
         }
         for (const [index, child] of (this as any)._shipmentList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            child.updateCustomerOrder(this);
+            if (this.id === undefined || String((child.customerOrder as any)?.id ?? child.customerOrder) !== String(this.id))
+                child.updateCustomerOrder(this);
             try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
@@ -268,7 +324,7 @@ export class CustomerOrder {
         }
         service.afterGraphCommit(() => {
             (this as any)._root.clearEntity(newKey);
-            if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(newKey, Number((this as any).version));
+            if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
         });
         return this;
     }

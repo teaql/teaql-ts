@@ -21,10 +21,16 @@ export declare class EntityRoot {
     snapshot(): EntityChange[];
     change(key: EntityKey): Readonly<Record<string, unknown>>;
     mergeFrom(other: EntityRoot): void;
+    /** Import one explicitly reached entity, never its foreign graph or ownership. */
+    mergeEntityFrom(other: EntityRoot, key: EntityKey): void;
+    hasPending(key: EntityKey): boolean;
     private snapshotVersions;
     rekey(oldKey: EntityKey, newKey: EntityKey): void;
     clearEntity(key: EntityKey): void;
+    private requireMatchingVersion;
     setOriginalVersion(key: EntityKey, version: number): void;
+    /** @internal Accept only the authoritative result after this key committed. */
+    acceptCommittedVersion(key: EntityKey, version: number): void;
     originalVersion(key: EntityKey): number | undefined;
     markAsNew(key: EntityKey): void;
     isNew(key: EntityKey): boolean;
