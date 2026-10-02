@@ -72,13 +72,6 @@ it('captures safe expanded SQL evidence with exact modes', async () => {
   });
   const governedQuery = new SelectQuery('Person').filter({ name: { $eq: secret } })
     .comment('read evidence').purpose('prove parameterized SQL');
-  (governedQuery as any).__teaqlTracePath = [
-    { level: 0, kind: 'operation', name: 'query' },
-    { level: 1, kind: 'request', name: 'Person' },
-    { level: 2, kind: 'relation', name: 'Person.organization' },
-    { level: 3, kind: 'relation', name: 'Organization.region' },
-    { level: 4, kind: 'relation', name: 'Region.country' },
-  ];
   await client.executeQuery(governedQuery);
 
   const entries = store.snapshot();
@@ -105,7 +98,7 @@ it('captures safe expanded SQL evidence with exact modes', async () => {
   expect(select.comment).toBe('read evidence');
   expect(select.purpose).toBe('prove parameterized SQL');
   expect(select.tracePath.map(frame => frame.kind)).toEqual([
-    'operation', 'request', 'relation', 'relation', 'relation', 'provider', 'sql',
+    'operation', 'request', 'provider', 'sql',
   ]);
 
   store.enableSelect();

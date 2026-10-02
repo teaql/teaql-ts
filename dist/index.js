@@ -18,6 +18,7 @@ exports.executeRelationFacets = exports.SortDirection = exports.OrderBy = export
 __exportStar(require("./core/value"), exports);
 __exportStar(require("./core/context"), exports);
 __exportStar(require("./core/request-intent"), exports);
+__exportStar(require("./core/trace-chain"), exports);
 __exportStar(require("./core/mutation-policy"), exports);
 __exportStar(require("./core/entity-root"), exports);
 __exportStar(require("./core/checker"), exports);

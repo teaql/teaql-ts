@@ -1,4 +1,5 @@
 import type { MutationQuery, SelectQuery } from './ast';
+import { TraceNode } from './trace-chain';
 export type RequestKind = 'query' | 'mutation';
 /** Stable, value-free request-boundary diagnostics. */
 export declare class RequestIntentError extends Error {
@@ -31,6 +32,11 @@ export declare class QueryRequest<T extends object = SelectQuery> {
     get query(): T;
     get comment(): string;
     get purpose(): string;
+    get traceSource(): readonly TraceNode[];
+    /** Runtime derivation preserves this invocation's source across builder clones. */
+    withQuery<Q extends object>(query: Q): QueryRequest<Q>;
+    /** Append one local relation and its qualified property; never accept caller frames. */
+    derive<Q extends object>(query: Q, relation: string): QueryRequest<Q>;
 }
 /** A batch also needs this root envelope; child comments are not a fallback. */
 export declare class MutationRequest<T extends object = MutationQuery> {

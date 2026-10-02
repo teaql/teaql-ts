@@ -13,6 +13,10 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
 var _QueryIntent_comment, _QueryIntent_purpose, _MutationIntent_comment, _QueryRequest_intent, _QueryRequest_query, _MutationRequest_intent, _MutationRequest_mutation;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MutationRequest = exports.QueryRequest = exports.MutationIntent = exports.QueryIntent = exports.RequestIntentError = void 0;
+const trace_chain_1 = require("./trace-chain");
+// Only runtime-created snapshots carry provenance. No property supplied by a
+// JSON/builder caller can forge it, and no mutable trace stack lives on Context.
+const querySources = new WeakMap();
 /** Stable, value-free request-boundary diagnostics. */
 class RequestIntentError extends Error {
     constructor(code, field, requestKind) {
@@ -81,12 +85,29 @@ class QueryRequest {
             Object.defineProperty(captured, field, { value, enumerable: !field.startsWith('_'),
                 configurable: true, writable: false });
         }
+        querySources.set(captured, (0, trace_chain_1.cloneTraceNodes)(querySources.get(query)
+            ?? (0, trace_chain_1.queryTraceSource)(String(source.entity), this.comment, this.purpose)));
         Object.freeze(this);
     }
     get intent() { return __classPrivateFieldGet(this, _QueryRequest_intent, "f"); }
     get query() { return __classPrivateFieldGet(this, _QueryRequest_query, "f"); }
     get comment() { return __classPrivateFieldGet(this, _QueryRequest_intent, "f").comment; }
     get purpose() { return __classPrivateFieldGet(this, _QueryRequest_intent, "f").purpose; }
+    get traceSource() { return querySources.get(__classPrivateFieldGet(this, _QueryRequest_query, "f")); }
+    /** Runtime derivation preserves this invocation's source across builder clones. */
+    withQuery(query) {
+        const request = new QueryRequest(query, this.intent);
+        querySources.set(request.query, (0, trace_chain_1.cloneTraceNodes)(this.traceSource));
+        return request;
+    }
+    /** Append one local relation and its qualified property; never accept caller frames. */
+    derive(query, relation) {
+        const request = this.withQuery(query);
+        querySources.set(request.query, (0, trace_chain_1.cloneTraceNodes)([...this.traceSource, {
+                kind: 'relation', name: relation, detail: `${String(this.query.entity)}.${relation}`,
+            }]));
+        return request;
+    }
 }
 exports.QueryRequest = QueryRequest;
 _QueryRequest_intent = new WeakMap(), _QueryRequest_query = new WeakMap();

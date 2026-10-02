@@ -22,11 +22,28 @@ builders. SQL relations, aggregates, Facets and TFP Facet serialization inherit
 the root intent. Generated library guards delegate to the runtime validators;
 pair the changed generator with this local runtime before testing.
 
-This request foundation is not the complete graph Trace Chain: graph callback
-envelopes, immutable per-entity lineage, late-ID enrichment, commit-only audit
-delivery and the normative multi-entity/concurrency gate remain open. Verify
-local source with `npm test -- --runInBand` and
-`bash scripts/verify-examples.sh` before any internal artifact or public release.
+The SQL execution path now uses the Rust-baseline canonical algorithm. Typed
+nodes separate entity/relation names from operation/qualified-property detail.
+The physical path contains no intent nodes; validated comment, purpose and root
+audit reason are separate fields. Mutation lineage is a separate typed carrier,
+not another name for the physical SQL path. Readback failure records a distinct
+`Sql(select)` path instead of adding a second SQL node to a mutation path.
+
+Query provenance belongs to immutable request snapshots. Derived relation,
+aggregate and Facet requests carry the original root and append the local
+relation name with its qualified property. Provenance never comes from a
+caller-supplied `__teaqlTracePath` or a mutable Context stack. This also preserves
+the root through overlapping queries and stream execution. Privacy projection
+scrubs reason text without removing structural typed identity or path shape.
+
+The current SQL checkpoint has 12 frozen algorithm cases, two ownership tests
+and seven native SQLite tests for relation loading, readback failure, forged
+metadata, Facets, aggregates, streaming and overlapping queries. Native fixtures
+are not generated normative-graph acceptance. Graph callback envelopes,
+immutable per-entity branch lineage, commit-only graph audit and the generated
+no-cleanup/mutation-concurrency gate remain open. Verify local source with
+`npm test -- --runInBand` and `bash scripts/verify-examples.sh` before any internal
+artifact or public release. This branch does not change the released version.
 
 ## Sensitive log data
 
@@ -91,9 +108,9 @@ internal ID/version pair. The current TypeScript profile deliberately does not
 hold backend AES keys or provide local encode/decode APIs; this is a supported
 frontend boundary rather than a conformance defect.
 
-Local SQL logging should remain parameterized and value-free by default.
-Copy/paste SQL or submitted values belong only in an explicit, access-controlled
-diagnostic surface. The server-side envelope, golden vector, stable errors, and
+Local SQL diagnostics show expanded SQL with parameters masked by default.
+Plaintext submitted values require the explicit, access-controlled diagnostic
+opt-in above. The server-side envelope, golden vector, stable errors, and
 development-only raw-reference acknowledgement are defined in the canonical
 [opaque entity reference contract](https://github.com/teaql/teaql-conformance/blob/main/design/opaque-entity-references.md).
 

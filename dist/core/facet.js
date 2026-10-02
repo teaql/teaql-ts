@@ -34,7 +34,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
     for (const facet of facets) {
         let counts;
         if (service.executeFacetMembership) {
-            counts = await service.executeFacetMembership(prepareQuery(outerQuery.clone()), facet.relationName);
+            counts = await service.executeFacetMembership(request.withQuery(prepareQuery(outerQuery.clone())).query, facet.relationName);
         }
         else {
             const membershipQuery = outerQuery.clone();
@@ -46,7 +46,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
             membershipQuery.offsetValue = 0;
             membershipQuery.limitValue = 0;
             membershipQuery.selectItems = [facet.relationName];
-            const memberships = await service.executeQuery(prepareQuery(membershipQuery));
+            const memberships = await service.executeQuery(request.withQuery(prepareQuery(membershipQuery)).query);
             counts = new Map();
             for (const row of memberships) {
                 const id = relationId(row, facet.relationName);
@@ -56,14 +56,15 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
                 counts.set(key, (counts.get(key) ?? 0) + 1);
             }
         }
-        const nestedQuery = new request_intent_1.QueryRequest(facet.query.clone(), request.intent).query;
+        const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
+        const nestedQuery = nestedRequest.query;
         nestedQuery.facets = [];
         const countAliases = nestedQuery.aggregateItems
             .filter(item => String(item.function).toLowerCase() === 'count')
             .map(item => String(item.alias));
         nestedQuery.aggregateItems = [];
         nestedQuery.groupByItems = [];
-        const rows = await service.executeQuery(prepareQuery(nestedQuery));
+        const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
         const decorated = rows
             .map(row => {
             const count = counts.get(String(scalarId(row.id ?? row.Id))) ?? 0;

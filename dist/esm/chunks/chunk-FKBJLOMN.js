@@ -208,7 +208,52 @@ var I18nCatalog = _I18nCatalog;
 // src/core/schema-capability.ts
 var contextSchemaCapability = /* @__PURE__ */ Symbol("teaql.context.schema-capability");
 
+// src/core/trace-chain.ts
+function cloneTraceNodes(source) {
+  return Object.freeze(source.map((node) => Object.freeze({ ...node })));
+}
+var intentKinds = /* @__PURE__ */ new Set(["comment", "purpose", "auditReason"]);
+var nonBlank = (value) => !/^\p{White_Space}*$/u.test(value);
+function canonicalSQLTracePath(source, backend, operation) {
+  const last = (kind) => {
+    for (let index = source.length - 1; index >= 0; index--) {
+      if (source[index].kind === kind) return source[index].detail ?? "";
+    }
+    return void 0;
+  };
+  const canonical = ["operation", "provider", "sql"].every((kind) => source.some((node) => node.kind === kind));
+  let path;
+  if (canonical) path = source.filter((node) => !intentKinds.has(node.kind));
+  else {
+    const root = source.find((node) => nonBlank(node.name))?.name ?? "unknown";
+    let entity = root;
+    if (operation !== "select") {
+      for (const node of source) if (node.kind === "entity" && nonBlank(node.name)) entity = node.name;
+    }
+    path = [
+      { kind: "operation", name: root, detail: operation === "select" ? "query" : "mutation" },
+      { kind: operation === "select" ? "request" : "entity", name: operation === "select" ? root : entity, detail: "" },
+      ...source.filter((node) => node.kind === "relation"),
+      { kind: "provider", name: nonBlank(backend) ? backend : "unknown", detail: "" },
+      { kind: "sql", name: operation, detail: "" }
+    ];
+  }
+  return Object.freeze({
+    tracePath: cloneTraceNodes(path),
+    comment: last("comment"),
+    purpose: last("purpose"),
+    auditReason: last("auditReason")
+  });
+}
+function queryTraceSource(entity, comment, purpose) {
+  return cloneTraceNodes([
+    { kind: "comment", name: entity, detail: comment },
+    { kind: "purpose", name: entity, detail: purpose }
+  ]);
+}
+
 // src/core/request-intent.ts
+var querySources = /* @__PURE__ */ new WeakMap();
 var RequestIntentError = class extends Error {
   constructor(code, field, requestKind) {
     super(`${code}: ${requestKind} request requires a non-blank ${field}; supply it at the request entry point`);
@@ -265,7 +310,7 @@ var MutationIntent = class {
 };
 _comment2 = new WeakMap();
 var _intent, _query;
-var QueryRequest = class {
+var _QueryRequest = class _QueryRequest {
   constructor(query, intent) {
     __privateAdd(this, _intent);
     __privateAdd(this, _query);
@@ -286,6 +331,7 @@ var QueryRequest = class {
         writable: false
       });
     }
+    querySources.set(captured, cloneTraceNodes(querySources.get(query) ?? queryTraceSource(String(source.entity), this.comment, this.purpose)));
     Object.freeze(this);
   }
   get intent() {
@@ -300,9 +346,29 @@ var QueryRequest = class {
   get purpose() {
     return __privateGet(this, _intent).purpose;
   }
+  get traceSource() {
+    return querySources.get(__privateGet(this, _query));
+  }
+  /** Runtime derivation preserves this invocation's source across builder clones. */
+  withQuery(query) {
+    const request = new _QueryRequest(query, this.intent);
+    querySources.set(request.query, cloneTraceNodes(this.traceSource));
+    return request;
+  }
+  /** Append one local relation and its qualified property; never accept caller frames. */
+  derive(query, relation) {
+    const request = this.withQuery(query);
+    querySources.set(request.query, cloneTraceNodes([...this.traceSource, {
+      kind: "relation",
+      name: relation,
+      detail: `${String(this.query.entity)}.${relation}`
+    }]));
+    return request;
+  }
 };
 _intent = new WeakMap();
 _query = new WeakMap();
+var QueryRequest = _QueryRequest;
 var _intent2, _mutation;
 var MutationRequest = class {
   constructor(mutation, intent) {
@@ -1244,6 +1310,9 @@ export {
   checkResultToWire,
   I18nCatalog,
   contextSchemaCapability,
+  cloneTraceNodes,
+  canonicalSQLTracePath,
+  queryTraceSource,
   RequestIntentError,
   QueryIntent,
   MutationIntent,
@@ -1267,4 +1336,4 @@ export {
   mergeRuntimeBootstrap,
   RuntimeModule
 };
-//# sourceMappingURL=chunk-XLV3EGFB.js.map
+//# sourceMappingURL=chunk-FKBJLOMN.js.map

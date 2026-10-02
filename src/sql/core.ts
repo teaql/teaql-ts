@@ -10,6 +10,7 @@ import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { OrderBy, SelectQuery } from '../core/ast';
 import { MutationRequest, QueryIntent, QueryRequest } from '../core/request-intent';
+import { canonicalSQLTracePath, cloneTraceNodes, queryTraceSource, TraceNode } from '../core/trace-chain';
 import { projectSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings } from '../core/log-privacy';
 import type { SQLLogBindingSource } from '../core/log-privacy';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
@@ -194,27 +195,28 @@ export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 /** Statement/cursor completion, not transaction commit or business success. */
 export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
 
-type SQLLogIntent = { comment?: string; purpose?: string; auditReason?: string; tracePath?: SQLTraceFrame[];
+type SQLLogIntent = { comment?: string; purpose?: string; auditReason?: string; tracePath?: readonly SQLTraceFrame[];
+  mutationLineage?: readonly TraceNode[];
   /** Compiler-only target ID for free-text projection; never included in log metadata. */
   targetID?: unknown };
 
-export type SQLTraceFrame = Readonly<{
+export type SQLTraceFrame = TraceNode & Readonly<{
   level: number;
-  kind: 'operation' | 'request' | 'relation' | 'entity' | 'provider' | 'sql';
-  name: string;
 }>;
 
-function mutationTracePath(
-  mutation: any,
-  provider: string,
-  sqlOperation: SQLExecutionOperation,
-): SQLTraceFrame[] {
-  return [
-    { level: 0, kind: 'operation', name: 'mutation' },
-    { level: 1, kind: 'entity', name: String(mutation.entity) },
-    { level: 2, kind: 'provider', name: provider },
-    { level: 3, kind: 'sql', name: sqlOperation },
-  ];
+function sqlTraceFrames(source: readonly TraceNode[]): readonly SQLTraceFrame[] {
+  return Object.freeze(source.map((node, level) => Object.freeze({ ...node, level })));
+}
+
+function mutationLogIntent(mutation: any, provider: string,
+  operation: SQLExecutionOperation, id: string): SQLLogIntent {
+  const entityId = /^(0|[1-9][0-9]*)$/.test(id) && BigInt(id) <= 18446744073709551615n ? id : undefined;
+  const lineage = cloneTraceNodes([{ kind: 'auditReason', name: String(mutation.entity),
+    entityId, detail: String(mutation.comment) }]);
+  const path = canonicalSQLTracePath([...lineage, { kind: 'entity', name: String(mutation.entity),
+    entityId: id, detail: '' }], provider, operation);
+  return { auditReason: String(mutation.comment), tracePath: sqlTraceFrames(path.tracePath),
+    mutationLineage: lineage, targetID: id };
 }
 
 export type SQLExecutionMetadata = Readonly<{
@@ -224,6 +226,8 @@ export type SQLExecutionMetadata = Readonly<{
   purpose?: string;
   auditReason?: string;
   tracePath: readonly SQLTraceFrame[];
+  /** Business responsibility, not the physical SQL route. */
+  mutationLineage?: readonly TraceNode[];
   parameterizedSQL: string;
   parameters: readonly unknown[];
   /** SQL with bind values rendered as literals, intended only for diagnostics. */
@@ -264,7 +268,8 @@ export class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
       `[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}` +
       `${metadata.executionOutcome ? ` outcome=${metadata.executionOutcome}` : ''}\n` +
       `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
-      `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}\n` +
+      `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}` +
+      ` mutationLineage=${diagnosticJSON(metadata.mutationLineage ?? [])}\n` +
       (metadata.omissionReason ? `SQL omitted: ${metadata.omissionReason}\n` : '') +
       `Debug SQL: ${metadata.debugSQL}`,
     );
@@ -458,7 +463,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const { targetID, ...visibleIntent } = intent;
       const metadata = Object.freeze({
         operation, ...visibleIntent, executionOutcome,
-        tracePath: Object.freeze([...(intent.tracePath ?? [])]),
+        tracePath: sqlTraceFrames(intent.tracePath ?? []),
+        ...(intent.mutationLineage ? { mutationLineage: cloneTraceNodes(intent.mutationLineage) } : {}),
         parameterizedSQL, parameters: Object.freeze([...parameters]),
         // Never build a plaintext SQL copy before the log policy boundary.
         debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated' as const,
@@ -477,20 +483,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     } catch { /* projection failure must not alter database execution */ }
   }
 
-  private queryLogIntent(query: any, operation = 'query'): {
-    comment?: string; purpose?: string; tracePath: SQLTraceFrame[];
-  } {
-    const inherited: SQLTraceFrame[] = Array.isArray(query?.__teaqlTracePath) ? query.__teaqlTracePath : [
-      { level: 0, kind: 'operation', name: operation },
-      { level: 1, kind: 'request', name: String(query.entity) },
-    ];
-    return {
-      comment: query?._comment ?? query?.commentText,
-      purpose: query?._purpose ?? query?.purposeText,
-      tracePath: [...inherited,
-        { level: inherited.length, kind: 'provider', name: this.driver.databaseKind },
-        { level: inherited.length + 1, kind: 'sql', name: 'select' }],
-    };
+  private queryLogIntent(query: any): SQLLogIntent {
+    const request = new QueryRequest(query);
+    const path = canonicalSQLTracePath(request.traceSource, this.driver.databaseKind, 'select');
+    return { comment: request.comment, purpose: request.purpose, tracePath: sqlTraceFrames(path.tracePath) };
   }
 
   private async executeLoggedSQL(
@@ -738,11 +734,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         );
         this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
         const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-        const intent = {
-          auditReason: String(mutation.comment),
-          tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'insert'),
-          targetID: id,
-        };
+        const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'insert', id);
         await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values));
         return {
           success: true,
@@ -779,11 +771,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         }
         const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
           `WHERE ${predicates.join(' AND ')}`;
-        const intent = {
-          auditReason: String(mutation.comment),
-          tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'update'),
-          targetID: mutation.id,
-        };
+        const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'update', String(mutation.id));
         const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values));
         if (result.rowCount !== 1) {
           throw new Error(
@@ -817,11 +805,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         }
         const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
           `WHERE ${predicates.join(' AND ')}`;
-        const intent = {
-          auditReason: String(mutation.comment),
-          tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'delete'),
-          targetID: mutation.id,
-        };
+        const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'delete', String(mutation.id));
         const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values));
         if (result.rowCount !== 1) {
           throw new Error(
@@ -902,9 +886,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const inherited: SQLLogBindingSource = { parameterizedSQL: writeSQL, parameters: writeValues,
         parameterLogPolicies: this.bindLogPolicies.get(writeValues), sqlOrigin: 'generated' };
       try {
+        const root = intent.tracePath?.find(node => node.kind === 'operation')?.name ?? 'unknown';
+        const path = canonicalSQLTracePath([
+          ...queryTraceSource(root, intent.auditReason!, 'verify persisted mutation result'),
+          ...(intent.tracePath ?? []).filter(node => node.kind === 'relation'),
+        ], this.driver.databaseKind, 'select');
         this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined,
-          { ...intent, tracePath: [...(intent.tracePath ?? []),
-            {level: intent.tracePath?.length ?? 0, kind:'sql', name:'readback'}] }, outcome, inherited);
+          { ...intent, tracePath: sqlTraceFrames(path.tracePath),
+            comment: intent.auditReason, purpose: 'verify persisted mutation result' }, outcome, inherited);
       } finally { throw error; }
     }
   }
@@ -1246,7 +1235,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
     const idSetPrepared = internal ? { query, execution: undefined } : await this.prepareIdSetPage(query);
     const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
-    query = prepared.query;
+    query = new QueryRequest(query).withQuery(prepared.query).query;
     const { sql, values, aggregateNames } = await this.compileQuery(query);
     const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query),
       () => observeRuntimeOperation(this.runtimeTelemetry, {
@@ -1375,8 +1364,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     outerQuery: SelectQuery,
     relationName: string,
   ): Promise<Map<string, number>> {
-    outerQuery = new QueryRequest(outerQuery).query;
-    const query = outerQuery.clone();
+    const request = new QueryRequest(outerQuery);
+    outerQuery = request.query;
+    const query = request.withQuery(outerQuery.clone()).query;
     query.facets = [];
     query.relations = [];
     query.orderItems = [];
@@ -1395,12 +1385,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeCount(query: any): Promise<number> {
-    query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
+    const request = query instanceof QueryRequest ? query : new QueryRequest(query);
+    query = request.query;
     if (typeof query?.forExactCount !== 'function') {
       throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
     }
     const alias = '__teaql_total';
-    const rows = await this.executeQuery<Record<string, unknown>>(query.forExactCount(alias));
+    const rows = await this.executeQuery<Record<string, unknown>>(request.withQuery(query.forExactCount(alias)).query);
     const value = rows[0]?.[alias];
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
@@ -1498,10 +1489,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       // only delivered rows, not prefetched rows, and never stringify an error.
       if (outcome === 'failure') {
         try { this.recordSQL('select', sql, values, startedAt, delivered, undefined,
-          this.queryLogIntent(query, 'stream'), outcome); } catch { /* preserve driver failure */ }
+          this.queryLogIntent(query), outcome); } catch { /* preserve driver failure */ }
       } else {
         this.recordSQL('select', sql, values, startedAt, delivered, undefined,
-          this.queryLogIntent(query, 'stream'), outcome);
+          this.queryLogIntent(query), outcome);
       }
     }
   }
@@ -1552,17 +1543,6 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         __teaqlPartitionBy: boundedTopN && !useProbes
           ? relation.foreignKey
           : undefined,
-        __teaqlTracePath: [
-          ...(Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath : [
-            { level: 0, kind: 'operation', name: 'query' },
-            { level: 1, kind: 'request', name: String(query.entity) },
-          ]),
-          {
-            level: (Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath.length : 2),
-            kind: 'relation',
-            name: `${String(query.entity)}.${String(load.name)}`,
-          },
-        ],
         commentText: query?._comment ?? query?.commentText,
         purposeText: query?._purpose ?? query?.purposeText,
       };
@@ -1579,11 +1559,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
             __teaqlPartitionBy: undefined,
           };
-          children.push(...await this.executeDerivedQuery<any>(probeQuery, inherited, intent));
+          children.push(...await this.executeDerivedQuery<any>(
+            new QueryRequest(query).derive(probeQuery, load.name).query, inherited, intent));
         }
       } else {
         childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-        children.push(...await this.executeDerivedQuery<any>(childQuery, inherited, intent));
+        children.push(...await this.executeDerivedQuery<any>(
+          new QueryRequest(query).derive(childQuery, load.name).query, inherited, intent));
       }
       for (const child of children) delete child.__teaql_partition_rank;
       const buckets = new Map<any, any[]>();
@@ -1646,14 +1628,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       (childQuery as any)[this.internalQueryToken] = true;
       childQuery.commentText = query?._comment ?? query?.commentText;
       childQuery.purposeText = query?._purpose ?? query?.purposeText;
-      (childQuery as any).__teaqlTracePath = [
-        ...(query.__teaqlTracePath ?? [
-          { level: 0, kind: 'operation', name: 'query' },
-          { level: 1, kind: 'request', name: String(query.entity) },
-        ]),
-        { level: query.__teaqlTracePath?.length ?? 2, kind: 'relation', name: `${query.entity}.${aggregate.relationName}` },
-      ];
-      const rows = await this.executeDerivedQuery<any>(childQuery, inherited, intent);
+      const rows = await this.executeDerivedQuery<any>(
+        new QueryRequest(query).derive(childQuery, aggregate.relationName).query, inherited, intent);
       const buckets = new Map<any, any>();
       for (const row of rows) buckets.set(row[relation.foreignKey], row);
       for (const parent of parents) {

@@ -1,4 +1,9 @@
 import type { MutationQuery, SelectQuery } from './ast';
+import { cloneTraceNodes, queryTraceSource, TraceNode } from './trace-chain';
+
+// Only runtime-created snapshots carry provenance. No property supplied by a
+// JSON/builder caller can forge it, and no mutable trace stack lives on Context.
+const querySources = new WeakMap<object, readonly TraceNode[]>();
 
 export type RequestKind = 'query' | 'mutation';
 
@@ -77,6 +82,8 @@ export class QueryRequest<T extends object = SelectQuery> {
       Object.defineProperty(captured, field, { value, enumerable: !field.startsWith('_'),
         configurable: true, writable: false });
     }
+    querySources.set(captured, cloneTraceNodes(querySources.get(query)
+      ?? queryTraceSource(String(source.entity), this.comment, this.purpose)));
     Object.freeze(this);
   }
 
@@ -84,6 +91,23 @@ export class QueryRequest<T extends object = SelectQuery> {
   get query(): T { return this.#query; }
   get comment(): string { return this.#intent.comment; }
   get purpose(): string { return this.#intent.purpose; }
+  get traceSource(): readonly TraceNode[] { return querySources.get(this.#query)!; }
+
+  /** Runtime derivation preserves this invocation's source across builder clones. */
+  withQuery<Q extends object>(query: Q): QueryRequest<Q> {
+    const request = new QueryRequest(query, this.intent);
+    querySources.set(request.query, cloneTraceNodes(this.traceSource));
+    return request;
+  }
+
+  /** Append one local relation and its qualified property; never accept caller frames. */
+  derive<Q extends object>(query: Q, relation: string): QueryRequest<Q> {
+    const request = this.withQuery(query);
+    querySources.set(request.query, cloneTraceNodes([...this.traceSource, {
+      kind: 'relation', name: relation, detail: `${String((this.query as any).entity)}.${relation}`,
+    }]));
+    return request;
+  }
 }
 
 /** A batch also needs this root envelope; child comments are not a fallback. */

@@ -2,6 +2,7 @@ import { RuntimeTelemetry } from '../core/telemetry';
 import { UserContext } from '../core/context';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { SelectQuery } from '../core/ast';
+import { TraceNode } from '../core/trace-chain';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
@@ -78,10 +79,8 @@ export interface TeaQLDataService {
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 /** Statement/cursor completion, not transaction commit or business success. */
 export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
-export type SQLTraceFrame = Readonly<{
+export type SQLTraceFrame = TraceNode & Readonly<{
     level: number;
-    kind: 'operation' | 'request' | 'relation' | 'entity' | 'provider' | 'sql';
-    name: string;
 }>;
 export type SQLExecutionMetadata = Readonly<{
     operation: SQLExecutionOperation;
@@ -90,6 +89,8 @@ export type SQLExecutionMetadata = Readonly<{
     purpose?: string;
     auditReason?: string;
     tracePath: readonly SQLTraceFrame[];
+    /** Business responsibility, not the physical SQL route. */
+    mutationLineage?: readonly TraceNode[];
     parameterizedSQL: string;
     parameters: readonly unknown[];
     /** SQL with bind values rendered as literals, intended only for diagnostics. */

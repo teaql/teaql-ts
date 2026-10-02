@@ -197,6 +197,9 @@ it.each(['Create', 'Update', 'Delete'])(
       expect(JSON.stringify(sqlEntry.tracePath)).not.toContain('1001');
       expect(sqlEntry).not.toHaveProperty('targetID');
       expect(sqlEntry.parameters).toContain('1001');
+      expect(sqlEntry.mutationLineage?.[0].entityId).toBe('1001');
+      expect(sqlEntry.mutationLineage?.[0].detail).toBe(`${action.toLowerCase()} target [REDACTED]`);
+      expect(Object.isFrozen(sqlEntry.mutationLineage?.[0])).toBe(true);
       expect(mutation.id).toBe('1001');
       expect(mutation.comment).toContain('1001');
     } finally { await f.client.close(); }

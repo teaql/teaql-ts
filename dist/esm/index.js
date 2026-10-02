@@ -22,11 +22,14 @@ import {
   SortDirection,
   UnsupportedLocaleError,
   UserContext,
+  canonicalSQLTracePath,
   checkResultToWire,
+  cloneTraceNodes,
   locales,
   mergeRuntimeBootstrap,
-  parseLocale
-} from "./chunks/chunk-XLV3EGFB.js";
+  parseLocale,
+  queryTraceSource
+} from "./chunks/chunk-FKBJLOMN.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -602,7 +605,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
     let counts;
     if (service.executeFacetMembership) {
       counts = await service.executeFacetMembership(
-        prepareQuery(outerQuery.clone()),
+        request.withQuery(prepareQuery(outerQuery.clone())).query,
         facet.relationName
       );
     } else {
@@ -615,7 +618,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
       membershipQuery.offsetValue = 0;
       membershipQuery.limitValue = 0;
       membershipQuery.selectItems = [facet.relationName];
-      const memberships = await service.executeQuery(prepareQuery(membershipQuery));
+      const memberships = await service.executeQuery(request.withQuery(prepareQuery(membershipQuery)).query);
       counts = /* @__PURE__ */ new Map();
       for (const row of memberships) {
         const id = relationId(row, facet.relationName);
@@ -624,12 +627,13 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
     }
-    const nestedQuery = new QueryRequest(facet.query.clone(), request.intent).query;
+    const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
+    const nestedQuery = nestedRequest.query;
     nestedQuery.facets = [];
     const countAliases = nestedQuery.aggregateItems.filter((item) => String(item.function).toLowerCase() === "count").map((item) => String(item.alias));
     nestedQuery.aggregateItems = [];
     nestedQuery.groupByItems = [];
-    const rows = await service.executeQuery(prepareQuery(nestedQuery));
+    const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
     const decorated = rows.map((row) => {
       const count = counts.get(String(scalarId(row.id ?? row.Id))) ?? 0;
       const copy = { ...row };
@@ -2298,7 +2302,9 @@ export {
   UserContext,
   Values,
   WireInputError,
+  canonicalSQLTracePath,
   checkResultToWire,
+  cloneTraceNodes,
   createWireEntityMetadata,
   encodeWireOutput,
   executeRelationFacets,
@@ -2311,6 +2317,7 @@ export {
   normalizeWireInput,
   observeRuntimeOperation,
   parseLocale,
+  queryTraceSource,
   renderJsonFieldName,
   retainSubmittedPaths,
   runtimeErrorCategory,

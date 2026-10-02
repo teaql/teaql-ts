@@ -196,8 +196,12 @@ function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inher
       : scrubLogText(metadata.resultSummary, secrets)!,
     tracePath: Object.freeze(metadata.tracePath.map(frame => Object.freeze(
       Object.fromEntries(Object.entries(frame).map(([key,value]) =>
-        [key, typeof value === 'string' ? intentText(value) : value])),
+        [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value])),
     ))) as SQLExecutionMetadata['tracePath'],
+    // Typed identity is structural (as in the audit event's id), not prose.
+    ...(metadata.mutationLineage ? { mutationLineage: Object.freeze(metadata.mutationLineage.map(node =>
+      Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) =>
+        [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))) as SQLExecutionMetadata['mutationLineage'] } : {}),
   });
   return projected;
 }

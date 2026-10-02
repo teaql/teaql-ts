@@ -195,7 +195,9 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
         resultSummary: metadata.resultCount !== undefined ? `${metadata.resultCount} rows returned`
             : metadata.affectedRows !== undefined ? `${metadata.affectedRows} rows affected`
                 : scrubLogText(metadata.resultSummary, secrets),
-        tracePath: Object.freeze(metadata.tracePath.map(frame => Object.freeze(Object.fromEntries(Object.entries(frame).map(([key, value]) => [key, typeof value === 'string' ? intentText(value) : value]))))),
+        tracePath: Object.freeze(metadata.tracePath.map(frame => Object.freeze(Object.fromEntries(Object.entries(frame).map(([key, value]) => [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))),
+        // Typed identity is structural (as in the audit event's id), not prose.
+        ...(metadata.mutationLineage ? { mutationLineage: Object.freeze(metadata.mutationLineage.map(node => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))) } : {}),
     });
     return projected;
 }

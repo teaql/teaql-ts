@@ -48,7 +48,7 @@ export async function executeRelationFacets(
     let counts: Map<string, number>;
     if (service.executeFacetMembership) {
       counts = await service.executeFacetMembership(
-        prepareQuery(outerQuery.clone()), facet.relationName);
+        request.withQuery(prepareQuery(outerQuery.clone())).query, facet.relationName);
     } else {
       const membershipQuery = outerQuery.clone();
       membershipQuery.facets = [];
@@ -59,7 +59,7 @@ export async function executeRelationFacets(
       membershipQuery.offsetValue = 0;
       membershipQuery.limitValue = 0;
       membershipQuery.selectItems = [facet.relationName];
-      const memberships = await service.executeQuery(prepareQuery(membershipQuery));
+      const memberships = await service.executeQuery(request.withQuery(prepareQuery(membershipQuery)).query);
       counts = new Map<string, number>();
       for (const row of memberships) {
         const id = relationId(row, facet.relationName);
@@ -69,14 +69,15 @@ export async function executeRelationFacets(
       }
     }
 
-    const nestedQuery = new QueryRequest(facet.query.clone(), request.intent).query;
+    const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
+    const nestedQuery = nestedRequest.query;
     nestedQuery.facets = [];
     const countAliases = nestedQuery.aggregateItems
       .filter(item => String(item.function).toLowerCase() === 'count')
       .map(item => String(item.alias));
     nestedQuery.aggregateItems = [];
     nestedQuery.groupByItems = [];
-    const rows = await service.executeQuery(prepareQuery(nestedQuery));
+    const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
     const decorated = rows
       .map(row => {
         const count = counts.get(String(scalarId(row.id ?? row.Id))) ?? 0;
