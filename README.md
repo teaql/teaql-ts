@@ -36,14 +36,39 @@ caller-supplied `__teaqlTracePath` or a mutable Context stack. This also preserv
 the root through overlapping queries and stream execution. Privacy projection
 scrubs reason text without removing structural typed identity or path shape.
 
-The current SQL checkpoint has 12 frozen algorithm cases, two ownership tests
-and seven native SQLite tests for relation loading, readback failure, forged
-metadata, Facets, aggregates, streaming and overlapping queries. Native fixtures
-are not generated normative-graph acceptance. Graph callback envelopes,
-immutable per-entity branch lineage, commit-only graph audit and the generated
-no-cleanup/mutation-concurrency gate remain open. Verify local source with
-`npm test -- --runInBand` and `bash scripts/verify-examples.sh` before any internal
-artifact or public release. This branch does not change the released version.
+Graph saves now receive an explicit validated `MutationIntent` and an
+operation-owned `GraphMutationSession`. Persistent immutable parent scopes carry
+branch-local reasons; an unrelated request cannot join the active transaction
+or borrow another graph's scope. Type plus ID distinguishes ledger entries;
+an entity's complete ledger chain replaces its graph fallback. Database-assigned
+IDs are captured before saving descendants. Context owns no lineage stack.
+
+Audits are queued until the whole graph commits and discarded on rollback.
+After commit, a failing sink does not stop remaining cleanup/audits or pretend
+the database rolled back. `GraphCommittedError.committed` tells callers not to
+retry the operation as an uncommitted write. SQL metadata still distinguishes
+the physical path, root intent and each entity's mutation lineage. Failed
+readback remains a separate SELECT outcome.
+
+The runtime adapter SPI is intentionally changed to
+`executeGraphSave(intent, async graph => ...)`; adapter code must create each
+request with `graph.request(...)`. Regenerate domain libraries rather than
+patching their source. The generated public `.auditAs(...).save(context)` API
+is unchanged. A child can supply its own local reason or inherit its parent;
+save no longer overwrites child reasons with the root reason.
+
+The [generated SQLite example](examples/trace-chain/README.md) verifies the
+six-entity graph through real Q/E/Mutation APIs, independent overlapping saves,
+provider/readback failures and two runs on the same database without cleanup.
+Its generated library is hash-checked and unmodified. Shared graph vectors,
+native transaction/audit tests and the prior canonical SQL cases are separate
+evidence, not substitutes for generated acceptance.
+
+Prepared same-type batches, complete entry-point/deep privacy coverage,
+file-backed/Expo graph acceptance and immutable internal Registry replay remain
+open. Verify local source with `npm test -- --runInBand` and
+`bash scripts/verify-examples.sh` before any internal artifact or public release.
+This branch does not change the released version or declare Trace Chain complete.
 
 ## Sensitive log data
 

@@ -11,6 +11,13 @@ export class EntityRoot {
   private readonly originalVersions = new Map<string, { key: EntityKey; version: number }>();
   private readonly newKeys = new Map<string, EntityKey>();
   private readonly deletedKeys = new Map<string, EntityKey>();
+  private readonly traces = new Map<string, { key: EntityKey; nodes: readonly TraceNode[] }>();
+
+  /** A complete per-entity lineage replaces, rather than extends, graph fallback. */
+  setTraceChain(key: EntityKey, nodes: readonly TraceNode[]): void {
+    this.traces.set(identity(key), { key: Object.freeze({ ...key }), nodes: cloneTraceNodes(nodes) });
+  }
+  traceChain(key: EntityKey): readonly TraceNode[] | undefined { return this.traces.get(identity(key))?.nodes; }
 
   set(key: EntityKey, field: string, value: unknown): void {
     if (!field.trim()) throw new TypeError('field is required');
@@ -37,6 +44,7 @@ export class EntityRoot {
     for (const key of other.newKeys.values()) this.markAsNew(key);
     for (const key of other.deletedKeys.values()) this.markAsDeleted(key);
     for (const entry of other.snapshotVersions()) this.setOriginalVersion(entry.key, entry.version);
+    for (const entry of other.traces.values()) this.setTraceChain(entry.key, entry.nodes);
   }
 
   private snapshotVersions(): Array<{ key: EntityKey; version: number }> { return [...this.originalVersions.values()]; }
@@ -47,10 +55,12 @@ export class EntityRoot {
     const version = this.originalVersions.get(oldId); if (version !== undefined) { this.originalVersions.delete(oldId); this.originalVersions.set(newId, { key: Object.freeze({ ...newKey }), version: version.version }); }
     if (this.newKeys.delete(oldId)) this.newKeys.set(newId, Object.freeze({ ...newKey }));
     if (this.deletedKeys.delete(oldId)) this.deletedKeys.set(newId, Object.freeze({ ...newKey }));
+    const trace = this.traces.get(oldId);
+    if (trace) { this.traces.delete(oldId); this.setTraceChain(newKey, trace.nodes); }
   }
 
   clearEntity(key: EntityKey): void {
-    const id = identity(key); this.changes.delete(id); this.newKeys.delete(id); this.deletedKeys.delete(id);
+    const id = identity(key); this.changes.delete(id); this.newKeys.delete(id); this.deletedKeys.delete(id); this.traces.delete(id);
   }
 
   setOriginalVersion(key: EntityKey, version: number): void { this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version }); }
@@ -64,5 +74,7 @@ export class EntityRoot {
     this.changes.clear();
     this.newKeys.clear();
     this.deletedKeys.clear();
+    this.traces.clear();
   }
 }
+import { cloneTraceNodes, TraceNode } from './trace-chain';

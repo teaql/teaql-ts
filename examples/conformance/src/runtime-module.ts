@@ -1,6 +1,33 @@
 import { ObjectLocation, RuntimeModule } from "teaql-ts";
-import { ENTITY_SCHEMAS } from "./teaql-node-sql";
+import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
+
+/** Generated canonical KSML to selected-wire mapping. Never infer this from TS members. */
+export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
+  profile: "camelCase" as const,
+  entities: Object.freeze({
+    "Platform": Object.freeze({
+      entityType: "Platform",
+      profile: "camelCase" as const,
+      fields: Object.freeze({
+        "id": Object.freeze({ canonicalName: "id", wireName: "id", aliases: Object.freeze([] as string[]) }),
+        "name": Object.freeze({ canonicalName: "name", wireName: "name", aliases: Object.freeze([] as string[]) }),
+        "version": Object.freeze({ canonicalName: "version", wireName: "version", aliases: Object.freeze([] as string[]) })
+      }),
+    }),
+    "WorkItem": Object.freeze({
+      entityType: "WorkItem",
+      profile: "camelCase" as const,
+      fields: Object.freeze({
+        "id": Object.freeze({ canonicalName: "id", wireName: "id", aliases: Object.freeze([] as string[]) }),
+        "title": Object.freeze({ canonicalName: "title", wireName: "title", aliases: Object.freeze([] as string[]) }),
+        "description": Object.freeze({ canonicalName: "description", wireName: "description", aliases: Object.freeze([] as string[]) }),
+        "platform": Object.freeze({ canonicalName: "platform", wireName: "platform", aliases: Object.freeze([] as string[]) }),
+        "version": Object.freeze({ canonicalName: "version", wireName: "version", aliases: Object.freeze([] as string[]) })
+      }),
+    })
+  }),
+});
 
 /** Passive generated metadata manifest. It never modifies the database schema. */
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {

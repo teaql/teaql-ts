@@ -4,6 +4,7 @@ import { PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK, projectSQLLog } from '../src/core
 import { AbstractSQLTeaQLClient, EntitySchema, SQLExecutionMetadata, SQLExecutionEvidenceStore,
   TextDiagnosticSQLLogSink, SqlQueryResult } from '../src/sql/core';
 import { SQLiteDriver } from '../src/sql/sqlite';
+import { GraphMutationSession, MutationIntent } from '../src/core/request-intent';
 
 const schema: Record<string, EntitySchema> = { Customer: {
   table: 'customer_data', auditMaskFields: ['display_name'], columns: {
@@ -361,15 +362,18 @@ it.each(['debug','disabled','success'])('handles readback mode %s without changi
 it.each(['write','readback'])('retains partial graph SQL facts and rolls back after %s failure', async phase => {
   const f = await fixture();
   const fault = new Error('GRAPH-FAILURE');
-  const create = (id:string) => f.client.executeMutation({entity:'Customer',action:'Create',id,
-    payload:{displayName:'Riverside',passwordHash:'PASSWORD-CANARY'},comment:'what: insert Riverside PASSWORD-CANARY'});
+  const create = (id:string, graph?: GraphMutationSession) => {
+    const mutation = {entity:'Customer',action:'Create',id,
+      payload:{displayName:'Riverside',passwordHash:'PASSWORD-CANARY'},comment:'what: insert Riverside PASSWORD-CANARY'};
+    return f.client.executeMutation(graph ? graph.request(mutation) : mutation);
+  };
   try {
-    await expect(f.client.executeGraphSave(async () => {
-      await create('4');
+    await expect(f.client.executeGraphSave(new MutationIntent('what: insert Riverside PASSWORD-CANARY'), async graph => {
+      await create('4', graph);
       if(phase === 'write') f.driver.fault = fault;
       else f.driver.readbackFault = fault;
-      await create('5');
-      await create('6');
+      await create('5', graph);
+      await create('6', graph);
     })).rejects.toBe(fault);
     expect(f.logs.map(entry => entry.executionOutcome)).toEqual(phase === 'write' ? ['success','failure'] : ['success','success','failure']);
     expect(JSON.stringify([f.logs,f.output,f.evidence.snapshot()])).not.toMatch(/Riverside|PASSWORD-CANARY|GRAPH-FAILURE/);

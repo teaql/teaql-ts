@@ -5,6 +5,8 @@ import {
   DelegatingMutationGovernanceSink,
   DelegatingMutationPolicyApprovalProvider,
   DelegatingMutationPolicyRegistry,
+  GraphCommittedError,
+  GraphMutationSession,
   I18nCatalog,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
@@ -13,6 +15,7 @@ import {
   MutationPolicyRuntimeState,
   MutationQuery,
   MutationRequest,
+  MutationTraceScope,
   OrderBy,
   QueryIntent,
   QueryRequest,
@@ -27,9 +30,10 @@ import {
   cloneTraceNodes,
   locales,
   mergeRuntimeBootstrap,
+  mutationScopeForEntity,
   parseLocale,
   queryTraceSource
-} from "./chunks/chunk-FKBJLOMN.js";
+} from "./chunks/chunk-XGQSBMGJ.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -85,6 +89,14 @@ var EntityRoot = class {
     this.originalVersions = /* @__PURE__ */ new Map();
     this.newKeys = /* @__PURE__ */ new Map();
     this.deletedKeys = /* @__PURE__ */ new Map();
+    this.traces = /* @__PURE__ */ new Map();
+  }
+  /** A complete per-entity lineage replaces, rather than extends, graph fallback. */
+  setTraceChain(key, nodes) {
+    this.traces.set(identity(key), { key: Object.freeze({ ...key }), nodes: cloneTraceNodes(nodes) });
+  }
+  traceChain(key) {
+    return this.traces.get(identity(key))?.nodes;
   }
   set(key, field, value) {
     if (!field.trim()) throw new TypeError("field is required");
@@ -108,6 +120,7 @@ var EntityRoot = class {
     for (const key of other.newKeys.values()) this.markAsNew(key);
     for (const key of other.deletedKeys.values()) this.markAsDeleted(key);
     for (const entry of other.snapshotVersions()) this.setOriginalVersion(entry.key, entry.version);
+    for (const entry of other.traces.values()) this.setTraceChain(entry.key, entry.nodes);
   }
   snapshotVersions() {
     return [...this.originalVersions.values()];
@@ -128,12 +141,18 @@ var EntityRoot = class {
     }
     if (this.newKeys.delete(oldId)) this.newKeys.set(newId, Object.freeze({ ...newKey }));
     if (this.deletedKeys.delete(oldId)) this.deletedKeys.set(newId, Object.freeze({ ...newKey }));
+    const trace = this.traces.get(oldId);
+    if (trace) {
+      this.traces.delete(oldId);
+      this.setTraceChain(newKey, trace.nodes);
+    }
   }
   clearEntity(key) {
     const id = identity(key);
     this.changes.delete(id);
     this.newKeys.delete(id);
     this.deletedKeys.delete(id);
+    this.traces.delete(id);
   }
   setOriginalVersion(key, version) {
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
@@ -159,6 +178,7 @@ var EntityRoot = class {
     this.changes.clear();
     this.newKeys.clear();
     this.deletedKeys.clear();
+    this.traces.clear();
   }
 };
 
@@ -2272,6 +2292,8 @@ export {
   EntityDescriptor,
   EntityRoot,
   FetchHttpToolProvider,
+  GraphCommittedError,
+  GraphMutationSession,
   HTTP_TOOL,
   I18nCatalog,
   LocalCache,
@@ -2282,6 +2304,7 @@ export {
   MutationPolicyRuntimeState,
   MutationQuery,
   MutationRequest,
+  MutationTraceScope,
   NOOP_RUNTIME_TELEMETRY,
   ObjectLocation,
   OrderBy,
@@ -2313,6 +2336,7 @@ export {
   locales,
   mergeDynamicSearch,
   mergeRuntimeBootstrap,
+  mutationScopeForEntity,
   normalizeDynamicSearch,
   normalizeWireInput,
   observeRuntimeOperation,

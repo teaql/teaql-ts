@@ -1,4 +1,4 @@
-import { CheckException, EntityKey, EntityRoot, MutationIntent, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, GraphMutationSession, MutationIntent, MutationTraceScope, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 import { School } from './School';
 
@@ -91,17 +91,16 @@ export class SchoolType {
     }
 
     async save(context: UserContext): Promise<SchoolType> {
-        new MutationIntent((this as any)._comment);
+        const intent = new MutationIntent((this as any)._comment);
         const service = context.requireResource<TeaQLDataService>("dataService");
-        return service.executeGraphSave(async () => {
-            this.teaqlPreflightGraph(context, service);
-            return this.teaqlSaveWithinGraph(context, service);
+        return service.executeGraphSave(intent, async graph => {
+            this.teaqlPreflightGraph(context, service, graph);
+            return this.teaqlSaveWithinGraph(context, service, graph);
         });
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService): void {
-        new MutationIntent((this as any)._comment);
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession): void {
         const action = (this as any)._action;
         if (action === "Update") {
             const notLoaded = [{ member: "platform", canonical: "platform" }, { member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "displayOrder", canonical: "display_order" }, { member: "version", canonical: "version" }]
@@ -114,7 +113,7 @@ export class SchoolType {
                 }]);
             }
         }
-        service.preflightMutation({
+        service.preflightMutation(graph.request({
             entity: "SchoolType", action,
             payload: action === "Update"
                 ? (this as any)._root.change(this.teaqlEntityKey())
@@ -122,12 +121,11 @@ export class SchoolType {
             id: (this as any).id, version: (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
-        });
+        }));
         for (const [index, child] of (this as any)._schoolList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
             child.updateSchoolType(this);
-            child.auditAs((this as any)._comment);
-            try { child.teaqlPreflightGraph(context, service); }
+            try { child.teaqlPreflightGraph(context, service, graph); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_list").index(index);
@@ -139,8 +137,8 @@ export class SchoolType {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService): Promise<SchoolType> {
-        new MutationIntent((this as any)._comment);
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService,
+        graph: GraphMutationSession, parent?: MutationTraceScope): Promise<SchoolType> {
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -153,7 +151,8 @@ export class SchoolType {
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
-        const result = await service.executeMutation(mutation);
+        const request = graph.request(mutation, parent, (this as any)._comment);
+        const result = await service.executeMutation(request);
         for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
             if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
         }
@@ -172,6 +171,7 @@ export class SchoolType {
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
+        const activeScope = request.scopeFor(newKey);
         service.afterGraphRollback(() => {
             Object.assign(this, rollbackState.payload);
             (this as any)._ledgerId = rollbackState.ledgerId;
@@ -186,8 +186,7 @@ export class SchoolType {
         for (const [index, child] of (this as any)._schoolList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
             child.updateSchoolType(this);
-            child.auditAs((this as any)._comment);
-            try { await child.teaqlSaveWithinGraph(context, context.requireResource<TeaQLDataService>("dataService")); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_list").index(index);

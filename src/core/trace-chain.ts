@@ -14,6 +14,37 @@ export function cloneTraceNodes(source: readonly TraceNode[]): readonly TraceNod
   return Object.freeze(source.map(node => Object.freeze({ ...node })));
 }
 
+/** Persistent graph-local responsibility. Creating a branch is O(1). */
+export class MutationTraceScope {
+  readonly #parent?: MutationTraceScope;
+  readonly #node: TraceNode;
+
+  constructor(parent: MutationTraceScope | undefined, node: TraceNode) {
+    this.#parent = parent;
+    this.#node = Object.freeze({ ...node });
+    Object.freeze(this);
+  }
+
+  recover(): readonly TraceNode[] {
+    const nodes: TraceNode[] = [];
+    let scope: MutationTraceScope | undefined = this;
+    while (scope) { nodes.push(scope.#node); scope = scope.#parent; }
+    return cloneTraceNodes(nodes.reverse());
+  }
+}
+
+export function mutationScopeForEntity(parent: MutationTraceScope | undefined,
+  entity: string, id: string | number | bigint, rootComment: string,
+  localComment?: string): MutationTraceScope {
+  const reason = parent ? localComment : rootComment;
+  if (parent && (typeof reason !== 'string' || /^\p{White_Space}*$/u.test(reason))) return parent;
+  const rawId = String(id);
+  const entityId = /^(0|[1-9][0-9]*)$/.test(rawId) && BigInt(rawId) <= 18446744073709551615n
+    ? id : undefined;
+  return new MutationTraceScope(parent, { kind: 'auditReason', name: entity,
+    entityId, detail: reason });
+}
+
 const intentKinds = new Set<TraceKind>(['comment', 'purpose', 'auditReason']);
 const nonBlank = (value: string): boolean => !/^\p{White_Space}*$/u.test(value);
 

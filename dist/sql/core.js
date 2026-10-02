@@ -90,14 +90,12 @@ function sameBootstrapValue(left, right) {
 function sqlTraceFrames(source) {
     return Object.freeze(source.map((node, level) => Object.freeze({ ...node, level })));
 }
-function mutationLogIntent(mutation, provider, operation, id) {
-    const entityId = /^(0|[1-9][0-9]*)$/.test(id) && BigInt(id) <= 18446744073709551615n ? id : undefined;
-    const lineage = (0, trace_chain_1.cloneTraceNodes)([{ kind: 'auditReason', name: String(mutation.entity),
-            entityId, detail: String(mutation.comment) }]);
+function mutationLogIntent(request, mutation, provider, operation, id) {
+    const lineage = request.traceFor({ entity: String(mutation.entity), id });
     const path = (0, trace_chain_1.canonicalSQLTracePath)([...lineage, { kind: 'entity', name: String(mutation.entity),
             entityId: id, detail: '' }], provider, operation);
-    return { auditReason: String(mutation.comment), tracePath: sqlTraceFrames(path.tracePath),
-        mutationLineage: lineage, targetID: id };
+    return { auditReason: request.comment, tracePath: sqlTraceFrames(path.tracePath),
+        mutationLineage: lineage, targetID: id, inheritedBindings: request.graphSession?.logBindings };
 }
 var log_rendering_1 = require("./log-rendering");
 Object.defineProperty(exports, "debugSQL", { enumerable: true, get: function () { return log_rendering_1.debugSQL; } });
@@ -168,7 +166,6 @@ class AbstractSQLTeaQLClient {
     }
     constructor(driver, schemas) {
         this.driver = driver;
-        this.schemas = schemas;
         this.bootstrapTail = Promise.resolve();
         this.sqlTrace = [];
         this.internalQueryToken = Symbol('teaql-internal-query');
@@ -181,9 +178,11 @@ class AbstractSQLTeaQLClient {
         this.checkers = {};
         this.userContext = new context_1.UserContext();
         this.bootstrap = {};
+        this.graphAuditActions = [];
         this.graphCommitActions = [];
         this.graphRollbackActions = [];
         this.graphSaveTail = Promise.resolve();
+        this.schemas = { ...schemas };
     }
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module) {
@@ -275,7 +274,7 @@ class AbstractSQLTeaQLClient {
         if (!this.telemetrySink && !this.diagnosticSQLLogSink)
             return;
         try {
-            const { targetID, ...visibleIntent } = intent;
+            const { targetID, inheritedBindings, ...visibleIntent } = intent;
             const metadata = Object.freeze({
                 operation, ...visibleIntent, executionOutcome,
                 tracePath: sqlTraceFrames(intent.tracePath ?? []),
@@ -290,7 +289,9 @@ class AbstractSQLTeaQLClient {
                     ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
                     : `statement ${executionOutcome}; row count unknown`,
             });
-            const projected = (0, log_privacy_1.projectSQLLog)(metadata, inherited, targetID === undefined ? [] : [targetID]);
+            const provenance = inheritedBindings && inherited
+                ? (0, log_privacy_1.inheritSQLLogBindings)(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+            const projected = (0, log_privacy_1.projectSQLLog)(metadata, provenance, targetID === undefined ? [] : [targetID]);
             // Runtime diagnostics are fail-open and each sink is independent. A
             // broken application sink must not roll back a successful SQL mutation.
             try {
@@ -408,7 +409,9 @@ class AbstractSQLTeaQLClient {
         }
         await this.driver.ensureIdFloor(session, record.entity, record.id);
     }
-    async executeGraphSave(work) {
+    async executeGraphSave(intent, work) {
+        // Root intent is mandatory before lifecycle initialization or provider work.
+        const graph = new request_intent_1.GraphMutationSession(intent);
         // Generated child saves call their within-graph entry point directly. Every
         // public/root save comes through here and is queued, so an unrelated async
         // save cannot accidentally join another graph's transaction merely because
@@ -419,9 +422,11 @@ class AbstractSQLTeaQLClient {
         await predecessor;
         let fixEvidenceStarted = false;
         let mutationPolicyGraphStarted = false;
+        let committed = false;
         try {
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
+            this.graphAuditActions = [];
             this.userContext.insertResource('fixTime', new Date());
             this.userContext.beginFixEvidence();
             fixEvidenceStarted = true;
@@ -429,27 +434,51 @@ class AbstractSQLTeaQLClient {
             mutationPolicyGraphStarted = true;
             const result = await this.driver.transaction(async (session) => {
                 this.graphMutationSession = session;
+                this.activeGraph = graph;
                 try {
-                    const value = await work();
+                    const value = await work(graph);
                     this.userContext.ensureMutationPolicyGraphComplete();
                     return value;
                 }
                 finally {
                     this.graphMutationSession = undefined;
+                    this.activeGraph = undefined;
                 }
             });
-            for (const action of this.graphCommitActions)
-                action();
+            committed = true;
+            let failure;
+            let failed = false;
+            // Cleanup and other audit events must continue after one sink fails.
+            for (const action of [...this.graphCommitActions, ...this.graphAuditActions]) {
+                try {
+                    await action();
+                }
+                catch (error) {
+                    if (!failed)
+                        failure = error;
+                    failed = true;
+                }
+            }
+            if (failed)
+                throw new request_intent_1.GraphCommittedError(failure);
             return result;
         }
         catch (error) {
-            for (const action of [...this.graphRollbackActions].reverse())
-                action();
+            if (!committed) {
+                // Keep the original execution failure even if a restore callback fails.
+                for (const action of [...this.graphRollbackActions].reverse()) {
+                    try {
+                        action();
+                    }
+                    catch { /* independent rollback restorations continue */ }
+                }
+            }
             throw error;
         }
         finally {
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
+            this.graphAuditActions = [];
             if (mutationPolicyGraphStarted)
                 this.userContext.endMutationPolicyGraph();
             this.userContext.removeResource('fixTime');
@@ -468,16 +497,34 @@ class AbstractSQLTeaQLClient {
             throw new Error('No graph save is active');
         this.graphRollbackActions.push(work);
     }
-    async withMutationSession(work) {
-        return this.graphMutationSession ? work(this.graphMutationSession) : this.driver.transaction(work);
+    requireGraphOwnership(request) {
+        if (request.graphSession !== this.activeGraph ||
+            (this.graphMutationSession !== undefined && request.graphSession === undefined)) {
+            throw new Error('GRAPH_MUTATION_SESSION_REQUIRED: use the explicit active graph request capability');
+        }
+    }
+    async withMutationSession(request, work) {
+        this.requireGraphOwnership(request);
+        return request.graphSession ? work(this.graphMutationSession) : this.driver.transaction(work);
     }
     preflightMutation(mutation) {
-        mutation = this.checkAndFixMutation(mutation);
+        const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        this.requireGraphOwnership(request);
+        mutation = this.checkAndFixMutation(request);
+        if (request.graphSession) {
+            const schema = this.schema(mutation.entity);
+            const record = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+            const fields = Object.keys(record);
+            request.graphSession.captureLogBindings({ parameterizedSQL: '', sqlOrigin: 'generated',
+                parameters: fields.map(field => record[field]),
+                parameterLogPolicies: fields.map(field => this.fieldLogPolicy(schema, field)) });
+        }
         this.userContext.recordMutationPolicyPreflight(mutation);
         return mutation;
     }
     checkAndFixMutation(mutation) {
         const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        this.requireGraphOwnership(request);
         mutation = request.mutation;
         // The ledger exposes immutable snapshots. Fixers receive a mutable working
         // payload and every derived value is copied back into the graph ledger.
@@ -510,6 +557,7 @@ class AbstractSQLTeaQLClient {
     async executeMutation(mutation) {
         // Validate before Checker, policy, telemetry and transaction/provider work.
         const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        this.requireGraphOwnership(request);
         mutation = request.mutation;
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
             family: 'mutation',
@@ -520,7 +568,7 @@ class AbstractSQLTeaQLClient {
             },
         });
         try {
-            mutation = this.checkAndFixMutation(mutation);
+            mutation = this.checkAndFixMutation(request);
             const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
             const schema = this.schema(mutation.entity);
             const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
@@ -532,7 +580,7 @@ class AbstractSQLTeaQLClient {
                     'teaql.provider.kind': this.driver.databaseKind,
                     'teaql.provider.operation': String(mutation.action).toLowerCase(),
                 },
-            }, () => this.withMutationSession(async (session) => {
+            }, () => this.withMutationSession(request, async (session) => {
                 if (mutation.action === 'Create') {
                     const id = mutation.id
                         ? String(mutation.id)
@@ -549,7 +597,7 @@ class AbstractSQLTeaQLClient {
                     const values = fields.map(field => this.encode(record[field], schema.columns[field]));
                     this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
                     const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-                    const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'insert', id);
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'insert', id);
                     await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values));
                     return {
                         success: true,
@@ -577,7 +625,7 @@ class AbstractSQLTeaQLClient {
                     }
                     const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
                         `WHERE ${predicates.join(' AND ')}`;
-                    const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'update', String(mutation.id));
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'update', String(mutation.id));
                     const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values));
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
@@ -604,7 +652,7 @@ class AbstractSQLTeaQLClient {
                     }
                     const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
                         `WHERE ${predicates.join(' AND ')}`;
-                    const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'delete', String(mutation.id));
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id));
                     const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values));
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
@@ -620,31 +668,41 @@ class AbstractSQLTeaQLClient {
                 }
                 throw new Error(`Unsupported mutation action: ${mutation.action}`);
             }));
+            const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload);
             const event = Object.freeze({
                 entity: mutation.entity,
                 action: mutation.action,
                 id: String(result.id),
-                reason: (0, log_privacy_1.scrubLogText)(String(mutation.comment), [
-                    ...(0, log_privacy_1.logValueStrings)(mutation.payload), ...(0, log_privacy_1.logValueStrings)(mutation.id),
-                ]),
+                ...auditProjection,
                 recordedAt: new Date().toISOString(),
                 actor: this.userContext.getResource('bootstrapActor'),
                 category: this.userContext.getResource('bootstrapCategory'),
-                changedFields: Object.keys(mutation.payload || {}).sort(),
+                changedFields: Object.freeze(Object.keys(mutation.payload || {}).sort()),
                 version: result.version,
                 mutationGovernance,
             });
-            this.auditEvents.push(event);
-            if (this.auditSink) {
-                await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
-                    family: 'audit',
-                    name: `${mutation.entity}.audit`,
-                    attributes: {
-                        'teaql.entity.type': String(mutation.entity),
-                        'teaql.mutation.kind': String(mutation.action).toLowerCase(),
-                        'teaql.audit.changed_field_count': Object.keys(mutation.payload || {}).length,
-                    },
-                }, async () => this.auditSink(event));
+            const publish = async () => {
+                this.auditEvents.push(event);
+                if (this.auditSink)
+                    await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
+                        family: 'audit',
+                        name: `${mutation.entity}.audit`,
+                        attributes: {
+                            'teaql.entity.type': String(mutation.entity),
+                            'teaql.mutation.kind': String(mutation.action).toLowerCase(),
+                            'teaql.audit.changed_field_count': Object.keys(mutation.payload || {}).length,
+                        },
+                    }, async () => this.auditSink(event));
+            };
+            if (request.graphSession)
+                this.graphAuditActions.push(publish);
+            else {
+                try {
+                    await publish();
+                }
+                catch (error) {
+                    throw new request_intent_1.GraphCommittedError(error);
+                }
             }
             scope.success();
             return result;

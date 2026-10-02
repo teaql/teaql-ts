@@ -1,5 +1,7 @@
 import {
   CheckException,
+  GraphCommittedError,
+  GraphMutationSession,
   MutationRequest,
   OrderBy,
   QueryIntent,
@@ -8,323 +10,16 @@ import {
   canonicalSQLTracePath,
   cloneTraceNodes,
   contextSchemaCapability,
+  credentialName,
+  inheritSQLLogBindings,
   mergeRuntimeBootstrap,
+  projectSQLLog,
   queryTraceSource
-} from "./chunk-FKBJLOMN.js";
+} from "./chunk-XGQSBMGJ.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
 } from "./chunk-WZ3T4PU6.js";
-
-// src/sql/log-rendering.ts
-function debugSQL(parameterizedSQL, parameters, databaseKind = "sqlite") {
-  return renderSQL(parameterizedSQL, parameters, databaseKind);
-}
-function renderSQL(parameterizedSQL, parameters, databaseKind, parameterLiteral) {
-  if (parameterLiteral && !parameterizedSQL.trim()) throw new Error("Missing SQL template");
-  let positionalIndex = 0;
-  const used = /* @__PURE__ */ new Set();
-  const literal = (index) => {
-    if (index < 0 || index >= parameters.length) throw new Error("SQL bind count mismatch");
-    used.add(index);
-    return parameterLiteral ? parameterLiteral(index) : sqlLiteral(parameters[index], databaseKind);
-  };
-  let result = "";
-  let state = "sql";
-  for (let index = 0; index < parameterizedSQL.length; index++) {
-    const char = parameterizedSQL[index];
-    const next = parameterizedSQL[index + 1] ?? "";
-    if (state === "sql" && char === "'") {
-      result += char;
-      state = "single";
-      continue;
-    }
-    if (state === "sql" && char === '"') {
-      result += char;
-      state = "double";
-      continue;
-    }
-    if (state === "sql" && char === "`") {
-      result += char;
-      state = "backtick";
-      continue;
-    }
-    if (state === "sql" && char === "-" && next === "-") {
-      result += "--";
-      index++;
-      state = "line-comment";
-      continue;
-    }
-    if (state === "sql" && char === "/" && next === "*") {
-      result += "/*";
-      index++;
-      state = "block-comment";
-      continue;
-    }
-    if (state === "single") {
-      result += char;
-      if (char === "'" && next === "'") result += parameterizedSQL[++index];
-      else if (char === "'") state = "sql";
-      continue;
-    }
-    if (state === "double") {
-      result += char;
-      if (char === '"' && next === '"') result += parameterizedSQL[++index];
-      else if (char === '"') state = "sql";
-      continue;
-    }
-    if (state === "backtick") {
-      result += char;
-      if (char === "`" && next === "`") result += parameterizedSQL[++index];
-      else if (char === "`") state = "sql";
-      continue;
-    }
-    if (state === "line-comment") {
-      result += char;
-      if (char === "\r" || char === "\n") state = "sql";
-      continue;
-    }
-    if (state === "block-comment") {
-      result += char;
-      if (char === "*" && next === "/") {
-        result += "/";
-        index++;
-        state = "sql";
-      }
-      continue;
-    }
-    if (char === "?") {
-      if (parameterLiteral || positionalIndex < parameters.length) result += literal(positionalIndex++);
-      else result += char;
-      continue;
-    }
-    if (char === "$" && /[0-9]/.test(parameterizedSQL[index + 1] ?? "")) {
-      let end = index + 1;
-      while (/[0-9]/.test(parameterizedSQL[end] ?? "")) end++;
-      const parameterIndex = Number(parameterizedSQL.slice(index + 1, end)) - 1;
-      result += parameterLiteral || parameterIndex >= 0 && parameterIndex < parameters.length ? literal(parameterIndex) : parameterizedSQL.slice(index, end);
-      index = end - 1;
-      continue;
-    }
-    if (parameterizedSQL.slice(index).match(/^@p[0-9]+/i)) {
-      const placeholder = parameterizedSQL.slice(index).match(/^@p([0-9]+)/i);
-      const parameterIndex = Number(placeholder[1]) - 1;
-      result += parameterLiteral || parameterIndex >= 0 && parameterIndex < parameters.length ? literal(parameterIndex) : placeholder[0];
-      index += placeholder[0].length - 1;
-      continue;
-    }
-    result += char;
-  }
-  if (parameterLiteral && (used.size !== parameters.length || state !== "sql" && state !== "line-comment")) {
-    throw new Error("Incomplete SQL diagnostic rendering");
-  }
-  return result;
-}
-function sqlLiteral(value, databaseKind) {
-  if (value && typeof value === "object" && "type" in value) {
-    const typed = value;
-    if (typed.type === "Null" || typed.type === "TypedNull") return "NULL";
-    if (typed.type === "Date") {
-      const date = typed.value instanceof Date ? typed.value.toISOString().slice(0, 10) : String(typed.value);
-      if (databaseKind === "postgresql") return `DATE ${quoteSQLString(date)}`;
-      if (databaseKind === "mysql") return `CAST(${quoteSQLString(date)} AS DATE)`;
-      return quoteSQLString(date);
-    }
-    if (typed.type === "Timestamp") {
-      if (databaseKind === "sqlite") return String(typed.value);
-      const iso = new Date(Number(typed.value)).toISOString();
-      if (databaseKind === "postgresql") return `TIMESTAMPTZ ${quoteSQLString(iso)}`;
-      return `CAST(${quoteSQLString(iso.slice(0, 23).replace("T", " "))} AS DATETIME(3))`;
-    }
-    if (typed.type === "Bool") return typed.value ? "TRUE" : "FALSE";
-    if (["I64", "U64", "F64", "Decimal"].includes(typed.type)) return String(typed.value);
-    if (typed.type === "Text") return quoteSQLString(String(typed.value));
-  }
-  if (value === null || value === void 0) return "NULL";
-  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
-  if (typeof value === "number" || typeof value === "bigint") return String(value);
-  if (value instanceof Date) {
-    if (databaseKind === "sqlite") return String(value.getTime());
-    if (databaseKind === "postgresql") return `TIMESTAMPTZ ${quoteSQLString(value.toISOString())}`;
-    return `CAST(${quoteSQLString(value.toISOString().slice(0, 23).replace("T", " "))} AS DATETIME(3))`;
-  }
-  if (value instanceof Uint8Array) {
-    return `X'${Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("")}'`;
-  }
-  if (typeof value === "object") return quoteSQLString(JSON.stringify(value));
-  return quoteSQLString(String(value));
-}
-function quoteSQLString(value) {
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-// src/core/log-privacy.ts
-var PLAINTEXT_LOG_ENV = "TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS";
-var PLAINTEXT_LOG_ACK = "I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK";
-var redacted = "[REDACTED]";
-var redactedSQL = "[REDACTED SQL; NOT REPLAYABLE]";
-var debugLabel = "-- TeaQL DEBUG PLAINTEXT; EXPLICIT OPT-IN\n";
-var warned = false;
-function maskAuditValue(value) {
-  const scalars = Array.from(value);
-  if (scalars.length < 8 || /^[0-9]+$/.test(value)) return "*".repeat(scalars.length);
-  return scalars.slice(0, 2).join("") + "*".repeat(scalars.length - 4) + scalars.slice(-2).join("");
-}
-function plaintextLogsEnabled() {
-  const environment = globalThis.process?.env;
-  const enabled = environment?.[PLAINTEXT_LOG_ENV] === PLAINTEXT_LOG_ACK;
-  if (enabled && !warned) {
-    warned = true;
-    console.warn("TeaQL: sensitive plaintext logging enabled; application data may be written to disk. Authentication secrets remain redacted.");
-  }
-  return enabled;
-}
-function credentialName(name) {
-  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return [
-    "password",
-    "passwd",
-    "passphrase",
-    "privatekey",
-    "secret",
-    "accesstoken",
-    "refreshtoken",
-    "idtoken",
-    "apikey",
-    "authorization",
-    "credential",
-    "sessiontoken",
-    "magiclinktoken"
-  ].some((word) => normalized.includes(word));
-}
-function hasCredentials(value) {
-  if (Array.isArray(value)) return value.some(hasCredentials);
-  if (value && typeof value === "object") {
-    return Object.entries(value).some(([key, child]) => credentialName(key) || hasCredentials(child));
-  }
-  return false;
-}
-function logValueStrings(value) {
-  if (value === void 0 || value === null || value === "") return [];
-  if (Array.isArray(value)) return value.flatMap(logValueStrings);
-  if (value instanceof Date) return [value.toISOString()];
-  if (typeof value === "object") return Object.values(value).flatMap(logValueStrings);
-  return [String(value)];
-}
-function scrubLogText(text, values) {
-  return [...new Set(values)].sort((a, b) => b.length - a.length).reduce((result, value) => result?.split(value).join(redacted), text);
-}
-var projections = /* @__PURE__ */ new WeakMap();
-var safeAlternatives = /* @__PURE__ */ new WeakMap();
-function bindingPolicies(metadata) {
-  const supplied = metadata.parameterLogPolicies;
-  const valid = !!supplied && supplied.length === metadata.parameters.length;
-  const credentialStatement = credentialName(metadata.parameterizedSQL) && (metadata.sqlOrigin !== "generated" || !valid);
-  return metadata.parameters.map((value, index) => {
-    if (credentialStatement || hasCredentials(value)) return "credential";
-    const policy = valid ? supplied[index] : void 0;
-    return policy === "plain" || policy === "masked" || policy === "credential" ? policy : "unknown";
-  });
-}
-function bindingIsMasked(policy, allow) {
-  return policy === "credential" || policy === "unknown" || !allow && policy !== "plain";
-}
-function copyLogValue(value) {
-  if (value instanceof Date) return new Date(value.getTime());
-  if (value instanceof Uint8Array) return new Uint8Array(value);
-  if (Array.isArray(value)) return Object.freeze(value.map(copyLogValue));
-  if (value && typeof value === "object") return Object.freeze(Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [key, copyLogValue(child)])
-  ));
-  return value;
-}
-function inheritSQLLogBindings(source, inherited) {
-  const sources = inherited ? [inherited, source] : [source];
-  return Object.freeze({
-    parameterizedSQL: "",
-    sqlOrigin: "generated",
-    parameters: Object.freeze(sources.flatMap((item) => item.parameters.map(copyLogValue))),
-    parameterLogPolicies: Object.freeze(sources.flatMap(bindingPolicies))
-  });
-}
-function businessMask(value) {
-  if (value === null || value === void 0) return null;
-  if (Array.isArray(value)) return value.map(businessMask);
-  if (value && typeof value === "object" && "type" in value) {
-    return businessMask(value.value);
-  }
-  if (typeof value === "object" && !(value instanceof Date)) return redacted;
-  return maskAuditValue(value instanceof Date ? value.toISOString() : String(value));
-}
-function projectSQLLog(metadata, inherited, intentValues = []) {
-  const allow = plaintextLogsEnabled() && metadata.logMode !== "masked";
-  const prior = projections.get(metadata);
-  if (prior !== void 0 && (!prior || allow)) return metadata;
-  const safe = safeAlternatives.get(metadata);
-  if (!allow && safe) return safe;
-  const projected = projectWithPolicy(metadata, allow, inherited, intentValues);
-  projections.set(projected, allow);
-  if (allow) {
-    const alternative = projectWithPolicy(metadata, false, inherited, intentValues);
-    projections.set(alternative, false);
-    safeAlternatives.set(projected, alternative);
-  }
-  return projected;
-}
-function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
-  const supplied = metadata.parameterLogPolicies;
-  const policiesValid = !supplied || supplied.length === metadata.parameters.length;
-  const credentialStatement = credentialName(metadata.parameterizedSQL) && (metadata.sqlOrigin !== "generated" || !supplied || !policiesValid);
-  const policies = bindingPolicies(metadata);
-  const masked = policies.map((policy) => bindingIsMasked(policy, allow));
-  const secrets = metadata.parameters.flatMap((value, index) => masked[index] ? logValueStrings(value) : []);
-  if (inherited) {
-    const inheritedPolicies = bindingPolicies(inherited);
-    secrets.push(...inherited.parameters.flatMap((value, index) => bindingIsMasked(inheritedPolicies[index], allow) ? logValueStrings(value) : []));
-  }
-  const intentSecrets = [...secrets, ...intentValues.flatMap(logValueStrings)];
-  const unknownDebugIntent = !allow && metadata.logMode === "debug-plaintext" && !inherited;
-  const intentText = (value) => unknownDebugIntent && value ? redacted : scrubLogText(value, intentSecrets);
-  const safeValues = metadata.parameters.map((value, index) => {
-    if (!masked[index]) return copyLogValue(value);
-    return policies[index] === "masked" ? businessMask(value) : redacted;
-  });
-  const bareTemplate = metadata.parameterizedSQL.replace(/\$[0-9]+|@p[0-9]+/gi, "?");
-  const unsafeSQL = (!allow || credentialStatement) && metadata.sqlOrigin !== "generated" && /['"`$]|--|\/\*|\b\d+\b|:[A-Za-z_]/.test(bareTemplate);
-  const kind = metadata.databaseKind ?? "sqlite";
-  let rendered = redactedSQL;
-  let omissionReason = unsafeSQL ? "untrusted-literal-sql" : !policiesValid ? "policy-count-mismatch" : void 0;
-  if (!unsafeSQL && policiesValid) {
-    try {
-      rendered = renderSQL(metadata.parameterizedSQL, safeValues, kind, (index) => sqlLiteral(safeValues[index], kind) + (masked[index] ? " /* masked */" : ""));
-      rendered = (allow ? masked.some(Boolean) ? "-- TeaQL DEBUG PLAINTEXT; EXPLICIT OPT-IN; PARTIALLY MASKED; NOT REPLAYABLE\n" : debugLabel : "-- TeaQL MASKED; NOT REPLAYABLE\n") + rendered;
-    } catch {
-      rendered = redactedSQL;
-      omissionReason = "unsupported-or-mismatched-bindings";
-    }
-  }
-  const projected = Object.freeze({
-    ...metadata,
-    parameterizedSQL: unsafeSQL ? redactedSQL : metadata.sqlOrigin === "generated" ? metadata.parameterizedSQL : scrubLogText(metadata.parameterizedSQL, secrets),
-    parameters: Object.freeze(safeValues),
-    parameterLogPolicies: Object.freeze(policies),
-    maskedParameters: Object.freeze(masked),
-    logMode: allow ? "debug-plaintext" : "masked",
-    omissionReason,
-    debugSQL: rendered,
-    comment: intentText(metadata.comment),
-    purpose: intentText(metadata.purpose),
-    auditReason: intentText(metadata.auditReason),
-    // Counts are operational metadata, not a copy of a masked numeric binding.
-    resultSummary: metadata.resultCount !== void 0 ? `${metadata.resultCount} rows returned` : metadata.affectedRows !== void 0 ? `${metadata.affectedRows} rows affected` : scrubLogText(metadata.resultSummary, secrets),
-    tracePath: Object.freeze(metadata.tracePath.map((frame) => Object.freeze(
-      Object.fromEntries(Object.entries(frame).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))
-    ))),
-    // Typed identity is structural (as in the audit event's id), not prose.
-    ...metadata.mutationLineage ? { mutationLineage: Object.freeze(metadata.mutationLineage.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {}
-  });
-  return projected;
-}
 
 // src/sql/core.ts
 function canonicalRelationIndexes(schemas) {
@@ -404,14 +99,8 @@ function sameBootstrapValue(left, right) {
 function sqlTraceFrames(source) {
   return Object.freeze(source.map((node, level) => Object.freeze({ ...node, level })));
 }
-function mutationLogIntent(mutation, provider, operation, id) {
-  const entityId = /^(0|[1-9][0-9]*)$/.test(id) && BigInt(id) <= 18446744073709551615n ? id : void 0;
-  const lineage = cloneTraceNodes([{
-    kind: "auditReason",
-    name: String(mutation.entity),
-    entityId,
-    detail: String(mutation.comment)
-  }]);
+function mutationLogIntent(request, mutation, provider, operation, id) {
+  const lineage = request.traceFor({ entity: String(mutation.entity), id });
   const path = canonicalSQLTracePath([...lineage, {
     kind: "entity",
     name: String(mutation.entity),
@@ -419,10 +108,11 @@ function mutationLogIntent(mutation, provider, operation, id) {
     detail: ""
   }], provider, operation);
   return {
-    auditReason: String(mutation.comment),
+    auditReason: request.comment,
     tracePath: sqlTraceFrames(path.tracePath),
     mutationLineage: lineage,
-    targetID: id
+    targetID: id,
+    inheritedBindings: request.graphSession?.logBindings
   };
 }
 var TextDiagnosticSQLLogSink = class {
@@ -479,7 +169,6 @@ var SQLExecutionEvidenceStore = class {
 var AbstractSQLTeaQLClient = class {
   constructor(driver, schemas) {
     this.driver = driver;
-    this.schemas = schemas;
     this.bootstrapTail = Promise.resolve();
     this.sqlTrace = [];
     this.internalQueryToken = /* @__PURE__ */ Symbol("teaql-internal-query");
@@ -492,9 +181,11 @@ var AbstractSQLTeaQLClient = class {
     this.checkers = {};
     this.userContext = new UserContext();
     this.bootstrap = {};
+    this.graphAuditActions = [];
     this.graphCommitActions = [];
     this.graphRollbackActions = [];
     this.graphSaveTail = Promise.resolve();
+    this.schemas = { ...schemas };
   }
   fieldLogPolicy(schema, field) {
     const column = schema.columns[field];
@@ -593,7 +284,7 @@ var AbstractSQLTeaQLClient = class {
     if (isSelect && !this.queryLoggingEnabled || !isSelect && !this.mutationLoggingEnabled) return;
     if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
     try {
-      const { targetID, ...visibleIntent } = intent;
+      const { targetID, inheritedBindings, ...visibleIntent } = intent;
       const metadata = Object.freeze({
         operation,
         ...visibleIntent,
@@ -612,7 +303,8 @@ var AbstractSQLTeaQLClient = class {
         affectedRows,
         resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
       });
-      const projected = projectSQLLog(metadata, inherited, targetID === void 0 ? [] : [targetID]);
+      const provenance = inheritedBindings && inherited ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+      const projected = projectSQLLog(metadata, provenance, targetID === void 0 ? [] : [targetID]);
       try {
         this.telemetrySink?.record(projected);
       } catch {
@@ -737,7 +429,8 @@ var AbstractSQLTeaQLClient = class {
     }
     await this.driver.ensureIdFloor(session, record.entity, record.id);
   }
-  async executeGraphSave(work) {
+  async executeGraphSave(intent, work) {
+    const graph = new GraphMutationSession(intent);
     const predecessor = this.graphSaveTail;
     let release;
     this.graphSaveTail = new Promise((resolve) => {
@@ -746,9 +439,11 @@ var AbstractSQLTeaQLClient = class {
     await predecessor;
     let fixEvidenceStarted = false;
     let mutationPolicyGraphStarted = false;
+    let committed = false;
     try {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
+      this.graphAuditActions = [];
       this.userContext.insertResource("fixTime", /* @__PURE__ */ new Date());
       this.userContext.beginFixEvidence();
       fixEvidenceStarted = true;
@@ -756,22 +451,43 @@ var AbstractSQLTeaQLClient = class {
       mutationPolicyGraphStarted = true;
       const result = await this.driver.transaction(async (session) => {
         this.graphMutationSession = session;
+        this.activeGraph = graph;
         try {
-          const value = await work();
+          const value = await work(graph);
           this.userContext.ensureMutationPolicyGraphComplete();
           return value;
         } finally {
           this.graphMutationSession = void 0;
+          this.activeGraph = void 0;
         }
       });
-      for (const action of this.graphCommitActions) action();
+      committed = true;
+      let failure;
+      let failed = false;
+      for (const action of [...this.graphCommitActions, ...this.graphAuditActions]) {
+        try {
+          await action();
+        } catch (error) {
+          if (!failed) failure = error;
+          failed = true;
+        }
+      }
+      if (failed) throw new GraphCommittedError(failure);
       return result;
     } catch (error) {
-      for (const action of [...this.graphRollbackActions].reverse()) action();
+      if (!committed) {
+        for (const action of [...this.graphRollbackActions].reverse()) {
+          try {
+            action();
+          } catch {
+          }
+        }
+      }
       throw error;
     } finally {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
+      this.graphAuditActions = [];
       if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
       this.userContext.removeResource("fixTime");
       if (fixEvidenceStarted) this.userContext.finishFixEvidence();
@@ -786,16 +502,36 @@ var AbstractSQLTeaQLClient = class {
     if (!this.graphMutationSession) throw new Error("No graph save is active");
     this.graphRollbackActions.push(work);
   }
-  async withMutationSession(work) {
-    return this.graphMutationSession ? work(this.graphMutationSession) : this.driver.transaction(work);
+  requireGraphOwnership(request) {
+    if (request.graphSession !== this.activeGraph || this.graphMutationSession !== void 0 && request.graphSession === void 0) {
+      throw new Error("GRAPH_MUTATION_SESSION_REQUIRED: use the explicit active graph request capability");
+    }
+  }
+  async withMutationSession(request, work) {
+    this.requireGraphOwnership(request);
+    return request.graphSession ? work(this.graphMutationSession) : this.driver.transaction(work);
   }
   preflightMutation(mutation) {
-    mutation = this.checkAndFixMutation(mutation);
+    const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    this.requireGraphOwnership(request);
+    mutation = this.checkAndFixMutation(request);
+    if (request.graphSession) {
+      const schema = this.schema(mutation.entity);
+      const record = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+      const fields = Object.keys(record);
+      request.graphSession.captureLogBindings({
+        parameterizedSQL: "",
+        sqlOrigin: "generated",
+        parameters: fields.map((field) => record[field]),
+        parameterLogPolicies: fields.map((field) => this.fieldLogPolicy(schema, field))
+      });
+    }
     this.userContext.recordMutationPolicyPreflight(mutation);
     return mutation;
   }
   checkAndFixMutation(mutation) {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    this.requireGraphOwnership(request);
     mutation = request.mutation;
     mutation = { ...mutation, payload: { ...mutation?.payload ?? {} } };
     Object.defineProperty(mutation, "comment", { value: request.comment, enumerable: true });
@@ -820,6 +556,7 @@ var AbstractSQLTeaQLClient = class {
   }
   async executeMutation(mutation) {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    this.requireGraphOwnership(request);
     mutation = request.mutation;
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: "mutation",
@@ -830,7 +567,7 @@ var AbstractSQLTeaQLClient = class {
       }
     });
     try {
-      mutation = this.checkAndFixMutation(mutation);
+      mutation = this.checkAndFixMutation(request);
       const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
@@ -842,7 +579,7 @@ var AbstractSQLTeaQLClient = class {
           "teaql.provider.kind": this.driver.databaseKind,
           "teaql.provider.operation": String(mutation.action).toLowerCase()
         }
-      }, () => this.withMutationSession(async (session) => {
+      }, () => this.withMutationSession(request, async (session) => {
         if (mutation.action === "Create") {
           const id = mutation.id ? String(mutation.id) : await this.driver.nextId(session, mutation.entity);
           if (mutation.id) {
@@ -862,7 +599,7 @@ var AbstractSQLTeaQLClient = class {
           );
           this.bindLogPolicies.set(values, fields.map((field) => this.fieldLogPolicy(schema, field)));
           const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-          const intent = mutationLogIntent(mutation, this.driver.databaseKind, "insert", id);
+          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "insert", id);
           await this.executeLoggedSQL("insert", sql, values, intent, () => session.query(sql, values));
           return {
             success: true,
@@ -895,7 +632,7 @@ var AbstractSQLTeaQLClient = class {
             );
           }
           const sql = `UPDATE ${table} SET ${assignments.join(", ")} WHERE ${predicates.join(" AND ")}`;
-          const intent = mutationLogIntent(mutation, this.driver.databaseKind, "update", String(mutation.id));
+          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "update", String(mutation.id));
           const result2 = await this.executeLoggedSQL("update", sql, values, intent, () => session.query(sql, values));
           if (result2.rowCount !== 1) {
             throw new Error(
@@ -931,7 +668,7 @@ var AbstractSQLTeaQLClient = class {
             );
           }
           const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) WHERE ${predicates.join(" AND ")}`;
-          const intent = mutationLogIntent(mutation, this.driver.databaseKind, "delete", String(mutation.id));
+          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "delete", String(mutation.id));
           const result2 = await this.executeLoggedSQL("delete", sql, values, intent, () => session.query(sql, values));
           if (result2.rowCount !== 1) {
             throw new Error(
@@ -956,24 +693,22 @@ var AbstractSQLTeaQLClient = class {
         }
         throw new Error(`Unsupported mutation action: ${mutation.action}`);
       }));
+      const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload);
       const event = Object.freeze({
         entity: mutation.entity,
         action: mutation.action,
         id: String(result.id),
-        reason: scrubLogText(String(mutation.comment), [
-          ...logValueStrings(mutation.payload),
-          ...logValueStrings(mutation.id)
-        ]),
+        ...auditProjection,
         recordedAt: (/* @__PURE__ */ new Date()).toISOString(),
         actor: this.userContext.getResource("bootstrapActor"),
         category: this.userContext.getResource("bootstrapCategory"),
-        changedFields: Object.keys(mutation.payload || {}).sort(),
+        changedFields: Object.freeze(Object.keys(mutation.payload || {}).sort()),
         version: result.version,
         mutationGovernance
       });
-      this.auditEvents.push(event);
-      if (this.auditSink) {
-        await observeRuntimeOperation(this.runtimeTelemetry, {
+      const publish = async () => {
+        this.auditEvents.push(event);
+        if (this.auditSink) await observeRuntimeOperation(this.runtimeTelemetry, {
           family: "audit",
           name: `${mutation.entity}.audit`,
           attributes: {
@@ -982,6 +717,14 @@ var AbstractSQLTeaQLClient = class {
             "teaql.audit.changed_field_count": Object.keys(mutation.payload || {}).length
           }
         }, async () => this.auditSink(event));
+      };
+      if (request.graphSession) this.graphAuditActions.push(publish);
+      else {
+        try {
+          await publish();
+        } catch (error) {
+          throw new GraphCommittedError(error);
+        }
       }
       scope.success();
       return result;
@@ -1815,7 +1558,6 @@ function standardAggregateFunction(name) {
 }
 
 export {
-  debugSQL,
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   TextDiagnosticSQLLogSink,
@@ -1824,4 +1566,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-BUFDHRPX.js.map
+//# sourceMappingURL=chunk-L4RKJUU2.js.map

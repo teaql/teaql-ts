@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { appendFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SelectQuery, UserContext } from 'teaql-ts';
+import { GraphMutationSession, MutationIntent, SelectQuery, UserContext } from 'teaql-ts';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
 import { AbstractSQLTeaQLClient, EntitySchema, SQLExecutionMetadata, TextDiagnosticSQLLogSink } from 'teaql-ts/sql/core';
 
@@ -59,8 +59,11 @@ export async function verifyMaskingLifecycle(): Promise<void> {
 
     await driver.query('CREATE TRIGGER remove_mask_probe AFTER INSERT ON masking_probe WHEN NEW.id = 777 BEGIN DELETE FROM masking_probe WHERE id = NEW.id; END');
     entries.length = 0; output.length = 0;
-    const create = (id:string) => client.executeMutation({entity:'MaskingProbe',action:'Create',id,
-      payload,comment:'what: insert Riverside PASSWORD-CANARY for readback'});
+    const create = (id:string, graph?: GraphMutationSession) => {
+      const mutation = {entity:'MaskingProbe',action:'Create',id,
+        payload,comment:'what: insert Riverside PASSWORD-CANARY for readback'};
+      return client.executeMutation(graph ? graph.request(mutation) : mutation);
+    };
     await assert.rejects(create('777'),/could not be read back/);
     assert.equal(entries.length,2);
     assert.equal(entries[0].executionOutcome,'success');
@@ -71,10 +74,10 @@ export async function verifyMaskingLifecycle(): Promise<void> {
     assert(!JSON.stringify([entries,output]).match(/Riverside|PASSWORD-CANARY/));
 
     entries.length = 0; output.length = 0;
-    await assert.rejects(client.executeGraphSave(async () => {
-      await create('30');
-      await create('777');
-      await create('31');
+    await assert.rejects(client.executeGraphSave(new MutationIntent('what: insert Riverside PASSWORD-CANARY for readback'), async graph => {
+      await create('30', graph);
+      await create('777', graph);
+      await create('31', graph);
     }),/could not be read back/);
     assert.deepEqual(entries.map(entry=>[entry.operation,entry.executionOutcome]),[
       ['insert','success'],['insert','success'],['select','success'],

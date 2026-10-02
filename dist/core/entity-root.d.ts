@@ -13,6 +13,10 @@ export declare class EntityRoot {
     private readonly originalVersions;
     private readonly newKeys;
     private readonly deletedKeys;
+    private readonly traces;
+    /** A complete per-entity lineage replaces, rather than extends, graph fallback. */
+    setTraceChain(key: EntityKey, nodes: readonly TraceNode[]): void;
+    traceChain(key: EntityKey): readonly TraceNode[] | undefined;
     set(key: EntityKey, field: string, value: unknown): void;
     snapshot(): EntityChange[];
     change(key: EntityKey): Readonly<Record<string, unknown>>;
@@ -28,4 +32,5 @@ export declare class EntityRoot {
     isDeleted(key: EntityKey): boolean;
     clearCommitted(): void;
 }
+import { TraceNode } from './trace-chain';
 //# sourceMappingURL=entity-root.d.ts.map

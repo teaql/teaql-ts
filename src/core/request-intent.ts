@@ -1,9 +1,15 @@
 import type { MutationQuery, SelectQuery } from './ast';
-import { cloneTraceNodes, queryTraceSource, TraceNode } from './trace-chain';
+import { cloneTraceNodes, queryTraceSource, TraceNode, MutationTraceScope, mutationScopeForEntity } from './trace-chain';
+import type { EntityKey, EntityRoot } from './entity-root';
+import { inheritSQLLogBindings, logValueStrings, scrubLogText } from './log-privacy';
+import type { SQLLogBindingSource } from './log-privacy';
 
 // Only runtime-created snapshots carry provenance. No property supplied by a
 // JSON/builder caller can forge it, and no mutable trace stack lives on Context.
 const querySources = new WeakMap<object, readonly TraceNode[]>();
+const graphRequests = new WeakMap<object, { session: GraphMutationSession;
+  parent?: MutationTraceScope; localComment?: string }>();
+const scopeOwners = new WeakMap<MutationTraceScope, GraphMutationSession>();
 
 export type RequestKind = 'query' | 'mutation';
 
@@ -127,4 +133,68 @@ export class MutationRequest<T extends object = MutationQuery> {
   get intent(): MutationIntent { return this.#intent; }
   get mutation(): T { return this.#mutation; }
   get comment(): string { return this.#intent.comment; }
+
+  /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
+  get graphSession(): GraphMutationSession | undefined { return graphRequests.get(this)?.session; }
+
+  scopeFor(key: EntityKey): MutationTraceScope {
+    const graph = graphRequests.get(this);
+    const scope = mutationScopeForEntity(graph?.parent, key.entity, key.id, this.comment, graph?.localComment);
+    if (graph) scopeOwners.set(scope, graph.session);
+    return scope;
+  }
+
+  traceFor(key: EntityKey): readonly TraceNode[] {
+    const mutation = this.#mutation as T & { ledgerRoot?: EntityRoot; ledgerKey?: EntityKey };
+    const specific = mutation.ledgerRoot?.traceChain(mutation.ledgerKey ?? key);
+    return specific?.length ? cloneTraceNodes(specific) : this.scopeFor(key).recover();
+  }
+
+  /** Safe event projection; internal policy intent is never mutated. */
+  auditProjection(key: EntityKey, payload: unknown): Readonly<{
+    reason: string; mutationLineage: readonly TraceNode[];
+  }> {
+    const secrets = [...logValueStrings(payload), ...logValueStrings((this.#mutation as any).id),
+      ...logValueStrings(this.graphSession?.logBindings?.parameters)];
+    return Object.freeze({ reason: scrubLogText(this.comment, secrets)!,
+      mutationLineage: cloneTraceNodes(this.traceFor(key).map(node => ({ ...node,
+        detail: scrubLogText(node.detail, secrets) }))) });
+  }
+}
+
+/** One explicit graph invocation, never a Context-owned trace stack. */
+export class GraphMutationSession {
+  readonly #intent: MutationIntent;
+  #bindings?: SQLLogBindingSource;
+
+  constructor(intent: MutationIntent) {
+    this.#intent = new MutationIntent(intent?.comment);
+    Object.freeze(this);
+  }
+  get intent(): MutationIntent { return this.#intent; }
+
+  request<T extends object>(mutation: T, parent?: MutationTraceScope,
+    localComment?: string): MutationRequest<T> {
+    if (parent && scopeOwners.get(parent) !== this)
+      throw new Error('GRAPH_TRACE_SCOPE_MISMATCH: parent scope belongs to another graph invocation');
+    const request = new MutationRequest(mutation, this.#intent);
+    graphRequests.set(request, { session: this, parent, localComment });
+    return request;
+  }
+
+  /** @internal Preflight snapshots bind provenance for all siblings before SQL. */
+  captureLogBindings(source: SQLLogBindingSource): void {
+    this.#bindings = inheritSQLLogBindings(source, this.#bindings);
+  }
+  /** @internal Never put this raw provenance on a wire or log record. */
+  get logBindings(): SQLLogBindingSource | undefined { return this.#bindings; }
+}
+
+/** Database committed; retrying this operation as a rolled-back write is unsafe. */
+export class GraphCommittedError extends Error {
+  readonly committed = true;
+  constructor(public readonly cause: unknown) {
+    super('GRAPH_ALREADY_COMMITTED: post-commit processing failed; do not retry as an uncommitted mutation');
+    this.name = 'GraphCommittedError';
+  }
 }

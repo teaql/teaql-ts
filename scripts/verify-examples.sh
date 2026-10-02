@@ -6,7 +6,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Rebuild here so examples can never silently validate stale checked-in output.
 (cd "$repo" && npm run build)
 mkdir -p "$repo/.local"
-expected=(browser-sqlite conformance ensure-schema-bootstrap order-management school-management task-board)
+expected=(browser-sqlite conformance ensure-schema-bootstrap order-management school-management task-board trace-chain)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2
@@ -28,4 +28,5 @@ done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
 (cd "$repo/examples/task-board" && npm install && npm run build)
 (cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke)
+(cd "$repo/examples/trace-chain" && npm install && npm run build && npm start && npm start)
 echo "PASS: all TypeScript examples"

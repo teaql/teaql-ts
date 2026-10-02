@@ -1,4 +1,4 @@
-import { CheckException, EntityKey, EntityRoot, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, GraphMutationSession, MutationIntent, MutationTraceScope, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 
 export class WorkItem {
@@ -73,26 +73,21 @@ export class WorkItem {
     }
 
     auditAs(comment: string): this {
-        if (!comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() requires a non-empty reason");
-        }
-        (this as any)._comment = comment;
+        (this as any)._comment = new MutationIntent(comment).comment;
         return this;
     }
 
     async save(context: UserContext): Promise<WorkItem> {
+        const intent = new MutationIntent((this as any)._comment);
         const service = context.requireResource<TeaQLDataService>("dataService");
-        return service.executeGraphSave(async () => {
-            this.teaqlPreflightGraph(context, service);
-            return this.teaqlSaveWithinGraph(context, service);
+        return service.executeGraphSave(intent, async graph => {
+            this.teaqlPreflightGraph(context, service, graph);
+            return this.teaqlSaveWithinGraph(context, service, graph);
         });
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService): void {
-        if (!(this as any)._comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() must be called before save()");
-        }
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession): void {
         const action = (this as any)._action;
         if (action === "Update") {
             const notLoaded = [{ member: "id", canonical: "id" }, { member: "title", canonical: "title" }, { member: "description", canonical: "description" }, { member: "platform", canonical: "platform" }, { member: "version", canonical: "version" }]
@@ -105,7 +100,7 @@ export class WorkItem {
                 }]);
             }
         }
-        service.preflightMutation({
+        service.preflightMutation(graph.request({
             entity: "WorkItem", action,
             payload: action === "Update"
                 ? (this as any)._root.change(this.teaqlEntityKey())
@@ -113,14 +108,12 @@ export class WorkItem {
             id: (this as any).id, version: (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
-        });
+        }));
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService): Promise<WorkItem> {
-        if (!(this as any)._comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() must be called before save()");
-        }
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService,
+        graph: GraphMutationSession, parent?: MutationTraceScope): Promise<WorkItem> {
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -133,7 +126,8 @@ export class WorkItem {
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
-        const result = await service.executeMutation(mutation);
+        const request = graph.request(mutation, parent, (this as any)._comment);
+        const result = await service.executeMutation(request);
         for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
             if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
         }
@@ -152,6 +146,7 @@ export class WorkItem {
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
+        const activeScope = request.scopeFor(newKey);
         service.afterGraphRollback(() => {
             Object.assign(this, rollbackState.payload);
             (this as any)._ledgerId = rollbackState.ledgerId;

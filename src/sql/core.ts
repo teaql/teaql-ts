@@ -9,7 +9,7 @@ import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { OrderBy, SelectQuery } from '../core/ast';
-import { MutationRequest, QueryIntent, QueryRequest } from '../core/request-intent';
+import { GraphCommittedError, GraphMutationSession, MutationIntent, MutationRequest, QueryIntent, QueryRequest } from '../core/request-intent';
 import { canonicalSQLTracePath, cloneTraceNodes, queryTraceSource, TraceNode } from '../core/trace-chain';
 import { projectSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings } from '../core/log-privacy';
 import type { SQLLogBindingSource } from '../core/log-privacy';
@@ -179,7 +179,7 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 }
 
 export interface TeaQLDataService {
-  executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+  executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
   preflightMutation(mutation: any): any;
   afterGraphCommit(work: () => void): void;
   afterGraphRollback(work: () => void): void;
@@ -197,6 +197,7 @@ export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
 
 type SQLLogIntent = { comment?: string; purpose?: string; auditReason?: string; tracePath?: readonly SQLTraceFrame[];
   mutationLineage?: readonly TraceNode[];
+  inheritedBindings?: SQLLogBindingSource;
   /** Compiler-only target ID for free-text projection; never included in log metadata. */
   targetID?: unknown };
 
@@ -208,15 +209,13 @@ function sqlTraceFrames(source: readonly TraceNode[]): readonly SQLTraceFrame[] 
   return Object.freeze(source.map((node, level) => Object.freeze({ ...node, level })));
 }
 
-function mutationLogIntent(mutation: any, provider: string,
+function mutationLogIntent(request: MutationRequest<any>, mutation: any, provider: string,
   operation: SQLExecutionOperation, id: string): SQLLogIntent {
-  const entityId = /^(0|[1-9][0-9]*)$/.test(id) && BigInt(id) <= 18446744073709551615n ? id : undefined;
-  const lineage = cloneTraceNodes([{ kind: 'auditReason', name: String(mutation.entity),
-    entityId, detail: String(mutation.comment) }]);
+  const lineage = request.traceFor({ entity: String(mutation.entity), id });
   const path = canonicalSQLTracePath([...lineage, { kind: 'entity', name: String(mutation.entity),
     entityId: id, detail: '' }], provider, operation);
-  return { auditReason: String(mutation.comment), tracePath: sqlTraceFrames(path.tracePath),
-    mutationLineage: lineage, targetID: id };
+  return { auditReason: request.comment, tracePath: sqlTraceFrames(path.tracePath),
+    mutationLineage: lineage, targetID: id, inheritedBindings: request.graphSession?.logBindings };
 }
 
 export type SQLExecutionMetadata = Readonly<{
@@ -346,14 +345,17 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private userContext = new UserContext();
   private bootstrap: RuntimeBootstrap = {};
   private graphMutationSession?: SqlSession;
+  private activeGraph?: GraphMutationSession;
+  private graphAuditActions: Array<() => Promise<void>> = [];
   private graphCommitActions: Array<() => void> = [];
   private graphRollbackActions: Array<() => void> = [];
   private graphSaveTail: Promise<void> = Promise.resolve();
+  private readonly schemas: Record<string, EntitySchema>;
 
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
-    private readonly schemas: Record<string, EntitySchema>,
-  ) {}
+    schemas: Record<string, EntitySchema>,
+  ) { this.schemas = { ...schemas }; }
 
   /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module: import('../core/runtime-module').RuntimeModule): this {
@@ -460,7 +462,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if ((isSelect && !this.queryLoggingEnabled) || (!isSelect && !this.mutationLoggingEnabled)) return;
     if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
     try {
-      const { targetID, ...visibleIntent } = intent;
+      const { targetID, inheritedBindings, ...visibleIntent } = intent;
       const metadata = Object.freeze({
         operation, ...visibleIntent, executionOutcome,
         tracePath: sqlTraceFrames(intent.tracePath ?? []),
@@ -475,7 +477,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
             : `statement ${executionOutcome}; row count unknown`,
       });
-      const projected = projectSQLLog(metadata, inherited, targetID === undefined ? [] : [targetID]);
+      const provenance = inheritedBindings && inherited
+        ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+      const projected = projectSQLLog(metadata, provenance, targetID === undefined ? [] : [targetID]);
       // Runtime diagnostics are fail-open and each sink is independent. A
       // broken application sink must not roll back a successful SQL mutation.
       try { this.telemetrySink?.record(projected); } catch { /* diagnostic sink failed */ }
@@ -596,7 +600,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     await this.driver.ensureIdFloor(session, record.entity, record.id);
   }
 
-  async executeGraphSave<T>(work: () => Promise<T>): Promise<T> {
+  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T> {
+    // Root intent is mandatory before lifecycle initialization or provider work.
+    const graph = new GraphMutationSession(intent);
     // Generated child saves call their within-graph entry point directly. Every
     // public/root save comes through here and is queued, so an unrelated async
     // save cannot accidentally join another graph's transaction merely because
@@ -607,9 +613,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     await predecessor;
     let fixEvidenceStarted = false;
     let mutationPolicyGraphStarted = false;
+    let committed = false;
     try {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
+      this.graphAuditActions = [];
       this.userContext.insertResource('fixTime', new Date());
       this.userContext.beginFixEvidence();
       fixEvidenceStarted = true;
@@ -617,21 +625,35 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       mutationPolicyGraphStarted = true;
       const result = await this.driver.transaction(async session => {
         this.graphMutationSession = session;
+        this.activeGraph = graph;
         try {
-          const value = await work();
+          const value = await work(graph);
           this.userContext.ensureMutationPolicyGraphComplete();
           return value;
         }
-        finally { this.graphMutationSession = undefined; }
+        finally { this.graphMutationSession = undefined; this.activeGraph = undefined; }
       });
-      for (const action of this.graphCommitActions) action();
+      committed = true;
+      let failure: unknown;
+      let failed = false;
+      // Cleanup and other audit events must continue after one sink fails.
+      for (const action of [...this.graphCommitActions, ...this.graphAuditActions]) {
+        try { await action(); } catch (error) { if (!failed) failure = error; failed = true; }
+      }
+      if (failed) throw new GraphCommittedError(failure);
       return result;
     } catch (error) {
-      for (const action of [...this.graphRollbackActions].reverse()) action();
+      if (!committed) {
+        // Keep the original execution failure even if a restore callback fails.
+        for (const action of [...this.graphRollbackActions].reverse()) {
+          try { action(); } catch { /* independent rollback restorations continue */ }
+        }
+      }
       throw error;
     } finally {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
+      this.graphAuditActions = [];
       if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
       this.userContext.removeResource('fixTime');
       if (fixEvidenceStarted) this.userContext.finishFixEvidence();
@@ -649,18 +671,37 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     this.graphRollbackActions.push(work);
   }
 
-  private async withMutationSession<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
-    return this.graphMutationSession ? work(this.graphMutationSession) : this.driver.transaction(work);
+  private requireGraphOwnership(request: MutationRequest<any>): void {
+    if (request.graphSession !== this.activeGraph ||
+        (this.graphMutationSession !== undefined && request.graphSession === undefined)) {
+      throw new Error('GRAPH_MUTATION_SESSION_REQUIRED: use the explicit active graph request capability');
+    }
+  }
+
+  private async withMutationSession<T>(request: MutationRequest<any>, work: (session: SqlSession) => Promise<T>): Promise<T> {
+    this.requireGraphOwnership(request);
+    return request.graphSession ? work(this.graphMutationSession!) : this.driver.transaction(work);
   }
 
   preflightMutation(mutation: any): any {
-    mutation = this.checkAndFixMutation(mutation);
+    const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    this.requireGraphOwnership(request);
+    mutation = this.checkAndFixMutation(request);
+    if (request.graphSession) {
+      const schema = this.schema(mutation.entity);
+      const record = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+      const fields = Object.keys(record);
+      request.graphSession.captureLogBindings({ parameterizedSQL: '', sqlOrigin: 'generated',
+        parameters: fields.map(field => record[field]),
+        parameterLogPolicies: fields.map(field => this.fieldLogPolicy(schema, field)) });
+    }
     this.userContext.recordMutationPolicyPreflight(mutation);
     return mutation;
   }
 
   private checkAndFixMutation(mutation: any): any {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    this.requireGraphOwnership(request);
     mutation = request.mutation;
     // The ledger exposes immutable snapshots. Fixers receive a mutable working
     // payload and every derived value is copied back into the graph ledger.
@@ -689,6 +730,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async executeMutation(mutation: any): Promise<MutationResult> {
     // Validate before Checker, policy, telemetry and transaction/provider work.
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
+    this.requireGraphOwnership(request);
     mutation = request.mutation;
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'mutation',
@@ -699,7 +741,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       },
     });
     try {
-      mutation = this.checkAndFixMutation(mutation);
+      mutation = this.checkAndFixMutation(request);
       const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
@@ -711,7 +753,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           'teaql.provider.kind': this.driver.databaseKind,
           'teaql.provider.operation': String(mutation.action).toLowerCase(),
         },
-      }, () => this.withMutationSession(async session => {
+      }, () => this.withMutationSession(request, async session => {
       if (mutation.action === 'Create') {
         const id = mutation.id
           ? String(mutation.id)
@@ -734,7 +776,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         );
         this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
         const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-        const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'insert', id);
+        const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'insert', id);
         await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values));
         return {
           success: true,
@@ -771,7 +813,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         }
         const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
           `WHERE ${predicates.join(' AND ')}`;
-        const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'update', String(mutation.id));
+        const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'update', String(mutation.id));
         const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values));
         if (result.rowCount !== 1) {
           throw new Error(
@@ -805,7 +847,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         }
         const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
           `WHERE ${predicates.join(' AND ')}`;
-        const intent = mutationLogIntent(mutation, this.driver.databaseKind, 'delete', String(mutation.id));
+        const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id));
         const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values));
         if (result.rowCount !== 1) {
           throw new Error(
@@ -826,23 +868,22 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
       throw new Error(`Unsupported mutation action: ${mutation.action}`);
       }));
+      const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload);
       const event = Object.freeze({
         entity: mutation.entity,
         action: mutation.action,
         id: String(result.id),
-        reason: scrubLogText(String(mutation.comment), [
-          ...logValueStrings(mutation.payload), ...logValueStrings(mutation.id),
-        ]),
+        ...auditProjection,
         recordedAt: new Date().toISOString(),
         actor: this.userContext.getResource<string>('bootstrapActor'),
         category: this.userContext.getResource<string>('bootstrapCategory'),
-        changedFields: Object.keys(mutation.payload || {}).sort(),
+        changedFields: Object.freeze(Object.keys(mutation.payload || {}).sort()),
         version: result.version,
         mutationGovernance,
       });
-      this.auditEvents.push(event);
-      if (this.auditSink) {
-        await observeRuntimeOperation(this.runtimeTelemetry, {
+      const publish = async () => {
+        this.auditEvents.push(event);
+        if (this.auditSink) await observeRuntimeOperation(this.runtimeTelemetry, {
           family: 'audit',
           name: `${mutation.entity}.audit`,
           attributes: {
@@ -851,6 +892,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             'teaql.audit.changed_field_count': Object.keys(mutation.payload || {}).length,
           },
         }, async () => this.auditSink!(event));
+      };
+      if (request.graphSession) this.graphAuditActions.push(publish);
+      else {
+        try { await publish(); } catch (error) { throw new GraphCommittedError(error); }
       }
       scope.success();
       return result;

@@ -10,13 +10,16 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _QueryIntent_comment, _QueryIntent_purpose, _MutationIntent_comment, _QueryRequest_intent, _QueryRequest_query, _MutationRequest_intent, _MutationRequest_mutation;
+var _QueryIntent_comment, _QueryIntent_purpose, _MutationIntent_comment, _QueryRequest_intent, _QueryRequest_query, _MutationRequest_intent, _MutationRequest_mutation, _GraphMutationSession_intent, _GraphMutationSession_bindings;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MutationRequest = exports.QueryRequest = exports.MutationIntent = exports.QueryIntent = exports.RequestIntentError = void 0;
+exports.GraphCommittedError = exports.GraphMutationSession = exports.MutationRequest = exports.QueryRequest = exports.MutationIntent = exports.QueryIntent = exports.RequestIntentError = void 0;
 const trace_chain_1 = require("./trace-chain");
+const log_privacy_1 = require("./log-privacy");
 // Only runtime-created snapshots carry provenance. No property supplied by a
 // JSON/builder caller can forge it, and no mutable trace stack lives on Context.
 const querySources = new WeakMap();
+const graphRequests = new WeakMap();
+const scopeOwners = new WeakMap();
 /** Stable, value-free request-boundary diagnostics. */
 class RequestIntentError extends Error {
     constructor(code, field, requestKind) {
@@ -126,7 +129,64 @@ class MutationRequest {
     get intent() { return __classPrivateFieldGet(this, _MutationRequest_intent, "f"); }
     get mutation() { return __classPrivateFieldGet(this, _MutationRequest_mutation, "f"); }
     get comment() { return __classPrivateFieldGet(this, _MutationRequest_intent, "f").comment; }
+    /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
+    get graphSession() { return graphRequests.get(this)?.session; }
+    scopeFor(key) {
+        const graph = graphRequests.get(this);
+        const scope = (0, trace_chain_1.mutationScopeForEntity)(graph?.parent, key.entity, key.id, this.comment, graph?.localComment);
+        if (graph)
+            scopeOwners.set(scope, graph.session);
+        return scope;
+    }
+    traceFor(key) {
+        const mutation = __classPrivateFieldGet(this, _MutationRequest_mutation, "f");
+        const specific = mutation.ledgerRoot?.traceChain(mutation.ledgerKey ?? key);
+        return specific?.length ? (0, trace_chain_1.cloneTraceNodes)(specific) : this.scopeFor(key).recover();
+    }
+    /** Safe event projection; internal policy intent is never mutated. */
+    auditProjection(key, payload) {
+        const secrets = [...(0, log_privacy_1.logValueStrings)(payload), ...(0, log_privacy_1.logValueStrings)(__classPrivateFieldGet(this, _MutationRequest_mutation, "f").id),
+            ...(0, log_privacy_1.logValueStrings)(this.graphSession?.logBindings?.parameters)];
+        return Object.freeze({ reason: (0, log_privacy_1.scrubLogText)(this.comment, secrets),
+            mutationLineage: (0, trace_chain_1.cloneTraceNodes)(this.traceFor(key).map(node => ({ ...node,
+                detail: (0, log_privacy_1.scrubLogText)(node.detail, secrets) }))) });
+    }
 }
 exports.MutationRequest = MutationRequest;
 _MutationRequest_intent = new WeakMap(), _MutationRequest_mutation = new WeakMap();
+/** One explicit graph invocation, never a Context-owned trace stack. */
+class GraphMutationSession {
+    constructor(intent) {
+        _GraphMutationSession_intent.set(this, void 0);
+        _GraphMutationSession_bindings.set(this, void 0);
+        __classPrivateFieldSet(this, _GraphMutationSession_intent, new MutationIntent(intent?.comment), "f");
+        Object.freeze(this);
+    }
+    get intent() { return __classPrivateFieldGet(this, _GraphMutationSession_intent, "f"); }
+    request(mutation, parent, localComment) {
+        if (parent && scopeOwners.get(parent) !== this)
+            throw new Error('GRAPH_TRACE_SCOPE_MISMATCH: parent scope belongs to another graph invocation');
+        const request = new MutationRequest(mutation, __classPrivateFieldGet(this, _GraphMutationSession_intent, "f"));
+        graphRequests.set(request, { session: this, parent, localComment });
+        return request;
+    }
+    /** @internal Preflight snapshots bind provenance for all siblings before SQL. */
+    captureLogBindings(source) {
+        __classPrivateFieldSet(this, _GraphMutationSession_bindings, (0, log_privacy_1.inheritSQLLogBindings)(source, __classPrivateFieldGet(this, _GraphMutationSession_bindings, "f")), "f");
+    }
+    /** @internal Never put this raw provenance on a wire or log record. */
+    get logBindings() { return __classPrivateFieldGet(this, _GraphMutationSession_bindings, "f"); }
+}
+exports.GraphMutationSession = GraphMutationSession;
+_GraphMutationSession_intent = new WeakMap(), _GraphMutationSession_bindings = new WeakMap();
+/** Database committed; retrying this operation as a rolled-back write is unsafe. */
+class GraphCommittedError extends Error {
+    constructor(cause) {
+        super('GRAPH_ALREADY_COMMITTED: post-commit processing failed; do not retry as an uncommitted mutation');
+        this.cause = cause;
+        this.committed = true;
+        this.name = 'GraphCommittedError';
+    }
+}
+exports.GraphCommittedError = GraphCommittedError;
 //# sourceMappingURL=request-intent.js.map

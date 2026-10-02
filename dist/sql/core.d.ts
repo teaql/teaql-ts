@@ -2,6 +2,7 @@ import { RuntimeTelemetry } from '../core/telemetry';
 import { UserContext } from '../core/context';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { SelectQuery } from '../core/ast';
+import { GraphMutationSession, MutationIntent } from '../core/request-intent';
 import { TraceNode } from '../core/trace-chain';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
@@ -65,7 +66,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 }
 export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder: (index: number) => string, entity: string, floor: string): Promise<void>;
 export interface TeaQLDataService {
-    executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -136,7 +137,6 @@ export declare class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
 }
 export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     protected readonly driver: TeaQLSqlDriver;
-    private readonly schemas;
     private schemaReady?;
     private bootstrapTail;
     readonly sqlTrace: string[];
@@ -156,9 +156,12 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private userContext;
     private bootstrap;
     private graphMutationSession?;
+    private activeGraph?;
+    private graphAuditActions;
     private graphCommitActions;
     private graphRollbackActions;
     private graphSaveTail;
+    private readonly schemas;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
@@ -183,9 +186,10 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     protected invalidateSchemaState(): void;
     private ensureBootstrapData;
     private reconcileBootstrapEntity;
-    executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
+    private requireGraphOwnership;
     private withMutationSession;
     preflightMutation(mutation: any): any;
     private checkAndFixMutation;

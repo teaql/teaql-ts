@@ -9,6 +9,13 @@ export type TraceNode = Readonly<{
 }>;
 export type SQLTraceOperation = 'select' | 'insert' | 'update' | 'delete' | 'recover';
 export declare function cloneTraceNodes(source: readonly TraceNode[]): readonly TraceNode[];
+/** Persistent graph-local responsibility. Creating a branch is O(1). */
+export declare class MutationTraceScope {
+    #private;
+    constructor(parent: MutationTraceScope | undefined, node: TraceNode);
+    recover(): readonly TraceNode[];
+}
+export declare function mutationScopeForEntity(parent: MutationTraceScope | undefined, entity: string, id: string | number | bigint, rootComment: string, localComment?: string): MutationTraceScope;
 /** Pure Rust-baseline algorithm. Request validation remains a separate mandatory gate. */
 export declare function canonicalSQLTracePath(source: readonly TraceNode[], backend: string, operation: SQLTraceOperation): Readonly<{
     tracePath: readonly TraceNode[];

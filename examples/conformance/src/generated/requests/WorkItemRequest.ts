@@ -1,4 +1,4 @@
-import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext, executeRelationFacets } from '../../teaql-ts';
+import { EntityRoot, QueryIntent, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { WorkItem } from '../models/WorkItem';
 
 
@@ -636,12 +636,7 @@ export class WorkItemRequest {
     }
 
     private ensureIntent(): void {
-        if (!this._comment?.trim()) {
-            throw new Error("Security audit failure: non-empty comment() is required before execution");
-        }
-        if (!this._purpose?.trim()) {
-            throw new Error("Security audit failure: non-empty purpose() is required before execution");
-        }
+        new QueryIntent(this._comment, this._purpose);
     }
 
 }

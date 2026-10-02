@@ -1,5 +1,7 @@
 import type { MutationQuery, SelectQuery } from './ast';
-import { TraceNode } from './trace-chain';
+import { TraceNode, MutationTraceScope } from './trace-chain';
+import type { EntityKey } from './entity-root';
+import type { SQLLogBindingSource } from './log-privacy';
 export type RequestKind = 'query' | 'mutation';
 /** Stable, value-free request-boundary diagnostics. */
 export declare class RequestIntentError extends Error {
@@ -45,5 +47,31 @@ export declare class MutationRequest<T extends object = MutationQuery> {
     get intent(): MutationIntent;
     get mutation(): T;
     get comment(): string;
+    /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
+    get graphSession(): GraphMutationSession | undefined;
+    scopeFor(key: EntityKey): MutationTraceScope;
+    traceFor(key: EntityKey): readonly TraceNode[];
+    /** Safe event projection; internal policy intent is never mutated. */
+    auditProjection(key: EntityKey, payload: unknown): Readonly<{
+        reason: string;
+        mutationLineage: readonly TraceNode[];
+    }>;
+}
+/** One explicit graph invocation, never a Context-owned trace stack. */
+export declare class GraphMutationSession {
+    #private;
+    constructor(intent: MutationIntent);
+    get intent(): MutationIntent;
+    request<T extends object>(mutation: T, parent?: MutationTraceScope, localComment?: string): MutationRequest<T>;
+    /** @internal Preflight snapshots bind provenance for all siblings before SQL. */
+    captureLogBindings(source: SQLLogBindingSource): void;
+    /** @internal Never put this raw provenance on a wire or log record. */
+    get logBindings(): SQLLogBindingSource | undefined;
+}
+/** Database committed; retrying this operation as a rolled-back write is unsafe. */
+export declare class GraphCommittedError extends Error {
+    readonly cause: unknown;
+    readonly committed = true;
+    constructor(cause: unknown);
 }
 //# sourceMappingURL=request-intent.d.ts.map
