@@ -174,6 +174,9 @@ var AbstractSQLTeaQLClient = class {
     this.sqlTrace = [];
     this.internalQueryToken = /* @__PURE__ */ Symbol("teaql-internal-query");
     this.bindLogPolicies = /* @__PURE__ */ new WeakMap();
+    // Compiler-owned operands before LIKE decoration, never SQL parameters or
+    // serialized metadata. Lifetime follows this execution's binding array.
+    this.bindOperandSources = /* @__PURE__ */ new WeakMap();
     this.derivedQueryBindings = /* @__PURE__ */ new WeakMap();
     this.derivedRelationAssembly = /* @__PURE__ */ new WeakMap();
     this.auditEvents = [];
@@ -197,11 +200,27 @@ var AbstractSQLTeaQLClient = class {
     if (schema.auditMaskFields?.includes(name) || schema.auditMaskFields?.includes(field)) return "masked";
     return column?.logPolicy ?? "unknown";
   }
-  bindValue(values, value, policy) {
+  bindValue(values, value, policy, sourceOperand) {
     const policies = this.bindLogPolicies.get(values) ?? values.map(() => "unknown");
     values.push(value);
     policies.push(policy);
     this.bindLogPolicies.set(values, policies);
+    if (sourceOperand !== void 0) {
+      this.bindOperandSources.set(values, inheritSQLLogBindings({
+        parameterizedSQL: "",
+        parameters: [sourceOperand],
+        parameterLogPolicies: [policy],
+        sqlOrigin: "generated"
+      }, this.bindOperandSources.get(values)));
+    }
+  }
+  queryLogBindings(sql, values) {
+    return inheritSQLLogBindings({
+      parameterizedSQL: sql,
+      parameters: values,
+      parameterLogPolicies: this.bindLogPolicies.get(values),
+      sqlOrigin: "generated"
+    }, this.bindOperandSources.get(values));
   }
   /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module) {
@@ -303,7 +322,9 @@ var AbstractSQLTeaQLClient = class {
       affectedRows,
       resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
     });
-    const provenance = inheritedBindings && inherited ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+    const ancestors = inheritedBindings && inherited ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+    const operands = this.bindOperandSources.get(parameters);
+    const provenance = operands ? inheritSQLLogBindings(operands, ancestors) : ancestors;
     retainSQLLogProvenance(metadata, provenance, targetID === void 0 ? [] : [targetID]);
     if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink)) return metadata;
     try {
@@ -865,7 +886,8 @@ var AbstractSQLTeaQLClient = class {
           ["$notEndsWith", "%", "", true]
         ]) {
           if (predicate?.[operator] !== void 0) {
-            this.bindValue(values, `${prefix}${String(predicate[operator])}${suffix}`, logPolicy);
+            const operand = String(predicate[operator]);
+            this.bindValue(values, `${prefix}${operand}${suffix}`, logPolicy, operand);
             const like = `${quotedField} LIKE ${this.driver.placeholder(values.length)}`;
             return negative ? `NOT (${like})` : like;
           }
@@ -1085,20 +1107,10 @@ var AbstractSQLTeaQLClient = class {
   }
   descendantBindings(query, sql, values, inherited) {
     if (!query.relations?.length && !query.relationAggregates?.length) return void 0;
-    return inheritSQLLogBindings({
-      parameterizedSQL: sql,
-      parameters: values,
-      parameterLogPolicies: this.bindLogPolicies.get(values),
-      sqlOrigin: "generated"
-    }, inherited);
+    return inheritSQLLogBindings(this.queryLogBindings(sql, values), inherited);
   }
   async queryTreeBindings(query, sql, values, inherited) {
-    let source = inheritSQLLogBindings({
-      parameterizedSQL: sql,
-      parameters: values,
-      parameterLogPolicies: this.bindLogPolicies.get(values),
-      sqlOrigin: "generated"
-    }, inherited);
+    let source = inheritSQLLogBindings(this.queryLogBindings(sql, values), inherited);
     const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
     const stack = [query];
     const visited = /* @__PURE__ */ new Set();
@@ -1108,12 +1120,7 @@ var AbstractSQLTeaQLClient = class {
       visited.add(current);
       if (current !== query) {
         const compiled = await this.compileQuery(new QueryRequest(current, intent).query, false);
-        source = inheritSQLLogBindings({
-          parameterizedSQL: compiled.sql,
-          parameters: compiled.values,
-          parameterLogPolicies: this.bindLogPolicies.get(compiled.values),
-          sqlOrigin: "generated"
-        }, source);
+        source = inheritSQLLogBindings(this.queryLogBindings(compiled.sql, compiled.values), source);
       }
       const origin = queryDiagnosticOrigin(current);
       if (origin) stack.push(origin);
@@ -1677,4 +1684,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-5EMYQIQS.js.map
+//# sourceMappingURL=chunk-6POCHR4G.js.map

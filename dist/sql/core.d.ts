@@ -146,10 +146,12 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     readonly sqlTrace: string[];
     private readonly internalQueryToken;
     private readonly bindLogPolicies;
+    private readonly bindOperandSources;
     private readonly derivedQueryBindings;
     private readonly derivedRelationAssembly;
     private fieldLogPolicy;
     private bindValue;
+    private queryLogBindings;
     private readonly auditEvents;
     private auditSink?;
     private telemetrySink?;

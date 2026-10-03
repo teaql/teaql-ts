@@ -320,6 +320,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   public readonly sqlTrace: string[] = [];
   private readonly internalQueryToken = Symbol('teaql-internal-query');
   private readonly bindLogPolicies = new WeakMap<readonly unknown[], SQLParameterLogPolicy[]>();
+  // Compiler-owned operands before LIKE decoration, never SQL parameters or
+  // serialized metadata. Lifetime follows this execution's binding array.
+  private readonly bindOperandSources = new WeakMap<readonly unknown[], SQLLogBindingSource>();
   private readonly derivedQueryBindings = new WeakMap<object, SQLLogBindingSource>();
   private readonly derivedRelationAssembly = new WeakMap<object, RelationAssembly>();
 
@@ -332,11 +335,21 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return column?.logPolicy ?? 'unknown';
   }
 
-  private bindValue(values: any[], value: unknown, policy: SQLParameterLogPolicy): void {
+  private bindValue(values: any[], value: unknown, policy: SQLParameterLogPolicy, sourceOperand?: string): void {
     const policies = this.bindLogPolicies.get(values) ?? values.map(() => 'unknown' as const);
     values.push(value);
     policies.push(policy);
     this.bindLogPolicies.set(values, policies);
+    if (sourceOperand !== undefined) {
+      this.bindOperandSources.set(values, inheritSQLLogBindings({
+        parameterizedSQL: '', parameters: [sourceOperand], parameterLogPolicies: [policy], sqlOrigin: 'generated',
+      }, this.bindOperandSources.get(values)));
+    }
+  }
+
+  private queryLogBindings(sql: string, values: readonly unknown[]): SQLLogBindingSource {
+    return inheritSQLLogBindings({ parameterizedSQL: sql, parameters: values,
+      parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, this.bindOperandSources.get(values));
   }
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
@@ -479,8 +492,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
           : `statement ${executionOutcome}; row count unknown`,
     });
-    const provenance = inheritedBindings && inherited
+    const ancestors = inheritedBindings && inherited
       ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+    const operands = this.bindOperandSources.get(parameters);
+    const provenance = operands ? inheritSQLLogBindings(operands, ancestors) : ancestors;
     retainSQLLogProvenance(metadata, provenance, targetID === undefined ? [] : [targetID]);
     if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink)) return metadata;
     try {
@@ -1033,7 +1048,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           ['$notEndsWith', '%', '', true],
         ] as const) {
           if (predicate?.[operator] !== undefined) {
-            this.bindValue(values, `${prefix}${String(predicate[operator])}${suffix}`, logPolicy);
+            // Retain the exact original value; stripping SQL wildcard text
+            // would misclassify literal %, _ or escape characters in intent.
+            const operand = String(predicate[operator]);
+            this.bindValue(values, `${prefix}${operand}${suffix}`, logPolicy, operand);
             const like = `${quotedField} LIKE ${this.driver.placeholder(values.length)}`;
             return negative ? `NOT (${like})` : like;
           }
@@ -1291,13 +1309,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   private descendantBindings(query: any, sql: string, values: any[], inherited?: SQLLogBindingSource): SQLLogBindingSource | undefined {
     if (!query.relations?.length && !query.relationAggregates?.length) return undefined;
-    return inheritSQLLogBindings({ parameterizedSQL: sql, parameters: values,
-      parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
+    return inheritSQLLogBindings(this.queryLogBindings(sql, values), inherited);
   }
 
   private async queryTreeBindings(query: any, sql: string, values: any[], inherited?: SQLLogBindingSource): Promise<SQLLogBindingSource> {
-    let source = inheritSQLLogBindings({ parameterizedSQL: sql, parameters: values,
-      parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
+    let source = inheritSQLLogBindings(this.queryLogBindings(sql, values), inherited);
     const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
     const stack: any[] = [query];
     const visited = new Set<object>();
@@ -1308,8 +1324,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (current !== query) {
         // Pure compilation, not a physical query or an sqlTrace entry.
         const compiled = await this.compileQuery(new QueryRequest(current, intent).query, false);
-        source = inheritSQLLogBindings({ parameterizedSQL: compiled.sql, parameters: compiled.values,
-          parameterLogPolicies: this.bindLogPolicies.get(compiled.values), sqlOrigin: 'generated' }, source);
+        source = inheritSQLLogBindings(this.queryLogBindings(compiled.sql, compiled.values), source);
       }
       const origin = queryDiagnosticOrigin(current);
       if (origin) stack.push(origin);
