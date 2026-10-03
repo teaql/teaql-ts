@@ -14,7 +14,9 @@ import { canonicalSQLTracePath, cloneTraceNodes, queryTraceSource, TraceNode } f
 import { projectSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings, retainSQLLogProvenance } from '../core/log-privacy';
 import type { SQLLogBindingSource } from '../core/log-privacy';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
-import { queryDiagnosticOrigin } from '../core/query-snapshot';
+import { queryDiagnosticOrigin, retainQueryDiagnosticOrigin } from '../core/query-snapshot';
+import { executeRelationFacets } from '../core/facet';
+import { SmartList } from '../core/smart-list';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -1468,8 +1470,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const request = new QueryRequest(outerQuery);
     outerQuery = request.query;
     const query = request.withQuery(outerQuery.clone()).query;
+    retainQueryDiagnosticOrigin(outerQuery, query);
     query.facets = [];
     query.relations = [];
+    query.relationAggregates = [];
     query.orderItems = [];
     query.offsetValue = 0;
     query.limitValue = 0;
@@ -1662,7 +1666,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         },
       });
       try {
-      if (!parentIds.length) {
+      if (!parentIds.length && !(relation.many && load.query?.facets?.length)) {
         for (const parent of parents) parent[load.name] = relation.many ? [] : null;
         relationScope.success({ attributes: { 'teaql.result.cardinality': 0 } });
         continue;
@@ -1712,7 +1716,25 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       }
       for (const [index, parent] of parents.entries()) {
         const related = buckets.get(parentKeys[index]) || [];
-        parent[load.name] = relation.many ? related : (related[0] ?? null);
+        if (relation.many && load.query?.facets?.length) {
+          // Each loaded collection owns its own facet membership. The full
+          // filtered child set, not its Top-N page or other parents, is counted.
+          const facetQuery: SelectQuery = load.query.clone();
+          facetQuery.entity = relation.targetEntity;
+          // A missing local key means no relationship, never orphan rows with
+          // a NULL foreign key. Empty IN compiles to an unsatisfiable predicate.
+          const key = parentKeys[index];
+          const membership = { [relation.foreignKey]: key === null || key === undefined
+            ? { $in: [] } : { $eq: key } };
+          facetQuery.filterCondition = facetQuery.filterCondition
+            ? { $and: [facetQuery.filterCondition, membership] } : membership;
+          retainQueryDiagnosticOrigin(query, facetQuery);
+          const derived = new QueryRequest(query).derive(facetQuery, load.name).query;
+          parent[load.name] = new SmartList(related, { facets:
+            await executeRelationFacets(this, item => item, derived, facetQuery.facets) });
+        } else {
+          parent[load.name] = relation.many ? related : (related[0] ?? null);
+        }
       }
       relationScope.success({ attributes: { 'teaql.result.cardinality': children.length } });
       } catch (error) {

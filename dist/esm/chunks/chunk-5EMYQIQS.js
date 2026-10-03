@@ -8,18 +8,21 @@ import {
   QueryIntent,
   QueryRequest,
   SelectQuery,
+  SmartList,
   UserContext,
   canonicalSQLTracePath,
   cloneTraceNodes,
   contextSchemaCapability,
   credentialName,
+  executeRelationFacets,
   inheritSQLLogBindings,
   mergeRuntimeBootstrap,
   projectSQLLog,
   queryDiagnosticOrigin,
   queryTraceSource,
+  retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-JFFK4LZP.js";
+} from "./chunk-YAAPRG2I.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -1273,8 +1276,10 @@ var AbstractSQLTeaQLClient = class {
     const request = new QueryRequest(outerQuery);
     outerQuery = request.query;
     const query = request.withQuery(outerQuery.clone()).query;
+    retainQueryDiagnosticOrigin(outerQuery, query);
     query.facets = [];
     query.relations = [];
+    query.relationAggregates = [];
     query.orderItems = [];
     query.offsetValue = 0;
     query.limitValue = 0;
@@ -1494,7 +1499,7 @@ var AbstractSQLTeaQLClient = class {
         }
       });
       try {
-        if (!parentIds.length) {
+        if (!parentIds.length && !(relation.many && load.query?.facets?.length)) {
           for (const parent of parents) parent[load.name] = relation.many ? [] : null;
           relationScope.success({ attributes: { "teaql.result.cardinality": 0 } });
           continue;
@@ -1550,7 +1555,18 @@ var AbstractSQLTeaQLClient = class {
         }
         for (const [index, parent] of parents.entries()) {
           const related = buckets.get(parentKeys[index]) || [];
-          parent[load.name] = relation.many ? related : related[0] ?? null;
+          if (relation.many && load.query?.facets?.length) {
+            const facetQuery = load.query.clone();
+            facetQuery.entity = relation.targetEntity;
+            const key = parentKeys[index];
+            const membership = { [relation.foreignKey]: key === null || key === void 0 ? { $in: [] } : { $eq: key } };
+            facetQuery.filterCondition = facetQuery.filterCondition ? { $and: [facetQuery.filterCondition, membership] } : membership;
+            retainQueryDiagnosticOrigin(query, facetQuery);
+            const derived = new QueryRequest(query).derive(facetQuery, load.name).query;
+            parent[load.name] = new SmartList(related, { facets: await executeRelationFacets(this, (item) => item, derived, facetQuery.facets) });
+          } else {
+            parent[load.name] = relation.many ? related : related[0] ?? null;
+          }
         }
         relationScope.success({ attributes: { "teaql.result.cardinality": children.length } });
       } catch (error) {
@@ -1661,4 +1677,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-ZYUBA3WM.js.map
+//# sourceMappingURL=chunk-5EMYQIQS.js.map

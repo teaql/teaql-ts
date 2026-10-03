@@ -23,18 +23,20 @@ import {
   RequestIntentError,
   RuntimeModule,
   SelectQuery,
+  SmartList,
   SortDirection,
   UnsupportedLocaleError,
   UserContext,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
+  executeRelationFacets,
   locales,
   mergeRuntimeBootstrap,
   mutationScopeForEntity,
   parseLocale,
   queryTraceSource
-} from "./chunks/chunk-JFFK4LZP.js";
+} from "./chunks/chunk-YAAPRG2I.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -592,110 +594,6 @@ var LocalCache = class {
   }
 };
 var localCache = new LocalCache();
-
-// src/core/smart-list.ts
-var SmartList = class _SmartList extends Array {
-  static get [Symbol.species]() {
-    return Array;
-  }
-  constructor(data = [], options = {}) {
-    if (typeof data === "number") super(data);
-    else super(...data);
-    Object.setPrototypeOf(this, _SmartList.prototype);
-    this.totalCount = options.totalCount;
-    this.aggregations = options.aggregations ?? {};
-    this.summary = options.summary ?? {};
-    this.facets = options.facets ?? {};
-    this.isLoaded = options.isLoaded ?? true;
-  }
-  static empty() {
-    return new _SmartList([], { isLoaded: false });
-  }
-  get data() {
-    return this;
-  }
-  withTotalCount(totalCount) {
-    this.totalCount = totalCount;
-    return this;
-  }
-  withFacet(name, facet) {
-    this.facets[name] = facet;
-    return this;
-  }
-  facet(name) {
-    return this.facets[name];
-  }
-  totalCountOrLength() {
-    return this.totalCount ?? this.length;
-  }
-};
-
-// src/core/facet.ts
-function snakeCase(value) {
-  return value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
-}
-function scalarId(value) {
-  if (value && typeof value === "object") {
-    const record = value;
-    return record.id ?? record.Id;
-  }
-  return value;
-}
-function relationId(row, relationName) {
-  const snake = snakeCase(relationName);
-  for (const key of [relationName, `${relationName}Id`, snake, `${snake}_id`]) {
-    const value = scalarId(row[key]);
-    if (value !== void 0 && value !== null) return value;
-  }
-  return void 0;
-}
-async function executeRelationFacets(service, prepareQuery, outerQuery, facets) {
-  const request = new QueryRequest(outerQuery);
-  outerQuery = request.query;
-  const result = {};
-  for (const facet of facets) {
-    let counts;
-    if (service.executeFacetMembership) {
-      counts = await service.executeFacetMembership(
-        request.withQuery(prepareQuery(outerQuery.clone())).query,
-        facet.relationName
-      );
-    } else {
-      const membershipQuery = outerQuery.clone();
-      membershipQuery.facets = [];
-      membershipQuery.relations = [];
-      membershipQuery.orderItems = [];
-      membershipQuery.aggregateItems = [];
-      membershipQuery.groupByItems = [];
-      membershipQuery.offsetValue = 0;
-      membershipQuery.limitValue = 0;
-      membershipQuery.selectItems = [facet.relationName];
-      const memberships = await service.executeQuery(request.withQuery(prepareQuery(membershipQuery)).query);
-      counts = /* @__PURE__ */ new Map();
-      for (const row of memberships) {
-        const id = relationId(row, facet.relationName);
-        if (id === void 0 || id === null) continue;
-        const key = String(id);
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-    }
-    const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
-    const nestedQuery = nestedRequest.query;
-    nestedQuery.facets = [];
-    const countAliases = nestedQuery.aggregateItems.filter((item) => String(item.function).toLowerCase() === "count").map((item) => String(item.alias));
-    nestedQuery.aggregateItems = [];
-    nestedQuery.groupByItems = [];
-    const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
-    const decorated = rows.map((row) => {
-      const count = counts.get(String(scalarId(row.id ?? row.Id))) ?? 0;
-      const copy = { ...row };
-      for (const alias of countAliases) copy[alias] = count;
-      return copy;
-    }).filter((row) => facet.includeAllFacets || counts.has(String(scalarId(row.id ?? row.Id))));
-    result[facet.facetName] = new SmartList(decorated);
-  }
-  return result;
-}
 
 // src/meta/descriptors.ts
 var DataType = /* @__PURE__ */ ((DataType2) => {

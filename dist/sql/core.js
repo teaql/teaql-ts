@@ -11,6 +11,8 @@ const request_intent_1 = require("../core/request-intent");
 const trace_chain_1 = require("../core/trace-chain");
 const log_privacy_1 = require("../core/log-privacy");
 const query_snapshot_1 = require("../core/query-snapshot");
+const facet_1 = require("../core/facet");
+const smart_list_1 = require("../core/smart-list");
 /** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
 function canonicalRelationIndexes(schemas) {
     const indexes = new Map();
@@ -1266,8 +1268,10 @@ class AbstractSQLTeaQLClient {
         const request = new request_intent_1.QueryRequest(outerQuery);
         outerQuery = request.query;
         const query = request.withQuery(outerQuery.clone()).query;
+        (0, query_snapshot_1.retainQueryDiagnosticOrigin)(outerQuery, query);
         query.facets = [];
         query.relations = [];
+        query.relationAggregates = [];
         query.orderItems = [];
         query.offsetValue = 0;
         query.limitValue = 0;
@@ -1490,7 +1494,7 @@ class AbstractSQLTeaQLClient {
                 },
             });
             try {
-                if (!parentIds.length) {
+                if (!parentIds.length && !(relation.many && load.query?.facets?.length)) {
                     for (const parent of parents)
                         parent[load.name] = relation.many ? [] : null;
                     relationScope.success({ attributes: { 'teaql.result.cardinality': 0 } });
@@ -1543,7 +1547,25 @@ class AbstractSQLTeaQLClient {
                 }
                 for (const [index, parent] of parents.entries()) {
                     const related = buckets.get(parentKeys[index]) || [];
-                    parent[load.name] = relation.many ? related : (related[0] ?? null);
+                    if (relation.many && load.query?.facets?.length) {
+                        // Each loaded collection owns its own facet membership. The full
+                        // filtered child set, not its Top-N page or other parents, is counted.
+                        const facetQuery = load.query.clone();
+                        facetQuery.entity = relation.targetEntity;
+                        // A missing local key means no relationship, never orphan rows with
+                        // a NULL foreign key. Empty IN compiles to an unsatisfiable predicate.
+                        const key = parentKeys[index];
+                        const membership = { [relation.foreignKey]: key === null || key === undefined
+                                ? { $in: [] } : { $eq: key } };
+                        facetQuery.filterCondition = facetQuery.filterCondition
+                            ? { $and: [facetQuery.filterCondition, membership] } : membership;
+                        (0, query_snapshot_1.retainQueryDiagnosticOrigin)(query, facetQuery);
+                        const derived = new request_intent_1.QueryRequest(query).derive(facetQuery, load.name).query;
+                        parent[load.name] = new smart_list_1.SmartList(related, { facets: await (0, facet_1.executeRelationFacets)(this, item => item, derived, facetQuery.facets) });
+                    }
+                    else {
+                        parent[load.name] = relation.many ? related : (related[0] ?? null);
+                    }
                 }
                 relationScope.success({ attributes: { 'teaql.result.cardinality': children.length } });
             }

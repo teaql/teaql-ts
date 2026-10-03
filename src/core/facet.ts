@@ -1,6 +1,7 @@
 import { FacetRequest, SelectQuery } from './ast';
 import { SmartList, SmartListRecord } from './smart-list';
 import { QueryRequest } from './request-intent';
+import { retainQueryDiagnosticOrigin } from './query-snapshot';
 
 export interface FacetQueryService {
   executeQuery(query: SelectQuery): Promise<SmartListRecord[]>;
@@ -51,8 +52,10 @@ export async function executeRelationFacets(
         request.withQuery(prepareQuery(outerQuery.clone())).query, facet.relationName);
     } else {
       const membershipQuery = outerQuery.clone();
+      retainQueryDiagnosticOrigin(outerQuery, membershipQuery);
       membershipQuery.facets = [];
       membershipQuery.relations = [];
+      membershipQuery.relationAggregates = [];
       membershipQuery.orderItems = [];
       membershipQuery.aggregateItems = [];
       membershipQuery.groupByItems = [];
@@ -71,12 +74,21 @@ export async function executeRelationFacets(
 
     const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
     const nestedQuery = nestedRequest.query;
+    const nestedFacets = nestedQuery.facets;
     nestedQuery.facets = [];
     const countAliases = nestedQuery.aggregateItems
       .filter(item => String(item.function).toLowerCase() === 'count')
       .map(item => String(item.alias));
     nestedQuery.aggregateItems = [];
     nestedQuery.groupByItems = [];
+    // Restrict before pagination and before evaluating child facets. Filtering
+    // only the returned rows makes child counts include unrelated entities.
+    if (!facet.includeAllFacets) {
+      const membership = { id: { $in: [...counts.keys()] } };
+      nestedQuery.filterCondition = nestedQuery.filterCondition
+        ? { $and: [nestedQuery.filterCondition, membership] } : membership;
+    }
+    retainQueryDiagnosticOrigin(outerQuery, nestedQuery);
     const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
     const decorated = rows
       .map(row => {
@@ -86,7 +98,12 @@ export async function executeRelationFacets(
         return copy;
       })
       .filter(row => facet.includeAllFacets || counts.has(String(scalarId(row.id ?? row.Id))));
-    result[facet.facetName] = new SmartList(decorated);
+    const list = new SmartList(decorated);
+    if (nestedFacets.length) {
+      list.facets = await executeRelationFacets(service, prepareQuery,
+        nestedRequest.withQuery(nestedQuery).query, nestedFacets);
+    }
+    result[facet.facetName] = list;
   }
   return result;
 }
