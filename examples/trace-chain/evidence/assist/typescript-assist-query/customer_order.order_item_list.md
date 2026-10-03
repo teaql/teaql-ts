@@ -9,6 +9,11 @@ Child entity: `order_item`
 | Capability | Generated API |
 | --- | --- |
 | Select | `.selectOrderItemListWith(Q.orderItemsWithMinimalFields())` |
+| Related count | `.countOrderItemsAs(alias)` |
+| Filtered related count | `.countOrderItemsWith(alias, childRequest)` |
+| Read related count | `(entity as unknown as Record<string, unknown>)[alias]`; require a present numeric value |
+
+Related counts are query projections, not modeled fields or mutation setters. Use a dedicated child request for the aggregate; do not reuse it as a row selection. An alias has no generated E accessor. Use E for modeled fields and loaded relation traversal; then narrow the returned alias from unknown. Missing is not zero. List and stream return entities carrying the alias; executeForRows returns records. Choose aliases that do not collide with model fields, relations or entity methods.
 
 Reverse relations are model-derived and never perform an implicit database query. Select the relation explicitly before expression access. Apply query methods before the executable purpose stage, then execute with exactly one trusted context.
 

@@ -8,8 +8,8 @@ Type: `Payment`
 
 | Capability | Generated API |
 | --- | --- |
-| Select | `selectPaymentWith(request)`` |
-| Filter identity | `withPaymentIs(id)`, `withPaymentIn(ids)` |
+| Select | `selectPaymentWith(request)` |
+| Filter identity | `filterByPayment(id)`, `filterByPaymentIn(...ids)` |
 | Filter nested request | `withPaymentMatching(request)`, `withoutPaymentMatching(request)` |
 | Group | `groupByPayment()`, `groupByPaymentAs(alias)` |
 | Facet | `facetByPaymentAs(name, request, includeAllFacets)` |

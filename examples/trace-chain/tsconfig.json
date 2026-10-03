@@ -1,5 +1,5 @@
 {
   "compilerOptions": { "target": "ES2020", "module": "CommonJS", "moduleResolution": "node",
     "strict": true, "esModuleInterop": true, "skipLibCheck": true },
-  "include": ["app.ts", "shared-reference.ts", "paging.ts", "stream-capture.ts", "lib/src/**/*.ts"]
+  "include": ["app.ts", "shared-reference.ts", "paging.ts", "stream-capture.ts", "relation-aggregate.ts", "lib/src/**/*.ts"]
 }

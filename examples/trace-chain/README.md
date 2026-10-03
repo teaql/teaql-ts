@@ -19,6 +19,8 @@ npm run test:page
 npm run test:page
 npm run test:stream-capture
 npm run test:stream-capture
+npm run test:relation-aggregate
+npm run test:relation-aggregate
 ```
 
 Both starts use `.local/trace-chain.sqlite` without resetting or deleting it.
@@ -63,10 +65,15 @@ relation aggregates in full/tail stream chunks, early cancellation and SQL
 failure. Lists and streams compute aggregates before forward-relation hydration
 can replace scalar membership keys with objects. This covers loading and counting
 the same relation, nested aggregate ancestry and inherited private intent.
-The generated example does not yet exercise aggregate aliases: retained
-field-level Assist currently documents selection but not the related-count API.
-That generated aggregate acceptance remains open; native coverage is not a
-substitute for it.
+The generated relation-aggregate suite uses `.local/relation-aggregate.sqlite`
+(override with `TEAQL_TRACE_CHAIN_AGGREGATE_DB`). It combines generated related
+counts with loaded child lists, at the root and inside a loaded forward relation.
+Twelve combinations cover lists, full/trailing stream chunks and SQL logging
+on/off. Generated E verifies modeled identity and child membership; dynamic count
+aliases are narrowed from unknown as documented by field Assist. The suite also
+saves an aggregate-loaded graph, checks the count is not mutation data, and
+verifies aggregate failure prevents incomplete stream delivery. No generated
+library source is edited or inspected; each execution fingerprints it.
 
 The six checks cover:
 

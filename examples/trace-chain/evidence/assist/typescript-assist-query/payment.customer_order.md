@@ -8,8 +8,8 @@ Type: `Customer Order`
 
 | Capability | Generated API |
 | --- | --- |
-| Select | `selectCustomerOrderWith(request)`` |
-| Filter identity | `withCustomerOrderIs(id)`, `withCustomerOrderIn(ids)` |
+| Select | `selectCustomerOrderWith(request)` |
+| Filter identity | `filterByCustomerOrder(id)`, `filterByCustomerOrderIn(...ids)` |
 | Filter nested request | `withCustomerOrderMatching(request)`, `withoutCustomerOrderMatching(request)` |
 | Group | `groupByCustomerOrder()`, `groupByCustomerOrderAs(alias)` |
 | Facet | `facetByCustomerOrderAs(name, request, includeAllFacets)` |

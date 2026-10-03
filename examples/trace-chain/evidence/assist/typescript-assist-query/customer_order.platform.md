@@ -8,8 +8,8 @@ Type: `Platform`
 
 | Capability | Generated API |
 | --- | --- |
-| Select | `selectPlatformWith(request)`` |
-| Filter identity | `withPlatformIs(id)`, `withPlatformIn(ids)` |
+| Select | `selectPlatformWith(request)` |
+| Filter identity | `filterByPlatform(id)`, `filterByPlatformIn(...ids)` |
 | Filter nested request | `withPlatformMatching(request)`, `withoutPlatformMatching(request)` |
 | Group | `groupByPlatform()`, `groupByPlatformAs(alias)` |
 | Facet | `facetByPlatformAs(name, request, includeAllFacets)` |

@@ -29,4 +29,5 @@ done
 (cd "$repo/examples/task-board" && npm install && npm run build)
 (cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke)
 (cd "$repo/examples/trace-chain" && npm install && npm run build && npm start && npm start && env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference && env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference && npm run test:page && npm run test:page && npm run test:stream-capture && npm run test:stream-capture)
+(cd "$repo/examples/trace-chain" && npm run test:relation-aggregate && npm run test:relation-aggregate)
 echo "PASS: all TypeScript examples"
