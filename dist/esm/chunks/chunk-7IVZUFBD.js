@@ -14,8 +14,9 @@ import {
   inheritSQLLogBindings,
   mergeRuntimeBootstrap,
   projectSQLLog,
+  queryDiagnosticOrigin,
   queryTraceSource
-} from "./chunk-XGQSBMGJ.js";
+} from "./chunk-DBADSS6U.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -951,7 +952,7 @@ var AbstractSQLTeaQLClient = class {
       direction: order.direction
     }));
   }
-  async compileQuery(query) {
+  async compileQuery(query, recordTrace = true) {
     new QueryIntent(query?._comment ?? query?.commentText, query?._purpose ?? query?.purposeText);
     const schema = this.schema(query.entity);
     const values = [];
@@ -1035,7 +1036,7 @@ var AbstractSQLTeaQLClient = class {
       this.bindValue(values, offset, "plain");
       sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
     }
-    this.sqlTrace.push(sql);
+    if (recordTrace) this.sqlTrace.push(sql);
     return { sql, values, aggregateNames };
   }
   async executeQuery(query) {
@@ -1061,6 +1062,37 @@ var AbstractSQLTeaQLClient = class {
       sqlOrigin: "generated"
     }, inherited);
   }
+  async queryTreeBindings(query, sql, values, inherited) {
+    let source = inheritSQLLogBindings({
+      parameterizedSQL: sql,
+      parameters: values,
+      parameterLogPolicies: this.bindLogPolicies.get(values),
+      sqlOrigin: "generated"
+    }, inherited);
+    const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
+    const stack = [query];
+    const visited = /* @__PURE__ */ new Set();
+    while (stack.length) {
+      const current = stack.pop();
+      if (!current || visited.has(current)) continue;
+      visited.add(current);
+      if (current !== query) {
+        const compiled = await this.compileQuery(new QueryRequest(current, intent).query, false);
+        source = inheritSQLLogBindings({
+          parameterizedSQL: compiled.sql,
+          parameters: compiled.values,
+          parameterLogPolicies: this.bindLogPolicies.get(compiled.values),
+          sqlOrigin: "generated"
+        }, source);
+      }
+      const origin = queryDiagnosticOrigin(current);
+      if (origin) stack.push(origin);
+      for (const child of [...current.relations ?? [], ...current.relationAggregates ?? [], ...current.facets ?? []]) {
+        if (child.query) stack.push(child.query);
+      }
+    }
+    return source;
+  }
   async executeQueryWithIntent(query, inherited) {
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: "query",
@@ -1079,6 +1111,7 @@ var AbstractSQLTeaQLClient = class {
       const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
       query = new QueryRequest(query).withQuery(prepared.query).query;
       const { sql, values, aggregateNames } = await this.compileQuery(query);
+      inherited = await this.queryTreeBindings(query, sql, values, inherited);
       const result = await this.executeLoggedSQL(
         "select",
         sql,
@@ -1323,11 +1356,12 @@ var AbstractSQLTeaQLClient = class {
       throw new Error("QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList");
     }
     const { sql, values, aggregateNames } = await this.compileQuery(query);
+    const inherited = await this.queryTreeBindings(query, sql, values);
     const startedAt = Date.now();
     let outcome = "cancelled";
     let delivered = 0;
     let chunk = [];
-    const descendantBindings = this.descendantBindings(query, sql, values);
+    const descendantBindings = this.descendantBindings(query, sql, values, inherited);
     try {
       for await (const rawRow of this.driver.stream(sql, values)) {
         chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
@@ -1358,7 +1392,8 @@ var AbstractSQLTeaQLClient = class {
             delivered,
             void 0,
             this.queryLogIntent(query),
-            outcome
+            outcome,
+            inherited
           );
         } catch {
         }
@@ -1371,7 +1406,8 @@ var AbstractSQLTeaQLClient = class {
           delivered,
           void 0,
           this.queryLogIntent(query),
-          outcome
+          outcome,
+          inherited
         );
       }
     }
@@ -1566,4 +1602,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-L4RKJUU2.js.map
+//# sourceMappingURL=chunk-7IVZUFBD.js.map

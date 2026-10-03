@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GraphCommittedError = exports.GraphMutationSession = exports.MutationRequest = exports.QueryRequest = exports.MutationIntent = exports.QueryIntent = exports.RequestIntentError = void 0;
 const trace_chain_1 = require("./trace-chain");
 const log_privacy_1 = require("./log-privacy");
+const query_snapshot_1 = require("./query-snapshot");
 // Only runtime-created snapshots carry provenance. No property supplied by a
 // JSON/builder caller can forge it, and no mutable trace stack lives on Context.
 const querySources = new WeakMap();
@@ -78,7 +79,7 @@ class QueryRequest {
         __classPrivateFieldSet(this, _QueryRequest_intent, intent === undefined
             ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText)
             : new QueryIntent(intent?.comment, intent?.purpose), "f");
-        __classPrivateFieldSet(this, _QueryRequest_query, Object.create(Object.getPrototypeOf(query), Object.getOwnPropertyDescriptors(query)), "f");
+        __classPrivateFieldSet(this, _QueryRequest_query, (0, query_snapshot_1.snapshotQuery)(query), "f");
         const captured = __classPrivateFieldGet(this, _QueryRequest_query, "f");
         // Internal derivations cannot pick a nested builder's different intent.
         for (const [field, value] of [

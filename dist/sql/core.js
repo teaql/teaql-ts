@@ -10,6 +10,7 @@ const ast_1 = require("../core/ast");
 const request_intent_1 = require("../core/request-intent");
 const trace_chain_1 = require("../core/trace-chain");
 const log_privacy_1 = require("../core/log-privacy");
+const query_snapshot_1 = require("../core/query-snapshot");
 /** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
 function canonicalRelationIndexes(schemas) {
     const indexes = new Map();
@@ -924,7 +925,7 @@ class AbstractSQLTeaQLClient {
             direction: order.direction,
         }));
     }
-    async compileQuery(query) {
+    async compileQuery(query, recordTrace = true) {
         // Internal execution changes query shape/limits, never the intent contract.
         new request_intent_1.QueryIntent(query?._comment ?? query?.commentText, query?._purpose ?? query?.purposeText);
         const schema = this.schema(query.entity);
@@ -1022,7 +1023,8 @@ class AbstractSQLTeaQLClient {
             this.bindValue(values, offset, 'plain');
             sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
         }
-        this.sqlTrace.push(sql);
+        if (recordTrace)
+            this.sqlTrace.push(sql);
         return { sql, values, aggregateNames };
     }
     async executeQuery(query) {
@@ -1053,6 +1055,33 @@ class AbstractSQLTeaQLClient {
         return (0, log_privacy_1.inheritSQLLogBindings)({ parameterizedSQL: sql, parameters: values,
             parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
     }
+    async queryTreeBindings(query, sql, values, inherited) {
+        let source = (0, log_privacy_1.inheritSQLLogBindings)({ parameterizedSQL: sql, parameters: values,
+            parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
+        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
+        const stack = [query];
+        const visited = new Set();
+        while (stack.length) {
+            const current = stack.pop();
+            if (!current || visited.has(current))
+                continue;
+            visited.add(current);
+            if (current !== query) {
+                // Pure compilation, not a physical query or an sqlTrace entry.
+                const compiled = await this.compileQuery(new request_intent_1.QueryRequest(current, intent).query, false);
+                source = (0, log_privacy_1.inheritSQLLogBindings)({ parameterizedSQL: compiled.sql, parameters: compiled.values,
+                    parameterLogPolicies: this.bindLogPolicies.get(compiled.values), sqlOrigin: 'generated' }, source);
+            }
+            const origin = (0, query_snapshot_1.queryDiagnosticOrigin)(current);
+            if (origin)
+                stack.push(origin);
+            for (const child of [...(current.relations ?? []), ...(current.relationAggregates ?? []), ...(current.facets ?? [])]) {
+                if (child.query)
+                    stack.push(child.query);
+            }
+        }
+        return source;
+    }
     async executeQueryWithIntent(query, inherited) {
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
             family: 'query',
@@ -1071,6 +1100,7 @@ class AbstractSQLTeaQLClient {
             const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
             query = new request_intent_1.QueryRequest(query).withQuery(prepared.query).query;
             const { sql, values, aggregateNames } = await this.compileQuery(query);
+            inherited = await this.queryTreeBindings(query, sql, values, inherited);
             const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query), () => (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
                 family: 'provider',
                 name: `${this.driver.databaseKind}.query`,
@@ -1323,11 +1353,12 @@ class AbstractSQLTeaQLClient {
             throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
         }
         const { sql, values, aggregateNames } = await this.compileQuery(query);
+        const inherited = await this.queryTreeBindings(query, sql, values);
         const startedAt = Date.now();
         let outcome = 'cancelled';
         let delivered = 0;
         let chunk = [];
-        const descendantBindings = this.descendantBindings(query, sql, values);
+        const descendantBindings = this.descendantBindings(query, sql, values, inherited);
         try {
             for await (const rawRow of this.driver.stream(sql, values)) {
                 chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
@@ -1354,12 +1385,12 @@ class AbstractSQLTeaQLClient {
             // only delivered rows, not prefetched rows, and never stringify an error.
             if (outcome === 'failure') {
                 try {
-                    this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query), outcome);
+                    this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query), outcome, inherited);
                 }
                 catch { /* preserve driver failure */ }
             }
             else {
-                this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query), outcome);
+                this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query), outcome, inherited);
             }
         }
     }

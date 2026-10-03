@@ -3,6 +3,7 @@ import { cloneTraceNodes, queryTraceSource, TraceNode, MutationTraceScope, mutat
 import type { EntityKey, EntityRoot } from './entity-root';
 import { inheritSQLLogBindings, logValueStrings, scrubLogText } from './log-privacy';
 import type { SQLLogBindingSource } from './log-privacy';
+import { snapshotQuery } from './query-snapshot';
 
 // Only runtime-created snapshots carry provenance. No property supplied by a
 // JSON/builder caller can forge it, and no mutable trace stack lives on Context.
@@ -78,7 +79,7 @@ export class QueryRequest<T extends object = SelectQuery> {
     this.#intent = intent === undefined
       ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText)
       : new QueryIntent(intent?.comment, intent?.purpose);
-    this.#query = Object.create(Object.getPrototypeOf(query), Object.getOwnPropertyDescriptors(query));
+    this.#query = snapshotQuery(query);
     const captured = this.#query as any;
     // Internal derivations cannot pick a nested builder's different intent.
     for (const [field, value] of [

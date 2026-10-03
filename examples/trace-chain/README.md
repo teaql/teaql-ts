@@ -15,6 +15,8 @@ npm start
 npm start
 npm run test:shared-reference
 npm run test:shared-reference
+npm run test:page
+npm run test:page
 ```
 
 Both starts use `.local/trace-chain.sqlite` without resetting or deleting it.
@@ -25,6 +27,16 @@ The ownership suite uses a separate `.local/shared-reference.sqlite`; set
 normative fixture intentionally compares per-type IDs, whereas the ownership
 suite creates a different number of records per type. Neither suite deletes its
 database between runs.
+
+The page suite uses `.local/paging.sqlite` (override with
+`TEAQL_TRACE_CHAIN_PAGE_DB`). It tests a nonzero-offset page, a page scoped by
+an application Context, a list and a chunked stream. Each selected root and its
+child form one independently saveable graph. Updating both graphs and saving
+only one must leave the other graph's persisted values and versions untouched.
+COUNT and page rows share the Context-prepared request. List/stream do not run
+COUNT. SQLite executes one root query and two per-parent child probes; pages
+add one COUNT. Safe SQL metadata masks a marked child value even when the root
+comment/purpose includes it. No diagnostic-source query is executed.
 
 The six checks cover:
 
@@ -75,7 +87,7 @@ mvn -pl generator -am \
 ```
 
 Prepared same-type batch lineage, complete privacy/entry-point coverage,
-multi-root page/stream ownership, arbitrary mutable reference composition,
+stream capture before first poll, arbitrary mutable reference composition,
 file-backed/Expo graph acceptance and internal Registry replay are separate
 remaining gates. The full examples script also includes a task-board
 compilation-only group and a School demo that resets data; neither is evidence

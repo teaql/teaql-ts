@@ -595,6 +595,31 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
   return projected;
 }
 
+// src/core/query-snapshot.ts
+var origins = /* @__PURE__ */ new WeakMap();
+function queryDiagnosticOrigin(query) {
+  return origins.get(query);
+}
+function retainQueryDiagnosticOrigin(source, target) {
+  origins.set(target, origins.get(source) ?? snapshotQuery(source));
+}
+function snapshotQuery(value, seen = /* @__PURE__ */ new Map()) {
+  if (!value || typeof value !== "object") return value;
+  if (seen.has(value)) return seen.get(value);
+  if (value instanceof Date) return new Date(value.getTime());
+  if (value instanceof Uint8Array) return new Uint8Array(value);
+  const copy = Array.isArray(value) ? [] : Object.create(Object.getPrototypeOf(value));
+  seen.set(value, copy);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if ("value" in descriptor && descriptor.enumerable) descriptor.value = snapshotQuery(descriptor.value, seen);
+    Object.defineProperty(copy, key, descriptor);
+  }
+  const origin = origins.get(value);
+  if (origin) origins.set(copy, origin);
+  return copy;
+}
+
 // src/core/request-intent.ts
 var querySources = /* @__PURE__ */ new WeakMap();
 var graphRequests = /* @__PURE__ */ new WeakMap();
@@ -661,7 +686,7 @@ var _QueryRequest = class _QueryRequest {
     __privateAdd(this, _query);
     const source = query;
     __privateSet(this, _intent, intent === void 0 ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText) : new QueryIntent(intent?.comment, intent?.purpose));
-    __privateSet(this, _query, Object.create(Object.getPrototypeOf(query), Object.getOwnPropertyDescriptors(query)));
+    __privateSet(this, _query, snapshotQuery(query));
     const captured = __privateGet(this, _query);
     for (const [field, value] of [
       ["commentText", this.comment],
@@ -1495,32 +1520,13 @@ var SelectQuery = class _SelectQuery {
     return this;
   }
   clone() {
-    const copy = new _SelectQuery(this.entity);
-    copy.hardLimitValue = this.hardLimitValue;
-    copy.filterCondition = this.filterCondition;
-    copy.limitValue = this.limitValue;
-    copy.offsetValue = this.offsetValue;
-    copy.orderItems = [...this.orderItems];
-    copy.selectItems = [...this.selectItems];
-    copy.properties = [...this.properties];
-    copy.joins = [...this.joins];
-    copy.groupByItems = [...this.groupByItems];
-    copy.aggregateItems = this.aggregateItems.map((item) => ({ ...item }));
-    copy.aggregationCache = this.aggregationCache;
-    copy.facets = this.facets.map((facet) => ({ ...facet, query: facet.query.clone() }));
-    copy.relations = this.relations.map((relation) => ({
-      ...relation,
-      query: relation.query?.clone()
-    }));
-    copy.relationAggregates = this.relationAggregates.map((aggregate) => ({
-      ...aggregate,
-      query: aggregate.query.clone()
-    }));
-    copy.commentText = this.commentText;
-    copy.purposeText = this.purposeText;
-    copy.idSetPaginationOptions = this.idSetPaginationOptions;
-    copy.idSetPaginationRuntimeContext = this.idSetPaginationRuntimeContext;
-    copy.topNProbeThreshold = this.topNProbeThreshold;
+    const copy = snapshotQuery(this);
+    for (const field of ["commentText", "purposeText", "_comment", "_purpose"]) {
+      const descriptor = Object.getOwnPropertyDescriptor(copy, field);
+      if (descriptor && "value" in descriptor && descriptor.configurable) {
+        Object.defineProperty(copy, field, { ...descriptor, writable: true });
+      }
+    }
     return copy;
   }
   filter(condition) {
@@ -1603,10 +1609,11 @@ var SelectQuery = class _SelectQuery {
   }
   forExactCount(alias = "__teaql_total") {
     const count = new _SelectQuery(this.entity);
-    count.filterCondition = this.filterCondition;
+    count.filterCondition = snapshotQuery(this.filterCondition);
     count.commentText = this.commentText;
     count.purposeText = this.purposeText;
     count.aggregate("Count", "id", alias);
+    retainQueryDiagnosticOrigin(this, count);
     return count;
   }
   applyListLimit(ceiling) {
@@ -1731,6 +1738,7 @@ export {
   credentialName,
   inheritSQLLogBindings,
   projectSQLLog,
+  queryDiagnosticOrigin,
   RequestIntentError,
   QueryIntent,
   MutationIntent,
@@ -1756,4 +1764,4 @@ export {
   mergeRuntimeBootstrap,
   RuntimeModule
 };
-//# sourceMappingURL=chunk-XGQSBMGJ.js.map
+//# sourceMappingURL=chunk-DBADSS6U.js.map

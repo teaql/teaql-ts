@@ -33,7 +33,7 @@ import {
   mutationScopeForEntity,
   parseLocale,
   queryTraceSource
-} from "./chunks/chunk-XGQSBMGJ.js";
+} from "./chunks/chunk-DBADSS6U.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,

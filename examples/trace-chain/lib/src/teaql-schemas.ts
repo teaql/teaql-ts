@@ -15,7 +15,7 @@ export const ENTITY_SCHEMAS: Record<string, EntitySchema> = {
 },
 "OrderItem": {
     table: "order_item_data",
-    auditMaskFields: [],
+    auditMaskFields: ["name"],
     columns: {"id": { columnName: "id", modelName: "id", logPolicy: "plain", logicalType: "integer", decode: "string", nullable: false }, "customerOrder": { columnName: "customer_order", modelName: "customer_order", logPolicy: "plain", logicalType: "integer", decode: "string", nullable: false }, "name": { columnName: "name", modelName: "name", logPolicy: "plain", logicalType: "text", decode: "native", nullable: false }, "version": { columnName: "version", modelName: "version", logPolicy: "plain", logicalType: "integer", decode: "number", nullable: false }},
     relations: {"customerOrder": { targetEntity: "CustomerOrder", localKey: "customerOrder", foreignKey: "id", many: false }}
 },

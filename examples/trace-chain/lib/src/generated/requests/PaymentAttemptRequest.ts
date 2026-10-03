@@ -461,12 +461,11 @@ export class PaymentAttemptRequest {
 
         const service = context.requireResource<TeaQLDataService>("dataService");
         const rows = await service.executeQuery(context.prepareQuery(this.query));
-        const queryRoot = new EntityRoot();
         const aggregateOnly = this.query.aggregateItems.length > 0 && this.query.groupByItems.length === 0;
         const data = aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof PaymentAttempt
                 ? row
-                : PaymentAttempt.fromRecord(row as Record<string, unknown>, queryRoot));
+                : PaymentAttempt.fromRecord(row as Record<string, unknown>, new EntityRoot()));
         const result = new SmartList<PaymentAttempt>(data);
         if (aggregateOnly && rows[0]) Object.assign(result.aggregations, rows[0]);
 
@@ -490,20 +489,20 @@ export class PaymentAttemptRequest {
         context: UserContext, offset: number, limit: number,
     ): Promise<TeaQLPage<PaymentAttempt>> {
         this.ensureIntent();
-        this.query.offset(offset).limit(limit);
-        if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
+        const candidate = this.query.clone().offset(offset).limit(limit);
+        if (this.filters.length > 0) candidate.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
-        const useIdSet = this.query.localIdSetPaginationOptions() !== undefined;
-        const totalCountBeforeRows = useIdSet ? undefined : await service.executeCount(this.query);
-        const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const query = context.prepareQuery(candidate);
+        const useIdSet = query.localIdSetPaginationOptions() !== undefined;
+        const totalCountBeforeRows = useIdSet ? undefined : await service.executeCount(query);
+        const rows = await service.executeQuery(query);
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
-            : (totalCountBeforeRows ?? await service.executeCount(this.query));
-        const queryRoot = new EntityRoot();
+            : (totalCountBeforeRows ?? await service.executeCount(query));
         const data = new SmartList(rows.map((row: unknown) =>
             row instanceof PaymentAttempt
                 ? row
-                : PaymentAttempt.fromRecord(row as Record<string, unknown>, queryRoot)));
+                : PaymentAttempt.fromRecord(row as Record<string, unknown>, new EntityRoot())));
         data.totalCount = totalCount;
         return { data, totalCount, offset, limit };
     }
@@ -512,12 +511,12 @@ export class PaymentAttemptRequest {
         this.ensureIntent();
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
-        const queryRoot = new EntityRoot();
-        for await (const chunk of service.executeForStream(this.query, chunkSize)) {
+        const query = context.prepareQuery(this.query.clone());
+        for await (const chunk of service.executeForStream(query, chunkSize)) {
             for (const entity of chunk) {
                 yield entity instanceof PaymentAttempt
                     ? entity
-                    : PaymentAttempt.fromRecord(entity as Record<string, unknown>, queryRoot);
+                    : PaymentAttempt.fromRecord(entity as Record<string, unknown>, new EntityRoot());
             }
         }
     }

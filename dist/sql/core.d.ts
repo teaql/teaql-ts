@@ -205,6 +205,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     executeQuery<T = any>(query: any): Promise<T[]>;
     private executeDerivedQuery;
     private descendantBindings;
+    private queryTreeBindings;
     private executeQueryWithIntent;
     private prepareIdSetPage;
     executeFacetMembership(outerQuery: SelectQuery, relationName: string): Promise<Map<string, number>>;

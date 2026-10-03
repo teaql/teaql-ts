@@ -14,6 +14,7 @@ import { canonicalSQLTracePath, cloneTraceNodes, queryTraceSource, TraceNode } f
 import { projectSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings } from '../core/log-privacy';
 import type { SQLLogBindingSource } from '../core/log-privacy';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
+import { queryDiagnosticOrigin } from '../core/query-snapshot';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -1130,7 +1131,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }));
   }
 
-  private async compileQuery(query: any): Promise<{
+  private async compileQuery(query: any, recordTrace = true): Promise<{
     sql: string;
     values: any[];
     aggregateNames: string[];
@@ -1235,7 +1236,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.bindValue(values, offset, 'plain');
       sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
     }
-    this.sqlTrace.push(sql);
+    if (recordTrace) this.sqlTrace.push(sql);
     return { sql, values, aggregateNames };
   }
 
@@ -1264,6 +1265,31 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
   }
 
+  private async queryTreeBindings(query: any, sql: string, values: any[], inherited?: SQLLogBindingSource): Promise<SQLLogBindingSource> {
+    let source = inheritSQLLogBindings({ parameterizedSQL: sql, parameters: values,
+      parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
+    const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
+    const stack: any[] = [query];
+    const visited = new Set<object>();
+    while (stack.length) {
+      const current = stack.pop();
+      if (!current || visited.has(current)) continue;
+      visited.add(current);
+      if (current !== query) {
+        // Pure compilation, not a physical query or an sqlTrace entry.
+        const compiled = await this.compileQuery(new QueryRequest(current, intent).query, false);
+        source = inheritSQLLogBindings({ parameterizedSQL: compiled.sql, parameters: compiled.values,
+          parameterLogPolicies: this.bindLogPolicies.get(compiled.values), sqlOrigin: 'generated' }, source);
+      }
+      const origin = queryDiagnosticOrigin(current);
+      if (origin) stack.push(origin);
+      for (const child of [...(current.relations ?? []), ...(current.relationAggregates ?? []), ...(current.facets ?? [])]) {
+        if (child.query) stack.push(child.query);
+      }
+    }
+    return source;
+  }
+
   private async executeQueryWithIntent<T = any>(query: any, inherited?: SQLLogBindingSource): Promise<T[]> {
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'query',
@@ -1282,6 +1308,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
     query = new QueryRequest(query).withQuery(prepared.query).query;
     const { sql, values, aggregateNames } = await this.compileQuery(query);
+    inherited = await this.queryTreeBindings(query, sql, values, inherited);
     const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query),
       () => observeRuntimeOperation(this.runtimeTelemetry, {
       family: 'provider',
@@ -1505,11 +1532,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
     }
     const { sql, values, aggregateNames } = await this.compileQuery(query);
+    const inherited = await this.queryTreeBindings(query, sql, values);
     const startedAt = Date.now();
     let outcome: SQLExecutionOutcome = 'cancelled';
     let delivered = 0;
     let chunk: any[] = [];
-    const descendantBindings = this.descendantBindings(query, sql, values);
+    const descendantBindings = this.descendantBindings(query, sql, values, inherited);
     try {
       for await (const rawRow of this.driver.stream(sql, values)) {
         chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
@@ -1534,10 +1562,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       // only delivered rows, not prefetched rows, and never stringify an error.
       if (outcome === 'failure') {
         try { this.recordSQL('select', sql, values, startedAt, delivered, undefined,
-          this.queryLogIntent(query), outcome); } catch { /* preserve driver failure */ }
+          this.queryLogIntent(query), outcome, inherited); } catch { /* preserve driver failure */ }
       } else {
         this.recordSQL('select', sql, values, startedAt, delivered, undefined,
-          this.queryLogIntent(query), outcome);
+          this.queryLogIntent(query), outcome, inherited);
       }
     }
   }
