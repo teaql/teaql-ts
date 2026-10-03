@@ -1136,8 +1136,7 @@ class AbstractSQLTeaQLClient {
                     - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER));
             }
             const descendantBindings = this.descendantBindings(query, sql, values, inherited);
-            await this.enhanceRelations(rows, query, descendantBindings);
-            await this.enhanceRelationAggregates(rows, query, descendantBindings);
+            await this.enhanceQueryRows(rows, query, descendantBindings);
             if (!internal)
                 await this.registerContinuousPage(query, prepared.execution, rows);
             scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
@@ -1395,14 +1394,14 @@ class AbstractSQLTeaQLClient {
             for await (const rawRow of this.driver.stream(sql, values)) {
                 chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
                 if (chunk.length === chunkSize) {
-                    await this.enhanceRelations(chunk, query, descendantBindings);
+                    await this.enhanceQueryRows(chunk, query, descendantBindings);
                     delivered += chunk.length;
                     yield chunk;
                     chunk = [];
                 }
             }
             if (chunk.length) {
-                await this.enhanceRelations(chunk, query, descendantBindings);
+                await this.enhanceQueryRows(chunk, query, descendantBindings);
                 delivered += chunk.length;
                 yield chunk;
             }
@@ -1425,6 +1424,13 @@ class AbstractSQLTeaQLClient {
                 this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query), outcome, inherited);
             }
         }
+    }
+    async enhanceQueryRows(rows, query, inherited) {
+        // Aggregates consume scalar membership keys. Loading a forward relation may
+        // replace that key's value with an object; compute before that replacement.
+        // Lists and every streamed chunk share this ordering and intent provenance.
+        await this.enhanceRelationAggregates(rows, query, inherited);
+        await this.enhanceRelations(rows, query, inherited);
     }
     async enhanceRelations(parents, query, inherited) {
         if (!parents.length || !Array.isArray(query.relations) || !query.relations.length)

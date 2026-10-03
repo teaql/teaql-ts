@@ -1360,8 +1360,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER));
     }
     const descendantBindings = this.descendantBindings(query, sql, values, inherited);
-    await this.enhanceRelations(rows, query, descendantBindings);
-    await this.enhanceRelationAggregates(rows, query, descendantBindings);
+    await this.enhanceQueryRows(rows, query, descendantBindings);
     if (!internal) await this.registerContinuousPage(query, prepared.execution, rows);
     scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
     return rows as T[];
@@ -1582,14 +1581,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       for await (const rawRow of this.driver.stream(sql, values)) {
         chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
         if (chunk.length === chunkSize) {
-          await this.enhanceRelations(chunk, query, descendantBindings);
+          await this.enhanceQueryRows(chunk, query, descendantBindings);
           delivered += chunk.length;
           yield chunk as T[];
           chunk = [];
         }
       }
       if (chunk.length) {
-        await this.enhanceRelations(chunk, query, descendantBindings);
+        await this.enhanceQueryRows(chunk, query, descendantBindings);
         delivered += chunk.length;
         yield chunk as T[];
       }
@@ -1608,6 +1607,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           this.queryLogIntent(query), outcome, inherited);
       }
     }
+  }
+
+  private async enhanceQueryRows(rows: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {
+    // Aggregates consume scalar membership keys. Loading a forward relation may
+    // replace that key's value with an object; compute before that replacement.
+    // Lists and every streamed chunk share this ordering and intent provenance.
+    await this.enhanceRelationAggregates(rows, query, inherited);
+    await this.enhanceRelations(rows, query, inherited);
   }
 
   private async enhanceRelations(parents: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {

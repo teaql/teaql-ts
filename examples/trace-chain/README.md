@@ -58,6 +58,16 @@ even if the caller repairs its builder before polling. Validation failure stays
 asynchronous at the low-level streaming API; the generated intent gate remains
 synchronous. No cursor opens during capture.
 
+Native SQLite regression `tests/trace-chain-sql.test.ts` additionally checks
+relation aggregates in full/tail stream chunks, early cancellation and SQL
+failure. Lists and streams compute aggregates before forward-relation hydration
+can replace scalar membership keys with objects. This covers loading and counting
+the same relation, nested aggregate ancestry and inherited private intent.
+The generated example does not yet exercise aggregate aliases: retained
+field-level Assist currently documents selection but not the related-count API.
+That generated aggregate acceptance remains open; native coverage is not a
+substitute for it.
+
 The six checks cover:
 
 1. Idempotent generated schema/bootstrap and bounded Q/E access to the root.

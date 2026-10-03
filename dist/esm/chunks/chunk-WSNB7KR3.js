@@ -1155,8 +1155,7 @@ var AbstractSQLTeaQLClient = class {
         rows.sort((left, right) => (positions.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER) - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER));
       }
       const descendantBindings = this.descendantBindings(query, sql, values, inherited);
-      await this.enhanceRelations(rows, query, descendantBindings);
-      await this.enhanceRelationAggregates(rows, query, descendantBindings);
+      await this.enhanceQueryRows(rows, query, descendantBindings);
       if (!internal) await this.registerContinuousPage(query, prepared.execution, rows);
       scope.success({ attributes: { "teaql.result.cardinality": rows.length } });
       return rows;
@@ -1391,14 +1390,14 @@ var AbstractSQLTeaQLClient = class {
       for await (const rawRow of this.driver.stream(sql, values)) {
         chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
         if (chunk.length === chunkSize) {
-          await this.enhanceRelations(chunk, query, descendantBindings);
+          await this.enhanceQueryRows(chunk, query, descendantBindings);
           delivered += chunk.length;
           yield chunk;
           chunk = [];
         }
       }
       if (chunk.length) {
-        await this.enhanceRelations(chunk, query, descendantBindings);
+        await this.enhanceQueryRows(chunk, query, descendantBindings);
         delivered += chunk.length;
         yield chunk;
       }
@@ -1436,6 +1435,10 @@ var AbstractSQLTeaQLClient = class {
         );
       }
     }
+  }
+  async enhanceQueryRows(rows, query, inherited) {
+    await this.enhanceRelationAggregates(rows, query, inherited);
+    await this.enhanceRelations(rows, query, inherited);
   }
   async enhanceRelations(parents, query, inherited) {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
@@ -1627,4 +1630,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-S3ZI5Y47.js.map
+//# sourceMappingURL=chunk-WSNB7KR3.js.map

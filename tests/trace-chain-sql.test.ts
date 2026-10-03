@@ -25,18 +25,28 @@ for (const [entity, relation, target] of [
 
 class Driver extends SQLiteDriver {
   readbackFailure?: Error;
+  aggregateFailure?: Error;
+  aggregateCalls = 0;
   async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+    if (/COUNT\(/i.test(sql) && sql.includes('platform_data')) {
+      this.aggregateCalls++;
+      if (this.aggregateFailure) throw this.aggregateFailure;
+    }
     if (this.readbackFailure && sql.includes('school_data') && sql.startsWith('SELECT')
       && sql.includes('WHERE "id" = ?')) throw this.readbackFailure;
     return super.query(sql, values);
   }
 }
 class Client extends AbstractSQLTeaQLClient {
-  constructor(driver: Driver) { super(driver, schemas); }
+  constructor(driver: Driver, model = schemas) { super(driver, model); }
 }
-async function fixture() {
+async function fixture(privatePlatformName = false) {
   const driver = new Driver(':memory:');
-  const client = new Client(driver).setDiagnosticSQLLogSink(undefined);
+  const model: Record<string, EntitySchema> = privatePlatformName ? { ...schemas, Platform: {
+    ...schemas.Platform, columns: { ...schemas.Platform.columns,
+      name: { ...schemas.Platform.columns.name, logPolicy: 'masked' } },
+  } } : schemas;
+  const client = new Client(driver, model).setDiagnosticSQLLogSink(undefined);
   const context = new UserContext().insertResource('dataService', client);
   await context.ensureSchema();
   for (const [entity, relation, target] of [
@@ -171,4 +181,102 @@ it('isolates overlapping native queries on one Context without a mutable trace s
       expect(own.map(entry => entry.tracePath.filter(frame => frame.kind === 'relation').length).sort()).toEqual([0, 1, 2, 3]);
     }
   } finally { await f.client.close(); }
+});
+
+describe('streamed relation aggregates', () => {
+  function request() {
+    const query = new SelectQuery('School').limit(2)
+      .comment('stream school counts').purpose('inspect streamed aggregate provenance');
+    query.relationAggregates.push({ relationName: 'platform', alias: 'platformCount', singleResult: true,
+      query: new SelectQuery('Platform').aggregate('Count', 'id', 'platformCount') });
+    return query;
+  }
+
+  it.each([1, 2])('populates counts for chunk size %i with logging on and off', async chunkSize => {
+    for (const logging of [true, false]) {
+      const f = await fixture();
+      try {
+        f.client.setQueryLoggingEnabled(logging);
+        const chunks = [];
+        for await (const chunk of f.client.executeForStream<any>(request(), chunkSize)) chunks.push(chunk);
+        expect(chunks.map(chunk => chunk.map(row => row.platformCount))).toEqual([[1]]);
+        expect(f.driver.aggregateCalls).toBe(1);
+        if (logging) {
+          const entries = f.evidence.snapshot();
+          expect(entries).toHaveLength(2);
+          expect(entries.map(entry => entry.executionOutcome)).toEqual(['success', 'success']);
+          expect(entries.every(entry => entry.comment === 'stream school counts')).toBe(true);
+          expect(entries.every(entry => entry.purpose === 'inspect streamed aggregate provenance')).toBe(true);
+          expect(entries[0].tracePath.map(frame => [frame.kind, frame.name])).toEqual([
+            ['operation', 'School'], ['request', 'School'], ['relation', 'platform'],
+            ['provider', 'sqlite'], ['sql', 'select'],
+          ]);
+          expect(entries[1].tracePath.map(frame => frame.kind))
+            .toEqual(['operation', 'request', 'provider', 'sql']);
+        }
+      } finally { await f.client.close(); }
+    }
+  });
+
+  it('completes the delivered aggregate before early stream cancellation', async () => {
+    const f = await fixture();
+    try {
+      for await (const chunk of f.client.executeForStream<any>(request(), 1)) {
+        expect(chunk[0].platformCount).toBe(1);
+        break;
+      }
+      expect(f.driver.aggregateCalls).toBe(1);
+      expect(f.evidence.snapshot().map(entry => entry.executionOutcome)).toEqual(['success', 'cancelled']);
+      // A later independent request must not inherit the aggregate's relation path.
+      await f.client.executeQuery(new SelectQuery('Region').limit(1)
+        .comment('independent region').purpose('verify stream scope isolation'));
+      const independent = f.evidence.snapshot();
+      expect(independent[independent.length - 1].tracePath.map(frame => [frame.kind, frame.name])).toEqual([
+        ['operation', 'Region'], ['request', 'Region'], ['provider', 'sqlite'], ['sql', 'select'],
+      ]);
+    } finally { await f.client.close(); }
+  });
+
+  it.each(['list', 'stream'])('%s preserves scalar membership when loading and aggregating the same relation', async mode => {
+    const f = await fixture(true);
+    try {
+      const query = request().comment('inspect Platform count');
+      query.relationAggregates[0].query.filter({ name: { $eq: 'Platform' } });
+      const child = new SelectQuery('Platform').limit(1);
+      child.relationAggregates.push({ relationName: 'organization', alias: 'organizationCount', singleResult: true,
+        query: new SelectQuery('Organization').aggregate('Count', 'id', 'organizationCount') });
+      query.relations.push({ name: 'platform', query: child });
+      const chunks = [];
+      if (mode === 'list') chunks.push(await f.client.executeQuery<any>(query));
+      else for await (const chunk of f.client.executeForStream<any>(query, 1)) chunks.push(chunk);
+      expect(chunks[0][0].platformCount).toBe(1);
+      expect(chunks[0][0].platform.organizationCount).toBe(1);
+      const entries = f.evidence.snapshot();
+      expect(entries).toHaveLength(4);
+      expect(entries.every(entry => entry.comment === 'inspect [REDACTED] count')).toBe(true);
+      expect(entries.every(entry => entry.tracePath[0].name === 'School')).toBe(true);
+      expect(entries.map(entry => entry.tracePath.filter(frame => frame.kind === 'relation').map(frame => frame.name)))
+        .toEqual(mode === 'list' ? [[], ['platform'], ['platform'], ['platform', 'organization']]
+          : [['platform'], ['platform'], ['platform', 'organization'], []]);
+    } finally { await f.client.close(); }
+  });
+
+  it.each([1, 2])('retains aggregate and stream failures before delivery, chunk size %i', async chunkSize => {
+    const f = await fixture();
+    const failure = new Error('aggregate failed');
+    f.driver.aggregateFailure = failure;
+    let delivered = 0;
+    try {
+      await expect((async () => {
+        for await (const chunk of f.client.executeForStream<any>(request(), chunkSize)) delivered += chunk.length;
+      })()).rejects.toBe(failure);
+      expect(delivered).toBe(0);
+      expect(f.driver.aggregateCalls).toBe(1);
+      const entries = f.evidence.snapshot();
+      expect(entries.map(entry => entry.executionOutcome)).toEqual(['failure', 'failure']);
+      expect(entries.map(entry => entry.tracePath.filter(frame => frame.kind === 'relation').map(frame => frame.name)))
+        .toEqual([['platform'], []]);
+      expect(entries.every(entry => entry.comment === 'stream school counts')).toBe(true);
+    } finally { await f.client.close(); }
+  });
 });

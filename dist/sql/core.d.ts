@@ -219,6 +219,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private registerContinuousPage;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
     private executeCapturedStream;
+    private enhanceQueryRows;
     private enhanceRelations;
     private enhanceRelationAggregates;
     private emptyAggregateValue;
