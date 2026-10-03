@@ -71,13 +71,6 @@ async function ensureOptimisticIdFloor(session, placeholder, entity, floor) {
     throw new Error(`Unable to synchronize ID space floor for ${entity} after 100 optimistic-lock attempts`);
 }
 exports.ensureOptimisticIdFloor = ensureOptimisticIdFloor;
-function unquoteIdentifier(identifier) {
-    if ((identifier.startsWith('"') && identifier.endsWith('"')) ||
-        (identifier.startsWith('`') && identifier.endsWith('`'))) {
-        return identifier.slice(1, -1).replace(/""/g, '"').replace(/``/g, '`');
-    }
-    return identifier;
-}
 function sameBootstrapValue(left, right) {
     if (left === right)
         return true;
@@ -339,7 +332,6 @@ class AbstractSQLTeaQLClient {
     }
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */
     async [schema_capability_1.contextSchemaCapability](context) {
-        this.userContext = context;
         if (!this.schemaReady) {
             this.schemaReady = this.driver.ensureSchema(this.schemas);
         }
@@ -348,23 +340,28 @@ class AbstractSQLTeaQLClient {
         let release;
         this.bootstrapTail = new Promise(resolve => { release = resolve; });
         await predecessor;
+        this.userContext = context;
+        const previousActor = context.getResource('bootstrapActor');
+        const previousCategory = context.getResource('bootstrapCategory');
+        context.insertResource('bootstrapActor', 'teaql-generated-bootstrap');
+        context.insertResource('bootstrapCategory', 'runtime-bootstrap');
         try {
             if (this.bootstrap.ensure) {
-                context.insertResource('bootstrapActor', 'teaql-generated-bootstrap');
-                context.insertResource('bootstrapCategory', 'runtime-bootstrap');
-                try {
-                    await this.bootstrap.ensure(context);
-                }
-                finally {
-                    context.removeResource('bootstrapActor');
-                    context.removeResource('bootstrapCategory');
-                }
+                await this.bootstrap.ensure(context);
             }
             else {
                 await this.ensureBootstrapData();
             }
         }
         finally {
+            if (previousActor === undefined)
+                context.removeResource('bootstrapActor');
+            else
+                context.insertResource('bootstrapActor', previousActor);
+            if (previousCategory === undefined)
+                context.removeResource('bootstrapCategory');
+            else
+                context.insertResource('bootstrapCategory', previousCategory);
             release();
         }
     }
@@ -379,40 +376,46 @@ class AbstractSQLTeaQLClient {
         ];
         if (!records.length)
             return;
-        await this.driver.transaction(async (session) => {
+        await this.executeGraphSave(new request_intent_1.MutationIntent('reconcile model bootstrap data'), async (graph) => {
             for (const record of records)
-                await this.reconcileBootstrapEntity(session, record);
+                await this.reconcileBootstrapEntity(this.graphMutationSession, graph, record);
         });
     }
-    async reconcileBootstrapEntity(session, record) {
+    async reconcileBootstrapEntity(session, graph, record) {
         const schema = this.schema(record.entity);
-        const table = this.driver.identifier(schema.table);
-        const idColumn = this.driver.identifier(schema.columns.id?.columnName ?? 'id');
-        const versionColumn = this.driver.identifier(schema.columns.version?.columnName ?? 'version');
         const entries = Object.entries(record.values ?? {}).map(([field, value]) => {
             const column = schema.columns[field];
             if (!column)
                 throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
             return {
-                column: this.driver.identifier(column.columnName),
+                column: column.columnName,
                 value: this.driver.encode(value, column),
             };
         });
-        const current = await session.query(`SELECT * FROM ${table} WHERE ${idColumn} = ${this.driver.placeholder(1)}`, [record.id]);
+        const query = new ast_1.SelectQuery(record.entity).filter({ id: { $eq: record.id } }).limit(1)
+            .comment('inspect model bootstrap record').purpose('ensure model-defined root and constants');
+        query.prepareForList();
+        const request = new request_intent_1.QueryRequest(query);
+        // Reconciliation must see an existing tombstone too. Normal list SQL adds
+        // version > 0 and would attempt a duplicate INSERT for a deleted constant.
+        // This fixed primary-key lookup still owns validated query intent and logs.
+        const sql = `SELECT * FROM ${this.driver.identifier(schema.table)} WHERE ` +
+            `${this.driver.identifier(schema.columns.id?.columnName ?? 'id')} = ${this.driver.placeholder(1)}`;
+        const values = [record.id];
+        this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
+        const current = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(request.query), () => session.query(sql, values));
         if (!current.rowCount) {
-            const columns = [idColumn, versionColumn, ...entries.map(entry => entry.column)];
-            const values = [record.id, 1, ...entries.map(entry => entry.value)];
-            const placeholders = values.map((_, index) => this.driver.placeholder(index + 1));
-            await session.query(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`, values);
+            await this.executeMutation(graph.request({ entity: record.entity, action: 'Create',
+                id: record.id, version: 0, payload: { ...record.values } }));
         }
         else {
             const row = current.rows[0];
-            const changed = entries.filter(entry => !sameBootstrapValue(row[unquoteIdentifier(entry.column)], entry.value));
+            const changed = entries.filter(entry => !sameBootstrapValue(row[entry.column], entry.value));
             if (changed.length) {
-                const assignments = changed.map((entry, index) => `${entry.column} = ${this.driver.placeholder(index + 1)}`);
-                assignments.push(`${versionColumn} = ${versionColumn} + 1`);
-                await session.query(`UPDATE ${table} SET ${assignments.join(', ')} WHERE ${idColumn} = ` +
-                    this.driver.placeholder(changed.length + 1), [...changed.map(entry => entry.value), record.id]);
+                // Checker sees the fully loaded object, not a partial update projection.
+                await this.executeMutation(graph.request({ entity: record.entity, action: 'Update',
+                    id: record.id, version: Number(row[schema.columns.version?.columnName ?? 'version']),
+                    payload: { ...this.decodeRowForSchema(schema, row), ...record.values } }));
             }
         }
         await this.driver.ensureIdFloor(session, record.entity, record.id);

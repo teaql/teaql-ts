@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { SelectQuery } from '../src/core/ast';
 import { RuntimeModule } from '../src/core/runtime-module';
-import { EntitySchema } from '../src/sql/core';
+import { EntitySchema, SQLExecutionEvidenceStore } from '../src/sql/core';
+import { MutationRequest } from '../src/core/request-intent';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
 
 function assertProviderSchemaAPIIsHidden(client: SQLiteTeaQLClient): void {
@@ -44,6 +45,92 @@ function moduleWithStatus(name: string): RuntimeModule {
 function read(entity: string): SelectQuery {
   return new SelectQuery(entity).comment('read bootstrap evidence').purpose('verify Ensure Schema');
 }
+
+it.each([false, true])('metadata bootstrap owns request intent and committed audit with logging=%p', async logging => {
+  const client = new SQLiteTeaQLClient(':memory:', {}).install(moduleWithStatus('Pending')) as SQLiteTeaQLClient;
+  const evidence = new SQLExecutionEvidenceStore();
+  client.setRuntimeTelemetrySink(evidence);
+  client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging);
+  const mutate = jest.spyOn(client, 'executeMutation');
+  const context = new UserContext().insertResource('dataService', client)
+    .insertResource('bootstrapActor', 'prior actor').insertResource('bootstrapCategory', 'prior category');
+  try {
+    await context.ensureSchema();
+    await context.ensureSchema();
+    expect(context.getResource('bootstrapActor')).toBe('prior actor');
+    expect(context.getResource('bootstrapCategory')).toBe('prior category');
+    expect(mutate).toHaveBeenCalledTimes(2);
+    for (const [request] of mutate.mock.calls) {
+      expect(request).toBeInstanceOf(MutationRequest);
+      expect(request.comment).toBe('reconcile model bootstrap data');
+    }
+    const events = client.auditTrace;
+    expect(events).toHaveLength(2);
+    expect(events.map(event => event.entity)).toEqual(['Platform', 'OrderStatus']);
+    for (const event of events) {
+      expect(event.actor).toBe('teaql-generated-bootstrap');
+      expect(event.category).toBe('runtime-bootstrap');
+    }
+    const entries = evidence.snapshot();
+    expect(entries).toHaveLength(8); // two lookup/insert/readback triples, then two no-op lookups
+    expect(entries.filter(entry => entry.comment === 'inspect model bootstrap record')).toHaveLength(4);
+    for (const entry of entries) {
+      expect((entry.comment ?? entry.auditReason)?.trim()).toBeTruthy();
+      if (entry.operation === 'select') expect(entry.purpose?.trim()).toBeTruthy();
+      expect(entry.tracePath.map(node => node.kind)).toEqual([
+        'operation', entry.operation === 'select' ? 'request' : 'entity', 'provider', 'sql',
+      ]);
+    }
+  } finally { await client.close(); }
+});
+
+it.each([false, true])('metadata bootstrap cannot bypass Checker with logging=%p', async logging => {
+  const checkAndFix = jest.fn(() => { throw new Error('constant checker refused'); });
+  const client = new SQLiteTeaQLClient(':memory:', {}).install(new RuntimeModule(
+    schemas, { OrderStatus: { checkAndFix } }, moduleWithStatus('Pending').bootstrap,
+  )) as SQLiteTeaQLClient;
+  client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging);
+  const context = new UserContext().insertResource('dataService', client);
+  try {
+    await expect(context.ensureSchema())
+      .rejects.toThrow('constant checker refused');
+    expect(checkAndFix).toHaveBeenCalledTimes(1);
+    expect(client.auditTrace).toEqual([]);
+    expect(context.getResource('bootstrapActor')).toBeUndefined();
+    expect(context.getResource('bootstrapCategory')).toBeUndefined();
+    expect(await client.executeQuery(read('Platform'))).toEqual([]);
+    expect(await client.executeQuery(read('OrderStatus'))).toEqual([]);
+  } finally { await client.close(); }
+});
+
+it('serializes bootstrap callers without losing the active bootstrap actor', async () => {
+  const client = new SQLiteTeaQLClient(':memory:', {}).install(moduleWithStatus('Pending')) as SQLiteTeaQLClient;
+  const callers = [new UserContext(), new UserContext()]
+    .map(context => context.insertResource('dataService', client));
+  try {
+    await Promise.all(callers.map(context => context.ensureSchema()));
+    expect(client.auditTrace).toHaveLength(2);
+    for (const event of client.auditTrace) expect(event.actor).toBe('teaql-generated-bootstrap');
+    for (const caller of callers) expect(caller.getResource('bootstrapActor')).toBeUndefined();
+    expect(await client.executeQuery(read('OrderStatus'))).toEqual([
+      expect.objectContaining({ id: '1001', version: 1, code: 'PENDING' }),
+    ]);
+  } finally { await client.close(); }
+});
+
+it('does not mistake a soft-deleted constant for a missing primary key', async () => {
+  const client = new SQLiteTeaQLClient(':memory:', {}).install(moduleWithStatus('Pending')) as SQLiteTeaQLClient;
+  const context = new UserContext().insertResource('dataService', client);
+  try {
+    await context.ensureSchema();
+    await client.executeMutation({ entity: 'OrderStatus', action: 'Delete', id: '1001',
+      version: 1, comment: 'retire a constant for the bootstrap identity regression' });
+    const audits = client.auditTrace.length;
+    await context.ensureSchema();
+    expect(client.auditTrace).toHaveLength(audits);
+    expect(await client.executeQuery(read('OrderStatus'))).toEqual([]);
+  } finally { await client.close(); }
+});
 
 it('reconciles bootstrap data idempotently and advances ID spaces', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'teaql-ts-bootstrap-'));
