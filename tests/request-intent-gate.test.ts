@@ -1,7 +1,10 @@
 import { SelectQuery } from '../src/core/ast';
 import { UserContext } from '../src/core/context';
 import { MutationQuery } from '../src/core/ast';
-import { MutationRequest, QueryRequest } from '../src/core/request-intent';
+import { MutationRequest, QueryRequest, RequestIntentError } from '../src/core/request-intent';
+import { EntityRoot } from '../src/core/entity-root';
+import { TraceNode } from '../src/core/trace-chain';
+import { MutationPlan } from '../src/core/mutation-policy';
 import { TeaQLClient } from '../src/tfp/client';
 import { AbstractSQLTeaQLClient, EntitySchema } from '../src/sql/core';
 import { SQLiteDriver } from '../src/sql/sqlite';
@@ -32,6 +35,161 @@ async function fixture() {
   const compile = jest.spyOn(client as any, 'compileQuery');
   return { driver, client, context, sql, stream, transaction, policy, checker, compile };
 }
+
+async function observedFixture(logging: boolean) {
+  const f = await fixture();
+  const diagnostic = jest.fn();
+  const sqlTelemetry = jest.fn();
+  const audit = jest.fn();
+  const governance = jest.fn();
+  const telemetrySuccess = jest.fn();
+  const telemetryFailure = jest.fn();
+  const telemetryStart = jest.fn(() => ({ success: telemetrySuccess, failure: telemetryFailure }));
+  const resolvePolicy = jest.fn(() => undefined);
+  const beginPolicyGraph = jest.spyOn(f.context, 'beginMutationPolicyGraph');
+  const nextId = jest.spyOn(f.driver, 'nextId');
+  const ensureIdFloor = jest.spyOn(f.driver, 'ensureIdFloor');
+  f.context.withMutationPolicyRegistry({ resolve: resolvePolicy })
+    .withMutationGovernanceSink({ onWarning: governance });
+  f.client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging)
+    .setDiagnosticSQLLogSink({ write: diagnostic }).setRuntimeTelemetrySink({ record: sqlTelemetry })
+    .setAuditSink(audit).setRuntimeTelemetry({ start: telemetryStart });
+  const expectNoExecution = () => {
+    for (const observer of [f.sql, f.stream, f.transaction, f.compile, f.policy, f.checker,
+      beginPolicyGraph, resolvePolicy, nextId, ensureIdFloor, diagnostic, sqlTelemetry, audit,
+      governance, telemetryStart, telemetrySuccess, telemetryFailure]) {
+      expect(observer).not.toHaveBeenCalled();
+    }
+    expect(f.client.auditTrace).toHaveLength(0);
+  };
+  return { ...f, diagnostic, sqlTelemetry, audit, governance, expectNoExecution };
+}
+
+async function expectCommentRequired(kind: 'query' | 'mutation', execute: () => unknown) {
+  try {
+    await execute();
+    throw new Error('expected request intent rejection');
+  } catch (error) {
+    expect(error).toBeInstanceOf(RequestIntentError);
+    expect(error).toMatchObject({ code: 'REQUEST_COMMENT_REQUIRED', field: 'comment', requestKind: kind });
+    expect(String(error)).not.toContain('SECRET-CANARY');
+  }
+}
+
+test.each([false, true])('TC-REQ-12 rejects actual trace-only request input before all execution sinks: logging=%s', async logging => {
+  const f = await observedFixture(logging);
+  try {
+    // Caller frames are real input, not trusted runtime query provenance.
+    const query = Object.assign(new SelectQuery('Document').purpose('inspect document'), {
+      traceChain: [
+        { kind: 'comment', name: 'Document', detail: 'SECRET-CANARY trace-only comment' },
+        { kind: 'purpose', name: 'Document', detail: 'SECRET-CANARY trace-only purpose' },
+      ] satisfies TraceNode[],
+    });
+    expect(query.commentText).toBeUndefined();
+    expect(query.traceChain).toHaveLength(2);
+    for (const execute of [
+      () => new QueryRequest(query),
+      () => f.client.executeQuery(query),
+      () => f.client.executeCount(query),
+      () => f.client.executeForStream(query)[Symbol.asyncIterator]().next(),
+      () => f.client.executeFacetMembership(query, 'name'),
+    ]) await expectCommentRequired('query', execute);
+
+    const ledgerRoot = new EntityRoot();
+    const ledgerKey = { entity: 'Document', id: '1' };
+    const traceChain: TraceNode[] = [
+      { kind: 'auditReason', name: 'Document', entityId: '1', detail: 'SECRET-CANARY trace-only reason' },
+    ];
+    ledgerRoot.setTraceChain(ledgerKey, traceChain);
+    const mutation = { entity: 'Document', action: 'Create', id: '1',
+      payload: { name: 'SECRET-CANARY mutation payload' }, ledgerRoot, ledgerKey, traceChain };
+    expect(mutation).not.toHaveProperty('comment');
+    expect(ledgerRoot.traceChain(ledgerKey)).toEqual(traceChain);
+    for (const execute of [
+      () => new MutationRequest(mutation),
+      () => f.client.preflightMutation(mutation),
+      () => f.client.executeMutation(mutation),
+    ]) await expectCommentRequired('mutation', execute);
+    f.expectNoExecution();
+  } finally { await f.client.close(); }
+});
+
+test.each([false, true])('TC-REQ-14 rejects missing graph root comment despite annotated children: logging=%s', async logging => {
+  const f = await observedFixture(logging);
+  try {
+    const children = ['first child reason', 'second child reason'].map((comment, index) =>
+      new MutationRequest({ entity: 'Document', action: 'Create', id: String(index + 1),
+        payload: { name: 'SECRET-CANARY child payload' }, comment }));
+    expect(children.map(child => child.comment)).toEqual(['first child reason', 'second child reason']);
+    const work = jest.fn(async graph => {
+      for (const child of children) {
+        const request = graph.request(child.mutation, undefined, child.comment);
+        f.client.preflightMutation(request);
+        await f.client.executeMutation(request);
+      }
+    });
+    await expectCommentRequired('mutation', () => f.client.executeGraphSave(undefined as any, work));
+    expect(work).not.toHaveBeenCalled();
+    f.expectNoExecution();
+  } finally { await f.client.close(); }
+});
+
+describe.each([false, true])('TC-REQ-13 explicit root comment with blank route tail: logging=%s', logging => {
+  test.each(['entity', 'provider', 'sql'] as const)('%s tail preserves request, policy, SQL and audit reason', async kind => {
+    const f = await observedFixture(logging);
+    try {
+      const comment = '  explicit mutation request reason  ';
+      const ledgerRoot = new EntityRoot();
+      const ledgerKey = { entity: 'Document', id: '1' };
+      const source: TraceNode[] = [
+        { kind: 'auditReason', name: 'Document', entityId: '1', detail: comment },
+        { kind, name: kind === 'entity' ? 'Document' : kind === 'provider' ? 'sqlite' : 'insert', detail: '' },
+      ];
+      // Deliberately supplied diagnostic input tests intent ownership, not
+      // whether generated graph traversal constructs these route nodes.
+      ledgerRoot.setTraceChain(ledgerKey, source);
+      const request = new MutationRequest({ entity: 'Document', action: 'Create', id: '1',
+        payload: { name: 'stored document' }, comment, ledgerRoot, ledgerKey });
+      const trace = request.traceFor(ledgerKey);
+      expect(trace).toEqual(source);
+      expect(trace[trace.length - 1]).toMatchObject({ kind, detail: '' });
+      expect(request.comment).toBe(comment);
+      expect(request.intent.readbackIntent().comment).toBe(comment);
+      const identity = { policyId: 'intent-gate', version: '1', fingerprint: 'intent-gate-v1' };
+      const review = jest.fn((_context: unknown, plan: MutationPlan) => {
+        expect(plan.auditReason).toBe(comment);
+        return { verdict: 'allow' as const };
+      });
+      f.context.withMutationPolicyRegistry({ resolve: () => ({ identity, review }) })
+        .withMutationPolicyApprovalProvider({ findApproval: policy => ({
+          policy, approvedBy: 'native-test', approvedAt: new Date(),
+        }) });
+      const result = await f.client.executeMutation(request);
+      expect(result.persistedRecord).toMatchObject({ id: '1', name: 'stored document', version: 1 });
+      expect(review).toHaveBeenCalledTimes(1);
+      expect(f.policy).toHaveBeenCalledWith(expect.objectContaining({ comment }));
+      expect(f.transaction).toHaveBeenCalledTimes(1);
+      expect(result.metadata?.statements?.map(entry => entry.operation)).toEqual(['insert', 'select']);
+      for (const statement of result.metadata!.statements!) {
+        expect(statement.auditReason).toBe(comment);
+        expect(statement.mutationLineage).toEqual(source);
+      }
+      expect(f.sqlTelemetry).toHaveBeenCalledTimes(2);
+      expect(f.diagnostic).toHaveBeenCalledTimes(logging ? 2 : 0);
+      for (const [entry] of [...f.sqlTelemetry.mock.calls, ...f.diagnostic.mock.calls]) {
+        expect(entry.auditReason).toBe(comment);
+        expect(entry.mutationLineage).toEqual(source);
+      }
+      expect(f.audit).toHaveBeenCalledTimes(1);
+      expect(f.client.auditTrace).toHaveLength(1);
+      expect(f.audit.mock.calls[0][0]).toMatchObject({ reason: comment, mutationLineage: source });
+      expect(f.client.auditTrace[0]).toMatchObject({ reason: comment, mutationLineage: source });
+      expect(request.comment).toBe(comment);
+      expect(f.governance).not.toHaveBeenCalled();
+    } finally { await f.client.close(); }
+  });
+});
 
 test.each([undefined, null, '', ' \t\r\n', '\u0085', '\u00a0', '\u2003'])
 ('rejects query comment %p at list/count/stream/facet boundaries with logging disabled', async comment => {
