@@ -17,6 +17,8 @@ npm run test:shared-reference
 npm run test:shared-reference
 npm run test:page
 npm run test:page
+npm run test:stream-capture
+npm run test:stream-capture
 ```
 
 Both starts use `.local/trace-chain.sqlite` without resetting or deleting it.
@@ -37,6 +39,17 @@ COUNT and page rows share the Context-prepared request. List/stream do not run
 COUNT. SQLite executes one root query and two per-parent child probes; pages
 add one COUNT. Safe SQL metadata masks a marked child value even when the root
 comment/purpose includes it. No diagnostic-source query is executed.
+
+The delayed stream suite uses `.local/stream-capture.sqlite` (override with
+`TEAQL_TRACE_CHAIN_STREAM_DB`). Two streams capture their generated predicates,
+nested selections, comment/purpose and Context-applied scope before first poll.
+The caller then changes its builder and Context before concurrent consumption.
+The results and SQL evidence must retain the two original requests. Cancellation
+after one row records exactly one delivered row; a never-polled stream emits no
+SQL. Native tests additionally preserve an invalid request's captured rejection
+even if the caller repairs its builder before polling. Validation failure stays
+asynchronous at the low-level streaming API; the generated intent gate remains
+synchronous. No cursor opens during capture.
 
 The six checks cover:
 
@@ -87,7 +100,7 @@ mvn -pl generator -am \
 ```
 
 Prepared same-type batch lineage, complete privacy/entry-point coverage,
-stream capture before first poll, arbitrary mutable reference composition,
+arbitrary mutable reference composition,
 file-backed/Expo graph acceptance and internal Registry replay are separate
 remaining gates. The full examples script also includes a task-board
 compilation-only group and a School demo that resets data; neither is evidence

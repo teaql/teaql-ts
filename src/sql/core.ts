@@ -1523,8 +1523,20 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (execution.optimized) execution.runtime.observe('CURSOR_SEEK', execution.cursorId);
   }
 
-  async *executeForStream<T = any>(query: any, chunkSize = 1000): AsyncIterable<T[]> {
-    query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
+  executeForStream<T = any>(query: any, chunkSize = 1000): AsyncIterable<T[]> {
+    // Capture before returning the lazy iterator. No SQL/cursor is opened here.
+    // Preserve the asynchronous failure contract, but never re-read a builder
+    // that the caller may "repair" or repurpose before the first poll.
+    try {
+      const request = query instanceof QueryRequest
+        ? new QueryRequest(query.query, query.intent) : new QueryRequest(query);
+      return this.executeCapturedStream<T>(request.query, chunkSize);
+    } catch (error) {
+      return (async function* (): AsyncIterable<T[]> { throw error; })();
+    }
+  }
+
+  private async *executeCapturedStream<T>(query: any, chunkSize: number): AsyncIterable<T[]> {
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
       throw new Error('stream chunk size must be a positive integer');
     }

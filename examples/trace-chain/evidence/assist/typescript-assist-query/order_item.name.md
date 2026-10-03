@@ -9,7 +9,7 @@ Type: `string`
 | Capability | Generated API |
 | --- | --- |
 | Select | `selectName()` |
-| Equality/set | `withNameIs(value)`, `withNameIsNot(value)`, `withNameIn(values)`, `withNameNotIn(values)` |
+| Equality/set | `withNameIs(value)`, `withNameIsNot(value)`, `withNameIn(...values)`, `withNameNotIn(...values)` |
 | Comparison | `withNameGreaterThan(value)`, `withNameGreaterThanOrEqualTo(value)`, `withNameLessThan(value)`, `withNameLessThanOrEqualTo(value)`, `withNameBetween(lower, upper)` |
 | Null state | `withNameIsKnown()`, `withNameIsUnknown()` |
 | String | `withNameContaining(value)`, `withNameNotContaining(value)`, `withNameStartingWith(value)`, `withNameEndingWith(value)`, `withNameSoundingLike(value)` |

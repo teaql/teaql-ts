@@ -9,7 +9,7 @@ Type: `string`
 | Capability | Generated API |
 | --- | --- |
 | Select | `selectDescription()` |
-| Equality/set | `withDescriptionIs(value)`, `withDescriptionIsNot(value)`, `withDescriptionIn(values)`, `withDescriptionNotIn(values)` |
+| Equality/set | `withDescriptionIs(value)`, `withDescriptionIsNot(value)`, `withDescriptionIn(...values)`, `withDescriptionNotIn(...values)` |
 | Comparison | `withDescriptionGreaterThan(value)`, `withDescriptionGreaterThanOrEqualTo(value)`, `withDescriptionLessThan(value)`, `withDescriptionLessThanOrEqualTo(value)`, `withDescriptionBetween(lower, upper)` |
 | Null state | `withDescriptionIsKnown()`, `withDescriptionIsUnknown()` |
 | String | `withDescriptionContaining(value)`, `withDescriptionNotContaining(value)`, `withDescriptionStartingWith(value)`, `withDescriptionEndingWith(value)`, `withDescriptionSoundingLike(value)` |

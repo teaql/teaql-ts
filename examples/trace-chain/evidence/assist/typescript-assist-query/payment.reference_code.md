@@ -9,7 +9,7 @@ Type: `string`
 | Capability | Generated API |
 | --- | --- |
 | Select | `selectReferenceCode()` |
-| Equality/set | `withReferenceCodeIs(value)`, `withReferenceCodeIsNot(value)`, `withReferenceCodeIn(values)`, `withReferenceCodeNotIn(values)` |
+| Equality/set | `withReferenceCodeIs(value)`, `withReferenceCodeIsNot(value)`, `withReferenceCodeIn(...values)`, `withReferenceCodeNotIn(...values)` |
 | Comparison | `withReferenceCodeGreaterThan(value)`, `withReferenceCodeGreaterThanOrEqualTo(value)`, `withReferenceCodeLessThan(value)`, `withReferenceCodeLessThanOrEqualTo(value)`, `withReferenceCodeBetween(lower, upper)` |
 | Null state | `withReferenceCodeIsKnown()`, `withReferenceCodeIsUnknown()` |
 | String | `withReferenceCodeContaining(value)`, `withReferenceCodeNotContaining(value)`, `withReferenceCodeStartingWith(value)`, `withReferenceCodeEndingWith(value)`, `withReferenceCodeSoundingLike(value)` |

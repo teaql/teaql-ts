@@ -1344,8 +1344,20 @@ class AbstractSQLTeaQLClient {
         if (execution.optimized)
             execution.runtime.observe('CURSOR_SEEK', execution.cursorId);
     }
-    async *executeForStream(query, chunkSize = 1000) {
-        query = (query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query)).query;
+    executeForStream(query, chunkSize = 1000) {
+        // Capture before returning the lazy iterator. No SQL/cursor is opened here.
+        // Preserve the asynchronous failure contract, but never re-read a builder
+        // that the caller may "repair" or repurpose before the first poll.
+        try {
+            const request = query instanceof request_intent_1.QueryRequest
+                ? new request_intent_1.QueryRequest(query.query, query.intent) : new request_intent_1.QueryRequest(query);
+            return this.executeCapturedStream(request.query, chunkSize);
+        }
+        catch (error) {
+            return (async function* () { throw error; })();
+        }
+    }
+    async *executeCapturedStream(query, chunkSize) {
         if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
             throw new Error('stream chunk size must be a positive integer');
         }

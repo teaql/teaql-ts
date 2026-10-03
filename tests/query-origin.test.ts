@@ -157,3 +157,61 @@ test('overlapping counts share an immutable source, never owned intent',async()=
     expect(JSON.stringify(f.logs)).not.toMatch(/PRIVATE-CHILD-COUNT-CANARY|mutated caller/);
   } finally {await f.client.close();}
 });
+
+test('stream captures nested input and intent before its first poll without opening a cursor',async()=>{
+  const f=await fixture();
+  const streamCall=jest.spyOn(f.driver,'stream');
+  try {
+    const stream=f.client.executeForStream(f.query,1);
+    expect(streamCall).not.toHaveBeenCalled();expect(f.reads).not.toHaveBeenCalled();expect(f.logs).toHaveLength(0);
+    f.query.comment('replaced caller comment').purpose('replaced purpose');
+    f.query.filterCondition.marker.$eq='no matching root';
+    f.child.filterCondition.name.$eq='no matching child';
+    const rows:any[]=[];
+    for await(const chunk of stream)rows.push(...chunk);
+    expect(rows.map(row=>row.id)).toEqual([2,3]);
+    expect(rows.map(row=>row.children.length)).toEqual([1,1]);
+    expect(streamCall).toHaveBeenCalledTimes(1);
+    for(const entry of f.logs){expect(entry.comment).toContain(visible);expect(entry.purpose).toContain(visible);}
+    expect(JSON.stringify(f.logs)).not.toMatch(/PRIVATE-CHILD-COUNT-CANARY|CHILD-PASSWORD-CANARY|replaced caller|replaced purpose/);
+  } finally {await f.client.close();}
+});
+
+test('two delayed streams from one mutable builder keep distinct captured requests',async()=>{
+  const f=await fixture();
+  try {
+    const secondQuery=f.query.clone().comment('first '+secret).purpose('first purpose');
+    const first=f.client.executeForStream(secondQuery,1);
+    secondQuery.filter({id:{$eq:3}}).offset(0).comment('second '+secret).purpose('second purpose');
+    const second=f.client.executeForStream(secondQuery,1);
+    secondQuery.filterCondition.id.$eq=999;secondQuery.comment('changed second');
+    const collect=async(stream:AsyncIterable<any[]>)=>{const rows:any[]=[];for await(const chunk of stream)rows.push(...chunk);return rows;};
+    const rows=await Promise.all([collect(first),collect(second)]);
+    expect(rows.map(result=>result.map(row=>row.id))).toEqual([[2,3],[3]]);
+    expect(new Set(f.logs.map(entry=>entry.purpose))).toEqual(new Set(['first purpose','second purpose']));
+    expect(JSON.stringify(f.logs)).not.toMatch(/PRIVATE-CHILD-COUNT-CANARY|CHILD-PASSWORD-CANARY|changed second/);
+  } finally {await f.client.close();}
+});
+
+test.each(['comment','purpose'] as const)('invalid captured stream %s cannot be repaired by mutating its builder',async field=>{
+  const f=await fixture();
+  try {
+    f.query[field](' ');
+    const stream=f.client.executeForStream(f.query,1);
+    const iterator=stream[Symbol.asyncIterator]();
+    f.query[field]('repaired too late');
+    try {await expect(iterator.next()).rejects.toMatchObject({code:field==='comment'?'REQUEST_COMMENT_REQUIRED':'QUERY_PURPOSE_REQUIRED'});}
+    finally {await iterator.return?.();}
+    expect(f.logs).toHaveLength(0);expect(f.reads).not.toHaveBeenCalled();
+  } finally {await f.client.close();}
+});
+
+test('abandoning a never-polled stream produces no physical SQL fact',async()=>{
+  const f=await fixture();
+  const streamCall=jest.spyOn(f.driver,'stream');
+  try {
+    const iterator=f.client.executeForStream(f.query,1)[Symbol.asyncIterator]();
+    await iterator.return?.();
+    expect(f.logs).toHaveLength(0);expect(f.reads).not.toHaveBeenCalled();expect(streamCall).not.toHaveBeenCalled();
+  } finally {await f.client.close();}
+});

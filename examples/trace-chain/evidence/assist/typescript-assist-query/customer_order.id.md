@@ -9,7 +9,7 @@ Type: `id`
 | Capability | Generated API |
 | --- | --- |
 | Select | `selectId()` |
-| Equality/set | `withIdIs(value)`, `withIdIsNot(value)`, `withIdIn(values)`, `withIdNotIn(values)` |
+| Equality/set | `withIdIs(value)`, `withIdIsNot(value)`, `withIdIn(...values)`, `withIdNotIn(...values)` |
 | Comparison | `withIdGreaterThan(value)`, `withIdGreaterThanOrEqualTo(value)`, `withIdLessThan(value)`, `withIdLessThanOrEqualTo(value)`, `withIdBetween(lower, upper)` |
 | Null state | `withIdIsKnown()`, `withIdIsUnknown()` |
 | Order | `orderByIdAscending()`, `orderByIdDescending()` |

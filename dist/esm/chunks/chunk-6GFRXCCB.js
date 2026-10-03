@@ -1347,8 +1347,17 @@ var AbstractSQLTeaQLClient = class {
     }
     if (execution.optimized) execution.runtime.observe("CURSOR_SEEK", execution.cursorId);
   }
-  async *executeForStream(query, chunkSize = 1e3) {
-    query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
+  executeForStream(query, chunkSize = 1e3) {
+    try {
+      const request = query instanceof QueryRequest ? new QueryRequest(query.query, query.intent) : new QueryRequest(query);
+      return this.executeCapturedStream(request.query, chunkSize);
+    } catch (error) {
+      return (async function* () {
+        throw error;
+      })();
+    }
+  }
+  async *executeCapturedStream(query, chunkSize) {
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
       throw new Error("stream chunk size must be a positive integer");
     }
@@ -1602,4 +1611,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-7IVZUFBD.js.map
+//# sourceMappingURL=chunk-6GFRXCCB.js.map

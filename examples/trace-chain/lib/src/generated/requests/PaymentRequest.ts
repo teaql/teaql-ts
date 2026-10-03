@@ -561,18 +561,21 @@ export class PaymentRequest {
         return { data, totalCount, offset, limit };
     }
 
-    private async *executeForStreamInternal(context: UserContext, chunkSize: number): AsyncIterable<Payment> {
+    private executeForStreamInternal(context: UserContext, chunkSize: number): AsyncIterable<Payment> {
         this.ensureIntent();
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
         const query = context.prepareQuery(this.query.clone());
-        for await (const chunk of service.executeForStream(query, chunkSize)) {
-            for (const entity of chunk) {
-                yield entity instanceof Payment
-                    ? entity
-                    : Payment.fromRecord(entity as Record<string, unknown>, new EntityRoot());
+        const chunks = service.executeForStream(query, chunkSize);
+        return (async function* () {
+            for await (const chunk of chunks) {
+                for (const entity of chunk) {
+                    yield entity instanceof Payment
+                        ? entity
+                        : Payment.fromRecord(entity as Record<string, unknown>, new EntityRoot());
+                }
             }
-        }
+        })();
     }
 
     private ensureIntent(): void {
