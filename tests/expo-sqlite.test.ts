@@ -110,8 +110,9 @@ describe('Expo SQLite TeaQL driver', () => {
         'create local order',
       ),
     );
-    expect(created).toEqual({
+    expect(created).toMatchObject({
       success: true,
+      metadata: { statements: [{ operation: 'insert', affectedRows: 1 }, { operation: 'select', resultCount: 1 }] },
       id: '1',
       version: 1,
       persistedRecord: { id: '1', version: 1, name: 'first', active: true },

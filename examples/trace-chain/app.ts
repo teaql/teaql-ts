@@ -3,7 +3,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { MutationRequest, TraceNode, UserContext } from 'teaql-ts';
-import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore, SqlQueryResult } from 'teaql-ts/sql/core';
+import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore, SQLExecutionMetadata, SqlQueryResult } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
 import { Q } from './lib/src/generated/Q';
 import { E } from './lib/src/generated/E';
@@ -37,6 +37,9 @@ class Client extends AbstractSQLTeaQLClient {
   async executeMutation(mutation: any): Promise<MutationResult> {
     const result = await super.executeMutation(mutation);
     assert(mutation instanceof MutationRequest, 'generated save must pass an owned request');
+    assert.equal(result.metadata?.statements?.length, 2, 'successful save must return write/readback metadata');
+    assert.equal(result.metadata.statements[0].affectedRows, 1);
+    assert.equal(result.metadata.statements[1].resultCount, 1);
     this.commands.push({ entity: mutation.mutation.entity, action: mutation.mutation.action,
       lineage: mutation.traceFor({ entity: mutation.mutation.entity, id: result.id }) });
     return result;
@@ -73,6 +76,20 @@ function expected(graph: ReturnType<typeof construct>, rootReason: string, delet
     [root, ['auditReason', 'Shipment', graph.shipment.id, 'dispatch shipment']]];
 }
 
+function checkPhysicalGraph(entries: readonly SQLExecutionMetadata[], lineages: ReturnType<typeof expected>, reason: string) {
+  assert.deepEqual(entries.map(entry => plain(entry.mutationLineage)), lineages.flatMap(lineage => [lineage, lineage]));
+  for (let index = 0; index < lineages.length; index++) {
+    const write = entries[index * 2], read = entries[index * 2 + 1];
+    assert.notEqual(write.operation, 'select'); assert.equal(write.affectedRows, 1);
+    assert.equal(read.operation, 'select'); assert.equal(read.resultCount, 1);
+    assert.equal(read.executionOutcome, 'success'); assert.equal(read.comment, reason);
+    assert.equal(read.purpose, 'verify persisted mutation result');
+    assert.deepEqual(read.tracePath.map(node => node.kind), ['operation', 'request', 'provider', 'sql']);
+    assert.equal(read.tracePath[0].name, 'CustomerOrder'); assert.equal(read.tracePath[0].detail, 'query');
+    assert.deepEqual(read.mutationLineage, write.mutationLineage);
+  }
+}
+
 async function main() {
   const driver = new Driver(database);
   const client = new Client(driver).install(GENERATED_RUNTIME_MODULE).setDiagnosticSQLLogSink(undefined);
@@ -85,6 +102,17 @@ async function main() {
   });
   try {
     await context.ensureSchema(); await context.ensureSchema();
+    // Fixture setup through the runtime allocator, not generated ID setters or
+    // application SQL. Reserve unused IDs and align the two sequence floors so
+    // retained databases with different per-type histories still exercise the
+    // same-numeric-ID boundary. Gaps are intentional; no business row is reset.
+    await driver.transaction(async session => {
+      const rootID = await driver.nextId(session, 'CustomerOrder');
+      const paymentID = await driver.nextId(session, 'Payment');
+      const floor = String(Math.max(Number(rootID), Number(paymentID)));
+      await driver.ensureIdFloor(session, 'CustomerOrder', floor);
+      await driver.ensureIdFloor(session, 'Payment', floor);
+    });
     const roots = await Q.platforms().limit(2).comment('read default root').purpose('verify idempotent bootstrap').executeForList(context);
     assert.equal(roots.length, 1); assert.equal(E.platform(roots[0]).id().eval(), '1');
     checks.push('generated bootstrap twice');
@@ -94,9 +122,9 @@ async function main() {
     await graph.order.auditAs('submit order').save(context);
     assert.equal(client.commands.length, 6);
     assert.deepEqual(client.commands.map(command => plain(command.lineage)), expected(graph, 'submit order'));
-    assert.deepEqual(sql.snapshot().map(entry => plain(entry.mutationLineage)), expected(graph, 'submit order'));
+    checkPhysicalGraph(sql.snapshot(), expected(graph, 'submit order'), 'submit order');
     assert.deepEqual(audits.map(event => plain(event.mutationLineage)), expected(graph, 'submit order'));
-    assert.equal(graph.order.id, graph.payment.id, 'fresh per-type sequence IDs are shared in this fixture');
+    assert.equal(graph.order.id, graph.payment.id, 'aligned fixture must exercise same-ID/different-type identity');
     checks.push('generated six creates with assigned IDs and branch-local lineage');
 
     client.commands.length = 0; audits.length = 0; sql.enableAll();
@@ -108,7 +136,7 @@ async function main() {
     graph.shipment.updateReferenceCode('fixture-shipment-updated');
     await graph.order.auditAs('submit order').save(context);
     assert.deepEqual(client.commands.map(command => plain(command.lineage)), expected(graph, 'submit order', true));
-    assert.deepEqual(sql.snapshot().map(entry => plain(entry.mutationLineage)), expected(graph, 'submit order', true));
+    checkPhysicalGraph(sql.snapshot(), expected(graph, 'submit order', true), 'submit order');
     assert.deepEqual(audits.map(event => plain(event.mutationLineage)), expected(graph, 'submit order', true));
     assert(sql.snapshot().every(entry => entry.auditReason === 'submit order' && entry.tracePath[0].name === 'CustomerOrder'));
     assert.deepEqual(client.commands.map(command => command.action), ['Update', 'Update', 'Delete', 'Update', 'Update', 'Update']);
@@ -135,7 +163,7 @@ async function main() {
       second.order.auditAs('second independent operation').save(context)]);
     for (const [graph, reason] of [[first, 'first independent operation'], [second, 'second independent operation']] as const) {
       assert.deepEqual(audits.filter(event => event.reason === reason).map(event => plain(event.mutationLineage)), expected(graph, reason));
-      assert.deepEqual(sql.snapshot().filter(entry => entry.auditReason === reason).map(entry => plain(entry.mutationLineage)), expected(graph, reason));
+      checkPhysicalGraph(sql.snapshot().filter(entry => entry.auditReason === reason), expected(graph, reason), reason);
     }
     checks.push('generated overlapping graph saves on the same Context');
 

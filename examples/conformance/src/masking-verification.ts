@@ -80,9 +80,10 @@ export async function verifyMaskingLifecycle(): Promise<void> {
       await create('31', graph);
     }),/could not be read back/);
     assert.deepEqual(entries.map(entry=>[entry.operation,entry.executionOutcome]),[
-      ['insert','success'],['insert','success'],['select','success'],
+      ['insert','success'],['select','success'],['insert','success'],['select','success'],
     ]);
-    assert.equal(entries[2].resultCount,0);
+    assert.equal(entries[1].resultCount,1);
+    assert.equal(entries[3].resultCount,0);
     assert(!JSON.stringify([entries,output]).match(/Riverside|PASSWORD-CANARY/));
     assert.equal((await driver.query('SELECT * FROM masking_probe WHERE id IN (30,31,777)')).rowCount,0);
     assert.equal((await driver.query('SELECT * FROM masking_probe')).rowCount,2);

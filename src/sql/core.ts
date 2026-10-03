@@ -95,6 +95,8 @@ export type MutationResult = {
   version?: number;
   deleted?: boolean;
   persistedRecord?: Record<string, unknown>;
+  /** Trusted internal result; use policy projection before diagnostics. */
+  metadata?: SQLExecutionMetadata;
 };
 
 export interface SqlSession {
@@ -220,6 +222,8 @@ function mutationLogIntent(request: MutationRequest<any>, mutation: any, provide
 }
 
 export type SQLExecutionMetadata = Readonly<{
+  /** Ordered physical children of a logical mutation result. */
+  statements?: readonly SQLExecutionMetadata[];
   operation: SQLExecutionOperation;
   executionOutcome?: SQLExecutionOutcome;
   comment?: string;
@@ -458,34 +462,37 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     intent: SQLLogIntent = {},
     executionOutcome: SQLExecutionOutcome = 'success',
     inherited?: SQLLogBindingSource,
-  ): void {
+  ): SQLExecutionMetadata {
     const isSelect = operation === 'select';
-    if ((isSelect && !this.queryLoggingEnabled) || (!isSelect && !this.mutationLoggingEnabled)) return;
-    if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
+    const logsEnabled = isSelect ? this.queryLoggingEnabled : this.mutationLoggingEnabled;
+    const { targetID, inheritedBindings, ...visibleIntent } = intent;
+    const metadata = Object.freeze({
+      operation, ...visibleIntent, executionOutcome,
+      tracePath: sqlTraceFrames(intent.tracePath ?? []),
+      ...(intent.mutationLineage ? { mutationLineage: cloneTraceNodes(intent.mutationLineage) } : {}),
+      parameterizedSQL, parameters: Object.freeze([...parameters]),
+      // Never build a plaintext SQL copy before the log policy boundary.
+      debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated' as const,
+      parameterLogPolicies: Object.freeze([...(this.bindLogPolicies.get(parameters) ?? parameters.map(() => 'unknown' as const))]),
+      elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
+      resultCount, affectedRows,
+      resultSummary: resultCount !== undefined
+        ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
+          : `statement ${executionOutcome}; row count unknown`,
+    });
+    if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink)) return metadata;
     try {
-      const { targetID, inheritedBindings, ...visibleIntent } = intent;
-      const metadata = Object.freeze({
-        operation, ...visibleIntent, executionOutcome,
-        tracePath: sqlTraceFrames(intent.tracePath ?? []),
-        ...(intent.mutationLineage ? { mutationLineage: cloneTraceNodes(intent.mutationLineage) } : {}),
-        parameterizedSQL, parameters: Object.freeze([...parameters]),
-        // Never build a plaintext SQL copy before the log policy boundary.
-        debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated' as const,
-        parameterLogPolicies: this.bindLogPolicies.get(parameters),
-        elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1_000),
-        resultCount, affectedRows,
-        resultSummary: resultCount !== undefined
-          ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
-            : `statement ${executionOutcome}; row count unknown`,
-      });
       const provenance = inheritedBindings && inherited
         ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
       const projected = projectSQLLog(metadata, provenance, targetID === undefined ? [] : [targetID]);
       // Runtime diagnostics are fail-open and each sink is independent. A
       // broken application sink must not roll back a successful SQL mutation.
       try { this.telemetrySink?.record(projected); } catch { /* diagnostic sink failed */ }
-      try { this.diagnosticSQLLogSink?.write(projected); } catch { /* diagnostic sink failed */ }
+      if (logsEnabled) {
+        try { this.diagnosticSQLLogSink?.write(projected); } catch { /* diagnostic sink failed */ }
+      }
     } catch { /* projection failure must not alter database execution */ }
+    return metadata;
   }
 
   private queryLogIntent(query: any): SQLLogIntent {
@@ -499,6 +506,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     intent: SQLLogIntent,
     execute: () => Promise<SqlQueryResult>,
     inherited?: SQLLogBindingSource,
+    statements?: SQLExecutionMetadata[],
   ): Promise<SqlQueryResult> {
     const startedAt = Date.now();
     let result: SqlQueryResult;
@@ -506,12 +514,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     catch (error) {
       // No exception text/cause/driver object enters a diagnostic sink. Preserve
       // the original error for the caller, even if a sink itself is broken.
-      try { this.recordSQL(operation, sql, values, startedAt, undefined, undefined, intent, 'failure', inherited); }
+      try {
+        const metadata = this.recordSQL(operation, sql, values, startedAt, undefined, undefined, intent, 'failure', inherited);
+        statements?.push(metadata);
+      }
       finally { throw error; }
     }
-    this.recordSQL(operation, sql, values, startedAt,
+    const metadata = this.recordSQL(operation, sql, values, startedAt,
       operation === 'select' ? result.rowCount : undefined,
       operation === 'select' ? undefined : result.rowCount, intent, 'success', inherited);
+    statements?.push(metadata);
     return result;
   }
 
@@ -747,6 +759,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
       const table = this.driver.identifier(schema.table);
+      const statements: SQLExecutionMetadata[] = [];
       const result = await observeRuntimeOperation(this.runtimeTelemetry, {
         family: 'provider',
         name: `${this.driver.databaseKind}.mutation`,
@@ -778,12 +791,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
         const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
         const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'insert', id);
-        await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values));
+        await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values), undefined, statements);
         return {
           success: true,
           id,
           version,
-          persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values),
+          persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values, statements),
         };
       }
 
@@ -815,14 +828,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
           `WHERE ${predicates.join(' AND ')}`;
         const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'update', String(mutation.id));
-        const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values));
+        const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values), undefined, statements);
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
           );
         }
         const persistedRecord = await this.readPersistedRecord(
-          session, schema, String(mutation.id), intent, sql, values,
+          session, schema, String(mutation.id), intent, sql, values, statements,
         );
         return {
           success: true,
@@ -849,14 +862,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
           `WHERE ${predicates.join(' AND ')}`;
         const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id));
-        const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values));
+        const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values), undefined, statements);
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
           );
         }
         const persistedRecord = await this.readPersistedRecord(
-          session, schema, String(mutation.id), intent, sql, values,
+          session, schema, String(mutation.id), intent, sql, values, statements,
         );
         return {
           success: true,
@@ -899,7 +912,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         try { await publish(); } catch (error) { throw new GraphCommittedError(error); }
       }
       scope.success();
-      return result;
+      return { ...result, metadata: Object.freeze({ ...statements[0], statements: Object.freeze([...statements]) }) };
     } catch (error) {
       scope.failure(error);
       throw error;
@@ -909,6 +922,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private async readPersistedRecord(
     session: SqlSession, schema: EntitySchema, id: string,
     intent: SQLLogIntent, writeSQL: string, writeValues: any[],
+    statements: SQLExecutionMetadata[],
   ): Promise<Record<string, unknown>> {
     const projection = Object.entries(schema.columns).map(([field, column]) =>
       `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`,
@@ -919,29 +933,32 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
     const startedAt = Date.now();
     let result: SqlQueryResult | undefined;
+    const inherited: SQLLogBindingSource = { parameterizedSQL: writeSQL, parameters: writeValues,
+      parameterLogPolicies: this.bindLogPolicies.get(writeValues), sqlOrigin: 'generated' };
+    const root = intent.tracePath?.find(node => node.kind === 'operation')?.name ?? 'unknown';
+    const path = canonicalSQLTracePath([
+      ...queryTraceSource(root, intent.auditReason!, 'verify persisted mutation result'),
+      ...(intent.tracePath ?? []).filter(node => node.kind === 'relation'),
+    ], this.driver.databaseKind, 'select');
+    const readIntent = { ...intent, tracePath: sqlTraceFrames(path.tracePath),
+      comment: intent.auditReason, purpose: 'verify persisted mutation result' };
+    const recordReadback = (outcome: SQLExecutionOutcome) => statements.push(
+      this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined, readIntent, outcome, inherited));
+    let record: Record<string, unknown>;
     try {
       result = await session.query(sql, values);
       if (result.rowCount !== 1) throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
-      return this.decodeRowForSchema(schema, result.rows[0]);
+      record = this.decodeRowForSchema(schema, result.rows[0]);
     } catch (error) {
       // Write success remains a separate statement fact. A snapshot validation
       // failure means SELECT success with its real count, not a driver failure.
       const outcome: SQLExecutionOutcome = result ? 'success'
         : error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
           ? 'cancelled' : 'failure';
-      const inherited: SQLLogBindingSource = { parameterizedSQL: writeSQL, parameters: writeValues,
-        parameterLogPolicies: this.bindLogPolicies.get(writeValues), sqlOrigin: 'generated' };
-      try {
-        const root = intent.tracePath?.find(node => node.kind === 'operation')?.name ?? 'unknown';
-        const path = canonicalSQLTracePath([
-          ...queryTraceSource(root, intent.auditReason!, 'verify persisted mutation result'),
-          ...(intent.tracePath ?? []).filter(node => node.kind === 'relation'),
-        ], this.driver.databaseKind, 'select');
-        this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined,
-          { ...intent, tracePath: sqlTraceFrames(path.tracePath),
-            comment: intent.auditReason, purpose: 'verify persisted mutation result' }, outcome, inherited);
-      } finally { throw error; }
+      try { recordReadback(outcome); } finally { throw error; }
     }
+    recordReadback('success');
+    return record;
   }
 
   private decodeRowForSchema(schema: EntitySchema, row: any): Record<string, unknown> {

@@ -30,6 +30,13 @@ normative fixture intentionally compares per-type IDs, whereas the ownership
 suite creates a different number of records per type. Neither suite deletes its
 database between runs.
 
+The normative fixture explicitly reserves unused IDs and raises CustomerOrder
+and Payment sequence floors through the runtime allocator before each run.
+This creates a repeatable same-numeric-ID case even when historical counters
+differ; it never rewrites business rows or guesses a generated ID setter.
+Only this test setup creates intentional sequence gaps. Business records are
+still created/updated/deleted through generated APIs.
+
 The page suite uses `.local/paging.sqlite` (override with
 `TEAQL_TRACE_CHAIN_PAGE_DB`). It tests a nonzero-offset page, a page scoped by
 an application Context, a list and a chunked stream. Each selected root and its
@@ -62,6 +69,15 @@ The six checks cover:
 5. Two overlapping independent graph saves using the same UserContext.
 6. Provider failure and write-success/readback-failure: retained SQL evidence,
    atomic rollback and no committed audit.
+
+Each successful generated mutation also returns physical write/readback metadata.
+Six graph changes produce twelve ordered SQL facts, while committed audit still
+contains six events. Readbacks use the originating root's query/request path,
+keep branch-local lineage and have the explicit purpose `verify persisted
+mutation result`. The same checks cover creates, updates, soft deletion and
+overlapping graph saves; failed graphs retain earlier successful SELECTs without
+emitting committed audits. Generated Q/E observations remain ordinary queries,
+distinct from mutation readback SQL.
 
 The four ownership checks additionally execute:
 

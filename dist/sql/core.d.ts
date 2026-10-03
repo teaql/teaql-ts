@@ -45,6 +45,8 @@ export type MutationResult = {
     version?: number;
     deleted?: boolean;
     persistedRecord?: Record<string, unknown>;
+    /** Trusted internal result; use policy projection before diagnostics. */
+    metadata?: SQLExecutionMetadata;
 };
 export interface SqlSession {
     query(sql: string, values?: any[]): Promise<SqlQueryResult>;
@@ -84,6 +86,8 @@ export type SQLTraceFrame = TraceNode & Readonly<{
     level: number;
 }>;
 export type SQLExecutionMetadata = Readonly<{
+    /** Ordered physical children of a logical mutation result. */
+    statements?: readonly SQLExecutionMetadata[];
     operation: SQLExecutionOperation;
     executionOutcome?: SQLExecutionOutcome;
     comment?: string;

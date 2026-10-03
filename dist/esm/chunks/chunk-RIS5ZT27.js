@@ -574,6 +574,7 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
   }
   const projected = Object.freeze({
     ...metadata,
+    ...metadata.statements ? { statements: Object.freeze(metadata.statements.map((statement) => projectWithPolicy(statement, allow, inheritSQLLogBindings(metadata, inherited), intentValues))) } : {},
     parameterizedSQL: unsafeSQL ? redactedSQL : metadata.sqlOrigin === "generated" ? metadata.parameterizedSQL : scrubLogText(metadata.parameterizedSQL, secrets),
     parameters: Object.freeze(safeValues),
     parameterLogPolicies: Object.freeze(policies),
@@ -1764,4 +1765,4 @@ export {
   mergeRuntimeBootstrap,
   RuntimeModule
 };
-//# sourceMappingURL=chunk-DBADSS6U.js.map
+//# sourceMappingURL=chunk-RIS5ZT27.js.map

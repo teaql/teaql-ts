@@ -103,11 +103,13 @@ it('retains all six native graph lineages at request, physical SQL, and committe
       [root, ['auditReason', 'Shipment', '1', 'dispatch shipment']],
       [root, ['auditReason', 'OrderItem', '2', 'remove unavailable item']]];
     expect(commands.map(reasons)).toEqual(expected);
-    expect(sql.snapshot().map(entry => reasons(entry.mutationLineage))).toEqual(expected);
+    expect(sql.snapshot().map(entry => reasons(entry.mutationLineage))).toEqual(expected.flatMap(lineage => [lineage, lineage]));
     expect(audit.map(event => reasons(event.mutationLineage))).toEqual(expected);
-    expect(sql.snapshot().map(entry => entry.auditReason)).toEqual(Array(6).fill('submit order'));
+    expect(sql.snapshot().map(entry => entry.auditReason)).toEqual(Array(12).fill('submit order'));
     expect(sql.snapshot().every(entry => entry.tracePath[0].name === 'Order')).toBe(true);
-    expect(sql.snapshot().map(entry => entry.operation)).toEqual(['update', 'update', 'update', 'update', 'update', 'delete']);
+    expect(sql.snapshot().map(entry => entry.operation)).toEqual(['update', 'update', 'update', 'update', 'update', 'delete'].flatMap(op => [op, 'select']));
+    expect(sql.snapshot().filter(entry => entry.operation === 'select').every(entry => entry.resultCount === 1
+      && entry.tracePath.map(node => node.kind).join('/') === 'operation/request/provider/sql')).toBe(true);
     expect(audit.every(event => Object.isFrozen(event.mutationLineage))).toBe(true);
   } finally { await f.client.close(); }
 });
@@ -124,17 +126,22 @@ it('materializes database-assigned IDs and preserves independent concurrent grap
     return f.client.executeMutation(childRequest);
   });
   try {
-    await Promise.all([create('first operation'), create('second operation')]);
+    const results = await Promise.all([create('first operation'), create('second operation')]);
     const audit = f.client.auditTrace;
     expect(audit).toHaveLength(4);
     for (const [index, reason] of ['first operation', 'second operation'].entries()) {
+      expect(results[index].metadata?.auditReason).toBe(reason);
+      expect(results[index].metadata?.statements?.map(entry => entry.operation)).toEqual(['insert', 'select']);
       const entries = sql.snapshot().filter(entry => entry.auditReason === reason);
-      expect(entries).toHaveLength(2);
-      expect(reasons(entries[1].mutationLineage)).toEqual([
+      expect(entries).toHaveLength(4);
+      expect(entries.map(entry => entry.operation)).toEqual(['insert', 'select', 'insert', 'select']);
+      expect(reasons(entries[3].mutationLineage)).toEqual([
         ['auditReason', 'Order', String(index + 1), reason],
         ['auditReason', 'Payment', String(index + 1), 'authorize payment'],
       ]);
-      expect(reasons(audit[index * 2 + 1].mutationLineage)).toEqual(reasons(entries[1].mutationLineage));
+      expect(reasons(entries[2].mutationLineage)).toEqual(reasons(entries[3].mutationLineage));
+      expect(reasons(audit[index * 2 + 1].mutationLineage)).toEqual(reasons(entries[3].mutationLineage));
+      expect(results[index].metadata?.statements?.[1].mutationLineage).toEqual(entries[3].mutationLineage);
     }
   } finally { await f.client.close(); }
 });

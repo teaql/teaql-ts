@@ -50,6 +50,16 @@ retry the operation as an uncommitted write. SQL metadata still distinguishes
 the physical path, root intent and each entity's mutation lineage. Failed
 readback remains a separate SELECT outcome.
 
+Successful SQL mutations also retain the actual persisted-row SELECT, not just
+failed readbacks. `MutationResult.metadata` is a trusted internal logical write
+summary; its frozen `statements` array contains ordered write/SELECT facts.
+There is no additional query for tracing. Safe sinks receive each physical fact
+once with inherited intent and per-item lineage, without double-counting audits.
+Query/mutation log switches control diagnostic output independently; an installed
+evidence sink and returned raw result metadata remain available when logs are
+off. Use the evidence store's own modes to disable evidence collection. Do not
+serialize raw result metadata across a trust boundary or log it directly.
+
 The runtime adapter SPI is intentionally changed to
 `executeGraphSave(intent, async graph => ...)`; adapter code must create each
 request with `graph.request(...)`. Regenerate domain libraries rather than

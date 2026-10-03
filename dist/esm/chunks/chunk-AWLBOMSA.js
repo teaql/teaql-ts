@@ -16,7 +16,7 @@ import {
   projectSQLLog,
   queryDiagnosticOrigin,
   queryTraceSource
-} from "./chunk-DBADSS6U.js";
+} from "./chunk-RIS5ZT27.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -282,59 +282,63 @@ var AbstractSQLTeaQLClient = class {
   }
   recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows, intent = {}, executionOutcome = "success", inherited) {
     const isSelect = operation === "select";
-    if (isSelect && !this.queryLoggingEnabled || !isSelect && !this.mutationLoggingEnabled) return;
-    if (!this.telemetrySink && !this.diagnosticSQLLogSink) return;
+    const logsEnabled = isSelect ? this.queryLoggingEnabled : this.mutationLoggingEnabled;
+    const { targetID, inheritedBindings, ...visibleIntent } = intent;
+    const metadata = Object.freeze({
+      operation,
+      ...visibleIntent,
+      executionOutcome,
+      tracePath: sqlTraceFrames(intent.tracePath ?? []),
+      ...intent.mutationLineage ? { mutationLineage: cloneTraceNodes(intent.mutationLineage) } : {},
+      parameterizedSQL,
+      parameters: Object.freeze([...parameters]),
+      // Never build a plaintext SQL copy before the log policy boundary.
+      debugSQL: "",
+      databaseKind: this.driver.databaseKind,
+      sqlOrigin: "generated",
+      parameterLogPolicies: Object.freeze([...this.bindLogPolicies.get(parameters) ?? parameters.map(() => "unknown")]),
+      elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1e3),
+      resultCount,
+      affectedRows,
+      resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
+    });
+    if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink)) return metadata;
     try {
-      const { targetID, inheritedBindings, ...visibleIntent } = intent;
-      const metadata = Object.freeze({
-        operation,
-        ...visibleIntent,
-        executionOutcome,
-        tracePath: sqlTraceFrames(intent.tracePath ?? []),
-        ...intent.mutationLineage ? { mutationLineage: cloneTraceNodes(intent.mutationLineage) } : {},
-        parameterizedSQL,
-        parameters: Object.freeze([...parameters]),
-        // Never build a plaintext SQL copy before the log policy boundary.
-        debugSQL: "",
-        databaseKind: this.driver.databaseKind,
-        sqlOrigin: "generated",
-        parameterLogPolicies: this.bindLogPolicies.get(parameters),
-        elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1e3),
-        resultCount,
-        affectedRows,
-        resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
-      });
       const provenance = inheritedBindings && inherited ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
       const projected = projectSQLLog(metadata, provenance, targetID === void 0 ? [] : [targetID]);
       try {
         this.telemetrySink?.record(projected);
       } catch {
       }
-      try {
-        this.diagnosticSQLLogSink?.write(projected);
-      } catch {
+      if (logsEnabled) {
+        try {
+          this.diagnosticSQLLogSink?.write(projected);
+        } catch {
+        }
       }
     } catch {
     }
+    return metadata;
   }
   queryLogIntent(query) {
     const request = new QueryRequest(query);
     const path = canonicalSQLTracePath(request.traceSource, this.driver.databaseKind, "select");
     return { comment: request.comment, purpose: request.purpose, tracePath: sqlTraceFrames(path.tracePath) };
   }
-  async executeLoggedSQL(operation, sql, values, intent, execute, inherited) {
+  async executeLoggedSQL(operation, sql, values, intent, execute, inherited, statements) {
     const startedAt = Date.now();
     let result;
     try {
       result = await execute();
     } catch (error) {
       try {
-        this.recordSQL(operation, sql, values, startedAt, void 0, void 0, intent, "failure", inherited);
+        const metadata2 = this.recordSQL(operation, sql, values, startedAt, void 0, void 0, intent, "failure", inherited);
+        statements?.push(metadata2);
       } finally {
         throw error;
       }
     }
-    this.recordSQL(
+    const metadata = this.recordSQL(
       operation,
       sql,
       values,
@@ -345,6 +349,7 @@ var AbstractSQLTeaQLClient = class {
       "success",
       inherited
     );
+    statements?.push(metadata);
     return result;
   }
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */
@@ -573,6 +578,7 @@ var AbstractSQLTeaQLClient = class {
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
       const table = this.driver.identifier(schema.table);
+      const statements = [];
       const result = await observeRuntimeOperation(this.runtimeTelemetry, {
         family: "provider",
         name: `${this.driver.databaseKind}.mutation`,
@@ -601,12 +607,12 @@ var AbstractSQLTeaQLClient = class {
           this.bindLogPolicies.set(values, fields.map((field) => this.fieldLogPolicy(schema, field)));
           const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
           const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "insert", id);
-          await this.executeLoggedSQL("insert", sql, values, intent, () => session.query(sql, values));
+          await this.executeLoggedSQL("insert", sql, values, intent, () => session.query(sql, values), void 0, statements);
           return {
             success: true,
             id,
             version,
-            persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values)
+            persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values, statements)
           };
         }
         if (mutation.action === "Update") {
@@ -634,7 +640,7 @@ var AbstractSQLTeaQLClient = class {
           }
           const sql = `UPDATE ${table} SET ${assignments.join(", ")} WHERE ${predicates.join(" AND ")}`;
           const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "update", String(mutation.id));
-          const result2 = await this.executeLoggedSQL("update", sql, values, intent, () => session.query(sql, values));
+          const result2 = await this.executeLoggedSQL("update", sql, values, intent, () => session.query(sql, values), void 0, statements);
           if (result2.rowCount !== 1) {
             throw new Error(
               `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`
@@ -646,7 +652,8 @@ var AbstractSQLTeaQLClient = class {
             String(mutation.id),
             intent,
             sql,
-            values
+            values,
+            statements
           );
           return {
             success: true,
@@ -670,7 +677,7 @@ var AbstractSQLTeaQLClient = class {
           }
           const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) WHERE ${predicates.join(" AND ")}`;
           const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "delete", String(mutation.id));
-          const result2 = await this.executeLoggedSQL("delete", sql, values, intent, () => session.query(sql, values));
+          const result2 = await this.executeLoggedSQL("delete", sql, values, intent, () => session.query(sql, values), void 0, statements);
           if (result2.rowCount !== 1) {
             throw new Error(
               `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`
@@ -682,7 +689,8 @@ var AbstractSQLTeaQLClient = class {
             String(mutation.id),
             intent,
             sql,
-            values
+            values,
+            statements
           );
           return {
             success: true,
@@ -728,13 +736,13 @@ var AbstractSQLTeaQLClient = class {
         }
       }
       scope.success();
-      return result;
+      return { ...result, metadata: Object.freeze({ ...statements[0], statements: Object.freeze([...statements]) }) };
     } catch (error) {
       scope.failure(error);
       throw error;
     }
   }
-  async readPersistedRecord(session, schema, id, intent, writeSQL, writeValues) {
+  async readPersistedRecord(session, schema, id, intent, writeSQL, writeValues, statements) {
     const projection = Object.entries(schema.columns).map(
       ([field, column]) => `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`
     ).join(", ");
@@ -743,44 +751,41 @@ var AbstractSQLTeaQLClient = class {
     this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, "id")]);
     const startedAt = Date.now();
     let result;
+    const inherited = {
+      parameterizedSQL: writeSQL,
+      parameters: writeValues,
+      parameterLogPolicies: this.bindLogPolicies.get(writeValues),
+      sqlOrigin: "generated"
+    };
+    const root = intent.tracePath?.find((node) => node.kind === "operation")?.name ?? "unknown";
+    const path = canonicalSQLTracePath([
+      ...queryTraceSource(root, intent.auditReason, "verify persisted mutation result"),
+      ...(intent.tracePath ?? []).filter((node) => node.kind === "relation")
+    ], this.driver.databaseKind, "select");
+    const readIntent = {
+      ...intent,
+      tracePath: sqlTraceFrames(path.tracePath),
+      comment: intent.auditReason,
+      purpose: "verify persisted mutation result"
+    };
+    const recordReadback = (outcome) => statements.push(
+      this.recordSQL("select", sql, values, startedAt, result?.rowCount, void 0, readIntent, outcome, inherited)
+    );
+    let record;
     try {
       result = await session.query(sql, values);
       if (result.rowCount !== 1) throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
-      return this.decodeRowForSchema(schema, result.rows[0]);
+      record = this.decodeRowForSchema(schema, result.rows[0]);
     } catch (error) {
       const outcome = result ? "success" : error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError") ? "cancelled" : "failure";
-      const inherited = {
-        parameterizedSQL: writeSQL,
-        parameters: writeValues,
-        parameterLogPolicies: this.bindLogPolicies.get(writeValues),
-        sqlOrigin: "generated"
-      };
       try {
-        const root = intent.tracePath?.find((node) => node.kind === "operation")?.name ?? "unknown";
-        const path = canonicalSQLTracePath([
-          ...queryTraceSource(root, intent.auditReason, "verify persisted mutation result"),
-          ...(intent.tracePath ?? []).filter((node) => node.kind === "relation")
-        ], this.driver.databaseKind, "select");
-        this.recordSQL(
-          "select",
-          sql,
-          values,
-          startedAt,
-          result?.rowCount,
-          void 0,
-          {
-            ...intent,
-            tracePath: sqlTraceFrames(path.tracePath),
-            comment: intent.auditReason,
-            purpose: "verify persisted mutation result"
-          },
-          outcome,
-          inherited
-        );
+        recordReadback(outcome);
       } finally {
         throw error;
       }
     }
+    recordReadback("success");
+    return record;
   }
   decodeRowForSchema(schema, row) {
     const result = { ...row };
@@ -1611,4 +1616,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-6GFRXCCB.js.map
+//# sourceMappingURL=chunk-AWLBOMSA.js.map

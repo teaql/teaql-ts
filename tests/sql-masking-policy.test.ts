@@ -199,7 +199,10 @@ it('compiles trusted field policies on real SQLite mutations and predicates befo
     expect(output.join('\n')).not.toContain('Riverside');
     expect(output.join('\n')).not.toContain('Parameterized SQL:');
     expect(output.join('\n')).not.toContain('REDACTED SQL');
-    const sql = captured.find(entry => entry.operation === 'select')!;
+    const selects = captured.filter(entry => entry.operation === 'select');
+    expect(selects).toHaveLength(2);
+    expect(selects[0].purpose).toBe('verify persisted mutation result');
+    const sql = selects[1];
     expect(sql.maskedParameters).toEqual([true, true, false, false]);
     await client.executeMutation({ entity: 'Customer', action: 'Update', id: '1', version: created.version,
       payload: { display_name: "O'Reilly" }, comment: 'rename customer' });
