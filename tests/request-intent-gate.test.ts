@@ -27,7 +27,10 @@ async function fixture() {
   const transaction = jest.spyOn(driver, 'transaction');
   const policy = jest.spyOn(context, 'enterMutationPolicy');
   const checker = jest.spyOn(context, 'recordMutationPolicyPreflight');
-  return { driver, client, context, sql, stream, transaction, policy, checker };
+  // SQL clients currently expose no separate Query Policy callback. Observe
+  // the real compilation boundary, not a fabricated policy hook.
+  const compile = jest.spyOn(client as any, 'compileQuery');
+  return { driver, client, context, sql, stream, transaction, policy, checker, compile };
 }
 
 test.each([undefined, null, '', ' \t\r\n', '\u0085', '\u00a0', '\u2003'])
@@ -50,6 +53,7 @@ test.each([undefined, null, '', ' \t\r\n', '\u0085', '\u00a0', '\u2003'])
     }
     expect(f.sql).not.toHaveBeenCalled();
     expect(f.stream).not.toHaveBeenCalled();
+    expect(f.compile).not.toHaveBeenCalled();
   } finally { await f.client.close(); }
 });
 
@@ -120,15 +124,27 @@ test('direct Mutation Policy plan cannot replace a missing root reason with chil
 });
 
 test.each([undefined, null, '', '\u0085', '\u00a0', '\u2003'])
-('rejects query purpose %p before provider access', async purpose => {
+('rejects query purpose %p at list/count/stream/facet boundaries before compilation', async purpose => {
   const f = await fixture();
   try {
     const query = new SelectQuery('Document').comment('load document');
     query.purposeText = purpose as any;
-    await expect(f.client.executeQuery(query)).rejects.toMatchObject({
-      code: 'QUERY_PURPOSE_REQUIRED', field: 'purpose', requestKind: 'query',
-    });
+    for (const logging of [false, true]) {
+      f.client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging);
+      for (const execute of [
+        () => f.client.executeQuery(query),
+        () => f.client.executeCount(query),
+        () => f.client.executeForStream(query)[Symbol.asyncIterator]().next(),
+        () => f.client.executeFacetMembership(query, 'name'),
+      ]) {
+        await expect(execute()).rejects.toMatchObject({
+          code: 'QUERY_PURPOSE_REQUIRED', field: 'purpose', requestKind: 'query',
+        });
+      }
+    }
     expect(f.sql).not.toHaveBeenCalled();
+    expect(f.stream).not.toHaveBeenCalled();
+    expect(f.compile).not.toHaveBeenCalled();
   } finally { await f.client.close(); }
 });
 
