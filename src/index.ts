@@ -4,6 +4,7 @@ export * from './core/request-intent';
 export * from './core/trace-chain';
 export * from './core/mutation-policy';
 export * from './core/entity-root';
+export * from './core/loaded-scalar-snapshot';
 export * from './core/checker';
 export * from './core/object-location';
 export * from './core/wire-fields';

@@ -196,6 +196,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private requireGraphOwnership;
     private withMutationSession;
     preflightMutation(mutation: any): any;
+    private mutationLogBindings;
     private checkAndFixMutation;
     executeMutation(mutation: any): Promise<MutationResult>;
     private readPersistedRecord;

@@ -21,6 +21,7 @@ __exportStar(require("./core/request-intent"), exports);
 __exportStar(require("./core/trace-chain"), exports);
 __exportStar(require("./core/mutation-policy"), exports);
 __exportStar(require("./core/entity-root"), exports);
+__exportStar(require("./core/loaded-scalar-snapshot"), exports);
 __exportStar(require("./core/checker"), exports);
 __exportStar(require("./core/object-location"), exports);
 __exportStar(require("./core/wire-fields"), exports);

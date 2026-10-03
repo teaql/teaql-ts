@@ -1,4 +1,4 @@
-import { CheckException, EntityKey, EntityRoot, GraphMutationSession, MutationIntent, MutationTraceScope, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationIntent, MutationTraceScope, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 import { School } from './School';
 
@@ -41,6 +41,8 @@ export class SchoolType {
         const key = this.teaqlEntityKey();
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, Number((this as any).version));
+        Object.defineProperty(this, "_loadedSnapshot", { value: (this as any)._action === "Update"
+            ? this.teaqlScalarSnapshot() : new LoadedScalarSnapshot(), writable: true, enumerable: false });
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "SchoolType", id: (this as any)._ledgerId }; }
@@ -128,7 +130,7 @@ export class SchoolType {
             version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
-        }));
+        }).withLoadedSnapshot((this as any)._loadedSnapshot));
         for (const [index, child] of (this as any)._schoolList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
             if (this.id === undefined || String((child.schoolType as any)?.id ?? child.schoolType) !== String(this.id))
@@ -159,7 +161,8 @@ export class SchoolType {
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
-        const request = graph.request(mutation, parent, (this as any)._comment);
+        const request = graph.request(mutation, parent, (this as any)._comment)
+            .withLoadedSnapshot((this as any)._loadedSnapshot);
         if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
             const activeScope = request.scopeFor(this.teaqlEntityKey());
             for (const [index, child] of (this as any)._schoolList.entries()) {
@@ -193,6 +196,7 @@ export class SchoolType {
         };
         const oldKey = this.teaqlEntityKey();
         Object.assign(this, result.persistedRecord);
+        const committedSnapshot = this.teaqlScalarSnapshot();
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
@@ -222,6 +226,7 @@ export class SchoolType {
             }
         }
         service.afterGraphCommit(() => {
+            (this as any)._loadedSnapshot = committedSnapshot;
             (this as any)._root.clearEntity(newKey);
             if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
         });
@@ -237,6 +242,16 @@ export class SchoolType {
             "display_order": this.displayOrder,
             "version": this.version
         };
+    }
+
+    private teaqlScalarSnapshot(): LoadedScalarSnapshot {
+        return new LoadedScalarSnapshot({
+            "id": this.id,
+            "name": this.name,
+            "code": this.code,
+            "display_order": this.displayOrder,
+            "version": this.version
+        });
     }
 
     updateId(value: string): this {

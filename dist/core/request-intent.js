@@ -16,6 +16,8 @@ exports.GraphCommittedError = exports.GraphMutationSession = exports.MutationReq
 const trace_chain_1 = require("./trace-chain");
 const log_privacy_1 = require("./log-privacy");
 const query_snapshot_1 = require("./query-snapshot");
+const loaded_scalar_snapshot_1 = require("./loaded-scalar-snapshot");
+const mutationSnapshots = new WeakMap();
 // Only runtime-created snapshots carry provenance. No property supplied by a
 // JSON/builder caller can forge it, and no mutable trace stack lives on Context.
 const querySources = new WeakMap();
@@ -130,6 +132,13 @@ class MutationRequest {
     get intent() { return __classPrivateFieldGet(this, _MutationRequest_intent, "f"); }
     get mutation() { return __classPrivateFieldGet(this, _MutationRequest_mutation, "f"); }
     get comment() { return __classPrivateFieldGet(this, _MutationRequest_intent, "f").comment; }
+    /** @internal Generated hydration/commit provenance, never a wire field. */
+    withLoadedSnapshot(snapshot) {
+        mutationSnapshots.set(this, new loaded_scalar_snapshot_1.LoadedScalarSnapshot(snapshot.values()));
+        return this;
+    }
+    /** @internal Does not become part of the write payload or policy input. */
+    loadedValues() { return mutationSnapshots.get(this)?.values() ?? {}; }
     /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
     get graphSession() { return graphRequests.get(this)?.session; }
     scopeFor(key) {
@@ -145,9 +154,10 @@ class MutationRequest {
         return specific?.length ? (0, trace_chain_1.cloneTraceNodes)(specific) : this.scopeFor(key).recover();
     }
     /** Safe event projection; internal policy intent is never mutated. */
-    auditProjection(key, payload) {
+    auditProjection(key, payload, bindings) {
         const secrets = [...(0, log_privacy_1.logValueStrings)(payload), ...(0, log_privacy_1.logValueStrings)(__classPrivateFieldGet(this, _MutationRequest_mutation, "f").id),
-            ...(0, log_privacy_1.logValueStrings)(this.graphSession?.logBindings?.parameters)];
+            ...(bindings ? (0, log_privacy_1.privateLogValueStrings)(bindings) : (0, log_privacy_1.logValueStrings)(this.loadedValues())),
+            ...(0, log_privacy_1.privateLogValueStrings)(this.graphSession?.logBindings)];
         return Object.freeze({ reason: (0, log_privacy_1.scrubLogText)(this.comment, secrets),
             mutationLineage: (0, trace_chain_1.cloneTraceNodes)(this.traceFor(key).map(node => ({ ...node,
                 detail: (0, log_privacy_1.scrubLogText)(node.detail, secrets) }))) });

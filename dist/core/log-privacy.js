@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.projectSQLLog = exports.inheritSQLLogBindings = exports.scrubLogText = exports.logValueStrings = exports.hasCredentials = exports.credentialName = exports.plaintextLogsEnabled = exports.maskAuditValue = exports.PLAINTEXT_LOG_ACK = exports.PLAINTEXT_LOG_ENV = void 0;
+exports.projectSQLLog = exports.inheritSQLLogBindings = exports.privateLogValueStrings = exports.retainSQLLogProvenance = exports.scrubLogText = exports.logValueStrings = exports.hasCredentials = exports.credentialName = exports.plaintextLogsEnabled = exports.maskAuditValue = exports.PLAINTEXT_LOG_ACK = exports.PLAINTEXT_LOG_ENV = void 0;
 const log_rendering_1 = require("../sql/log-rendering");
 exports.PLAINTEXT_LOG_ENV = 'TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS';
 exports.PLAINTEXT_LOG_ACK = 'I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK';
@@ -64,6 +64,13 @@ const projections = new WeakMap();
 // A debug record can later reach a sink after debug is disabled. Keep only its
 // already-safe alternative, never raw source parameters/provenance on a record.
 const safeAlternatives = new WeakMap();
+const rawProvenance = new WeakMap();
+/** @internal Keep result reprojection safe without serializing raw provenance. */
+function retainSQLLogProvenance(metadata, bindings, intentValues = []) {
+    rawProvenance.set(metadata, { bindings: bindings ? inheritSQLLogBindings(bindings) : undefined,
+        intentValues: Object.freeze(intentValues.map(copyLogValue)) });
+}
+exports.retainSQLLogProvenance = retainSQLLogProvenance;
 function bindingPolicies(metadata) {
     const supplied = metadata.parameterLogPolicies;
     const valid = !!supplied && supplied.length === metadata.parameters.length;
@@ -79,6 +86,14 @@ function bindingPolicies(metadata) {
 function bindingIsMasked(policy, allow) {
     return policy === 'credential' || policy === 'unknown' || (!allow && policy !== 'plain');
 }
+/** Audit is always safe-mode; explicitly public loaded scalars are not secrets. */
+function privateLogValueStrings(source) {
+    if (!source)
+        return [];
+    const policies = bindingPolicies(source);
+    return source.parameters.flatMap((value, index) => bindingIsMasked(policies[index], false) ? logValueStrings(value) : []);
+}
+exports.privateLogValueStrings = privateLogValueStrings;
 function copyLogValue(value) {
     if (value instanceof Date)
         return new Date(value.getTime());
@@ -133,6 +148,11 @@ function projectSQLLog(metadata, inherited, intentValues = []) {
 }
 exports.projectSQLLog = projectSQLLog;
 function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
+    const retained = rawProvenance.get(metadata);
+    if (retained?.bindings)
+        inherited = inheritSQLLogBindings(retained.bindings, inherited);
+    if (retained)
+        intentValues = [...intentValues, ...retained.intentValues];
     const supplied = metadata.parameterLogPolicies;
     const policiesValid = !supplied || supplied.length === metadata.parameters.length;
     // Compiler-owned bindings identify credentials individually. Selecting a

@@ -15,8 +15,9 @@ import {
   mergeRuntimeBootstrap,
   projectSQLLog,
   queryDiagnosticOrigin,
-  queryTraceSource
-} from "./chunk-RIS5ZT27.js";
+  queryTraceSource,
+  retainSQLLogProvenance
+} from "./chunk-JFFK4LZP.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -100,7 +101,7 @@ function sameBootstrapValue(left, right) {
 function sqlTraceFrames(source) {
   return Object.freeze(source.map((node, level) => Object.freeze({ ...node, level })));
 }
-function mutationLogIntent(request, mutation, provider, operation, id) {
+function mutationLogIntent(request, mutation, provider, operation, id, localBindings) {
   const lineage = request.traceFor({ entity: String(mutation.entity), id });
   const path = canonicalSQLTracePath([...lineage, {
     kind: "entity",
@@ -113,7 +114,7 @@ function mutationLogIntent(request, mutation, provider, operation, id) {
     tracePath: sqlTraceFrames(path.tracePath),
     mutationLineage: lineage,
     targetID: id,
-    inheritedBindings: request.graphSession?.logBindings
+    inheritedBindings: inheritSQLLogBindings(localBindings, request.graphSession?.logBindings)
   };
 }
 var TextDiagnosticSQLLogSink = class {
@@ -302,10 +303,11 @@ var AbstractSQLTeaQLClient = class {
       affectedRows,
       resultSummary: resultCount !== void 0 ? `${resultCount} rows returned` : affectedRows !== void 0 ? `${affectedRows} rows affected` : `statement ${executionOutcome}; row count unknown`
     });
+    const provenance = inheritedBindings && inherited ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+    retainSQLLogProvenance(metadata, provenance, targetID === void 0 ? [] : [targetID]);
     if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink)) return metadata;
     try {
-      const provenance = inheritedBindings && inherited ? inheritSQLLogBindings(inherited, inheritedBindings) : inheritedBindings ?? inherited;
-      const projected = projectSQLLog(metadata, provenance, targetID === void 0 ? [] : [targetID]);
+      const projected = projectSQLLog(metadata);
       try {
         this.telemetrySink?.record(projected);
       } catch {
@@ -523,17 +525,23 @@ var AbstractSQLTeaQLClient = class {
     mutation = this.checkAndFixMutation(request);
     if (request.graphSession) {
       const schema = this.schema(mutation.entity);
-      const record = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+      request.graphSession.captureLogBindings(this.mutationLogBindings(request, mutation, schema));
+    }
+    this.userContext.recordMutationPolicyPreflight(mutation);
+    return mutation;
+  }
+  mutationLogBindings(request, mutation, schema) {
+    const source = (values) => {
+      const record = this.toRuntimeMutationRecord(schema, values);
       const fields = Object.keys(record);
-      request.graphSession.captureLogBindings({
+      return {
         parameterizedSQL: "",
         sqlOrigin: "generated",
         parameters: fields.map((field) => record[field]),
         parameterLogPolicies: fields.map((field) => this.fieldLogPolicy(schema, field))
-      });
-    }
-    this.userContext.recordMutationPolicyPreflight(mutation);
-    return mutation;
+      };
+    };
+    return inheritSQLLogBindings(source(mutation.payload || {}), source(request.loadedValues()));
   }
   checkAndFixMutation(mutation) {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
@@ -577,6 +585,7 @@ var AbstractSQLTeaQLClient = class {
       const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
       const schema = this.schema(mutation.entity);
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+      const diagnosticBindings = this.mutationLogBindings(request, mutation, schema);
       const table = this.driver.identifier(schema.table);
       const statements = [];
       const result = await observeRuntimeOperation(this.runtimeTelemetry, {
@@ -606,7 +615,7 @@ var AbstractSQLTeaQLClient = class {
           );
           this.bindLogPolicies.set(values, fields.map((field) => this.fieldLogPolicy(schema, field)));
           const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "insert", id);
+          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "insert", id, diagnosticBindings);
           await this.executeLoggedSQL("insert", sql, values, intent, () => session.query(sql, values), void 0, statements);
           return {
             success: true,
@@ -639,7 +648,7 @@ var AbstractSQLTeaQLClient = class {
             );
           }
           const sql = `UPDATE ${table} SET ${assignments.join(", ")} WHERE ${predicates.join(" AND ")}`;
-          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "update", String(mutation.id));
+          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "update", String(mutation.id), diagnosticBindings);
           const result2 = await this.executeLoggedSQL("update", sql, values, intent, () => session.query(sql, values), void 0, statements);
           if (result2.rowCount !== 1) {
             throw new Error(
@@ -676,7 +685,7 @@ var AbstractSQLTeaQLClient = class {
             );
           }
           const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) WHERE ${predicates.join(" AND ")}`;
-          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "delete", String(mutation.id));
+          const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "delete", String(mutation.id), diagnosticBindings);
           const result2 = await this.executeLoggedSQL("delete", sql, values, intent, () => session.query(sql, values), void 0, statements);
           if (result2.rowCount !== 1) {
             throw new Error(
@@ -702,7 +711,7 @@ var AbstractSQLTeaQLClient = class {
         }
         throw new Error(`Unsupported mutation action: ${mutation.action}`);
       }));
-      const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload);
+      const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload, diagnosticBindings);
       const event = Object.freeze({
         entity: mutation.entity,
         action: mutation.action,
@@ -736,7 +745,9 @@ var AbstractSQLTeaQLClient = class {
         }
       }
       scope.success();
-      return { ...result, metadata: Object.freeze({ ...statements[0], statements: Object.freeze([...statements]) }) };
+      const metadata = Object.freeze({ ...statements[0], statements: Object.freeze([...statements]) });
+      retainSQLLogProvenance(metadata, inheritSQLLogBindings(diagnosticBindings, request.graphSession?.logBindings), [result.id]);
+      return { ...result, metadata };
     } catch (error) {
       scope.failure(error);
       throw error;
@@ -1616,4 +1627,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-AWLBOMSA.js.map
+//# sourceMappingURL=chunk-S3ZI5Y47.js.map

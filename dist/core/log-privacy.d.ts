@@ -8,8 +8,12 @@ export declare function credentialName(name: string): boolean;
 export declare function hasCredentials(value: unknown): boolean;
 export declare function logValueStrings(value: unknown): string[];
 export declare function scrubLogText(text: string | undefined, values: readonly string[]): string | undefined;
+/** @internal Keep result reprojection safe without serializing raw provenance. */
+export declare function retainSQLLogProvenance(metadata: SQLExecutionMetadata, bindings?: SQLLogBindingSource, intentValues?: readonly unknown[]): void;
 /** Internal SQL compiler/runtime plumbing, never a request or wire option. */
 export type SQLLogBindingSource = Pick<SQLExecutionMetadata, 'parameterizedSQL' | 'parameters' | 'parameterLogPolicies' | 'sqlOrigin'>;
+/** Audit is always safe-mode; explicitly public loaded scalars are not secrets. */
+export declare function privateLogValueStrings(source?: SQLLogBindingSource): string[];
 /** Internal compiler plumbing: snapshot and flatten ancestor binding policies.
  * Never attach this raw provenance to a query payload or projected log record. */
 export declare function inheritSQLLogBindings(source: SQLLogBindingSource, inherited?: SQLLogBindingSource): SQLLogBindingSource;

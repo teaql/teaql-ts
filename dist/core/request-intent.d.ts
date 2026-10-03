@@ -2,6 +2,7 @@ import type { MutationQuery, SelectQuery } from './ast';
 import { TraceNode, MutationTraceScope } from './trace-chain';
 import type { EntityKey } from './entity-root';
 import type { SQLLogBindingSource } from './log-privacy';
+import { LoadedScalarSnapshot } from './loaded-scalar-snapshot';
 export type RequestKind = 'query' | 'mutation';
 /** Stable, value-free request-boundary diagnostics. */
 export declare class RequestIntentError extends Error {
@@ -47,12 +48,16 @@ export declare class MutationRequest<T extends object = MutationQuery> {
     get intent(): MutationIntent;
     get mutation(): T;
     get comment(): string;
+    /** @internal Generated hydration/commit provenance, never a wire field. */
+    withLoadedSnapshot(snapshot: LoadedScalarSnapshot): this;
+    /** @internal Does not become part of the write payload or policy input. */
+    loadedValues(): Readonly<Record<string, unknown>>;
     /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
     get graphSession(): GraphMutationSession | undefined;
     scopeFor(key: EntityKey): MutationTraceScope;
     traceFor(key: EntityKey): readonly TraceNode[];
     /** Safe event projection; internal policy intent is never mutated. */
-    auditProjection(key: EntityKey, payload: unknown): Readonly<{
+    auditProjection(key: EntityKey, payload: unknown, bindings?: SQLLogBindingSource): Readonly<{
         reason: string;
         mutationLineage: readonly TraceNode[];
     }>;

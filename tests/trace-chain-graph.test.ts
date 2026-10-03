@@ -5,6 +5,50 @@ import { GraphCommittedError, GraphMutationSession, MutationIntent } from '../sr
 import { EntityRoot } from '../src/core/entity-root';
 import { MutationTraceScope, TraceNode } from '../src/core/trace-chain';
 import { RuntimeModule } from '../src/core/runtime-module';
+import { LoadedScalarSnapshot } from '../src/core/loaded-scalar-snapshot';
+import { projectSQLLog, PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK } from '../src/core/log-privacy';
+
+it('preflights sibling loaded values before any write, without changing the payload', async () => {
+  const f = await fixture();
+  const oldValue = 'PRIVATE-OLD-PAYMENT', newValue = 'PRIVATE-NEW-PAYMENT';
+  const evidence = new SQLExecutionEvidenceStore();
+  try {
+    await f.client.executeMutation({ entity: 'Payment', id: '11', action: 'Create',
+      payload: { name: oldValue }, comment: 'seed prior payment' });
+    f.client.setRuntimeTelemetrySink(evidence);
+    const root = { entity: 'Order', action: 'Create', payload: { name: 'root fixture' } };
+    const child = { entity: 'Payment', id: '11', version: 1, action: 'Update', payload: { name: newValue } };
+    const snapshot = new LoadedScalarSnapshot({ name: oldValue });
+    f.client.setQueryLoggingEnabled(false).setMutationLoggingEnabled(false);
+    await f.client.executeGraphSave(new MutationIntent(`replace ${oldValue} with ${newValue}`), async graph => {
+      f.client.preflightMutation(graph.request(root));
+      f.client.preflightMutation(graph.request(child).withLoadedSnapshot(snapshot));
+      const request = graph.request(root);
+      const saved = await f.client.executeMutation(request);
+      expect(JSON.stringify(projectSQLLog(saved.metadata!))).not.toContain(oldValue);
+      const previous = process.env[PLAINTEXT_LOG_ENV];
+      try {
+        process.env[PLAINTEXT_LOG_ENV] = PLAINTEXT_LOG_ACK;
+        const debug = projectSQLLog(saved.metadata!);
+        expect(debug.auditReason).toContain(oldValue);
+        delete process.env[PLAINTEXT_LOG_ENV];
+        expect(JSON.stringify(projectSQLLog(debug))).not.toContain(oldValue);
+        expect(JSON.stringify(projectSQLLog(saved.metadata!))).not.toContain(newValue);
+      } finally {
+        if (previous === undefined) delete process.env[PLAINTEXT_LOG_ENV];
+        else process.env[PLAINTEXT_LOG_ENV] = previous;
+      }
+      await f.client.executeMutation(graph.request(child, request.scopeFor({ entity: 'Order', id: saved.id }))
+        .withLoadedSnapshot(snapshot));
+    });
+    expect(evidence.snapshot()).toHaveLength(4);
+    expect(JSON.stringify(evidence.snapshot())).not.toContain(oldValue);
+    expect(JSON.stringify(evidence.snapshot())).not.toContain(newValue);
+    expect(JSON.stringify(f.client.auditTrace)).not.toContain(oldValue);
+    expect(child.payload).toEqual({ name: newValue });
+    expect((await f.driver.query('SELECT name FROM payment_data WHERE id = ?', ['11'])).rows[0].name).toBe(newValue);
+  } finally { await f.client.close(); }
+});
 
 const schemas: Record<string, EntitySchema> = { Order: {
   table: 'order_data', auditMaskFields: ['name'], columns: {

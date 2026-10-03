@@ -1,4 +1,4 @@
-import { CheckException, EntityKey, EntityRoot, GraphMutationSession, MutationIntent, MutationTraceScope, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationIntent, MutationTraceScope, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 import { SchoolType } from './SchoolType';
 
@@ -42,6 +42,8 @@ export class School {
         const key = this.teaqlEntityKey();
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, Number((this as any).version));
+        Object.defineProperty(this, "_loadedSnapshot", { value: (this as any)._action === "Update"
+            ? this.teaqlScalarSnapshot() : new LoadedScalarSnapshot(), writable: true, enumerable: false });
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "School", id: (this as any)._ledgerId }; }
@@ -128,7 +130,7 @@ export class School {
             version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
-        }));
+        }).withLoadedSnapshot((this as any)._loadedSnapshot));
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
@@ -146,7 +148,8 @@ export class School {
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
-        const request = graph.request(mutation, parent, (this as any)._comment);
+        const request = graph.request(mutation, parent, (this as any)._comment)
+            .withLoadedSnapshot((this as any)._loadedSnapshot);
         if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
             const activeScope = request.scopeFor(this.teaqlEntityKey());
             return this;
@@ -167,6 +170,7 @@ export class School {
         };
         const oldKey = this.teaqlEntityKey();
         Object.assign(this, result.persistedRecord);
+        const committedSnapshot = this.teaqlScalarSnapshot();
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
@@ -183,6 +187,7 @@ export class School {
         (this as any)._fullyLoaded = false;
         if (mutation.action !== "Delete") (this as any)._action = "Update";
         service.afterGraphCommit(() => {
+            (this as any)._loadedSnapshot = committedSnapshot;
             (this as any)._root.clearEntity(newKey);
             if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
         });
@@ -203,6 +208,20 @@ export class School {
             "update_time": this.updateTime,
             "version": this.version
         };
+    }
+
+    private teaqlScalarSnapshot(): LoadedScalarSnapshot {
+        return new LoadedScalarSnapshot({
+            "id": this.id,
+            "name": this.name,
+            "address": this.address,
+            "established_date": this.establishedDate,
+            "student_capacity": this.studentCapacity,
+            "active": this.active,
+            "create_time": this.createTime,
+            "update_time": this.updateTime,
+            "version": this.version
+        });
     }
 
     updateId(value: string): this {

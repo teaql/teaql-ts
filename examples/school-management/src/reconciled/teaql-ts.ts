@@ -5,7 +5,7 @@ import {
     executeRelationFacets,
 } from "teaql-ts";
 
-export { CheckException, EntityRoot, ObjectLocation, SmartList, UserContext, executeRelationFacets } from "teaql-ts";
+export { CheckException, EntityRoot, LoadedScalarSnapshot, ObjectLocation, SmartList, UserContext, executeRelationFacets } from "teaql-ts";
 export { GraphCommittedError, GraphMutationSession, MutationIntent, MutationRequest, MutationTraceScope, QueryIntent, QueryRequest, RequestIntentError } from "teaql-ts";
 export type { EntityKey } from "teaql-ts";
 export type { TeaQLPage } from "teaql-ts";
@@ -178,7 +178,7 @@ export class TeaQLClient implements TeaQLDataService {
         const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
         mutation = this.checkAndFixMutation(request);
         if (request.graphSession) {
-            const values = Object.values(mutation.payload || {});
+            const values = [...Object.values(mutation.payload || {}), ...Object.values(request.loadedValues())];
             request.graphSession.captureLogBindings({ parameterizedSQL: "", sqlOrigin: "generated",
                 parameters: values, parameterLogPolicies: values.map(() => "unknown" as const) });
         }

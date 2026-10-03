@@ -1,9 +1,12 @@
 import type { MutationQuery, SelectQuery } from './ast';
 import { cloneTraceNodes, queryTraceSource, TraceNode, MutationTraceScope, mutationScopeForEntity } from './trace-chain';
 import type { EntityKey, EntityRoot } from './entity-root';
-import { inheritSQLLogBindings, logValueStrings, scrubLogText } from './log-privacy';
+import { inheritSQLLogBindings, logValueStrings, privateLogValueStrings, scrubLogText } from './log-privacy';
 import type { SQLLogBindingSource } from './log-privacy';
 import { snapshotQuery } from './query-snapshot';
+import { LoadedScalarSnapshot } from './loaded-scalar-snapshot';
+
+const mutationSnapshots = new WeakMap<object, LoadedScalarSnapshot>();
 
 // Only runtime-created snapshots carry provenance. No property supplied by a
 // JSON/builder caller can forge it, and no mutable trace stack lives on Context.
@@ -135,6 +138,14 @@ export class MutationRequest<T extends object = MutationQuery> {
   get mutation(): T { return this.#mutation; }
   get comment(): string { return this.#intent.comment; }
 
+  /** @internal Generated hydration/commit provenance, never a wire field. */
+  withLoadedSnapshot(snapshot: LoadedScalarSnapshot): this {
+    mutationSnapshots.set(this, new LoadedScalarSnapshot(snapshot.values()));
+    return this;
+  }
+  /** @internal Does not become part of the write payload or policy input. */
+  loadedValues(): Readonly<Record<string, unknown>> { return mutationSnapshots.get(this)?.values() ?? {}; }
+
   /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
   get graphSession(): GraphMutationSession | undefined { return graphRequests.get(this)?.session; }
 
@@ -152,11 +163,12 @@ export class MutationRequest<T extends object = MutationQuery> {
   }
 
   /** Safe event projection; internal policy intent is never mutated. */
-  auditProjection(key: EntityKey, payload: unknown): Readonly<{
+  auditProjection(key: EntityKey, payload: unknown, bindings?: SQLLogBindingSource): Readonly<{
     reason: string; mutationLineage: readonly TraceNode[];
   }> {
     const secrets = [...logValueStrings(payload), ...logValueStrings((this.#mutation as any).id),
-      ...logValueStrings(this.graphSession?.logBindings?.parameters)];
+      ...(bindings ? privateLogValueStrings(bindings) : logValueStrings(this.loadedValues())),
+      ...privateLogValueStrings(this.graphSession?.logBindings)];
     return Object.freeze({ reason: scrubLogText(this.comment, secrets)!,
       mutationLineage: cloneTraceNodes(this.traceFor(key).map(node => ({ ...node,
         detail: scrubLogText(node.detail, secrets) }))) });

@@ -8,6 +8,7 @@ import {
   GraphCommittedError,
   GraphMutationSession,
   I18nCatalog,
+  LoadedScalarSnapshot,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
   MutationIntent,
@@ -33,7 +34,7 @@ import {
   mutationScopeForEntity,
   parseLocale,
   queryTraceSource
-} from "./chunks/chunk-RIS5ZT27.js";
+} from "./chunks/chunk-JFFK4LZP.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -2327,6 +2328,7 @@ export {
   GraphMutationSession,
   HTTP_TOOL,
   I18nCatalog,
+  LoadedScalarSnapshot,
   LocalCache,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,

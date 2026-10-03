@@ -91,12 +91,13 @@ function sameBootstrapValue(left, right) {
 function sqlTraceFrames(source) {
     return Object.freeze(source.map((node, level) => Object.freeze({ ...node, level })));
 }
-function mutationLogIntent(request, mutation, provider, operation, id) {
+function mutationLogIntent(request, mutation, provider, operation, id, localBindings) {
     const lineage = request.traceFor({ entity: String(mutation.entity), id });
     const path = (0, trace_chain_1.canonicalSQLTracePath)([...lineage, { kind: 'entity', name: String(mutation.entity),
             entityId: id, detail: '' }], provider, operation);
     return { auditReason: request.comment, tracePath: sqlTraceFrames(path.tracePath),
-        mutationLineage: lineage, targetID: id, inheritedBindings: request.graphSession?.logBindings };
+        mutationLineage: lineage, targetID: id,
+        inheritedBindings: (0, log_privacy_1.inheritSQLLogBindings)(localBindings, request.graphSession?.logBindings) };
 }
 var log_rendering_1 = require("./log-rendering");
 Object.defineProperty(exports, "debugSQL", { enumerable: true, get: function () { return log_rendering_1.debugSQL; } });
@@ -286,12 +287,13 @@ class AbstractSQLTeaQLClient {
                 ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
                 : `statement ${executionOutcome}; row count unknown`,
         });
+        const provenance = inheritedBindings && inherited
+            ? (0, log_privacy_1.inheritSQLLogBindings)(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+        (0, log_privacy_1.retainSQLLogProvenance)(metadata, provenance, targetID === undefined ? [] : [targetID]);
         if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink))
             return metadata;
         try {
-            const provenance = inheritedBindings && inherited
-                ? (0, log_privacy_1.inheritSQLLogBindings)(inherited, inheritedBindings) : inheritedBindings ?? inherited;
-            const projected = (0, log_privacy_1.projectSQLLog)(metadata, provenance, targetID === undefined ? [] : [targetID]);
+            const projected = (0, log_privacy_1.projectSQLLog)(metadata);
             // Runtime diagnostics are fail-open and each sink is independent. A
             // broken application sink must not roll back a successful SQL mutation.
             try {
@@ -518,14 +520,19 @@ class AbstractSQLTeaQLClient {
         mutation = this.checkAndFixMutation(request);
         if (request.graphSession) {
             const schema = this.schema(mutation.entity);
-            const record = this.toRuntimeMutationRecord(schema, mutation.payload || {});
-            const fields = Object.keys(record);
-            request.graphSession.captureLogBindings({ parameterizedSQL: '', sqlOrigin: 'generated',
-                parameters: fields.map(field => record[field]),
-                parameterLogPolicies: fields.map(field => this.fieldLogPolicy(schema, field)) });
+            request.graphSession.captureLogBindings(this.mutationLogBindings(request, mutation, schema));
         }
         this.userContext.recordMutationPolicyPreflight(mutation);
         return mutation;
+    }
+    mutationLogBindings(request, mutation, schema) {
+        const source = (values) => {
+            const record = this.toRuntimeMutationRecord(schema, values);
+            const fields = Object.keys(record);
+            return { parameterizedSQL: '', sqlOrigin: 'generated', parameters: fields.map(field => record[field]),
+                parameterLogPolicies: fields.map(field => this.fieldLogPolicy(schema, field)) };
+        };
+        return (0, log_privacy_1.inheritSQLLogBindings)(source(mutation.payload || {}), source(request.loadedValues()));
     }
     checkAndFixMutation(mutation) {
         const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
@@ -577,6 +584,7 @@ class AbstractSQLTeaQLClient {
             const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
             const schema = this.schema(mutation.entity);
             const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+            const diagnosticBindings = this.mutationLogBindings(request, mutation, schema);
             const table = this.driver.identifier(schema.table);
             const statements = [];
             const result = await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
@@ -603,7 +611,7 @@ class AbstractSQLTeaQLClient {
                     const values = fields.map(field => this.encode(record[field], schema.columns[field]));
                     this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
                     const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'insert', id);
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'insert', id, diagnosticBindings);
                     await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values), undefined, statements);
                     return {
                         success: true,
@@ -631,7 +639,7 @@ class AbstractSQLTeaQLClient {
                     }
                     const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
                         `WHERE ${predicates.join(' AND ')}`;
-                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'update', String(mutation.id));
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'update', String(mutation.id), diagnosticBindings);
                     const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values), undefined, statements);
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
@@ -658,7 +666,7 @@ class AbstractSQLTeaQLClient {
                     }
                     const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
                         `WHERE ${predicates.join(' AND ')}`;
-                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id));
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id), diagnosticBindings);
                     const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values), undefined, statements);
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
@@ -674,7 +682,7 @@ class AbstractSQLTeaQLClient {
                 }
                 throw new Error(`Unsupported mutation action: ${mutation.action}`);
             }));
-            const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload);
+            const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload, diagnosticBindings);
             const event = Object.freeze({
                 entity: mutation.entity,
                 action: mutation.action,
@@ -711,7 +719,9 @@ class AbstractSQLTeaQLClient {
                 }
             }
             scope.success();
-            return { ...result, metadata: Object.freeze({ ...statements[0], statements: Object.freeze([...statements]) }) };
+            const metadata = Object.freeze({ ...statements[0], statements: Object.freeze([...statements]) });
+            (0, log_privacy_1.retainSQLLogProvenance)(metadata, (0, log_privacy_1.inheritSQLLogBindings)(diagnosticBindings, request.graphSession?.logBindings), [result.id]);
+            return { ...result, metadata };
         }
         catch (error) {
             scope.failure(error);

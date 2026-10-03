@@ -485,6 +485,13 @@ function scrubLogText(text, values) {
 }
 var projections = /* @__PURE__ */ new WeakMap();
 var safeAlternatives = /* @__PURE__ */ new WeakMap();
+var rawProvenance = /* @__PURE__ */ new WeakMap();
+function retainSQLLogProvenance(metadata, bindings, intentValues = []) {
+  rawProvenance.set(metadata, {
+    bindings: bindings ? inheritSQLLogBindings(bindings) : void 0,
+    intentValues: Object.freeze(intentValues.map(copyLogValue))
+  });
+}
 function bindingPolicies(metadata) {
   const supplied = metadata.parameterLogPolicies;
   const valid = !!supplied && supplied.length === metadata.parameters.length;
@@ -497,6 +504,11 @@ function bindingPolicies(metadata) {
 }
 function bindingIsMasked(policy, allow) {
   return policy === "credential" || policy === "unknown" || !allow && policy !== "plain";
+}
+function privateLogValueStrings(source) {
+  if (!source) return [];
+  const policies = bindingPolicies(source);
+  return source.parameters.flatMap((value, index) => bindingIsMasked(policies[index], false) ? logValueStrings(value) : []);
 }
 function copyLogValue(value) {
   if (value instanceof Date) return new Date(value.getTime());
@@ -541,6 +553,9 @@ function projectSQLLog(metadata, inherited, intentValues = []) {
   return projected;
 }
 function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
+  const retained = rawProvenance.get(metadata);
+  if (retained?.bindings) inherited = inheritSQLLogBindings(retained.bindings, inherited);
+  if (retained) intentValues = [...intentValues, ...retained.intentValues];
   const supplied = metadata.parameterLogPolicies;
   const policiesValid = !supplied || supplied.length === metadata.parameters.length;
   const credentialStatement = credentialName(metadata.parameterizedSQL) && (metadata.sqlOrigin !== "generated" || !supplied || !policiesValid);
@@ -621,7 +636,23 @@ function snapshotQuery(value, seen = /* @__PURE__ */ new Map()) {
   return copy;
 }
 
+// src/core/loaded-scalar-snapshot.ts
+var _values;
+var LoadedScalarSnapshot = class {
+  constructor(values = {}) {
+    __privateAdd(this, _values);
+    __privateSet(this, _values, snapshotQuery(values));
+    Object.freeze(this);
+  }
+  /** Copies prevent callers or mutable JSON/date fields from rewriting history. */
+  values() {
+    return snapshotQuery(__privateGet(this, _values));
+  }
+};
+_values = new WeakMap();
+
 // src/core/request-intent.ts
+var mutationSnapshots = /* @__PURE__ */ new WeakMap();
 var querySources = /* @__PURE__ */ new WeakMap();
 var graphRequests = /* @__PURE__ */ new WeakMap();
 var scopeOwners = /* @__PURE__ */ new WeakMap();
@@ -764,6 +795,15 @@ var MutationRequest = class {
   get comment() {
     return __privateGet(this, _intent2).comment;
   }
+  /** @internal Generated hydration/commit provenance, never a wire field. */
+  withLoadedSnapshot(snapshot) {
+    mutationSnapshots.set(this, new LoadedScalarSnapshot(snapshot.values()));
+    return this;
+  }
+  /** @internal Does not become part of the write payload or policy input. */
+  loadedValues() {
+    return mutationSnapshots.get(this)?.values() ?? {};
+  }
   /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
   get graphSession() {
     return graphRequests.get(this)?.session;
@@ -780,11 +820,12 @@ var MutationRequest = class {
     return specific?.length ? cloneTraceNodes(specific) : this.scopeFor(key).recover();
   }
   /** Safe event projection; internal policy intent is never mutated. */
-  auditProjection(key, payload) {
+  auditProjection(key, payload, bindings) {
     const secrets = [
       ...logValueStrings(payload),
       ...logValueStrings(__privateGet(this, _mutation).id),
-      ...logValueStrings(this.graphSession?.logBindings?.parameters)
+      ...bindings ? privateLogValueStrings(bindings) : logValueStrings(this.loadedValues()),
+      ...privateLogValueStrings(this.graphSession?.logBindings)
     ];
     return Object.freeze({
       reason: scrubLogText(this.comment, secrets),
@@ -1737,9 +1778,11 @@ export {
   queryTraceSource,
   debugSQL,
   credentialName,
+  retainSQLLogProvenance,
   inheritSQLLogBindings,
   projectSQLLog,
   queryDiagnosticOrigin,
+  LoadedScalarSnapshot,
   RequestIntentError,
   QueryIntent,
   MutationIntent,
@@ -1765,4 +1808,4 @@ export {
   mergeRuntimeBootstrap,
   RuntimeModule
 };
-//# sourceMappingURL=chunk-RIS5ZT27.js.map
+//# sourceMappingURL=chunk-JFFK4LZP.js.map

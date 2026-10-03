@@ -187,6 +187,45 @@ async function main() {
       assert.equal(rows.length, 0);
     }
     checks.push('generated provider and readback failures retain trace and produce no committed audit');
+
+    const privacy = construct(context, 'loaded-privacy');
+    privacy.item.updateName('PRIVATEOLDITEM');
+    await privacy.order.auditAs('seed loaded privacy graph').save(context);
+    const loaded = (await Q.customerOrders().withIdIs(privacy.order.id)
+      .selectOrderItemListWith(Q.orderItems().limit(2)).limit(1)
+      .comment('load privacy graph').purpose('verify authoritative scalar snapshot').executeForList(context))[0];
+    const item = loaded.orderItemList().find(row => row.id === privacy.item.id)!;
+    assert.equal(E.orderItem(item).name().eval(), 'PRIVATEOLDITEM');
+    for (const [oldValue, newValue, fail] of [
+      ['PRIVATEOLDITEM', 'PRIVATENEWITEM', false],
+      ['PRIVATENEWITEM', 'PRIVATEROLLBACKITEM', true],
+      ['PRIVATENEWITEM', 'PRIVATERETRYITEM', false],
+    ] as const) {
+      loaded.updateDescription(`privacy update ${newValue.length}`);
+      item.updateName(newValue);
+      audits.length = 0; sql.enableAll();
+      client.setQueryLoggingEnabled(false).setMutationLoggingEnabled(false);
+      driver.failureTable = fail ? 'order_item_data' : undefined;
+      driver.readbackFailure = fail;
+      const operation = loaded.auditAs(`replace ${oldValue} with ${newValue}`).save(context);
+      if (fail) await assert.rejects(operation, /injected trace-chain provider failure/);
+      else await operation;
+      const evidence = sql.snapshot();
+      assert.equal(evidence.length, 4, 'parent and child writes plus both readbacks');
+      assert(!JSON.stringify(evidence).includes(oldValue), 'old scalar leaked into graph SQL');
+      assert(!JSON.stringify(evidence).includes(newValue), 'new scalar leaked into graph SQL');
+      assert(!JSON.stringify(audits).includes(oldValue), 'old scalar leaked into graph audit');
+      assert.equal(audits.length, fail ? 0 : 2);
+      driver.failureTable = undefined;
+      const persisted = (await Q.orderItems().withIdIs(item.id).limit(1)
+        .comment('verify item privacy mutation').purpose('check committed or rolled-back value').executeForList(context))[0];
+      assert.equal(E.orderItem(persisted).name().eval(), fail ? oldValue : newValue);
+    }
+    // No unrelated request may inherit the preceding graph's privacy snapshot.
+    sql.enableAll();
+    await Q.platforms().limit(1).comment('independent PRIVATEOLDITEM').purpose('verify graph privacy isolation').executeForList(context);
+    assert.equal(sql.snapshot()[0].comment, 'independent PRIVATEOLDITEM');
+    checks.push('generated loaded old-value privacy, committed refresh, rollback retry and independent request isolation');
   } finally { await client.close(); }
   assert.equal(manifest('lib'), generatedBefore, 'application execution changed generated source');
   mkdirSync('evidence', { recursive: true });
