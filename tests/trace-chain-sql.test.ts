@@ -168,19 +168,65 @@ it('retains query semantics and provenance when a three-level graph is streamed'
   } finally { await f.client.close(); }
 });
 
-it('isolates overlapping native queries on one Context without a mutable trace stack', async () => {
+it.each([false, true])('isolates two live native query graphs with logging=%p', async logging => {
   const f = await fixture();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let bothEntered!: () => void;
+  const entered = new Promise<void>(resolve => { bothEntered = resolve; });
+  let roots = 0;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let pending: Promise<any[]>[] = [];
+  const original = f.driver.query.bind(f.driver);
+  jest.spyOn(f.driver, 'query').mockImplementation(async (sql, values) => {
+    const rows = await original(sql, values);
+    if (/FROM "school_data"/.test(sql)) {
+      roots++;
+      if (roots === 2) bothEntered();
+      await gate;
+    }
+    return rows;
+  });
   try {
-    const results = await Promise.all([f.client.executeQuery(graphQuery('first independent query')),
-      f.client.executeQuery(graphQuery('second independent query'))]);
+    f.client.setQueryLoggingEnabled(logging);
+    const first = graphQuery('first independent query').purpose('render first graph');
+    const second = graphQuery('second independent query').purpose('render second graph');
+    pending = [f.client.executeQuery(first), f.client.executeQuery(second)];
+    const completed = Promise.all(pending);
+    // Unlike Promise.all alone, this proves both real root SQL calls have
+    // finished while neither operation can return or load its descendants.
+    await Promise.race([entered, completed.then(() => { throw new Error('queries escaped the overlap barrier'); }),
+      new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('root overlap timeout')), 3000); })]);
+    expect(roots).toBe(2);
+    expect(f.evidence.snapshot()).toHaveLength(0);
+    expect(first.commentText).toBe('first independent query');
+    expect(second.commentText).toBe('second independent query');
+    release();
+    const results = await completed;
     expect(results.map(rows => rows.length)).toEqual([1, 1]);
+    expect(results.map(rows => rows[0].platform.organization.region.name)).toEqual(['Region', 'Region']);
     const entries = f.evidence.snapshot();
-    for (const reason of ['first independent query', 'second independent query']) {
+    expect(entries).toHaveLength(8);
+    for (const [reason, purpose] of [['first independent query', 'render first graph'],
+      ['second independent query', 'render second graph']]) {
       const own = entries.filter(entry => entry.comment === reason);
       expect(own).toHaveLength(4);
-      expect(own.map(entry => entry.tracePath.filter(frame => frame.kind === 'relation').length).sort()).toEqual([0, 1, 2, 3]);
+      own.forEach((entry, depth) => {
+        expect(entry.purpose).toBe(purpose);
+        expect(entry.executionOutcome).toBe('success');
+        expect(entry.tracePath.map(frame => [frame.kind, frame.name])).toEqual([
+          ['operation', 'School'], ['request', 'School'],
+          ...['platform', 'organization', 'region'].slice(0, depth).map(name => ['relation', name]),
+          ['provider', 'sqlite'], ['sql', 'select'],
+        ]);
+      });
     }
-  } finally { await f.client.close(); }
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    release();
+    await Promise.allSettled(pending);
+    await f.client.close();
+  }
 });
 
 describe('streamed relation aggregates', () => {
