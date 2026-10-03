@@ -5,6 +5,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # file: dependencies resolve the package's dist entry points, not TypeScript source.
 # Rebuild here so examples can never silently validate stale checked-in output.
 (cd "$repo" && npm run build)
+(cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
 mkdir -p "$repo/.local"
 expected=(browser-sqlite conformance ensure-schema-bootstrap order-management school-management task-board trace-chain)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)

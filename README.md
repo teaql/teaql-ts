@@ -74,6 +74,15 @@ Its generated library is hash-checked and unmodified. Shared graph vectors,
 native transaction/audit tests and the prior canonical SQL cases are separate
 evidence, not substitutes for generated acceptance.
 
+Relation assembly preserves scalar keys before hydrated references or aggregate
+aliases replace their source fields. A reference filtered to null does not
+remove its child from an enclosing list or break a sibling using the same FK.
+Private per-load key capture and per-chunk snapshots cover lists and streams;
+no key cache is added to records, mutation ledgers or UserContext. The example
+gate runs a small real-SQLite fixture with text keys, empty parents, nested
+graphs, filtered references and diagnostic logging on/off. These are native
+regression cases, separate from the generated Q/E/save acceptance above.
+
 Prepared same-type batches, complete entry-point/deep privacy coverage,
 file-backed/Expo graph acceptance and immutable internal Registry replay remain
 open. Verify local source with `npm test -- --runInBand` and

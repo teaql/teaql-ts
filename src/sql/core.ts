@@ -316,6 +316,9 @@ export class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
 
 type NormalizedAggregate = { func: string; field: string; retName: string };
 type NormalizedOrder = { field: string; direction: string };
+// Private to one relation load. Keys never enter records, wire requests,
+// mutation state or UserContext; null hydration cannot erase membership.
+type RelationAssembly = { field: string; keys: WeakMap<object, unknown> };
 
 export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private schemaReady?: Promise<void>;
@@ -324,6 +327,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly internalQueryToken = Symbol('teaql-internal-query');
   private readonly bindLogPolicies = new WeakMap<readonly unknown[], SQLParameterLogPolicy[]>();
   private readonly derivedQueryBindings = new WeakMap<object, SQLLogBindingSource>();
+  private readonly derivedRelationAssembly = new WeakMap<object, RelationAssembly>();
 
   private fieldLogPolicy(schema: EntitySchema, field: string): SQLParameterLogPolicy {
     const column = schema.columns[field];
@@ -1274,17 +1278,22 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // already validated; the private execution snapshot is normalized again.
     if (!(query instanceof QueryRequest) && query?.[this.internalQueryToken] !== true
       && typeof query?.prepareForList === 'function') query.prepareForList();
-    return this.executeQueryWithIntent<T>(request.query, this.derivedQueryBindings.get(query));
+    return this.executeQueryWithIntent<T>(request.query, this.derivedQueryBindings.get(query),
+      this.derivedRelationAssembly.get(query));
   }
 
   private async executeDerivedQuery<T>(query: object, inherited: SQLLogBindingSource | undefined,
-    intent: QueryIntent): Promise<T[]> {
+    intent: QueryIntent, assembly?: RelationAssembly): Promise<T[]> {
     // Only fresh execution-local child requests are registered. Keep virtual
     // executeQuery dispatch for existing subclasses; no provenance on wire data.
     const captured = new QueryRequest(query, intent).query;
     if (inherited) this.derivedQueryBindings.set(captured, inherited);
+    if (assembly) this.derivedRelationAssembly.set(captured, assembly);
     try { return await this.executeQuery<T>(captured); }
-    finally { this.derivedQueryBindings.delete(captured); }
+    finally {
+      this.derivedQueryBindings.delete(captured);
+      this.derivedRelationAssembly.delete(captured);
+    }
   }
 
   private descendantBindings(query: any, sql: string, values: any[], inherited?: SQLLogBindingSource): SQLLogBindingSource | undefined {
@@ -1318,7 +1327,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return source;
   }
 
-  private async executeQueryWithIntent<T = any>(query: any, inherited?: SQLLogBindingSource): Promise<T[]> {
+  private async executeQueryWithIntent<T = any>(query: any, inherited?: SQLLogBindingSource,
+    assembly?: RelationAssembly): Promise<T[]> {
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'query',
       name: `${String(query?.entity || 'unknown')}.list`,
@@ -1360,6 +1370,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER));
     }
     const descendantBindings = this.descendantBindings(query, sql, values, inherited);
+    if (assembly) for (const row of rows) assembly.keys.set(row, row[assembly.field]);
     await this.enhanceQueryRows(rows, query, descendantBindings);
     if (!internal) await this.registerContinuousPage(query, prepared.execution, rows);
     scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
@@ -1610,22 +1621,33 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   private async enhanceQueryRows(rows: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {
-    // Aggregates consume scalar membership keys. Loading a forward relation may
-    // replace that key's value with an object; compute before that replacement.
-    // Lists and every streamed chunk share this ordering and intent provenance.
-    await this.enhanceRelationAggregates(rows, query, inherited);
-    await this.enhanceRelations(rows, query, inherited);
+    if (!rows.length) return;
+    const names = [...(query.relations ?? []).map((load: any) => load.name),
+      ...(query.relationAggregates ?? []).map((aggregate: any) => aggregate.relationName)];
+    if (!names.length) return;
+    const schema = this.schema(query.entity);
+    const keys = new Map<string, unknown[]>();
+    for (const name of names) {
+      const relation = schema.relations?.[name];
+      if (!relation) throw new Error(`Missing relation ${query.entity}.${name}`);
+      if (!keys.has(relation.localKey)) keys.set(relation.localKey, rows.map(row => row[relation.localKey]));
+    }
+    // Lists and each streamed chunk capture before aliases or sibling loads can
+    // replace any scalar key. Keep existing execution order and trace sources.
+    await this.enhanceRelationAggregates(rows, query, keys, inherited);
+    await this.enhanceRelations(rows, query, keys, inherited);
   }
 
-  private async enhanceRelations(parents: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {
+  private async enhanceRelations(parents: any[], query: any, keys: ReadonlyMap<string, readonly unknown[]>,
+    inherited?: SQLLogBindingSource): Promise<void> {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
     const intent = new QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
     for (const load of query.relations) {
       const relation = parentSchema.relations?.[load.name];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
-      const parentIds = parents
-        .map(parent => parent[relation.localKey])
+      const parentKeys = keys.get(relation.localKey)!;
+      const parentIds = parentKeys
         .filter(value => value !== undefined && value !== null);
       const limit = load.query ? this.queryLimit(load.query) : undefined;
       const threshold = load.query?.localTopNProbeParentThreshold?.();
@@ -1672,6 +1694,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (typeof childQuery.clearContinuousPageRuntime === 'function') childQuery.clearContinuousPageRuntime();
       childQuery[this.internalQueryToken] = true;
       const children: any[] = [];
+      const assembly: RelationAssembly = { field: relation.foreignKey, keys: new WeakMap() };
       if (useProbes) {
         for (const parentId of parentIds) {
           const probeQuery = {
@@ -1680,23 +1703,24 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             __teaqlPartitionBy: undefined,
           };
           children.push(...await this.executeDerivedQuery<any>(
-            new QueryRequest(query).derive(probeQuery, load.name).query, inherited, intent));
+            new QueryRequest(query).derive(probeQuery, load.name).query, inherited, intent, assembly));
         }
       } else {
         childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
         children.push(...await this.executeDerivedQuery<any>(
-          new QueryRequest(query).derive(childQuery, load.name).query, inherited, intent));
+          new QueryRequest(query).derive(childQuery, load.name).query, inherited, intent, assembly));
       }
       for (const child of children) delete child.__teaql_partition_rank;
       const buckets = new Map<any, any[]>();
       for (const child of children) {
-        const key = child[relation.foreignKey];
+        if (!assembly.keys.has(child)) throw new Error('Relation assembly lost its captured row identity');
+        const key = assembly.keys.get(child);
         const bucket = buckets.get(key) || [];
         bucket.push(child);
         buckets.set(key, bucket);
       }
-      for (const parent of parents) {
-        const related = buckets.get(parent[relation.localKey]) || [];
+      for (const [index, parent] of parents.entries()) {
+        const related = buckets.get(parentKeys[index]) || [];
         parent[load.name] = relation.many ? related : (related[0] ?? null);
       }
       relationScope.success({ attributes: { 'teaql.result.cardinality': children.length } });
@@ -1707,7 +1731,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
   }
 
-  private async enhanceRelationAggregates(parents: any[], query: any, inherited?: SQLLogBindingSource): Promise<void> {
+  private async enhanceRelationAggregates(parents: any[], query: any, keys: ReadonlyMap<string, readonly unknown[]>,
+    inherited?: SQLLogBindingSource): Promise<void> {
     const aggregates = query.relationAggregates;
     if (!parents.length || !Array.isArray(aggregates) || !aggregates.length) return;
     const parentSchema = this.schema(query.entity);
@@ -1715,8 +1740,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     for (const aggregate of aggregates) {
       const relation = parentSchema.relations?.[aggregate.relationName];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${aggregate.relationName}`);
-      const parentIds = parents
-        .map(parent => parent[relation.localKey])
+      const parentKeys = keys.get(relation.localKey)!;
+      const parentIds = parentKeys
         .filter(value => value !== undefined && value !== null);
       if (!parentIds.length) {
         for (const parent of parents) {
@@ -1752,8 +1777,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         new QueryRequest(query).derive(childQuery, aggregate.relationName).query, inherited, intent);
       const buckets = new Map<any, any>();
       for (const row of rows) buckets.set(row[relation.foreignKey], row);
-      for (const parent of parents) {
-        const row = buckets.get(parent[relation.localKey]);
+      for (const [index, parent] of parents.entries()) {
+        const row = buckets.get(parentKeys[index]);
         if (!row) {
           parent[aggregate.alias] = aggregate.singleResult
             ? this.emptyAggregateValue(aggregate.query)

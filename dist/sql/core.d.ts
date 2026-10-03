@@ -147,6 +147,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private readonly internalQueryToken;
     private readonly bindLogPolicies;
     private readonly derivedQueryBindings;
+    private readonly derivedRelationAssembly;
     private fieldLogPolicy;
     private bindValue;
     private readonly auditEvents;
