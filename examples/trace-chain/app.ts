@@ -161,6 +161,14 @@ async function main() {
       && entry.tracePath[1].kind === 'request' && entry.tracePath[1].name === 'PaymentAttempt'
       && entry.tracePath.at(-2)?.kind === 'provider'
       && entry.tracePath.at(-1)?.kind === 'sql' && entry.tracePath.at(-1)?.name === 'select'));
+    const qualifiedQueryRelations = [['payment', 'PaymentAttempt.payment'],
+      ['customerOrder', 'Payment.customerOrder'], ['platform', 'CustomerOrder.platform']];
+    sql.snapshot().forEach((entry, depth) => assert.deepEqual(
+      entry.tracePath.map(node => [node.kind, node.name, node.detail ?? '']),
+      [['operation', 'PaymentAttempt', 'query'], ['request', 'PaymentAttempt', ''],
+        ...qualifiedQueryRelations.slice(0, depth).map(([name, detail]) => ['relation', name, detail]),
+        ['provider', 'sqlite', ''], ['sql', 'select', '']],
+      'canonical generated path at every physical boundary'));
     checks.push('generated bounded Q and E across three relation levels');
 
     audits.length = 0; sql.enableAll();
