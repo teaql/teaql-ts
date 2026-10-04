@@ -31,4 +31,5 @@ done
 (cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke)
 (cd "$repo/examples/trace-chain" && npm install && npm run build && npm start && npm start && env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference && env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference && npm run test:page && npm run test:page && npm run test:stream-capture && npm run test:stream-capture)
 (cd "$repo/examples/trace-chain" && npm run test:relation-aggregate && npm run test:relation-aggregate)
+(cd "$repo/examples/trace-chain" && env -u TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS npm run test:checker-overlap && env -u TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS npm run test:checker-overlap)
 echo "PASS: all TypeScript examples"

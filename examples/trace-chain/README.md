@@ -21,6 +21,8 @@ npm run test:stream-capture
 npm run test:stream-capture
 npm run test:relation-aggregate
 npm run test:relation-aggregate
+npm run test:checker-overlap
+npm run test:checker-overlap
 ```
 
 Both starts use `.local/trace-chain.sqlite` without resetting or deleting it.
@@ -112,6 +114,25 @@ The four ownership checks additionally execute:
 The application prints actual request, SQL-metadata and committed-audit
 observations. Saves overlap at the public boundary; the provider serializes
 their transactions. This is not simultaneous SQLite writer or Checker proof.
+
+The Checker overlap suite uses the real installed generated Checker, not a
+simulated failure. Four cases combine SQL logging on/off and both invocation
+orders: a valid graph updates its root and child; a second graph omits a new
+child's required name. Both share an immutable provider-loaded Platform snapshot
+but keep separate generated wrappers and ledgers. The rejected graph rolls back
+its transaction before any business SQL, ID allocation, mutation command or
+committed audit. It does start a transaction; Checker callbacks are serialized
+by the runtime gate. Q/E readback proves only the valid graph changed, and a
+following independent save has its own lineage and no residual Fix state.
+The read-only Platform receives no write or audit.
+
+Run `bash scripts/verify-checker-overlap.sh` from the runtime checkout for a
+bounded build and two consecutive runs against one retained SQLite database.
+It never installs packages or cleans data, unsets the plaintext-log opt-in for
+the safe subprocesses, and retains logs and generated-file fingerprints. Set
+`TEAQL_TRACE_CHAIN_CHECKER_EVIDENCE` and `TEAQL_TRACE_CHAIN_CHECKER_DB` to choose
+the evidence directory and database. Direct npm runs default to
+`.local/checker-overlap.sqlite` and `.local/checker-overlap-evidence`.
 
 The generated model names the logical order `customer_order` to avoid a
 reserved word. Payment and CustomerOrder intentionally share numeric IDs,
