@@ -155,6 +155,12 @@ async function main() {
       [[], [['payment', 'PaymentAttempt.payment']], [['payment', 'PaymentAttempt.payment'], ['customerOrder', 'Payment.customerOrder']],
         [['payment', 'PaymentAttempt.payment'], ['customerOrder', 'Payment.customerOrder'], ['platform', 'CustomerOrder.platform']]]);
     assert(sql.snapshot().every(entry => entry.comment === 'load generated three-level graph'));
+    assert(sql.snapshot().every(entry => entry.purpose === 'verify query lineage'));
+    assert(sql.snapshot().every(entry => entry.tracePath[0].kind === 'operation'
+      && entry.tracePath[0].name === 'PaymentAttempt'
+      && entry.tracePath[1].kind === 'request' && entry.tracePath[1].name === 'PaymentAttempt'
+      && entry.tracePath.at(-2)?.kind === 'provider'
+      && entry.tracePath.at(-1)?.kind === 'sql' && entry.tracePath.at(-1)?.name === 'select'));
     checks.push('generated bounded Q and E across three relation levels');
 
     audits.length = 0; sql.enableAll();
