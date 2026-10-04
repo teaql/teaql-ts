@@ -1521,8 +1521,14 @@ var AbstractSQLTeaQLClient = class {
           commentText: query?._comment ?? query?.commentText,
           purposeText: query?._purpose ?? query?.purposeText
         };
-        if (boundedTopN && !childQuery.orderItems.some((order) => order.field === "id")) {
-          childQuery.orderItems.push(OrderBy.asc("id"));
+        if (boundedTopN) {
+          const groups = this.groupBy(childQuery);
+          const stableFields = groups.length || this.aggregates(childQuery).length ? groups : ["id"];
+          for (const field of stableFields) {
+            if (!childQuery.orderItems.some((order) => order.field === field)) {
+              childQuery.orderItems.push(OrderBy.asc(field));
+            }
+          }
         }
         if (typeof childQuery.clearContinuousPageRuntime === "function") childQuery.clearContinuousPageRuntime();
         childQuery[this.internalQueryToken] = true;
@@ -1684,4 +1690,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-6POCHR4G.js.map
+//# sourceMappingURL=chunk-PDOCLUG2.js.map

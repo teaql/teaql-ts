@@ -1526,8 +1526,16 @@ class AbstractSQLTeaQLClient {
                     commentText: query?._comment ?? query?.commentText,
                     purposeText: query?._purpose ?? query?.purposeText,
                 };
-                if (boundedTopN && !childQuery.orderItems.some((order) => order.field === 'id')) {
-                    childQuery.orderItems.push(ast_1.OrderBy.asc('id'));
+                if (boundedTopN) {
+                    // Aggregate rows have group identity, not source-row identity. An
+                    // ungrouped id is invalid on strict SQL engines and cannot break ties.
+                    const groups = this.groupBy(childQuery);
+                    const stableFields = groups.length || this.aggregates(childQuery).length ? groups : ['id'];
+                    for (const field of stableFields) {
+                        if (!childQuery.orderItems.some((order) => order.field === field)) {
+                            childQuery.orderItems.push(ast_1.OrderBy.asc(field));
+                        }
+                    }
                 }
                 if (typeof childQuery.clearContinuousPageRuntime === 'function')
                     childQuery.clearContinuousPageRuntime();
