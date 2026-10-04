@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { DelegatingMutationPolicyApprovalProvider, DelegatingMutationPolicyRegistry,
   MutationPlan, MutationRequest, TraceNode, UserContext } from 'teaql-ts';
 import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore,
-  SQLExecutionMetadata, SqlQueryResult } from 'teaql-ts/sql/core';
+  SQLExecutionMetadata, SqlQueryResult, SqlSession } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
 import { Q } from './lib/src/generated/Q';
 import { E } from './lib/src/generated/E';
@@ -21,10 +21,23 @@ const originalLibrary = fingerprint('lib');
 const database = resolve(process.env.TEAQL_TRACE_CHAIN_PLAN_DB ?? '.local/plan-item-lineage.sqlite');
 mkdirSync(join(database, '..'), { recursive: true });
 class Driver extends SQLiteDriver {
-  readonly writes: Array<{ sql: string; values: readonly unknown[] }> = [];
+  readonly writes: Array<{ sql: string; values: readonly unknown[]; transaction?: number }> = [];
+  readonly transactions: Array<{ id: number; committed: boolean }> = [];
+  activeTransaction?: number;
+  async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
+    const transaction = { id: this.transactions.length + 1, committed: false };
+    this.transactions.push(transaction);
+    const result = await super.transaction(async session => {
+      this.activeTransaction = transaction.id;
+      try { return await work(session); }
+      finally { this.activeTransaction = undefined; }
+    });
+    transaction.committed = true;
+    return result;
+  }
   async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
     if (/^(INSERT|UPDATE)/.test(sql) && sql.includes('order_item_data')) {
-      this.writes.push({ sql, values: [...values] });
+      this.writes.push({ sql, values: [...values], transaction: this.activeTransaction });
     }
     return super.query(sql, values);
   }
@@ -78,7 +91,7 @@ async function main() {
         first.updateName(secrets[0]); second.updateName(secrets[1]);
         order.updateDescription(phase);
         const reason = `align ${secrets[0]} with ${secrets[1]}`;
-        reviewed.length = 0; client.commands.length = 0; driver.writes.length = 0;
+        reviewed.length = 0; client.commands.length = 0; driver.writes.length = 0; driver.transactions.length = 0;
         diagnostics.length = 0; audits.length = 0; evidence.enableAll();
         await order.auditAs(reason).save(context);
         assert.equal(reviewed.length, 1, 'one governed plan, not two independently approved saves');
@@ -100,6 +113,8 @@ async function main() {
         assert.deepEqual(client.commands.map(command => plain(command.lineage)), expected);
         assert(client.commands.every(command => command.reason === reason));
         assert.equal(driver.writes.length, 2);
+        assert.deepEqual(driver.transactions, [{ id: 1, committed: true }], 'one real atomic graph transaction');
+        assert(driver.writes.every(write => write.transaction === 1));
         assert(driver.writes[0].values.includes(secrets[0]) && !driver.writes[0].values.includes(secrets[1]));
         assert(driver.writes[1].values.includes(secrets[1]) && !driver.writes[1].values.includes(secrets[0]));
         const physical = evidence.snapshot();
@@ -128,7 +143,7 @@ async function main() {
         assert.equal(E.orderItem(loaded[0]).name().eval(), secrets[0]);
         console.log(JSON.stringify({ case: 'TC-MUT-09/TC-REQ-16', path: 'existing MutationPlan and root save',
           logging, phase, reviewedPlans: 1, operations: 3, sameTypeItems: 2,
-          commands: 3, physicalStatements: 6, committedAudits: 3, siblingPrivacy: true, nextRequestIndependent: true }));
+          transactions: 1, commands: 3, physicalStatements: 6, committedAudits: 3, siblingPrivacy: true, nextRequestIndependent: true }));
       }
     }
   } finally { await client.close(); }
