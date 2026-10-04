@@ -31,7 +31,7 @@ class Driver extends SQLiteDriver {
   }
 }
 class Client extends AbstractSQLTeaQLClient {
-  constructor(driver: Driver) { super(driver, model); }
+  constructor(driver: Driver, schemas = model) { super(driver, schemas); }
 }
 async function fixture() {
   const driver = new Driver(':memory:');
@@ -78,7 +78,10 @@ test.each(cases)('membership $mode nested=$nested logging=$logging $shape', asyn
       expect(row.parentCount).toBe(1);
       if (shape === 'scalar-control') expect(row.parentRef).toBe('P-A');
       else if (shape === 'visible') expect(row.parentRef.code).toBe('P-A');
-      else expect(row.parentRef).toBeNull();
+      else {
+        expect(row.parentRef).toEqual({ code: 'P-A' });
+        expect(Object.prototype.hasOwnProperty.call(row.parentRef, 'name')).toBe(false);
+      }
       if (shape === 'filtered-sibling') expect(row.parentAgain.code).toBe('P-A');
     }
     const expected = 4 + Number(nested) + Number(mode === 'stream-full' && !nested)
@@ -105,4 +108,32 @@ test.each(cases)('membership $mode nested=$nested logging=$logging $shape', asyn
     expect(final[final.length - 1].tracePath.map(frame => frame.kind))
       .toEqual(['operation', 'request', 'provider', 'sql']);
   } finally { await f.client.close(); }
+});
+
+test('ID reference keeps identity while actual SQL NULL stays null', async () => {
+  const driver = new Driver(':memory:');
+  const client = new Client(driver, {
+    Parent: model.Parent,
+    Child: { ...model.Child, columns: { ...identity, parentRef: column('parent_ref', true) },
+      relations: { parent: { targetEntity: 'Parent', localKey: 'parentRef', foreignKey: 'id', many: false } } },
+  }).setDiagnosticSQLLogSink(undefined);
+  try {
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    for (const [entity, id, payload] of [
+      ['Parent', '1', { name: 'visible' }],
+      ['Child', '1', { parentRef: '1' }], ['Child', '2', { parentRef: null }],
+    ] as const) await client.executeMutation({ entity, id, action: 'Create', payload,
+      comment: 'seed nullable ID reference' });
+    const plain = await client.executeQuery<any>(new SelectQuery('Child').select(['id']).limit(2)
+      .comment('load identity only').purpose('prove unrequested relation stays absent'));
+    expect(plain.every(row => !Object.prototype.hasOwnProperty.call(row, 'parent'))).toBe(true);
+    const rows = await client.executeQuery<any>(new SelectQuery('Child').select(['id'])
+      .order(OrderBy.asc('id')).limit(2).relationQuery('parent', new SelectQuery('Parent')
+        .filter({ name: { $eq: 'absent' } }))
+      .comment('load filtered ID references').purpose('distinguish NotLoaded details from SQL NULL'));
+    expect(rows[0].parent).toEqual({ id: '1' });
+    expect(rows[0].parentRef).toBe('1');
+    expect(rows[1].parent).toBeNull();
+    expect(rows[1].parentRef).toBeNull();
+  } finally { await client.close(); }
 });

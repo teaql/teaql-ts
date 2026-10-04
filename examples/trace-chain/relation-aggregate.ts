@@ -71,6 +71,31 @@ async function main() {
       await order.auditAs('seed generated aggregate graph').save(context);
       ids.push(order.id!);
     }
+    for (const logging of [true, false]) {
+      client.setQueryLoggingEnabled(logging);
+      const filtered = await Q.payments().filterByCustomerOrderIn(ids[0]).limit(1)
+        .selectCustomerOrderWith(Q.customerOrders().withIdIs('0').limit(1))
+        .comment('load a filtered forward reference').purpose('distinguish NotLoaded details from null')
+        .executeForList(context);
+      assert.equal(filtered.length, 1);
+      const identity = E.payment(filtered[0]).customerOrder().eval();
+      assert(identity, 'a filtered target must retain its actual FK identity');
+      assert.equal(E.customerOrder(identity).id().eval(), ids[0]);
+      assert.throws(() => E.customerOrder(identity).description().eval(),
+        {name: 'TeaQLNotLoadedError'},
+        'unfetched description must not become a loaded-null value');
+      const visible = await Q.payments().filterByCustomerOrderIn(ids[0]).limit(1)
+        .selectCustomerOrderWith(Q.customerOrders().withIdIs(ids[0]).limit(1))
+        .comment('load the full forward reference').purpose('verify independent detail loading')
+        .executeForList(context);
+      const full = E.payment(visible[0]).customerOrder().eval();
+      assert(full);
+      assert.equal(E.customerOrder(full).description().eval(), group);
+      assert.throws(() => E.customerOrder(identity).description().eval(),
+        {name: 'TeaQLNotLoadedError'},
+        'a later loaded view must not leak into the filtered edge');
+      console.log(`FORWARD_NOTLOADED_OBSERVED ${JSON.stringify({logging, id: ids[0]})}`);
+    }
     for (const nested of [false, true]) for (const mode of ['list', 'stream-full', 'stream-tail']) {
       for (const logging of [true, false]) {
         evidence.enableAll();

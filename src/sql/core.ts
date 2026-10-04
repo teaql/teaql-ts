@@ -1196,6 +1196,17 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const requestedFields = Array.isArray(query.selectItems) && query.selectItems.length
       ? [...new Set(['id', 'version', ...query.selectItems])]
       : Object.keys(schema.columns);
+    // Explicitly requested relations need their real membership keys, even
+    // with a minimal parent projection. Missing projection is not SQL NULL.
+    if (!groupProperties.length && !this.aggregates(query).length) {
+      const relationNames = [...(query.relations ?? []).map((load: any) => load.name),
+        ...(query.relationAggregates ?? []).map((aggregate: any) => aggregate.relationName)];
+      for (const name of relationNames) {
+        const relation = schema.relations?.[name];
+        if (!relation) throw new Error(`Missing relation ${query.entity}.${name}`);
+        if (!requestedFields.includes(relation.localKey)) requestedFields.push(relation.localKey);
+      }
+    }
     for (const field of requestedFields) {
       if (!schema.columns[field]) throw new Error(`Unknown selected field: ${field}`);
     }
@@ -1756,7 +1767,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           parent[load.name] = new SmartList(related, { facets:
             await executeRelationFacets(this, item => item, derived, facetQuery.facets) });
         } else {
-          parent[load.name] = relation.many ? related : (related[0] ?? null);
+          // A failed detail selection does not erase the captured FK. Missing
+          // target properties remain absent (NotLoaded), never loaded-null.
+          const key = parentKeys[index];
+          parent[load.name] = relation.many ? related : (related[0] ??
+            (key === null || key === undefined ? null : { [relation.foreignKey]: key }));
         }
       }
       relationScope.success({ attributes: { 'teaql.result.cardinality': children.length } });

@@ -1012,6 +1012,17 @@ var AbstractSQLTeaQLClient = class {
     );
     const aggregateNames = [];
     const requestedFields = Array.isArray(query.selectItems) && query.selectItems.length ? [.../* @__PURE__ */ new Set(["id", "version", ...query.selectItems])] : Object.keys(schema.columns);
+    if (!groupProperties.length && !this.aggregates(query).length) {
+      const relationNames = [
+        ...(query.relations ?? []).map((load) => load.name),
+        ...(query.relationAggregates ?? []).map((aggregate) => aggregate.relationName)
+      ];
+      for (const name of relationNames) {
+        const relation = schema.relations?.[name];
+        if (!relation) throw new Error(`Missing relation ${query.entity}.${name}`);
+        if (!requestedFields.includes(relation.localKey)) requestedFields.push(relation.localKey);
+      }
+    }
     for (const field of requestedFields) {
       if (!schema.columns[field]) throw new Error(`Unknown selected field: ${field}`);
     }
@@ -1578,7 +1589,8 @@ var AbstractSQLTeaQLClient = class {
             const derived = new QueryRequest(query).derive(facetQuery, load.name).query;
             parent[load.name] = new SmartList(related, { facets: await executeRelationFacets(this, (item) => item, derived, facetQuery.facets) });
           } else {
-            parent[load.name] = relation.many ? related : related[0] ?? null;
+            const key = parentKeys[index];
+            parent[load.name] = relation.many ? related : related[0] ?? (key === null || key === void 0 ? null : { [relation.foreignKey]: key });
           }
         }
         relationScope.success({ attributes: { "teaql.result.cardinality": children.length } });
@@ -1690,4 +1702,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-PDOCLUG2.js.map
+//# sourceMappingURL=chunk-SA73PHK2.js.map
