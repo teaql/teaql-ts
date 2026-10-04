@@ -189,9 +189,21 @@ it.each([false, true])('isolates two live native query graphs with logging=%p', 
   });
   try {
     f.client.setQueryLoggingEnabled(logging);
-    const first = graphQuery('first independent query').purpose('render first graph');
-    const second = graphQuery('second independent query').purpose('render second graph');
-    pending = [f.client.executeQuery(first), f.client.executeQuery(second)];
+    const first = f.context.prepareQuery(graphQuery('first independent query').purpose('render first graph'));
+    const second = f.context.prepareQuery(graphQuery('second independent query').purpose('render second graph'));
+    // Query optimization observers legitimately initialize these optional
+    // public fields to undefined; that is not a runtime-owned trace frame.
+    f.context.idSetPaginationCount = undefined;
+    f.context.continuousPageCursorId = undefined;
+    // Both operations resolve the same trusted service from the same Context.
+    // Context resources are application-owned; a live query must not insert an
+    // ambient trace stack into them or add runtime frames as Context properties.
+    const contextResources = (f.context as unknown as { resources: Map<string, unknown> }).resources;
+    const resourcesBefore = new Map(contextResources);
+    const contextKeysBefore = Reflect.ownKeys(f.context);
+    const service = f.context.requireResource<Client>('dataService');
+    expect(service).toBe(f.client);
+    pending = [service.executeQuery(first), service.executeQuery(second)];
     const completed = Promise.all(pending);
     // Unlike Promise.all alone, this proves both real root SQL calls have
     // finished while neither operation can return or load its descendants.
@@ -199,10 +211,14 @@ it.each([false, true])('isolates two live native query graphs with logging=%p', 
       new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('root overlap timeout')), 3000); })]);
     expect(roots).toBe(2);
     expect(f.evidence.snapshot()).toHaveLength(0);
+    expect(Reflect.ownKeys(f.context)).toEqual(contextKeysBefore);
+    expect(contextResources).toEqual(resourcesBefore);
     expect(first.commentText).toBe('first independent query');
     expect(second.commentText).toBe('second independent query');
     release();
     const results = await completed;
+    expect(Reflect.ownKeys(f.context)).toEqual(contextKeysBefore);
+    expect(contextResources).toEqual(resourcesBefore);
     expect(results.map(rows => rows.length)).toEqual([1, 1]);
     expect(results.map(rows => rows[0].platform.organization.region.name)).toEqual(['Region', 'Region']);
     const entries = f.evidence.snapshot();
