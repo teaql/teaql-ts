@@ -20,6 +20,51 @@ function manifest(directory: string, prefix = ''): string {
 }
 const generatedBefore = manifest('lib');
 
+type GraphIdentity = Readonly<{ entity: string; id: string }>;
+type ObservedCommand = GraphIdentity & Readonly<{ action: string; lineage: readonly TraceNode[] }>;
+function checkIdentities(want: readonly GraphIdentity[], actual: readonly GraphIdentity[], boundary: string) {
+  assert.equal(want.length, 6); assert.equal(actual.length, 6, `${boundary}: six identities required`);
+  const keys = (rows: readonly GraphIdentity[]) => rows.map(row => {
+    assert(typeof row.entity === 'string' && typeof row.id === 'string' && /^[1-9][0-9]*$/.test(row.id),
+      `${boundary}: missing typed identity`);
+    assert(BigInt(row.id) <= 18446744073709551615n, `${boundary}: ID exceeds u64`);
+    return JSON.stringify([row.entity, row.id]);
+  });
+  const expected = keys(want), observed = keys(actual);
+  assert.equal(new Set(expected).size, 6, 'expected graph must contain six distinct identities');
+  assert.equal(new Set(observed).size, 6, `${boundary}: duplicate identity`);
+  assert.deepEqual(observed.sort(), expected.sort(), `${boundary}: missing or unknown typed identity`);
+}
+function graphIdentities(graph: ReturnType<typeof construct>): GraphIdentity[] {
+  const identity = (entity: string, id: unknown): GraphIdentity => {
+    assert(typeof id === 'string', 'saved generated entity must have an assigned ID');
+    return { entity, id };
+  };
+  return [identity('CustomerOrder', graph.order.id), identity('OrderItem', graph.item.id),
+    identity('OrderItem', graph.removed.id), identity('Payment', graph.payment.id),
+    identity('PaymentAttempt', graph.attempt.id), identity('Shipment', graph.shipment.id)];
+}
+function auditIdentities(events: readonly Readonly<Record<string, unknown>>[]): GraphIdentity[] {
+  return events.map(event => {
+    assert(typeof event.entity === 'string' && typeof event.id === 'string', 'audit omitted independent typed target identity');
+    return { entity: event.entity, id: event.id };
+  });
+}
+function identityControls() {
+  const want = [{ entity: 'CustomerOrder', id: '100' }, { entity: 'OrderItem', id: '201' },
+    { entity: 'OrderItem', id: '202' }, { entity: 'Payment', id: '100' },
+    { entity: 'PaymentAttempt', id: '401' }, { entity: 'Shipment', id: '501' }];
+  checkIdentities(want, want, 'positive control');
+  for (const corruption of ['duplicate', 'missing', 'type-collapse']) {
+    const actual = want.map(row => ({ ...row }));
+    if (corruption === 'duplicate') actual[2] = { ...actual[1] };
+    if (corruption === 'missing') actual[5].id = '999';
+    if (corruption === 'type-collapse') actual[3].entity = 'CustomerOrder';
+    assert.throws(() => checkIdentities(want, actual, corruption));
+  }
+  console.log('PASS TypeScript graph identity controls: duplicate, missing and equal-ID type collapse rejected');
+}
+
 class Driver extends SQLiteDriver {
   failureTable?: string;
   readbackFailure = false;
@@ -32,7 +77,7 @@ class Driver extends SQLiteDriver {
   }
 }
 class Client extends AbstractSQLTeaQLClient {
-  readonly commands: Array<{ entity: string; action: string; lineage: readonly TraceNode[] }> = [];
+  readonly commands: ObservedCommand[] = [];
   constructor(driver: Driver) { super(driver, GENERATED_RUNTIME_MODULE.schemas); }
   async executeMutation(mutation: any): Promise<MutationResult> {
     const result = await super.executeMutation(mutation);
@@ -40,7 +85,12 @@ class Client extends AbstractSQLTeaQLClient {
     assert.equal(result.metadata?.statements?.length, 2, 'successful save must return write/readback metadata');
     assert.equal(result.metadata.statements[0].affectedRows, 1);
     assert.equal(result.metadata.statements[1].resultCount, 1);
-    this.commands.push({ entity: mutation.mutation.entity, action: mutation.mutation.action,
+    if (mutation.mutation.id !== undefined && mutation.mutation.id !== null) {
+      assert.equal(String(mutation.mutation.id), result.id, 'provider result changed the requested target ID');
+    }
+    // Creation may allocate its ID inside the provider. Capture that actual
+    // result, never a guessed sequence or an ID from inherited responsibility.
+    this.commands.push({ entity: mutation.mutation.entity, id: result.id, action: mutation.mutation.action,
       lineage: mutation.traceFor({ entity: mutation.mutation.entity, id: result.id }) });
     return result;
   }
@@ -76,11 +126,21 @@ function expected(graph: ReturnType<typeof construct>, rootReason: string, delet
     [root, ['auditReason', 'Shipment', graph.shipment.id, 'dispatch shipment']]];
 }
 
-function checkPhysicalGraph(entries: readonly SQLExecutionMetadata[], lineages: ReturnType<typeof expected>, reason: string) {
+function checkPhysicalGraph(entries: readonly SQLExecutionMetadata[], lineages: ReturnType<typeof expected>, reason: string,
+  commands: readonly ObservedCommand[]): GraphIdentity[] {
+  assert.equal(entries.length, 12); assert.equal(commands.length, 6);
+  const identities: GraphIdentity[] = [];
   assert.deepEqual(entries.map(entry => plain(entry.mutationLineage)), lineages.flatMap(lineage => [lineage, lineage]));
   for (let index = 0; index < lineages.length; index++) {
     const write = entries[index * 2], read = entries[index * 2 + 1];
     assert.notEqual(write.operation, 'select'); assert.equal(write.affectedRows, 1);
+    assert.equal(write.executionOutcome, 'success');
+    assert.equal(write.operation, commands[index].action === 'Create' ? 'insert' : commands[index].action.toLowerCase());
+    assert.deepEqual(write.tracePath.map(node => node.kind), ['operation', 'entity', 'provider', 'sql']);
+    assert.equal(write.tracePath[1].name, commands[index].entity);
+    // Canonical SQL paths do not contain target IDs. Bind each real write to
+    // the observed provider command/result at the same ordered boundary.
+    identities.push({ entity: commands[index].entity, id: commands[index].id });
     assert.equal(read.operation, 'select'); assert.equal(read.resultCount, 1);
     assert.equal(read.executionOutcome, 'success'); assert.equal(read.comment, reason);
     assert.equal(read.purpose, 'verify persisted mutation result');
@@ -88,9 +148,11 @@ function checkPhysicalGraph(entries: readonly SQLExecutionMetadata[], lineages: 
     assert.equal(read.tracePath[0].name, 'CustomerOrder'); assert.equal(read.tracePath[0].detail, 'query');
     assert.deepEqual(read.mutationLineage, write.mutationLineage);
   }
+  return identities;
 }
 
 async function main() {
+  identityControls();
   const driver = new Driver(database);
   const client = new Client(driver).install(GENERATED_RUNTIME_MODULE).setDiagnosticSQLLogSink(undefined);
   const context = new UserContext().insertResource('dataService', client);
@@ -122,7 +184,10 @@ async function main() {
     await graph.order.auditAs('submit order').save(context);
     assert.equal(client.commands.length, 6);
     assert.deepEqual(client.commands.map(command => plain(command.lineage)), expected(graph, 'submit order'));
-    checkPhysicalGraph(sql.snapshot(), expected(graph, 'submit order'), 'submit order');
+    const createdIdentities = graphIdentities(graph);
+    checkIdentities(createdIdentities, client.commands, 'create commands');
+    checkIdentities(createdIdentities, checkPhysicalGraph(sql.snapshot(), expected(graph, 'submit order'), 'submit order', client.commands), 'create physical writes');
+    checkIdentities(createdIdentities, auditIdentities(audits), 'create committed audit');
     assert.deepEqual(audits.map(event => plain(event.mutationLineage)), expected(graph, 'submit order'));
     assert.equal(graph.order.id, graph.payment.id, 'aligned fixture must exercise same-ID/different-type identity');
     checks.push('generated six creates with assigned IDs and branch-local lineage');
@@ -136,10 +201,17 @@ async function main() {
     graph.shipment.updateReferenceCode('fixture-shipment-updated');
     await graph.order.auditAs('submit order').save(context);
     assert.deepEqual(client.commands.map(command => plain(command.lineage)), expected(graph, 'submit order', true));
-    checkPhysicalGraph(sql.snapshot(), expected(graph, 'submit order', true), 'submit order');
+    const wantIdentities = graphIdentities(graph);
+    checkIdentities(wantIdentities, client.commands, 'actual commands');
+    const physicalIdentities = checkPhysicalGraph(sql.snapshot(), expected(graph, 'submit order', true), 'submit order', client.commands);
+    checkIdentities(wantIdentities, physicalIdentities, 'command-bound physical SQL');
+    const committedIdentities = auditIdentities(audits);
+    checkIdentities(wantIdentities, committedIdentities, 'committed audit');
     assert.deepEqual(audits.map(event => plain(event.mutationLineage)), expected(graph, 'submit order', true));
     assert(sql.snapshot().every(entry => entry.auditReason === 'submit order' && entry.tracePath[0].name === 'CustomerOrder'));
     assert.deepEqual(client.commands.map(command => command.action), ['Update', 'Update', 'Delete', 'Update', 'Update', 'Update']);
+    console.log('GRAPH IDENTITY EVIDENCE ' + JSON.stringify({ expected: wantIdentities,
+      commands: client.commands.map(({ entity, id }) => ({ entity, id })), physical: physicalIdentities, audit: committedIdentities }));
     checks.push('generated normative update and child markForDeletion then root save');
 
     sql.enableAll();
@@ -171,13 +243,16 @@ async function main() {
       'canonical generated path at every physical boundary'));
     checks.push('generated bounded Q and E across three relation levels');
 
-    audits.length = 0; sql.enableAll();
+    audits.length = 0; client.commands.length = 0; sql.enableAll();
     const first = construct(context, 'concurrent-first'), second = construct(context, 'concurrent-second');
     await Promise.all([first.order.auditAs('first independent operation').save(context),
       second.order.auditAs('second independent operation').save(context)]);
     for (const [graph, reason] of [[first, 'first independent operation'], [second, 'second independent operation']] as const) {
       assert.deepEqual(audits.filter(event => event.reason === reason).map(event => plain(event.mutationLineage)), expected(graph, reason));
-      checkPhysicalGraph(sql.snapshot().filter(entry => entry.auditReason === reason), expected(graph, reason), reason);
+      const commands = client.commands.filter(command => command.lineage[0]?.detail === reason), want = graphIdentities(graph);
+      checkIdentities(want, commands, 'independent commands');
+      checkIdentities(want, checkPhysicalGraph(sql.snapshot().filter(entry => entry.auditReason === reason), expected(graph, reason), reason, commands), 'independent physical writes');
+      checkIdentities(want, auditIdentities(audits.filter(event => event.reason === reason)), 'independent committed audit');
     }
     checks.push('generated overlapping graph saves on the same Context');
 

@@ -29,7 +29,24 @@ done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
 (cd "$repo/examples/task-board" && npm install && npm run build)
 (cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke)
-(cd "$repo/examples/trace-chain" && npm install && npm run build && npm start && npm start && env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference && env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference && npm run test:page && npm run test:page && npm run test:stream-capture && npm run test:stream-capture)
+(
+  cd "$repo/examples/trace-chain"
+  npm install
+  npm run build
+  for attempt in 1 2; do
+    graph_log="$(mktemp -t teaql-ts-graph.XXXXXX.log)"
+    npm start | tee "$graph_log"
+    rg -Fxq 'PASS TypeScript graph identity controls: duplicate, missing and equal-ID type collapse rejected' "$graph_log"
+    rg -Fq 'GRAPH IDENTITY EVIDENCE ' "$graph_log"
+    rg -Fxq 'PASS TypeScript generated trace-chain example: 7 checks' "$graph_log"
+  done
+  env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference
+  env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference
+  npm run test:page
+  npm run test:page
+  npm run test:stream-capture
+  npm run test:stream-capture
+)
 for attempt in 1 2; do
   aggregate_log="$(mktemp -t teaql-ts-aggregate.XXXXXX.log)"
   (cd "$repo/examples/trace-chain" && npm run test:relation-aggregate) | tee "$aggregate_log"

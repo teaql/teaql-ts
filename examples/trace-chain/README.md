@@ -77,7 +77,7 @@ saves an aggregate-loaded graph, checks the count is not mutation data, and
 verifies aggregate failure prevents incomplete stream delivery. No generated
 library source is edited or inspected; each execution fingerprints it.
 
-The six checks cover:
+The seven checks cover:
 
 1. Idempotent generated schema/bootstrap and bounded Q/E access to the root.
 2. Six creates with assigned IDs, inherited reasons and independent branches.
@@ -88,6 +88,19 @@ The six checks cover:
 5. Two overlapping independent graph saves using the same UserContext.
 6. Provider failure and write-success/readback-failure: retained SQL evidence,
    atomic rollback and no committed audit.
+7. Loaded private old values, committed refresh, rollback/retry and isolation
+   of the next independent request.
+
+Create, update/delete and both concurrent graphs compare exactly six distinct
+`(entity type, ID)` pairs at the command, actual physical-write and committed
+audit boundaries. Canonical SQL paths do not contain target IDs: each write is
+bound to its actual observed command/result in order, with successful outcome,
+one affected row, the correct entity frame and matching action. Audit identity
+comes from the event's independent `entity` and `id`, not an inherited reason.
+The Order and Payment deliberately have equal numeric IDs. Guard controls reject
+duplicates, a missing identity and collapse across entity types. IDs are checked
+as decimal strings without converting them through an imprecise JavaScript
+number. `GRAPH IDENTITY EVIDENCE` prints the actual normative update observations.
 
 Each successful generated mutation also returns physical write/readback metadata.
 Six graph changes produce twelve ordered SQL facts, while committed audit still
