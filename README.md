@@ -74,6 +74,14 @@ Its generated library is hash-checked and unmodified. Shared graph vectors,
 native transaction/audit tests and the prior canonical SQL cases are separate
 evidence, not substitutes for generated acceptance.
 
+The [generated School Facet example](examples/facet-trace/) verifies 48
+root/nested/loaded-relation combinations twice on a retained SQLite database.
+It covers exact/prefix operands, empty metadata, full counts despite a limit-one
+list, exact ordered ancestry and future-binding masking. Diagnostic logging
+on/off is distinct from its explicitly installed safe evidence collector.
+`bash examples/facet-trace/verify.sh` rebuilds and resolves the local runtime;
+the all-examples gate includes it and checks generated library fingerprints.
+
 Relation assembly preserves scalar keys before hydrated references or aggregate
 aliases replace their source fields. A reference filtered to null does not
 remove its child from an enclosing list or break a sibling using the same FK.

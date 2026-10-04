@@ -7,7 +7,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 (cd "$repo" && npm run build)
 (cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
 mkdir -p "$repo/.local"
-expected=(browser-sqlite conformance ensure-schema-bootstrap order-management school-management task-board trace-chain)
+expected=(browser-sqlite conformance ensure-schema-bootstrap facet-trace order-management school-management task-board trace-chain)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2
@@ -46,4 +46,5 @@ for attempt in 1 2; do
   (cd "$repo/examples/trace-chain" && timeout --kill-after=5s 90s npm run test:plan-item-lineage) | tee "$plan_log"
   rg -Fxq 'PASS TypeScript generated plan item lineage: 4 scenarios; one plan, ordered same-type items, sibling privacy, independent next request' "$plan_log"
 done
+bash "$repo/examples/facet-trace/verify.sh"
 echo "PASS: all TypeScript examples"
