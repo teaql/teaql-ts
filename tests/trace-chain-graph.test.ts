@@ -1,7 +1,7 @@
 import { UserContext } from '../src/core/context';
-import { AbstractSQLTeaQLClient, EntitySchema, SQLExecutionEvidenceStore } from '../src/sql/core';
+import { AbstractSQLTeaQLClient, EntitySchema, MutationResult, SQLExecutionEvidenceStore, SQLExecutionMetadata } from '../src/sql/core';
 import { SQLiteDriver } from '../src/sql/sqlite';
-import { GraphCommittedError, GraphMutationSession, MutationIntent } from '../src/core/request-intent';
+import { GraphCommittedError, GraphMutationSession, MutationIntent, MutationRequest } from '../src/core/request-intent';
 import { EntityRoot } from '../src/core/entity-root';
 import { MutationTraceScope, TraceNode } from '../src/core/trace-chain';
 import { RuntimeModule } from '../src/core/runtime-module';
@@ -217,6 +217,159 @@ it('uses a complete per-type ledger override without changing sibling fallback',
     other.clearCommitted(); expect(other.traceChain({ entity: 'Payment', id: '1' })).toBeUndefined();
   } finally { await f.client.close(); }
 });
+
+it.each([false, true].flatMap(logging => [false, true].map(empty => ({ logging, empty }))))(
+  'retains native ledger override or empty fallback at every emitted boundary: %j', async ({ logging, empty }) => {
+    const f = await fixture();
+    const targets = [['Order', '100'], ['Payment', '1'], ['OrderItem', '1'], ['Shipment', '1']];
+    for (const [entity, id] of targets) await f.client.executeMutation({
+      entity, id, action: 'Create', payload: { name: `${entity}-before` }, comment: 'seed ledger fixture',
+    });
+    const secret = 'LEDGER-PRIVATE-PAYMENT';
+    const reason = `submit using ${secret}`;
+    const root: TraceNode = Object.freeze({ kind: 'auditReason', name: 'Order', entityId: '100', detail: reason });
+    const leaf: TraceNode = Object.freeze({ kind: 'auditReason', name: 'Payment', entityId: '1', detail: `review ${secret}` });
+    // Explicit complete native input: this is not a generated-planner writer proof.
+    const callerChain: readonly TraceNode[] = Object.freeze(empty ? [] : [root, leaf]);
+    const callerBefore = JSON.stringify(callerChain);
+    const ledger = new EntityRoot();
+    ledger.setTraceChain({ entity: 'Payment', id: '1' }, callerChain);
+    ledger.setTraceChain({ entity: 'OrderItem', id: '1' }, []);
+    expect(ledger.traceChain({ entity: 'Payment', id: '1' })).not.toBe(callerChain);
+    expect(ledger.traceChain({ entity: 'Shipment', id: '1' })).toBeUndefined();
+
+    const context = new UserContext();
+    f.client.setUserContext(context);
+    const policy = jest.spyOn(context, 'enterMutationPolicy');
+    const sql = new SQLExecutionEvidenceStore();
+    const diagnostics: SQLExecutionMetadata[] = [];
+    const audits: Readonly<Record<string, unknown>>[] = [];
+    let inTransaction = false, commits = 0;
+    const transaction = f.driver.transaction.bind(f.driver);
+    jest.spyOn(f.driver, 'transaction').mockImplementation(async work => {
+      inTransaction = true;
+      try { const result = await transaction(work); commits++; return result; }
+      finally { inTransaction = false; }
+    });
+    f.client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging)
+      .setRuntimeTelemetrySink(sql).setDiagnosticSQLLogSink({ write: entry => diagnostics.push(entry) })
+      .setAuditSink(event => {
+        expect(inTransaction).toBe(false);
+        expect(commits).toBe(audits.length < 4 ? 1 : 2);
+        audits.push(event);
+      });
+    const query = f.driver.query.bind(f.driver);
+    const physical = jest.spyOn(f.driver, 'query');
+    const commands: Array<{ entity: string; id: string; comment: string;
+      payload: unknown; lineage: readonly TraceNode[] }> = [];
+    const execute = f.client.executeMutation.bind(f.client);
+    jest.spyOn(f.client, 'executeMutation').mockImplementation(async request => {
+      expect(request).toBeInstanceOf(MutationRequest);
+      const mutation = request.mutation;
+      commands.push({ entity: mutation.entity, id: mutation.id, comment: request.comment,
+        payload: { ...mutation.payload }, lineage: request.traceFor({ entity: mutation.entity, id: mutation.id }) });
+      return execute(request);
+    });
+    const results: MutationResult[] = [];
+    const names = ['root-after', secret, 'item-after', 'shipment-after'];
+    const payloads = names.map(name => Object.freeze({ name }));
+    try {
+      await f.client.executeGraphSave(new MutationIntent(reason), async graph => {
+        const mutations = targets.map(([entity, id], index) => ({ entity, id, version: 1,
+          action: 'Update', payload: payloads[index], ledgerRoot: ledger, ledgerKey: { entity, id } }));
+        const rootRequest = graph.request(mutations[0]);
+        const parent = rootRequest.scopeFor({ entity: 'Order', id: '100' });
+        const requests = [rootRequest, graph.request(mutations[1], parent),
+          graph.request(mutations[2], parent), graph.request(mutations[3], parent)];
+        // Capture the future Payment's marked value before the first root SQL.
+        for (const request of requests) f.client.preflightMutation(request);
+        for (const request of requests) {
+          results.push(await f.client.executeMutation(request));
+          expect(audits).toHaveLength(0);
+        }
+        expect(graph.intent.comment).toBe(reason);
+      });
+
+      const expected = [[root], empty ? [root] : [root, leaf], [root], [root]];
+      const safe = expected.map(nodes => nodes.map(node => ({ ...node,
+        detail: node.detail!.replace(secret, '[REDACTED]') })));
+      expect(commands).toHaveLength(4);
+      expect(commands.map(command => [command.entity, command.id])).toEqual(targets);
+      expect(commands.map(command => reasons(command.lineage))).toEqual(expected.map(reasons));
+      expect(commands.map(command => command.comment)).toEqual(Array(4).fill(reason));
+      expect(commands.map(command => command.payload)).toEqual(payloads);
+      expect(policy.mock.calls.map(([input]) => {
+        const mutation = input as { entity: string; id: string; comment: string; payload: unknown };
+        return [mutation.entity, mutation.id, mutation.comment, mutation.payload];
+      }))
+        .toEqual(targets.map(([entity, id], index) => [entity, id, reason, payloads[index]]));
+      expect(commits).toBe(1);
+      expect(physical).toHaveBeenCalledTimes(8);
+      const raw = results.flatMap(result => [...result.metadata!.statements!]);
+      expect(raw.map(entry => [entry.parameterizedSQL, [...entry.parameters]]))
+        .toEqual(physical.mock.calls.map(([statement, values]) => [statement, values]));
+      expect(raw.map(entry => entry.parameters)).toEqual(targets.flatMap(([, id], index) => [[names[index], id, 1], [id]]));
+      expect(raw.map(entry => reasons(entry.mutationLineage))).toEqual(expected.flatMap(nodes => [reasons(nodes), reasons(nodes)]));
+      expect(raw.map(entry => entry.auditReason)).toEqual(Array(8).fill(reason));
+      expect(raw.map(entry => entry.operation)).toEqual(Array(4).fill(['update', 'select']).flat());
+      expect(raw.every(entry => entry.executionOutcome === 'success')).toBe(true);
+      for (const [index, result] of results.entries()) {
+        expect(result).toMatchObject({ success: true, id: targets[index][1], version: 2,
+          persistedRecord: { id: targets[index][1], version: 2, name: names[index] } });
+        expect(result.metadata!.statements![0].affectedRows).toBe(1);
+        expect(result.metadata!.statements![1].resultCount).toBe(1);
+        expect(result.metadata!.statements![0].tracePath.map(node => [node.kind, node.name]))
+          .toEqual([['operation', 'Order'], ['entity', targets[index][0]], ['provider', 'sqlite'], ['sql', 'update']]);
+        expect(result.metadata!.statements![1].tracePath.map(node => [node.kind, node.name]))
+          .toEqual([['operation', 'Order'], ['request', 'Order'], ['provider', 'sqlite'], ['sql', 'select']]);
+      }
+      expect(sql.snapshot()).toHaveLength(8);
+      expect(diagnostics).toHaveLength(logging ? 8 : 0);
+      expect(diagnostics).toEqual(logging ? sql.snapshot() : []);
+      expect(audits.map(event => [event.entity, event.id, event.version])).toEqual(targets.map(([entity, id]) => [entity, id, 2]));
+      expect(audits.map(event => reasons(event.mutationLineage))).toEqual(safe.map(reasons));
+      expect(audits.map(event => event.reason)).toEqual(Array(4).fill('submit using [REDACTED]'));
+      expect(sql.snapshot().map(entry => reasons(entry.mutationLineage))).toEqual(safe.flatMap(nodes => [reasons(nodes), reasons(nodes)]));
+      expect(sql.snapshot().map(entry => entry.auditReason)).toEqual(Array(8).fill('submit using [REDACTED]'));
+      for (const entry of [...sql.snapshot(), ...diagnostics]) {
+        expect(JSON.stringify(entry)).not.toContain(secret);
+      }
+      expect(JSON.stringify(audits)).not.toContain(secret);
+      expect(audits.every(event => Object.isFrozen(event) && Object.isFrozen(event.mutationLineage))).toBe(true);
+      expect(JSON.stringify(callerChain)).toBe(callerBefore);
+      expect(ledger.traceChain({ entity: 'Payment', id: '1' })).toEqual(callerChain);
+      expect(payloads).toEqual(names.map(name => ({ name })));
+      for (const [index, [entity, id]] of targets.entries()) {
+        expect((await query(`SELECT name, version FROM ${schemas[entity].table} WHERE id = ?`, [id])).rows)
+          .toEqual([{ name: names[index], version: 2 }]);
+      }
+
+      // Native owners explicitly clear their ledger; raw requests do not promise generated cleanup.
+      ledger.clearCommitted();
+      expect(ledger.traceChain({ entity: 'Payment', id: '1' })).toBeUndefined();
+      const nextReason = `independent mention ${secret}`;
+      await f.client.executeGraphSave(new MutationIntent(nextReason), async graph => {
+        const request = graph.request({ entity: 'Payment', id: '1', version: 2, action: 'Update',
+          payload: { name: 'following-value' }, ledgerRoot: ledger, ledgerKey: { entity: 'Payment', id: '1' } });
+        f.client.preflightMutation(request);
+        const result = await f.client.executeMutation(request);
+        expect(result.persistedRecord).toMatchObject({ id: '1', version: 3, name: 'following-value' });
+      });
+      expect(commits).toBe(2);
+      expect(commands).toHaveLength(5);
+      expect(physical).toHaveBeenCalledTimes(10);
+      expect(sql.snapshot()).toHaveLength(10);
+      expect(diagnostics).toHaveLength(logging ? 10 : 0);
+      expect(audits).toHaveLength(5);
+      const next = [['auditReason', 'Payment', '1', nextReason]];
+      expect(reasons(commands[4].lineage)).toEqual(next);
+      expect(reasons(audits[4].mutationLineage)).toEqual(next);
+      expect(audits[4].reason).toBe(nextReason);
+      expect(sql.snapshot().slice(8).map(entry => reasons(entry.mutationLineage))).toEqual([next, next]);
+      expect(sql.snapshot().slice(8).map(entry => entry.auditReason)).toEqual([nextReason, nextReason]);
+      expect(JSON.stringify(callerChain)).toBe(callerBefore);
+    } finally { await f.client.close(); }
+  });
 
 it('rejects missing root intent before opening a transaction even when logging is disabled', async () => {
   const f = await fixture();
