@@ -41,4 +41,9 @@ for attempt in 1 2; do
   TEAQL_TRACE_CHAIN_CHECKER_RUN="verify-examples-$attempt" \
     bash "$repo/scripts/run-checker-overlap.sh" "$checker_log"
 done
+for attempt in 1 2; do
+  plan_log="$(mktemp -t teaql-ts-plan-items.XXXXXX.log)"
+  (cd "$repo/examples/trace-chain" && timeout --kill-after=5s 90s npm run test:plan-item-lineage) | tee "$plan_log"
+  rg -Fxq 'PASS TypeScript generated plan item lineage: 4 scenarios; one plan, ordered same-type items, sibling privacy, independent next request' "$plan_log"
+done
 echo "PASS: all TypeScript examples"
