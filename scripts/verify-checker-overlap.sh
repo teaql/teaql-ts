@@ -14,11 +14,7 @@ export TEAQL_TRACE_CHAIN_CHECKER_DB="$database"
 (cd "$repo" && npm run build) > "$evidence/runtime-build.log" 2>&1
 (cd "$repo/examples/trace-chain" && npm run build) > "$evidence/app-build.log" 2>&1
 for attempt in 1 2; do
-  (
-    cd "$repo/examples/trace-chain"
-    env -u TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS \
-      TEAQL_TRACE_CHAIN_CHECKER_RUN="attempt-$attempt" npm run test:checker-overlap
-  ) > "$evidence/attempt-$attempt.log" 2>&1
-  tail -n 2 "$evidence/attempt-$attempt.log"
+  TEAQL_TRACE_CHAIN_CHECKER_RUN="attempt-$attempt" \
+    bash "$repo/scripts/run-checker-overlap.sh" "$evidence/attempt-$attempt.log"
 done
 printf 'PASS: retained Checker overlap evidence %s\n' "$evidence"
