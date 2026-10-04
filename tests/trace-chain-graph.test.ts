@@ -107,6 +107,76 @@ function reasons(nodes: readonly TraceNode[] | unknown): unknown {
   return (nodes as readonly TraceNode[]).map(node => [node.kind, node.name, node.entityId, node.detail]);
 }
 
+it.each([false, true])('TC-MUT-11 blank local reasons inherit at real sinks, logging=%p', async logging => {
+  const f = await fixture();
+  const sql = new SQLExecutionEvidenceStore();
+  const diagnostic = jest.fn();
+  const audit: Readonly<Record<string, unknown>>[] = [];
+  const commands: Array<{ entity: string; id: string; lineage: readonly TraceNode[] }> = [];
+  const blanks = [undefined, '', ' \t\r\n', '\u0085', '\u00a0', '\u2003'];
+  const root = { kind: 'auditReason', name: 'Order', entityId: '100', detail: 'submit order' } as const;
+  const payment = { kind: 'auditReason', name: 'Payment', entityId: '201', detail: 'authorize payment' } as const;
+  const shipment = { kind: 'auditReason', name: 'Shipment', entityId: '301', detail: 'dispatch shipment' } as const;
+  f.client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging)
+    .setRuntimeTelemetrySink(sql).setDiagnosticSQLLogSink({ write: diagnostic })
+    .setAuditSink(event => { audit.push(event); });
+  const query = jest.spyOn(f.driver, 'query'), transaction = jest.spyOn(f.driver, 'transaction');
+  try {
+    for (const blank of blanks) {
+      await expect(f.client.executeMutation({ entity: 'Order', action: 'Create',
+        id: '999', payload: { name: 'must not persist' }, comment: blank })).rejects.toMatchObject({
+        code: 'REQUEST_COMMENT_REQUIRED', field: 'comment', requestKind: 'mutation',
+      });
+    }
+    expect(query).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
+    expect(sql.snapshot()).toHaveLength(0);
+    expect(audit).toHaveLength(0);
+    expect(diagnostic).not.toHaveBeenCalled();
+
+    await f.client.executeGraphSave(new MutationIntent('submit order'), async graph => {
+      const rootScope = graph.request({ entity: 'Order' }).scopeFor({ entity: 'Order', id: '100' });
+      const paymentScope = graph.request({ entity: 'Payment' }, rootScope, 'authorize payment')
+        .scopeFor({ entity: 'Payment', id: '201' });
+      const sibling = graph.request({ entity: 'Shipment', action: 'Create', id: '301',
+        payload: { name: 'sibling' } }, rootScope, 'dispatch shipment');
+      for (const [index, blank] of blanks.entries()) {
+        const id = String(400 + index);
+        // Pass the blank value to the runtime unchanged. Do not substitute a
+        // parent trace or filter the local reason in the test.
+        const request = graph.request({ entity: 'PaymentAttempt', action: 'Create', id,
+          payload: { name: `attempt-${index}` } }, paymentScope, blank);
+        expect(request.scopeFor({ entity: 'PaymentAttempt', id })).toBe(paymentScope);
+        const result = await f.client.executeMutation(request);
+        commands.push({ entity: 'PaymentAttempt', id, lineage: request.traceFor({ entity: 'PaymentAttempt', id }) });
+        expect(result.metadata?.mutationLineage).toEqual([root, payment]);
+        expect(result.metadata?.statements?.map(statement => statement.operation)).toEqual(['insert', 'select']);
+        expect(audit).toHaveLength(0);
+      }
+      const result = await f.client.executeMutation(sibling);
+      commands.push({ entity: 'Shipment', id: '301', lineage: sibling.traceFor({ entity: 'Shipment', id: '301' }) });
+      expect(result.metadata?.mutationLineage).toEqual([root, shipment]);
+      expect(paymentScope.recover()).toEqual([root, payment]);
+      expect(rootScope.recover()).toEqual([root]);
+      expect(audit).toHaveLength(0);
+    });
+    const expected = [...blanks.map(() => [root, payment]), [root, shipment]];
+    expect(commands.map(command => command.lineage)).toEqual(expected);
+    expect(audit.map(event => event.mutationLineage)).toEqual(expected);
+    expect(audit.map(event => [event.entity, String(event.id)]))
+      .toEqual(commands.map(command => [command.entity, command.id]));
+    expect(sql.snapshot().map(statement => statement.mutationLineage))
+      .toEqual(expected.flatMap(lineage => [lineage, lineage]));
+    expect(sql.snapshot().map(statement => statement.operation))
+      .toEqual(expected.flatMap(() => ['insert', 'select']));
+    expect(sql.snapshot().every(statement => statement.executionOutcome === 'success'
+      && statement.auditReason === 'submit order')).toBe(true);
+    expect(diagnostic).toHaveBeenCalledTimes(logging ? expected.length * 2 : 0);
+    expect((await f.driver.query('SELECT id, name FROM paymentattempt_data ORDER BY id')).rows)
+      .toEqual(blanks.map((_, index) => ({ id: 400 + index, name: `attempt-${index}` })));
+  } finally { await f.client.close(); }
+});
+
 it('retains all six native graph lineages at request, physical SQL, and committed audit boundaries', async () => {
   const f = await fixture();
   for (const [entity, id] of [['Order', '1'], ['OrderItem', '1'], ['Payment', '1'],
