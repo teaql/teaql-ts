@@ -64,4 +64,14 @@ for attempt in 1 2; do
   rg -Fxq 'PASS TypeScript generated plan item lineage: 4 scenarios; one plan, ordered same-type items, sibling privacy, independent next request' "$plan_log"
 done
 bash "$repo/examples/facet-trace/verify.sh"
+bootstrap_directory="$(mktemp -d -t teaql-ts-bootstrap.XXXXXXXX)"
+for attempt in 1 2; do
+  bootstrap_log="$bootstrap_directory/round-$attempt.log"
+  (cd "$repo/examples/trace-chain" && TEAQL_TRACE_CHAIN_BOOTSTRAP_DB="$bootstrap_directory/bootstrap.sqlite" \
+    timeout --kill-after=5s 90s npm run test:bootstrap-intent) | tee "$bootstrap_log"
+  rg -Fxq 'PASS TypeScript generated bootstrap intent: logging off/on, committed audit, repeat no writes, unchanged generated library' "$bootstrap_log"
+  for logging in false true; do
+    rg -Fq "\"path\":\"generated default bootstrap\",\"logging\":$logging,\"firstWrites\":$((2-attempt)),\"repeatWrites\":0" "$bootstrap_log"
+  done
+done
 echo "PASS: all TypeScript examples"
