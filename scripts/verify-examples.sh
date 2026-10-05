@@ -55,6 +55,7 @@ for attempt in 1 2; do
   rg -Fq 'FORWARD_NOTLOADED_OBSERVED {"logging":true' "$aggregate_log"
   rg -Fq 'FORWARD_NOTLOADED_OBSERVED {"logging":false' "$aggregate_log"
 done
+bash "$repo/scripts/verify-current-aggregate.sh"
 for attempt in 1 2; do
   checker_log="$(mktemp -t teaql-ts-checker.XXXXXX.log)"
   TEAQL_TRACE_CHAIN_CHECKER_RUN="verify-examples-$attempt" \

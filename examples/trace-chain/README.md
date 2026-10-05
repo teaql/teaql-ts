@@ -77,6 +77,23 @@ saves an aggregate-loaded graph, checks the count is not mutation data, and
 verifies aggregate failure prevents incomplete stream delivery. No generated
 library source is edited or inspected; each execution fingerprints it.
 
+Run `bash scripts/verify-current-aggregate.sh` from the runtime checkout for the
+deeper aggregate-membership gate. It rebuilds local runtime output, compiles the
+application, runs numeric-partition and scalar-membership native tests twice,
+then runs 24 generated combinations twice on the same dedicated SQLite database
+without cleanup. Set `TEAQL_TS_AGGREGATE_EVIDENCE` to retain logs at a chosen path.
+Generated Q related counts, loaded child lists and explicitly filtered/unfiltered
+forward targets combine root/nested owners, list/full/tail streams and logging
+off/on. Count remains 1 while membership remains 2; filtered targets retain their
+actual FK identity but not loaded details. Independent full reads cannot widen
+those old views. The runtime-generated safe path is checked against each actual
+driver statement; streams report root completion after the child statements.
+Raw driver SQL/bindings are test evidence, not an invented raw metadata API.
+Telemetry still supplies safe metadata when ordinary SQL logging is disabled;
+the diagnostic sink then receives nothing. Query probes produce no mutation
+commands or committed audits. The generated library remains unchanged. This
+local-source gate is not a private Registry or complete TC-SQL-10 claim.
+
 The seven checks cover:
 
 1. Idempotent generated schema/bootstrap and bounded Q/E access to the root.
