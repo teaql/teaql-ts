@@ -3,7 +3,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { MutationRequest, TraceNode, UserContext } from 'teaql-ts';
-import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore, SQLExecutionMetadata, SqlQueryResult } from 'teaql-ts/sql/core';
+import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore, SQLExecutionMetadata, SqlQueryResult, SqlSession } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
 import { Q } from './lib/src/generated/Q';
 import { E } from './lib/src/generated/E';
@@ -68,7 +68,25 @@ function identityControls() {
 class Driver extends SQLiteDriver {
   failureTable?: string;
   readbackFailure = false;
+  beforeCommit?: () => void;
+  readonly finishes: string[] = [];
+  readonly attemptedSQL: { sql: string; values: readonly unknown[] }[] = [];
+  async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
+    try {
+      const result = await super.transaction(async session => {
+        const result = await work(session);
+        this.beforeCommit?.();
+        return result;
+      });
+      this.finishes.push('commit');
+      return result;
+    } catch (error) {
+      this.finishes.push('rollback');
+      throw error;
+    }
+  }
   async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+    this.attemptedSQL.push({ sql, values: [...values] });
     if (this.failureTable && sql.includes(this.failureTable)
       && (this.readbackFailure ? sql.startsWith('SELECT') && sql.includes('WHERE "id" = ?') : sql.startsWith('INSERT'))) {
       throw new Error('injected trace-chain provider failure');
@@ -78,9 +96,14 @@ class Driver extends SQLiteDriver {
 }
 class Client extends AbstractSQLTeaQLClient {
   readonly commands: ObservedCommand[] = [];
+  readonly rawRequests: MutationRequest[] = [];
+  readonly rawResults: MutationResult[] = [];
   constructor(driver: Driver) { super(driver, GENERATED_RUNTIME_MODULE.schemas); }
   async executeMutation(mutation: any): Promise<MutationResult> {
+    assert(mutation instanceof MutationRequest, 'generated save must pass an owned request');
+    this.rawRequests.push(mutation);
     const result = await super.executeMutation(mutation);
+    this.rawResults.push(result);
     assert(mutation instanceof MutationRequest, 'generated save must pass an owned request');
     assert.equal(result.metadata?.statements?.length, 2, 'successful save must return write/readback metadata');
     assert.equal(result.metadata.statements[0].affectedRows, 1);
@@ -117,6 +140,68 @@ function construct(context: UserContext, suffix: string) {
 }
 function plain(nodes: unknown): unknown {
   return (nodes as readonly TraceNode[]).map(node => [node.kind, node.name, node.entityId, node.detail]);
+}
+function privateLineage(nodes: readonly TraceNode[] | undefined, rootID: string, reason: string, boundary: string) {
+  assert.equal(nodes?.length, 1, `${boundary}: complete typed root lineage required`);
+  assert.deepEqual(plain(nodes), [['auditReason', 'CustomerOrder', rootID, reason]], `${boundary}: wrong root responsibility`);
+}
+function checkPrivateGraph(client: Client, driver: Driver, entries: readonly SQLExecutionMetadata[],
+  audits: readonly Readonly<Record<string, unknown>>[], rootID: string, childID: string,
+  reason: string, secrets: readonly string[], newValue: string | undefined, fail: boolean, logging: boolean, phase: string,
+  precommitChecks: number) {
+  const safeReason = secrets.reduce((text, secret) => text.split(secret).join('[REDACTED]'), reason);
+  const expected = [['CustomerOrder', rootID], ['OrderItem', childID]];
+  assert.equal(client.rawRequests.length, 2);
+  assert.deepEqual(client.rawRequests.map(request => [request.mutation.entity, String(request.mutation.id)]), expected);
+  assert.equal(client.rawResults.length, fail ? 1 : 2);
+  assert.deepEqual(driver.finishes, [fail ? 'rollback' : 'commit']);
+  assert.equal(precommitChecks, fail ? 0 : 1, 'audit isolation must be observed before actual commit');
+  const commands = client.rawRequests.map(request => {
+    const key = { entity: request.mutation.entity, id: String(request.mutation.id) };
+    assert.equal(request.comment, reason, 'privacy must not rewrite the owned command reason');
+    privateLineage(request.traceFor(key), rootID, reason, 'raw privacy command');
+    if (key.entity === 'OrderItem' && newValue !== undefined)
+      assert.equal(request.mutation.payload?.name, newValue, 'privacy must not rewrite command bindings');
+    return { ...key, comment: request.comment, action: request.mutation.action, lineage: request.traceFor(key) };
+  });
+  if (newValue !== undefined) {
+    assert(driver.attemptedSQL.some(statement => statement.sql.startsWith('UPDATE "order_item_data"')
+      && statement.values.includes(newValue)), 'privacy must not rewrite physical provider bindings');
+    if (!fail) assert(client.rawResults[1].metadata?.statements?.[0].parameters.includes(newValue),
+      'privacy must not rewrite provider result bindings');
+  }
+  assert.equal(entries.length, 4, 'two writes retain two real readbacks, including failed readback');
+  for (const [index, fact] of entries.entries()) {
+    privateLineage(fact.mutationLineage, rootID, safeReason, 'safe privacy SQL');
+    const read = index % 2 === 1;
+    // Mutation SQL exposes the owned comment as auditReason; only derived reads
+    // also expose Query.comment. Do not require a duplicate intent field.
+    assert.equal(fact.auditReason, safeReason);
+    assert.equal(fact.comment, read ? safeReason : undefined);
+    assert.deepEqual(fact.tracePath.map(node => node.kind), ['operation', read ? 'request' : 'entity', 'provider', 'sql']);
+    assert.equal(fact.tracePath[0].name, 'CustomerOrder'); assert.equal(fact.tracePath[2].name, 'sqlite');
+    assert.equal(fact.tracePath[1].name, read ? 'CustomerOrder' : expected[Math.floor(index / 2)][0]);
+    assert.equal(fact.executionOutcome, fail && index === 3 ? 'failure' : 'success');
+    if (read) {
+      assert.equal(fact.operation, 'select'); assert.equal(fact.tracePath[3].name, 'select');
+      assert.equal(fact.purpose, 'verify persisted mutation result');
+      if (!(fail && index === 3)) assert.equal(fact.resultCount, 1);
+      assert.equal(fact.affectedRows, undefined);
+    } else {
+      assert.equal(fact.operation, phase === 'delete' && index === 2 ? 'delete' : 'update');
+      assert.equal(fact.tracePath[3].name, fact.operation); assert.equal(fact.affectedRows, 1);
+    }
+  }
+  assert.equal(audits.length, fail ? 0 : 2);
+  if (!fail) assert.deepEqual(audits.map(event => [event.entity, event.id]), expected);
+  for (const event of audits) {
+    privateLineage(event.mutationLineage as readonly TraceNode[], rootID, safeReason, 'safe privacy audit');
+    assert.equal(event.reason, safeReason);
+  }
+  for (const secret of secrets) assert(!JSON.stringify({ sql: entries, audit: audits }).includes(secret), 'private scalar leaked into safe graph evidence');
+  console.log('PRIVATE_LINEAGE_OBSERVED ' + JSON.stringify({ rootId: rootID, childId: childID, rawReason: reason,
+    safeReason, logging, phase, fail, precommitChecks, commands, sql: entries, audit: audits }));
+  console.log('PASS TypeScript complete private lineage: raw commands, safe SQL/readback and committed audit');
 }
 function expected(graph: ReturnType<typeof construct>, rootReason: string, deleted = false) {
   const root = ['auditReason', 'CustomerOrder', graph.order.id, rootReason];
@@ -160,6 +245,7 @@ async function main() {
   const audits: Readonly<Record<string, unknown>>[] = [];
   client.setAuditSink(event => {
     // The sink sees committed, queryable rows, not an intermediate transaction.
+    assert.equal(driver.finishes.at(-1), 'commit', 'privacy audit escaped before database commit');
     audits.push(event);
   });
   try {
@@ -277,7 +363,8 @@ async function main() {
     }
     checks.push('generated provider and readback failures retain trace and produce no committed audit');
 
-    const privacy = construct(context, 'loaded-privacy');
+    for (const logging of [false, true]) {
+    const privacy = construct(context, `loaded-privacy-${logging}`);
     privacy.item.updateName('PRIVATEOLDITEM');
     await privacy.order.auditAs('seed loaded privacy graph').save(context);
     const loaded = (await Q.customerOrders().withIdIs(privacy.order.id)
@@ -293,10 +380,15 @@ async function main() {
       loaded.updateDescription(`privacy update ${newValue.length}`);
       item.updateName(newValue);
       audits.length = 0; sql.enableAll();
-      client.setQueryLoggingEnabled(false).setMutationLoggingEnabled(false);
+      client.commands.length = 0; client.rawRequests.length = 0; client.rawResults.length = 0;
+      driver.finishes.length = 0; driver.attemptedSQL.length = 0;
+      let precommitChecks = 0;
+      driver.beforeCommit = () => { assert.equal(audits.length, 0, 'privacy audit escaped before database commit'); precommitChecks++; };
+      client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging);
       driver.failureTable = fail ? 'order_item_data' : undefined;
       driver.readbackFailure = fail;
-      const operation = loaded.auditAs(`replace ${oldValue} with ${newValue}`).save(context);
+      const reason = `replace ${oldValue} with ${newValue}`;
+      const operation = loaded.auditAs(reason).save(context);
       if (fail) await assert.rejects(operation, /injected trace-chain provider failure/);
       else await operation;
       const evidence = sql.snapshot();
@@ -305,15 +397,34 @@ async function main() {
       assert(!JSON.stringify(evidence).includes(newValue), 'new scalar leaked into graph SQL');
       assert(!JSON.stringify(audits).includes(oldValue), 'old scalar leaked into graph audit');
       assert.equal(audits.length, fail ? 0 : 2);
+      checkPrivateGraph(client, driver, evidence, audits, loaded.id!, item.id!, reason,
+        [oldValue, newValue], newValue, fail, logging, fail ? 'rollback' : oldValue === 'PRIVATEOLDITEM' ? 'update' : 'retry', precommitChecks);
+      driver.beforeCommit = undefined;
       driver.failureTable = undefined;
       const persisted = (await Q.orderItems().withIdIs(item.id).limit(1)
         .comment('verify item privacy mutation').purpose('check committed or rolled-back value').executeForList(context))[0];
       assert.equal(E.orderItem(persisted).name().eval(), fail ? oldValue : newValue);
     }
+    // The private original remains provenance even when deletion binds only ID/version.
+    loaded.updateDescription('delete loaded private child'); item.markForDeletion();
+    audits.length = 0; sql.enableAll();
+    client.commands.length = 0; client.rawRequests.length = 0; client.rawResults.length = 0;
+    driver.finishes.length = 0; driver.attemptedSQL.length = 0;
+    let precommitChecks = 0;
+    driver.beforeCommit = () => { assert.equal(audits.length, 0, 'privacy audit escaped before database commit'); precommitChecks++; };
+    const reason = 'remove PRIVATERETRYITEM';
+    await loaded.auditAs(reason).save(context);
+    checkPrivateGraph(client, driver, sql.snapshot(), audits, loaded.id!, item.id!, reason,
+      ['PRIVATERETRYITEM'], undefined, false, logging, 'delete', precommitChecks);
+    driver.beforeCommit = undefined;
+    const missing = await Q.orderItems().withIdIs(item.id).limit(1)
+      .comment('verify loaded private child deletion').purpose('confirm soft-deleted row is hidden').executeForList(context);
+    assert.equal(missing.length, 0);
     // No unrelated request may inherit the preceding graph's privacy snapshot.
     sql.enableAll();
     await Q.platforms().limit(1).comment('independent PRIVATEOLDITEM').purpose('verify graph privacy isolation').executeForList(context);
     assert.equal(sql.snapshot()[0].comment, 'independent PRIVATEOLDITEM');
+    }
     checks.push('generated loaded old-value privacy, committed refresh, rollback retry and independent request isolation');
   } finally { await client.close(); }
   assert.equal(manifest('lib'), generatedBefore, 'application execution changed generated source');

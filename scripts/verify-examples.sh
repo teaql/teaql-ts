@@ -39,6 +39,8 @@ done
     rg -Fxq 'PASS TypeScript graph identity controls: duplicate, missing and equal-ID type collapse rejected' "$graph_log"
     rg -Fq 'GRAPH IDENTITY EVIDENCE ' "$graph_log"
     rg -Fxq 'PASS TypeScript generated trace-chain example: 7 checks' "$graph_log"
+    [[ "$(rg -c '^PRIVATE_LINEAGE_OBSERVED ' "$graph_log")" == 8 ]]
+    [[ "$(rg -c '^PASS TypeScript complete private lineage:' "$graph_log")" == 8 ]]
   done
   env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference
   env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference
