@@ -123,11 +123,18 @@ async function main() {
         assert.equal(diagnostics.length, logging ? 6 : 0);
         const safe = JSON.stringify({ physical, diagnostics, audits });
         for (const secret of secrets) assert(!safe.includes(secret), 'sibling secret leaked through inherited prose');
+        const safeReason = 'align [REDACTED] with [REDACTED]';
+        const safeExpected = expected.map(nodes => nodes.map((node, index) =>
+          index === 0 ? [node[0], node[1], node[2], safeReason] : node));
         for (let index = 0; index < 3; index++) {
           const write = physical[index * 2], read = physical[index * 2 + 1];
           assert.equal(write.affectedRows, 1); assert.equal(read.operation, 'select'); assert.equal(read.resultCount, 1);
           assert.deepEqual(write.mutationLineage, read.mutationLineage);
           assert.deepEqual(audits[index].mutationLineage, write.mutationLineage);
+          assert.deepEqual(plain(write.mutationLineage), safeExpected[index], 'complete SQL item lineage');
+          assert.deepEqual(plain(audits[index].mutationLineage), safeExpected[index], 'complete committed item lineage');
+          assert.equal(write.auditReason, safeReason, 'safe write retains the masked root intent');
+          assert.equal(read.auditReason, safeReason, 'safe readback retains the masked root intent');
           const leaf = write.mutationLineage![write.mutationLineage!.length - 1];
           assert.equal(leaf.entityId, index === 0 ? order.id : index === 1 ? first.id : second.id);
           if (index > 0) assert.equal(leaf.detail, index === 1 ? 'prepare first item' : 'prepare second item');
