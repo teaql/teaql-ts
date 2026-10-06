@@ -1,4 +1,4 @@
-import { CheckException, EntityKey, EntityRoot, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationIntent, MutationTraceScope, ObjectLocation, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 
 export class WorkItem {
@@ -29,17 +29,24 @@ export class WorkItem {
         const key = this.teaqlEntityKey();
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, Number((this as any).version));
+        Object.defineProperty(this, "_loadedSnapshot", { value: (this as any)._action === "Update"
+            ? this.teaqlScalarSnapshot() : new LoadedScalarSnapshot(), writable: true, enumerable: false });
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "WorkItem", id: (this as any)._ledgerId }; }
-    private teaqlAttachRoot(root: EntityRoot): this {
-        if ((this as any)._root !== root) { root.mergeFrom((this as any)._root); (this as any)._root = root; }
+    private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
+        if ((this as any)._root !== root) {
+            const source = (this as any)._root as EntityRoot;
+            const key = this.teaqlEntityKey();
+            root.mergeEntityFrom(source, key);
+            if (hydration || source.hasPending(key)) (this as any)._root = root;
+        }
         return this;
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): WorkItem {
         const entity = new WorkItem(record as Partial<WorkItem>);
-        return root ? entity.teaqlAttachRoot(root) : entity;
+        return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
     isLoaded(field: string): boolean {
@@ -73,28 +80,24 @@ export class WorkItem {
     }
 
     auditAs(comment: string): this {
-        if (!comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() requires a non-empty reason");
-        }
-        (this as any)._comment = comment;
+        (this as any)._comment = new MutationIntent(comment).comment;
         return this;
     }
 
     async save(context: UserContext): Promise<WorkItem> {
+        const intent = new MutationIntent((this as any)._comment);
         const service = context.requireResource<TeaQLDataService>("dataService");
-        return service.executeGraphSave(async () => {
-            this.teaqlPreflightGraph(context, service);
-            return this.teaqlSaveWithinGraph(context, service);
+        return service.executeGraphSave(intent, async graph => {
+            this.teaqlPreflightGraph(context, service, graph);
+            return this.teaqlSaveWithinGraph(context, service, graph);
         });
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService): void {
-        if (!(this as any)._comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() must be called before save()");
-        }
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession): void {
         const action = (this as any)._action;
-        if (action === "Update") {
+        const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        if (action === "Update" && pending) {
             const notLoaded = [{ member: "id", canonical: "id" }, { member: "title", canonical: "title" }, { member: "description", canonical: "description" }, { member: "platform", canonical: "platform" }, { member: "version", canonical: "version" }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
@@ -105,22 +108,21 @@ export class WorkItem {
                 }]);
             }
         }
-        service.preflightMutation({
+        if (pending) service.preflightMutation(graph.request({
             entity: "WorkItem", action,
             payload: action === "Update"
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
-            id: (this as any).id, version: (this as any).version,
+            id: (this as any).id,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
-        });
+        }).withLoadedSnapshot((this as any)._loadedSnapshot));
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService): Promise<WorkItem> {
-        if (!(this as any)._comment?.trim()) {
-            throw new Error("Security audit failure: auditAs() must be called before save()");
-        }
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService,
+        graph: GraphMutationSession, parent?: MutationTraceScope): Promise<WorkItem> {
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -128,12 +130,18 @@ export class WorkItem {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any).version,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
-        const result = await service.executeMutation(mutation);
+        const request = graph.request(mutation, parent, (this as any)._comment)
+            .withLoadedSnapshot((this as any)._loadedSnapshot);
+        if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
+            const activeScope = request.scopeFor(this.teaqlEntityKey());
+            return this;
+        }
+        const result = await service.executeMutation(request);
         for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
             if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
         }
@@ -149,9 +157,11 @@ export class WorkItem {
         };
         const oldKey = this.teaqlEntityKey();
         Object.assign(this, result.persistedRecord);
+        const committedSnapshot = this.teaqlScalarSnapshot();
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
+        const activeScope = request.scopeFor(newKey);
         service.afterGraphRollback(() => {
             Object.assign(this, rollbackState.payload);
             (this as any)._ledgerId = rollbackState.ledgerId;
@@ -164,8 +174,9 @@ export class WorkItem {
         (this as any)._fullyLoaded = false;
         if (mutation.action !== "Delete") (this as any)._action = "Update";
         service.afterGraphCommit(() => {
+            (this as any)._loadedSnapshot = committedSnapshot;
             (this as any)._root.clearEntity(newKey);
-            if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(newKey, Number((this as any).version));
+            if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
         });
         return this;
     }
@@ -178,6 +189,15 @@ export class WorkItem {
             "platform": this.platform,
             "version": this.version
         };
+    }
+
+    private teaqlScalarSnapshot(): LoadedScalarSnapshot {
+        return new LoadedScalarSnapshot({
+            "id": this.id,
+            "title": this.title,
+            "description": this.description,
+            "version": this.version
+        });
     }
 
     updateId(value: string): this {

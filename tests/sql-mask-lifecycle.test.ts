@@ -4,6 +4,7 @@ import { PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK, projectSQLLog } from '../src/core
 import { AbstractSQLTeaQLClient, EntitySchema, SQLExecutionMetadata, SQLExecutionEvidenceStore,
   TextDiagnosticSQLLogSink, SqlQueryResult } from '../src/sql/core';
 import { SQLiteDriver } from '../src/sql/sqlite';
+import { GraphMutationSession, MutationIntent } from '../src/core/request-intent';
 
 const schema: Record<string, EntitySchema> = { Customer: {
   table: 'customer_data', auditMaskFields: ['display_name'], columns: {
@@ -125,7 +126,8 @@ it('records an empty stream and honors the query logging switch', async () => {
     f.logs.length = 0; f.evidence.enableAll(); f.client.setQueryLoggingEnabled(false);
     for await (const _rows of f.client.executeForStream(query(), 2)) { /* consume */ }
     expect(f.logs).toHaveLength(0);
-    expect(f.evidence.snapshot()).toHaveLength(0);
+    expect(f.evidence.snapshot()).toHaveLength(1);
+    expect(f.evidence.snapshot()[0].resultCount).toBe(3);
   } finally { await f.client.close(); }
 });
 
@@ -164,7 +166,7 @@ it('does not redact a structural row count when the target ID is short', async (
   try {
     await f.client.executeMutation({entity:'Customer',action:'Update',id:'1',version:1,
       payload:{publicAddress:'Changed Road'},comment:'update target 1'});
-    expect(f.logs).toHaveLength(1);
+    expect(f.logs.map(entry => entry.operation)).toEqual(['update', 'select']);
     expect(f.logs[0].auditReason).toBe('update target [REDACTED]');
     expect(f.logs[0].resultSummary).toBe('1 rows affected');
     expect(f.logs[0].parameters).toContain('1');
@@ -197,6 +199,9 @@ it.each(['Create', 'Update', 'Delete'])(
       expect(JSON.stringify(sqlEntry.tracePath)).not.toContain('1001');
       expect(sqlEntry).not.toHaveProperty('targetID');
       expect(sqlEntry.parameters).toContain('1001');
+      expect(sqlEntry.mutationLineage?.[0].entityId).toBe('1001');
+      expect(sqlEntry.mutationLineage?.[0].detail).toBe(`${action.toLowerCase()} target [REDACTED]`);
+      expect(Object.isFrozen(sqlEntry.mutationLineage?.[0])).toBe(true);
       expect(mutation.id).toBe('1001');
       expect(mutation.comment).toContain('1001');
     } finally { await f.client.close(); }
@@ -332,9 +337,12 @@ it.each(['debug','disabled','success'])('handles readback mode %s without changi
       const result = await pending;
       expect(result.persistedRecord?.displayName).toBe('Riverside');
       expect(result.persistedRecord?.passwordHash).toBe('PASSWORD-CANARY');
-      expect(f.logs).toHaveLength(1);
+      expect(f.logs.map(entry => entry.operation)).toEqual(['update', 'select']);
     } else await expect(pending).rejects.toBe(f.driver.readbackFault);
-    if (mode === 'disabled') { expect(f.logs).toHaveLength(0); expect(f.evidence.snapshot()).toHaveLength(0); }
+    if (mode === 'disabled') {
+      expect(f.logs).toHaveLength(0);
+      expect(f.evidence.snapshot().map(entry => entry.executionOutcome)).toEqual(['success', 'failure']);
+    }
     if (mode === 'debug') {
       expect(f.logs).toHaveLength(2);
       for (const entry of f.logs) {
@@ -358,23 +366,29 @@ it.each(['debug','disabled','success'])('handles readback mode %s without changi
 it.each(['write','readback'])('retains partial graph SQL facts and rolls back after %s failure', async phase => {
   const f = await fixture();
   const fault = new Error('GRAPH-FAILURE');
-  const create = (id:string) => f.client.executeMutation({entity:'Customer',action:'Create',id,
-    payload:{displayName:'Riverside',passwordHash:'PASSWORD-CANARY'},comment:'what: insert Riverside PASSWORD-CANARY'});
+  const create = (id:string, graph?: GraphMutationSession) => {
+    const mutation = {entity:'Customer',action:'Create',id,
+      payload:{displayName:'Riverside',passwordHash:'PASSWORD-CANARY'},comment:'what: insert Riverside PASSWORD-CANARY'};
+    return f.client.executeMutation(graph ? graph.request(mutation) : mutation);
+  };
   try {
-    await expect(f.client.executeGraphSave(async () => {
-      await create('4');
+    await expect(f.client.executeGraphSave(new MutationIntent('what: insert Riverside PASSWORD-CANARY'), async graph => {
+      await create('4', graph);
       if(phase === 'write') f.driver.fault = fault;
       else f.driver.readbackFault = fault;
-      await create('5');
-      await create('6');
+      await create('5', graph);
+      await create('6', graph);
     })).rejects.toBe(fault);
-    expect(f.logs.map(entry => entry.executionOutcome)).toEqual(phase === 'write' ? ['success','failure'] : ['success','success','failure']);
+    expect(f.logs.map(entry => entry.executionOutcome)).toEqual(phase === 'write'
+      ? ['success','success','failure'] : ['success','success','success','failure']);
+    expect(f.logs[1].operation).toBe('select');
+    expect(f.logs[1].resultCount).toBe(1);
     expect(JSON.stringify([f.logs,f.output,f.evidence.snapshot()])).not.toMatch(/Riverside|PASSWORD-CANARY|GRAPH-FAILURE/);
     f.driver.fault = undefined; f.driver.readbackFault = undefined;
     expect((await f.driver.query('SELECT * FROM customer_data')).rowCount).toBe(3);
     f.logs.length = 0;
     await create('7');
-    expect(f.logs).toHaveLength(1);
+    expect(f.logs.map(entry => entry.operation)).toEqual(['insert', 'select']);
     expect((await f.driver.query('SELECT * FROM customer_data')).rowCount).toBe(4);
   } finally { await f.client.close(); }
 });

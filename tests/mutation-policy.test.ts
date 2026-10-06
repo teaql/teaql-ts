@@ -10,6 +10,7 @@ import {
   MutationPolicy,
   MutationPolicyError,
   MutationPolicyIdentity,
+  MutationIntent,
   UserContext,
 } from '../src';
 import {
@@ -120,12 +121,12 @@ test('whole graph is reviewed immutably and its governance reaches every audit e
   const order = { entity: 'Order', action: 'Create', payload: { name: 'DRAFT' }, comment: 'submit order' };
   const line = { entity: 'OrderLine', action: 'Create', payload: { name: 'LINE-1' }, comment: 'submit line' };
 
-  await client.executeGraphSave(async () => {
-    client.preflightMutation(order);
-    client.preflightMutation(line);
+  await client.executeGraphSave(new MutationIntent('submit order'), async graph => {
+    client.preflightMutation(graph.request(order));
+    client.preflightMutation(graph.request(line));
     order.payload.name = 'CHANGED-AFTER-PREFLIGHT';
-    await client.executeMutation({ ...order, payload: { name: 'DRAFT' } });
-    await client.executeMutation(line);
+    await client.executeMutation(graph.request({ ...order, payload: { name: 'DRAFT' } }));
+    await client.executeMutation(graph.request(line));
   });
 
   expect(observed).toEqual({ operationCount: 2, firstName: 'DRAFT', frozen: true });
@@ -147,10 +148,10 @@ test('customer denial happens before SQL and incomplete reviewed graphs roll bac
     })),
   ));
 
-  await expect(denied.executeGraphSave(async () => {
+  await expect(denied.executeGraphSave(new MutationIntent('deny'), async graph => {
     const mutation = { entity: 'Order', action: 'Create', payload: { name: 'D' }, comment: 'deny' };
-    denied.preflightMutation(mutation);
-    await denied.executeMutation(mutation);
+    denied.preflightMutation(graph.request(mutation));
+    await denied.executeMutation(graph.request(mutation));
   })).rejects.toThrow(/ORDER_DENIED/);
   expect(deniedDriver.providerMutations).toBe(0);
   expect(deniedDriver.persistedMutations).toBe(0);
@@ -162,10 +163,10 @@ test('customer denial happens before SQL and incomplete reviewed graphs roll bac
   ));
   const first = { entity: 'Order', action: 'Create', payload: { name: 'A' }, comment: 'first' };
   const second = { entity: 'OrderLine', action: 'Create', payload: { name: 'B' }, comment: 'second' };
-  await expect(incomplete.executeGraphSave(async () => {
-    incomplete.preflightMutation(first);
-    incomplete.preflightMutation(second);
-    await incomplete.executeMutation(first);
+  await expect(incomplete.executeGraphSave(new MutationIntent('incomplete graph'), async graph => {
+    incomplete.preflightMutation(graph.request(first));
+    incomplete.preflightMutation(graph.request(second));
+    await incomplete.executeMutation(graph.request(first));
   })).rejects.toThrow(/were not executed/);
   expect(incompleteDriver.providerMutations).toBe(1);
   expect(incompleteDriver.persistedMutations).toBe(0);
@@ -183,6 +184,7 @@ test('missing policy and approval warnings are stable, deduplicated, and fail op
   );
   const plan: MutationPlan = {
     executionId: 'warning-1', requestKey: 'Order.saveGraph', rootEntityType: 'Order',
+    auditReason: 'verify missing-policy warnings',
     operations: [{ kind: 'update', entity: 'Order', entityId: '1',
       originalVersion: 1, changedValues: { name: 'updated' } }],
   };
@@ -233,9 +235,9 @@ test('customer policy requires complete generated preflight for graph saves', as
   const client = new Client(driver).setUserContext(approvedContext(
     new TestPolicy(identity, () => ({ verdict: 'allow' })),
   ));
-  await expect(client.executeGraphSave(() => client.executeMutation({
+  await expect(client.executeGraphSave(new MutationIntent('unplanned'), graph => client.executeMutation(graph.request({
     entity: 'Order', action: 'Create', payload: { name: 'unplanned' }, comment: 'unplanned',
-  }))).rejects.toThrow(MutationPolicyError);
+  })))).rejects.toThrow(MutationPolicyError);
   expect(driver.providerMutations).toBe(0);
 });
 
@@ -245,6 +247,7 @@ test('cyclic policy values fail explicitly instead of overflowing the stack', ()
   const context = new UserContext();
   expect(() => context.reviewMutationPlan({
     executionId: 'cyclic-plan', requestKey: 'Order.saveGraph', rootEntityType: 'Order',
+    auditReason: 'reject cyclic policy values',
     operations: [{ kind: 'update', entity: 'Order', entityId: '1',
       originalVersion: 1, changedValues: payload }],
   })).toThrow(/must not contain cycles/);
@@ -256,11 +259,11 @@ test('failed graph lifecycle initialization releases the save queue', async () =
   const client = new Client(driver).setUserContext(context);
   context.beginMutationPolicyGraph();
 
-  await expect(client.executeGraphSave(async () => undefined))
+  await expect(client.executeGraphSave(new MutationIntent('lifecycle'), async () => undefined))
     .rejects.toThrow(/already active/);
   context.endMutationPolicyGraph();
 
-  await expect(client.executeGraphSave(async () => undefined)).resolves.toBeUndefined();
+  await expect(client.executeGraphSave(new MutationIntent('lifecycle'), async () => undefined)).resolves.toBeUndefined();
   expect(driver.transactions).toBe(1);
   expect(driver.commits).toBe(1);
 });
@@ -280,11 +283,11 @@ test('stable ledger identity tolerates parent ids assigned during graph executio
     ledgerKey: { entity: 'OrderLine', id: -2 } };
   const childAfter = { ...childBefore, payload: { name: { id: '1', label: 'parent' } } };
 
-  await client.executeGraphSave(async () => {
-    client.preflightMutation(parent);
-    client.preflightMutation(childBefore);
-    await client.executeMutation(parent);
-    await client.executeMutation(childAfter);
+  await client.executeGraphSave(new MutationIntent('create graph'), async graph => {
+    client.preflightMutation(graph.request(parent));
+    client.preflightMutation(graph.request(childBefore));
+    await client.executeMutation(graph.request(parent));
+    await client.executeMutation(graph.request(childAfter));
   });
 
   expect(driver.persistedMutations).toBe(2);

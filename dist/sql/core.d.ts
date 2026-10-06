@@ -2,6 +2,8 @@ import { RuntimeTelemetry } from '../core/telemetry';
 import { UserContext } from '../core/context';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { SelectQuery } from '../core/ast';
+import { GraphMutationSession, MutationIntent } from '../core/request-intent';
+import { TraceNode } from '../core/trace-chain';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
@@ -43,6 +45,8 @@ export type MutationResult = {
     version?: number;
     deleted?: boolean;
     persistedRecord?: Record<string, unknown>;
+    /** Trusted internal result; use policy projection before diagnostics. */
+    metadata?: SQLExecutionMetadata;
 };
 export interface SqlSession {
     query(sql: string, values?: any[]): Promise<SqlQueryResult>;
@@ -64,7 +68,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 }
 export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder: (index: number) => string, entity: string, floor: string): Promise<void>;
 export interface TeaQLDataService {
-    executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -78,18 +82,20 @@ export interface TeaQLDataService {
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 /** Statement/cursor completion, not transaction commit or business success. */
 export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
-export type SQLTraceFrame = Readonly<{
+export type SQLTraceFrame = TraceNode & Readonly<{
     level: number;
-    kind: 'operation' | 'request' | 'relation' | 'entity' | 'provider' | 'sql';
-    name: string;
 }>;
 export type SQLExecutionMetadata = Readonly<{
+    /** Ordered physical children of a logical mutation result. */
+    statements?: readonly SQLExecutionMetadata[];
     operation: SQLExecutionOperation;
     executionOutcome?: SQLExecutionOutcome;
     comment?: string;
     purpose?: string;
     auditReason?: string;
     tracePath: readonly SQLTraceFrame[];
+    /** Business responsibility, not the physical SQL route. */
+    mutationLineage?: readonly TraceNode[];
     parameterizedSQL: string;
     parameters: readonly unknown[];
     /** SQL with bind values rendered as literals, intended only for diagnostics. */
@@ -135,15 +141,17 @@ export declare class SQLExecutionEvidenceStore implements RuntimeTelemetrySink {
 }
 export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     protected readonly driver: TeaQLSqlDriver;
-    private readonly schemas;
     private schemaReady?;
     private bootstrapTail;
     readonly sqlTrace: string[];
     private readonly internalQueryToken;
     private readonly bindLogPolicies;
+    private readonly bindOperandSources;
     private readonly derivedQueryBindings;
+    private readonly derivedRelationAssembly;
     private fieldLogPolicy;
     private bindValue;
+    private queryLogBindings;
     private readonly auditEvents;
     private auditSink?;
     private telemetrySink?;
@@ -155,9 +163,12 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private userContext;
     private bootstrap;
     private graphMutationSession?;
+    private activeGraph?;
+    private graphAuditActions;
     private graphCommitActions;
     private graphRollbackActions;
     private graphSaveTail;
+    private readonly schemas;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
@@ -182,11 +193,13 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     protected invalidateSchemaState(): void;
     private ensureBootstrapData;
     private reconcileBootstrapEntity;
-    executeGraphSave<T>(work: () => Promise<T>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
+    private requireGraphOwnership;
     private withMutationSession;
     preflightMutation(mutation: any): any;
+    private mutationLogBindings;
     private checkAndFixMutation;
     executeMutation(mutation: any): Promise<MutationResult>;
     private readPersistedRecord;
@@ -200,6 +213,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     executeQuery<T = any>(query: any): Promise<T[]>;
     private executeDerivedQuery;
     private descendantBindings;
+    private queryTreeBindings;
     private executeQueryWithIntent;
     private prepareIdSetPage;
     executeFacetMembership(outerQuery: SelectQuery, relationName: string): Promise<Map<string, number>>;
@@ -207,6 +221,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private prepareContinuousPage;
     private registerContinuousPage;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
+    private executeCapturedStream;
+    private enhanceQueryRows;
     private enhanceRelations;
     private enhanceRelationAggregates;
     private emptyAggregateValue;

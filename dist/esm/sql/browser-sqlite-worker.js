@@ -1,3 +1,5 @@
+import "../chunks/chunk-IQGZNIAK.js";
+
 // src/sql/browser-sqlite-worker.ts
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 function startBrowserSQLiteWorker(options = {}) {

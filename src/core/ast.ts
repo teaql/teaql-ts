@@ -1,5 +1,6 @@
 import { Value } from './value';
 import { SmartList } from './smart-list';
+import { retainQueryDiagnosticOrigin, snapshotQuery } from './query-snapshot';
 
 export enum SortDirection {
   Asc = 'Asc',
@@ -136,32 +137,15 @@ export class SelectQuery {
   }
 
   clone(): SelectQuery {
-    const copy = new SelectQuery(this.entity);
-    copy.hardLimitValue = this.hardLimitValue;
-    copy.filterCondition = this.filterCondition;
-    copy.limitValue = this.limitValue;
-    copy.offsetValue = this.offsetValue;
-    copy.orderItems = [...this.orderItems];
-    copy.selectItems = [...this.selectItems];
-    copy.properties = [...this.properties];
-    copy.joins = [...this.joins];
-    copy.groupByItems = [...this.groupByItems];
-    copy.aggregateItems = this.aggregateItems.map(item => ({ ...item }));
-    copy.aggregationCache = this.aggregationCache;
-    copy.facets = this.facets.map(facet => ({ ...facet, query: facet.query.clone() }));
-    copy.relations = this.relations.map(relation => ({
-      ...relation,
-      query: relation.query?.clone(),
-    }));
-    copy.relationAggregates = this.relationAggregates.map(aggregate => ({
-      ...aggregate,
-      query: aggregate.query.clone(),
-    }));
-    copy.commentText = this.commentText;
-    copy.purposeText = this.purposeText;
-    copy.idSetPaginationOptions = this.idSetPaginationOptions;
-    copy.idSetPaginationRuntimeContext = this.idSetPaginationRuntimeContext;
-    copy.topNProbeThreshold = this.topNProbeThreshold;
+    const copy = snapshotQuery(this);
+    // Cloning an execution snapshot produces a mutable builder. The request
+    // envelope still owns immutable intent and reapplies it on derivation.
+    for (const field of ['commentText', 'purposeText', '_comment', '_purpose']) {
+      const descriptor = Object.getOwnPropertyDescriptor(copy, field);
+      if (descriptor && 'value' in descriptor && descriptor.configurable) {
+        Object.defineProperty(copy, field, { ...descriptor, writable: true });
+      }
+    }
     return copy;
   }
 
@@ -236,10 +220,11 @@ export class SelectQuery {
 
   forExactCount(alias = '__teaql_total'): SelectQuery {
     const count = new SelectQuery(this.entity);
-    count.filterCondition = this.filterCondition;
+    count.filterCondition = snapshotQuery(this.filterCondition);
     count.commentText = this.commentText;
     count.purposeText = this.purposeText;
     count.aggregate('Count', 'id', alias);
+    retainQueryDiagnosticOrigin(this, count);
     return count;
   }
 

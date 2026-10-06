@@ -72,13 +72,6 @@ it('captures safe expanded SQL evidence with exact modes', async () => {
   });
   const governedQuery = new SelectQuery('Person').filter({ name: { $eq: secret } })
     .comment('read evidence').purpose('prove parameterized SQL');
-  (governedQuery as any).__teaqlTracePath = [
-    { level: 0, kind: 'operation', name: 'query' },
-    { level: 1, kind: 'request', name: 'Person' },
-    { level: 2, kind: 'relation', name: 'Person.organization' },
-    { level: 3, kind: 'relation', name: 'Organization.region' },
-    { level: 4, kind: 'relation', name: 'Region.country' },
-  ];
   await client.executeQuery(governedQuery);
 
   const entries = store.snapshot();
@@ -101,18 +94,21 @@ it('captures safe expanded SQL evidence with exact modes', async () => {
   }
   expect(entries.some(entry => entry.resultCount !== undefined)).toBe(true);
   expect(entries.some(entry => entry.affectedRows !== undefined)).toBe(true);
-  const select = entries.find(entry => entry.operation === 'select')!;
+  expect(entries.map(entry => entry.operation)).toEqual(['insert', 'select', 'select']);
+  expect(entries[1].purpose).toBe('verify persisted mutation result');
+  const select = entries.find(entry => entry.comment === 'read evidence')!;
   expect(select.comment).toBe('read evidence');
   expect(select.purpose).toBe('prove parameterized SQL');
   expect(select.tracePath.map(frame => frame.kind)).toEqual([
-    'operation', 'request', 'relation', 'relation', 'relation', 'provider', 'sql',
+    'operation', 'request', 'provider', 'sql',
   ]);
 
   store.enableSelect();
   await client.executeMutation({
     entity: 'Person', action: 'Create', id: '2', payload: { name: 'ignored' }, comment: 'mode test',
   });
-  expect(store.snapshot()).toHaveLength(0);
+  expect(store.snapshot().map(entry => entry.operation)).toEqual(['select']);
+  expect(store.snapshot()[0].resultCount).toBe(1);
   store.enableMutation();
   await client.executeQuery(new SelectQuery('Person').comment('ignored query').purpose('mode test'));
   expect(store.snapshot()).toHaveLength(0);
@@ -170,7 +166,7 @@ it('emits replayable expanded SQL only with the exact plaintext debug acknowledg
       .comment('what: copy paste diagnostic ? marker')
       .purpose('why: prove exact operator SQL'),
   );
-  const selectLog = output.find(line => line.includes('[select]'));
+  const selectLog = output.find(line => line.includes('comment=what: copy paste diagnostic ? marker'));
   expect(selectLog).toBeDefined();
   expect(selectLog).not.toContain('Parameterized SQL:');
   expect(selectLog).toContain('DEBUG PLAINTEXT; EXPLICIT OPT-IN');

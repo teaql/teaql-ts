@@ -1,0 +1,7 @@
+{
+  "name": "teaql-generated-facet-trace-example",
+  "private": true,
+  "scripts": {"build": "tsc --project tsconfig.json", "start": "node dist/consumer.js"},
+  "dependencies": {"teaql-ts": "file:../..", "better-sqlite3": "^12.10.0"},
+  "devDependencies": {"typescript": "5.4.5", "@types/node": "^22.0.0", "@types/better-sqlite3": "^7.6.12"}
+}

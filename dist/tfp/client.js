@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TeaQLClient = void 0;
 const smart_list_1 = require("../core/smart-list");
 const context_1 = require("../core/context");
+const request_intent_1 = require("../core/request-intent");
 const telemetry_1 = require("../core/telemetry");
 function rejectRemoteHardLimit(value, path = '$') {
     if (Array.isArray(value)) {
@@ -21,7 +22,9 @@ function rejectRemoteHardLimit(value, path = '$') {
         rejectRemoteHardLimit(child, `${path}.${key}`);
     }
 }
-function serializeQuery(query, nestedFacet = false) {
+function serializeQuery(query, nestedFacet = false, intent) {
+    const request = new request_intent_1.QueryRequest(query, intent);
+    query = request.query;
     if (!Number.isSafeInteger(query.offsetValue) || query.offsetValue < 0) {
         throw new Error('TFP_INVALID_REQUEST: offset must be a non-negative safe integer');
     }
@@ -29,10 +32,6 @@ function serializeQuery(query, nestedFacet = false) {
         throw new Error('TFP_INVALID_REQUEST: limit must be a positive safe integer');
     }
     rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
-    if (!query.commentText?.trim())
-        throw new Error('TFP_INVALID_REQUEST: commentText is required');
-    if (!query.purposeText?.trim())
-        throw new Error('TFP_POLICY_VIOLATION: purposeText is required');
     if (query.relations.length || query.joins.length) {
         throw new Error('TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1');
     }
@@ -52,7 +51,7 @@ function serializeQuery(query, nestedFacet = false) {
             facetName: facet.facetName,
             relationName: facet.relationName,
             includeAllFacets: facet.includeAllFacets,
-            query: serializeQuery(facet.query, true),
+            query: serializeQuery(facet.query, true, request.intent),
         })),
         commentText: query.commentText,
         purposeText: query.purposeText,
@@ -90,7 +89,8 @@ class TeaQLClient {
             : headers;
     }
     async executeQuery(query) {
-        const payload = serializeQuery(query);
+        const request = query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query);
+        const payload = serializeQuery(request.query, false, request.intent);
         const url = `${this.config.baseUrl.replace(/\/$/, '')}/query`;
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.query', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
             const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
@@ -110,12 +110,12 @@ class TeaQLClient {
         }, result => ({ attributes: { 'teaql.result.cardinality': result.length } }));
     }
     async *executeForStream(_query, _chunkSize = 1000) {
+        new request_intent_1.QueryRequest(_query);
         throw new Error('TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol');
     }
     async executeMutation(query) {
-        if (!query?.comment?.trim?.()) {
-            throw new Error('TFP_AUDIT_REASON_REQUIRED: mutation audit reason is required');
-        }
+        const request = query instanceof request_intent_1.MutationRequest ? query : new request_intent_1.MutationRequest(query);
+        query = request.mutation;
         const payload = {
             entity: query.entity, action: query.action, payload: query.payload,
             id: query.id, expectedVersion: query.expectedVersion, comment: query.comment,

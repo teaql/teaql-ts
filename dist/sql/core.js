@@ -7,7 +7,12 @@ const context_1 = require("../core/context");
 const runtime_module_1 = require("../core/runtime-module");
 const schema_capability_1 = require("../core/schema-capability");
 const ast_1 = require("../core/ast");
+const request_intent_1 = require("../core/request-intent");
+const trace_chain_1 = require("../core/trace-chain");
 const log_privacy_1 = require("../core/log-privacy");
+const query_snapshot_1 = require("../core/query-snapshot");
+const facet_1 = require("../core/facet");
+const smart_list_1 = require("../core/smart-list");
 /** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
 function canonicalRelationIndexes(schemas) {
     const indexes = new Map();
@@ -68,13 +73,6 @@ async function ensureOptimisticIdFloor(session, placeholder, entity, floor) {
     throw new Error(`Unable to synchronize ID space floor for ${entity} after 100 optimistic-lock attempts`);
 }
 exports.ensureOptimisticIdFloor = ensureOptimisticIdFloor;
-function unquoteIdentifier(identifier) {
-    if ((identifier.startsWith('"') && identifier.endsWith('"')) ||
-        (identifier.startsWith('`') && identifier.endsWith('`'))) {
-        return identifier.slice(1, -1).replace(/""/g, '"').replace(/``/g, '`');
-    }
-    return identifier;
-}
 function sameBootstrapValue(left, right) {
     if (left === right)
         return true;
@@ -85,13 +83,16 @@ function sameBootstrapValue(left, right) {
     return left !== null && left !== undefined && right !== null && right !== undefined &&
         String(left) === String(right);
 }
-function mutationTracePath(mutation, provider, sqlOperation) {
-    return [
-        { level: 0, kind: 'operation', name: 'mutation' },
-        { level: 1, kind: 'entity', name: String(mutation.entity) },
-        { level: 2, kind: 'provider', name: provider },
-        { level: 3, kind: 'sql', name: sqlOperation },
-    ];
+function sqlTraceFrames(source) {
+    return Object.freeze(source.map((node, level) => Object.freeze({ ...node, level })));
+}
+function mutationLogIntent(request, mutation, provider, operation, id, localBindings) {
+    const lineage = request.traceFor({ entity: String(mutation.entity), id });
+    const path = (0, trace_chain_1.canonicalSQLTracePath)([...lineage, { kind: 'entity', name: String(mutation.entity),
+            entityId: id, detail: '' }], provider, operation);
+    return { auditReason: request.comment, tracePath: sqlTraceFrames(path.tracePath),
+        mutationLineage: lineage, targetID: id,
+        inheritedBindings: (0, log_privacy_1.inheritSQLLogBindings)(localBindings, request.graphSession?.logBindings) };
 }
 var log_rendering_1 = require("./log-rendering");
 Object.defineProperty(exports, "debugSQL", { enumerable: true, get: function () { return log_rendering_1.debugSQL; } });
@@ -104,7 +105,8 @@ class TextDiagnosticSQLLogSink {
         this.writer(`[TeaQL SQL][${metadata.operation}][${metadata.elapsedMicros}us] ${metadata.resultSummary}` +
             `${metadata.executionOutcome ? ` outcome=${metadata.executionOutcome}` : ''}\n` +
             `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
-            `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}\n` +
+            `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}` +
+            ` mutationLineage=${diagnosticJSON(metadata.mutationLineage ?? [])}\n` +
             (metadata.omissionReason ? `SQL omitted: ${metadata.omissionReason}\n` : '') +
             `Debug SQL: ${metadata.debugSQL}`);
     }
@@ -153,20 +155,32 @@ class AbstractSQLTeaQLClient {
             return 'masked';
         return column?.logPolicy ?? 'unknown';
     }
-    bindValue(values, value, policy) {
+    bindValue(values, value, policy, sourceOperand) {
         const policies = this.bindLogPolicies.get(values) ?? values.map(() => 'unknown');
         values.push(value);
         policies.push(policy);
         this.bindLogPolicies.set(values, policies);
+        if (sourceOperand !== undefined) {
+            this.bindOperandSources.set(values, (0, log_privacy_1.inheritSQLLogBindings)({
+                parameterizedSQL: '', parameters: [sourceOperand], parameterLogPolicies: [policy], sqlOrigin: 'generated',
+            }, this.bindOperandSources.get(values)));
+        }
+    }
+    queryLogBindings(sql, values) {
+        return (0, log_privacy_1.inheritSQLLogBindings)({ parameterizedSQL: sql, parameters: values,
+            parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, this.bindOperandSources.get(values));
     }
     constructor(driver, schemas) {
         this.driver = driver;
-        this.schemas = schemas;
         this.bootstrapTail = Promise.resolve();
         this.sqlTrace = [];
         this.internalQueryToken = Symbol('teaql-internal-query');
         this.bindLogPolicies = new WeakMap();
+        // Compiler-owned operands before LIKE decoration, never SQL parameters or
+        // serialized metadata. Lifetime follows this execution's binding array.
+        this.bindOperandSources = new WeakMap();
         this.derivedQueryBindings = new WeakMap();
+        this.derivedRelationAssembly = new WeakMap();
         this.auditEvents = [];
         this.diagnosticSQLLogSink = new TextDiagnosticSQLLogSink();
         this.queryLoggingEnabled = true;
@@ -174,9 +188,11 @@ class AbstractSQLTeaQLClient {
         this.checkers = {};
         this.userContext = new context_1.UserContext();
         this.bootstrap = {};
+        this.graphAuditActions = [];
         this.graphCommitActions = [];
         this.graphRollbackActions = [];
         this.graphSaveTail = Promise.resolve();
+        this.schemas = { ...schemas };
     }
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module) {
@@ -263,53 +279,53 @@ class AbstractSQLTeaQLClient {
     }
     recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows, intent = {}, executionOutcome = 'success', inherited) {
         const isSelect = operation === 'select';
-        if ((isSelect && !this.queryLoggingEnabled) || (!isSelect && !this.mutationLoggingEnabled))
-            return;
-        if (!this.telemetrySink && !this.diagnosticSQLLogSink)
-            return;
+        const logsEnabled = isSelect ? this.queryLoggingEnabled : this.mutationLoggingEnabled;
+        const { targetID, inheritedBindings, ...visibleIntent } = intent;
+        const metadata = Object.freeze({
+            operation, ...visibleIntent, executionOutcome,
+            tracePath: sqlTraceFrames(intent.tracePath ?? []),
+            ...(intent.mutationLineage ? { mutationLineage: (0, trace_chain_1.cloneTraceNodes)(intent.mutationLineage) } : {}),
+            parameterizedSQL, parameters: Object.freeze([...parameters]),
+            // Never build a plaintext SQL copy before the log policy boundary.
+            debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated',
+            parameterLogPolicies: Object.freeze([...(this.bindLogPolicies.get(parameters) ?? parameters.map(() => 'unknown'))]),
+            elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
+            resultCount, affectedRows,
+            resultSummary: resultCount !== undefined
+                ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
+                : `statement ${executionOutcome}; row count unknown`,
+        });
+        const ancestors = inheritedBindings && inherited
+            ? (0, log_privacy_1.inheritSQLLogBindings)(inherited, inheritedBindings) : inheritedBindings ?? inherited;
+        const operands = this.bindOperandSources.get(parameters);
+        const provenance = operands ? (0, log_privacy_1.inheritSQLLogBindings)(operands, ancestors) : ancestors;
+        (0, log_privacy_1.retainSQLLogProvenance)(metadata, provenance, targetID === undefined ? [] : [targetID]);
+        if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink))
+            return metadata;
         try {
-            const { targetID, ...visibleIntent } = intent;
-            const metadata = Object.freeze({
-                operation, ...visibleIntent, executionOutcome,
-                tracePath: Object.freeze([...(intent.tracePath ?? [])]),
-                parameterizedSQL, parameters: Object.freeze([...parameters]),
-                // Never build a plaintext SQL copy before the log policy boundary.
-                debugSQL: '', databaseKind: this.driver.databaseKind, sqlOrigin: 'generated',
-                parameterLogPolicies: this.bindLogPolicies.get(parameters),
-                elapsedMicros: Math.max(0, (Date.now() - startedAt) * 1000),
-                resultCount, affectedRows,
-                resultSummary: resultCount !== undefined
-                    ? `${resultCount} rows returned` : affectedRows !== undefined ? `${affectedRows} rows affected`
-                    : `statement ${executionOutcome}; row count unknown`,
-            });
-            const projected = (0, log_privacy_1.projectSQLLog)(metadata, inherited, targetID === undefined ? [] : [targetID]);
+            const projected = (0, log_privacy_1.projectSQLLog)(metadata);
             // Runtime diagnostics are fail-open and each sink is independent. A
             // broken application sink must not roll back a successful SQL mutation.
             try {
                 this.telemetrySink?.record(projected);
             }
             catch { /* diagnostic sink failed */ }
-            try {
-                this.diagnosticSQLLogSink?.write(projected);
+            if (logsEnabled) {
+                try {
+                    this.diagnosticSQLLogSink?.write(projected);
+                }
+                catch { /* diagnostic sink failed */ }
             }
-            catch { /* diagnostic sink failed */ }
         }
         catch { /* projection failure must not alter database execution */ }
+        return metadata;
     }
-    queryLogIntent(query, operation = 'query') {
-        const inherited = Array.isArray(query?.__teaqlTracePath) ? query.__teaqlTracePath : [
-            { level: 0, kind: 'operation', name: operation },
-            { level: 1, kind: 'request', name: String(query.entity) },
-        ];
-        return {
-            comment: query?._comment ?? query?.commentText,
-            purpose: query?._purpose ?? query?.purposeText,
-            tracePath: [...inherited,
-                { level: inherited.length, kind: 'provider', name: this.driver.databaseKind },
-                { level: inherited.length + 1, kind: 'sql', name: 'select' }],
-        };
+    queryLogIntent(query) {
+        const request = new request_intent_1.QueryRequest(query);
+        const path = (0, trace_chain_1.canonicalSQLTracePath)(request.traceSource, this.driver.databaseKind, 'select');
+        return { comment: request.comment, purpose: request.purpose, tracePath: sqlTraceFrames(path.tracePath) };
     }
-    async executeLoggedSQL(operation, sql, values, intent, execute, inherited) {
+    async executeLoggedSQL(operation, sql, values, intent, execute, inherited, statements) {
         const startedAt = Date.now();
         let result;
         try {
@@ -319,18 +335,19 @@ class AbstractSQLTeaQLClient {
             // No exception text/cause/driver object enters a diagnostic sink. Preserve
             // the original error for the caller, even if a sink itself is broken.
             try {
-                this.recordSQL(operation, sql, values, startedAt, undefined, undefined, intent, 'failure', inherited);
+                const metadata = this.recordSQL(operation, sql, values, startedAt, undefined, undefined, intent, 'failure', inherited);
+                statements?.push(metadata);
             }
             finally {
                 throw error;
             }
         }
-        this.recordSQL(operation, sql, values, startedAt, operation === 'select' ? result.rowCount : undefined, operation === 'select' ? undefined : result.rowCount, intent, 'success', inherited);
+        const metadata = this.recordSQL(operation, sql, values, startedAt, operation === 'select' ? result.rowCount : undefined, operation === 'select' ? undefined : result.rowCount, intent, 'success', inherited);
+        statements?.push(metadata);
         return result;
     }
     /** Package-internal physical capability used only by UserContext.ensureSchema(). */
     async [schema_capability_1.contextSchemaCapability](context) {
-        this.userContext = context;
         if (!this.schemaReady) {
             this.schemaReady = this.driver.ensureSchema(this.schemas);
         }
@@ -339,23 +356,28 @@ class AbstractSQLTeaQLClient {
         let release;
         this.bootstrapTail = new Promise(resolve => { release = resolve; });
         await predecessor;
+        this.userContext = context;
+        const previousActor = context.getResource('bootstrapActor');
+        const previousCategory = context.getResource('bootstrapCategory');
+        context.insertResource('bootstrapActor', 'teaql-generated-bootstrap');
+        context.insertResource('bootstrapCategory', 'runtime-bootstrap');
         try {
             if (this.bootstrap.ensure) {
-                context.insertResource('bootstrapActor', 'teaql-generated-bootstrap');
-                context.insertResource('bootstrapCategory', 'runtime-bootstrap');
-                try {
-                    await this.bootstrap.ensure(context);
-                }
-                finally {
-                    context.removeResource('bootstrapActor');
-                    context.removeResource('bootstrapCategory');
-                }
+                await this.bootstrap.ensure(context);
             }
             else {
                 await this.ensureBootstrapData();
             }
         }
         finally {
+            if (previousActor === undefined)
+                context.removeResource('bootstrapActor');
+            else
+                context.insertResource('bootstrapActor', previousActor);
+            if (previousCategory === undefined)
+                context.removeResource('bootstrapCategory');
+            else
+                context.insertResource('bootstrapCategory', previousCategory);
             release();
         }
     }
@@ -370,45 +392,53 @@ class AbstractSQLTeaQLClient {
         ];
         if (!records.length)
             return;
-        await this.driver.transaction(async (session) => {
+        await this.executeGraphSave(new request_intent_1.MutationIntent('reconcile model bootstrap data'), async (graph) => {
             for (const record of records)
-                await this.reconcileBootstrapEntity(session, record);
+                await this.reconcileBootstrapEntity(this.graphMutationSession, graph, record);
         });
     }
-    async reconcileBootstrapEntity(session, record) {
+    async reconcileBootstrapEntity(session, graph, record) {
         const schema = this.schema(record.entity);
-        const table = this.driver.identifier(schema.table);
-        const idColumn = this.driver.identifier(schema.columns.id?.columnName ?? 'id');
-        const versionColumn = this.driver.identifier(schema.columns.version?.columnName ?? 'version');
         const entries = Object.entries(record.values ?? {}).map(([field, value]) => {
             const column = schema.columns[field];
             if (!column)
                 throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
             return {
-                column: this.driver.identifier(column.columnName),
+                column: column.columnName,
                 value: this.driver.encode(value, column),
             };
         });
-        const current = await session.query(`SELECT * FROM ${table} WHERE ${idColumn} = ${this.driver.placeholder(1)}`, [record.id]);
+        const query = new ast_1.SelectQuery(record.entity).filter({ id: { $eq: record.id } }).limit(1)
+            .comment('inspect model bootstrap record').purpose('ensure model-defined root and constants');
+        query.prepareForList();
+        const request = new request_intent_1.QueryRequest(query);
+        // Reconciliation must see an existing tombstone too. Normal list SQL adds
+        // version > 0 and would attempt a duplicate INSERT for a deleted constant.
+        // This fixed primary-key lookup still owns validated query intent and logs.
+        const sql = `SELECT * FROM ${this.driver.identifier(schema.table)} WHERE ` +
+            `${this.driver.identifier(schema.columns.id?.columnName ?? 'id')} = ${this.driver.placeholder(1)}`;
+        const values = [record.id];
+        this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
+        const current = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(request.query), () => session.query(sql, values));
         if (!current.rowCount) {
-            const columns = [idColumn, versionColumn, ...entries.map(entry => entry.column)];
-            const values = [record.id, 1, ...entries.map(entry => entry.value)];
-            const placeholders = values.map((_, index) => this.driver.placeholder(index + 1));
-            await session.query(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`, values);
+            await this.executeMutation(graph.request({ entity: record.entity, action: 'Create',
+                id: record.id, version: 0, payload: { ...record.values } }));
         }
         else {
             const row = current.rows[0];
-            const changed = entries.filter(entry => !sameBootstrapValue(row[unquoteIdentifier(entry.column)], entry.value));
+            const changed = entries.filter(entry => !sameBootstrapValue(row[entry.column], entry.value));
             if (changed.length) {
-                const assignments = changed.map((entry, index) => `${entry.column} = ${this.driver.placeholder(index + 1)}`);
-                assignments.push(`${versionColumn} = ${versionColumn} + 1`);
-                await session.query(`UPDATE ${table} SET ${assignments.join(', ')} WHERE ${idColumn} = ` +
-                    this.driver.placeholder(changed.length + 1), [...changed.map(entry => entry.value), record.id]);
+                // Checker sees the fully loaded object, not a partial update projection.
+                await this.executeMutation(graph.request({ entity: record.entity, action: 'Update',
+                    id: record.id, version: Number(row[schema.columns.version?.columnName ?? 'version']),
+                    payload: { ...this.decodeRowForSchema(schema, row), ...record.values } }));
             }
         }
         await this.driver.ensureIdFloor(session, record.entity, record.id);
     }
-    async executeGraphSave(work) {
+    async executeGraphSave(intent, work) {
+        // Root intent is mandatory before lifecycle initialization or provider work.
+        const graph = new request_intent_1.GraphMutationSession(intent);
         // Generated child saves call their within-graph entry point directly. Every
         // public/root save comes through here and is queued, so an unrelated async
         // save cannot accidentally join another graph's transaction merely because
@@ -419,9 +449,11 @@ class AbstractSQLTeaQLClient {
         await predecessor;
         let fixEvidenceStarted = false;
         let mutationPolicyGraphStarted = false;
+        let committed = false;
         try {
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
+            this.graphAuditActions = [];
             this.userContext.insertResource('fixTime', new Date());
             this.userContext.beginFixEvidence();
             fixEvidenceStarted = true;
@@ -429,27 +461,51 @@ class AbstractSQLTeaQLClient {
             mutationPolicyGraphStarted = true;
             const result = await this.driver.transaction(async (session) => {
                 this.graphMutationSession = session;
+                this.activeGraph = graph;
                 try {
-                    const value = await work();
+                    const value = await work(graph);
                     this.userContext.ensureMutationPolicyGraphComplete();
                     return value;
                 }
                 finally {
                     this.graphMutationSession = undefined;
+                    this.activeGraph = undefined;
                 }
             });
-            for (const action of this.graphCommitActions)
-                action();
+            committed = true;
+            let failure;
+            let failed = false;
+            // Cleanup and other audit events must continue after one sink fails.
+            for (const action of [...this.graphCommitActions, ...this.graphAuditActions]) {
+                try {
+                    await action();
+                }
+                catch (error) {
+                    if (!failed)
+                        failure = error;
+                    failed = true;
+                }
+            }
+            if (failed)
+                throw new request_intent_1.GraphCommittedError(failure);
             return result;
         }
         catch (error) {
-            for (const action of [...this.graphRollbackActions].reverse())
-                action();
+            if (!committed) {
+                // Keep the original execution failure even if a restore callback fails.
+                for (const action of [...this.graphRollbackActions].reverse()) {
+                    try {
+                        action();
+                    }
+                    catch { /* independent rollback restorations continue */ }
+                }
+            }
             throw error;
         }
         finally {
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
+            this.graphAuditActions = [];
             if (mutationPolicyGraphStarted)
                 this.userContext.endMutationPolicyGraph();
             this.userContext.removeResource('fixTime');
@@ -468,21 +524,44 @@ class AbstractSQLTeaQLClient {
             throw new Error('No graph save is active');
         this.graphRollbackActions.push(work);
     }
-    async withMutationSession(work) {
-        return this.graphMutationSession ? work(this.graphMutationSession) : this.driver.transaction(work);
+    requireGraphOwnership(request) {
+        if (request.graphSession !== this.activeGraph ||
+            (this.graphMutationSession !== undefined && request.graphSession === undefined)) {
+            throw new Error('GRAPH_MUTATION_SESSION_REQUIRED: use the explicit active graph request capability');
+        }
+    }
+    async withMutationSession(request, work) {
+        this.requireGraphOwnership(request);
+        return request.graphSession ? work(this.graphMutationSession) : this.driver.transaction(work);
     }
     preflightMutation(mutation) {
-        mutation = this.checkAndFixMutation(mutation);
+        const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        this.requireGraphOwnership(request);
+        mutation = this.checkAndFixMutation(request);
+        if (request.graphSession) {
+            const schema = this.schema(mutation.entity);
+            request.graphSession.captureLogBindings(this.mutationLogBindings(request, mutation, schema));
+        }
         this.userContext.recordMutationPolicyPreflight(mutation);
         return mutation;
     }
+    mutationLogBindings(request, mutation, schema) {
+        const source = (values) => {
+            const record = this.toRuntimeMutationRecord(schema, values);
+            const fields = Object.keys(record);
+            return { parameterizedSQL: '', sqlOrigin: 'generated', parameters: fields.map(field => record[field]),
+                parameterLogPolicies: fields.map(field => this.fieldLogPolicy(schema, field)) };
+        };
+        return (0, log_privacy_1.inheritSQLLogBindings)(source(mutation.payload || {}), source(request.loadedValues()));
+    }
     checkAndFixMutation(mutation) {
-        if (!String(mutation?.comment || '').trim()) {
-            throw new Error('Security audit failure: audit reason is required before mutation');
-        }
+        const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        this.requireGraphOwnership(request);
+        mutation = request.mutation;
         // The ledger exposes immutable snapshots. Fixers receive a mutable working
         // payload and every derived value is copied back into the graph ledger.
         mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+        Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
         const checker = this.checkers[String(mutation.entity)];
         if (!checker)
             return mutation;
@@ -508,6 +587,10 @@ class AbstractSQLTeaQLClient {
         }
     }
     async executeMutation(mutation) {
+        // Validate before Checker, policy, telemetry and transaction/provider work.
+        const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
+        this.requireGraphOwnership(request);
+        mutation = request.mutation;
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
             family: 'mutation',
             name: `${String(mutation?.entity || 'unknown')}.${String(mutation?.action || 'unknown').toLowerCase()}`,
@@ -517,11 +600,13 @@ class AbstractSQLTeaQLClient {
             },
         });
         try {
-            mutation = this.checkAndFixMutation(mutation);
+            mutation = this.checkAndFixMutation(request);
             const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
             const schema = this.schema(mutation.entity);
             const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+            const diagnosticBindings = this.mutationLogBindings(request, mutation, schema);
             const table = this.driver.identifier(schema.table);
+            const statements = [];
             const result = await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
                 family: 'provider',
                 name: `${this.driver.databaseKind}.mutation`,
@@ -529,7 +614,7 @@ class AbstractSQLTeaQLClient {
                     'teaql.provider.kind': this.driver.databaseKind,
                     'teaql.provider.operation': String(mutation.action).toLowerCase(),
                 },
-            }, () => this.withMutationSession(async (session) => {
+            }, () => this.withMutationSession(request, async (session) => {
                 if (mutation.action === 'Create') {
                     const id = mutation.id
                         ? String(mutation.id)
@@ -546,17 +631,13 @@ class AbstractSQLTeaQLClient {
                     const values = fields.map(field => this.encode(record[field], schema.columns[field]));
                     this.bindLogPolicies.set(values, fields.map(field => this.fieldLogPolicy(schema, field)));
                     const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
-                    const intent = {
-                        auditReason: String(mutation.comment),
-                        tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'insert'),
-                        targetID: id,
-                    };
-                    await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values));
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'insert', id, diagnosticBindings);
+                    await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values), undefined, statements);
                     return {
                         success: true,
                         id,
                         version,
-                        persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values),
+                        persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values, statements),
                     };
                 }
                 if (mutation.action === 'Update') {
@@ -578,16 +659,12 @@ class AbstractSQLTeaQLClient {
                     }
                     const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
                         `WHERE ${predicates.join(' AND ')}`;
-                    const intent = {
-                        auditReason: String(mutation.comment),
-                        tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'update'),
-                        targetID: mutation.id,
-                    };
-                    const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values));
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'update', String(mutation.id), diagnosticBindings);
+                    const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values), undefined, statements);
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                     }
-                    const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id), intent, sql, values);
+                    const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id), intent, sql, values, statements);
                     return {
                         success: true,
                         id: String(mutation.id),
@@ -609,16 +686,12 @@ class AbstractSQLTeaQLClient {
                     }
                     const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
                         `WHERE ${predicates.join(' AND ')}`;
-                    const intent = {
-                        auditReason: String(mutation.comment),
-                        tracePath: mutationTracePath(mutation, this.driver.databaseKind, 'delete'),
-                        targetID: mutation.id,
-                    };
-                    const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values));
+                    const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id), diagnosticBindings);
+                    const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values), undefined, statements);
                     if (result.rowCount !== 1) {
                         throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                     }
-                    const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id), intent, sql, values);
+                    const persistedRecord = await this.readPersistedRecord(session, schema, String(mutation.id), intent, sql, values, statements);
                     return {
                         success: true,
                         id: String(mutation.id),
@@ -629,41 +702,53 @@ class AbstractSQLTeaQLClient {
                 }
                 throw new Error(`Unsupported mutation action: ${mutation.action}`);
             }));
+            const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload, diagnosticBindings);
             const event = Object.freeze({
                 entity: mutation.entity,
                 action: mutation.action,
                 id: String(result.id),
-                reason: (0, log_privacy_1.scrubLogText)(String(mutation.comment), [
-                    ...(0, log_privacy_1.logValueStrings)(mutation.payload), ...(0, log_privacy_1.logValueStrings)(mutation.id),
-                ]),
+                ...auditProjection,
                 recordedAt: new Date().toISOString(),
                 actor: this.userContext.getResource('bootstrapActor'),
                 category: this.userContext.getResource('bootstrapCategory'),
-                changedFields: Object.keys(mutation.payload || {}).sort(),
+                changedFields: Object.freeze(Object.keys(mutation.payload || {}).sort()),
                 version: result.version,
                 mutationGovernance,
             });
-            this.auditEvents.push(event);
-            if (this.auditSink) {
-                await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
-                    family: 'audit',
-                    name: `${mutation.entity}.audit`,
-                    attributes: {
-                        'teaql.entity.type': String(mutation.entity),
-                        'teaql.mutation.kind': String(mutation.action).toLowerCase(),
-                        'teaql.audit.changed_field_count': Object.keys(mutation.payload || {}).length,
-                    },
-                }, async () => this.auditSink(event));
+            const publish = async () => {
+                this.auditEvents.push(event);
+                if (this.auditSink)
+                    await (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
+                        family: 'audit',
+                        name: `${mutation.entity}.audit`,
+                        attributes: {
+                            'teaql.entity.type': String(mutation.entity),
+                            'teaql.mutation.kind': String(mutation.action).toLowerCase(),
+                            'teaql.audit.changed_field_count': Object.keys(mutation.payload || {}).length,
+                        },
+                    }, async () => this.auditSink(event));
+            };
+            if (request.graphSession)
+                this.graphAuditActions.push(publish);
+            else {
+                try {
+                    await publish();
+                }
+                catch (error) {
+                    throw new request_intent_1.GraphCommittedError(error);
+                }
             }
             scope.success();
-            return result;
+            const metadata = Object.freeze({ ...statements[0], statements: Object.freeze([...statements]) });
+            (0, log_privacy_1.retainSQLLogProvenance)(metadata, (0, log_privacy_1.inheritSQLLogBindings)(diagnosticBindings, request.graphSession?.logBindings), [result.id]);
+            return { ...result, metadata };
         }
         catch (error) {
             scope.failure(error);
             throw error;
         }
     }
-    async readPersistedRecord(session, schema, id, intent, writeSQL, writeValues) {
+    async readPersistedRecord(session, schema, id, intent, writeSQL, writeValues, statements) {
         const projection = Object.entries(schema.columns).map(([field, column]) => `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`).join(', ');
         const sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
             `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`;
@@ -671,11 +756,22 @@ class AbstractSQLTeaQLClient {
         this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
         const startedAt = Date.now();
         let result;
+        const inherited = { parameterizedSQL: writeSQL, parameters: writeValues,
+            parameterLogPolicies: this.bindLogPolicies.get(writeValues), sqlOrigin: 'generated' };
+        const root = intent.tracePath?.find(node => node.kind === 'operation')?.name ?? 'unknown';
+        const path = (0, trace_chain_1.canonicalSQLTracePath)([
+            ...(0, trace_chain_1.queryTraceSource)(root, intent.auditReason, 'verify persisted mutation result'),
+            ...(intent.tracePath ?? []).filter(node => node.kind === 'relation'),
+        ], this.driver.databaseKind, 'select');
+        const readIntent = { ...intent, tracePath: sqlTraceFrames(path.tracePath),
+            comment: intent.auditReason, purpose: 'verify persisted mutation result' };
+        const recordReadback = (outcome) => statements.push(this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined, readIntent, outcome, inherited));
+        let record;
         try {
             result = await session.query(sql, values);
             if (result.rowCount !== 1)
                 throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
-            return this.decodeRowForSchema(schema, result.rows[0]);
+            record = this.decodeRowForSchema(schema, result.rows[0]);
         }
         catch (error) {
             // Write success remains a separate statement fact. A snapshot validation
@@ -683,16 +779,15 @@ class AbstractSQLTeaQLClient {
             const outcome = result ? 'success'
                 : error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
                     ? 'cancelled' : 'failure';
-            const inherited = { parameterizedSQL: writeSQL, parameters: writeValues,
-                parameterLogPolicies: this.bindLogPolicies.get(writeValues), sqlOrigin: 'generated' };
             try {
-                this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined, { ...intent, tracePath: [...(intent.tracePath ?? []),
-                        { level: intent.tracePath?.length ?? 0, kind: 'sql', name: 'readback' }] }, outcome, inherited);
+                recordReadback(outcome);
             }
             finally {
                 throw error;
             }
         }
+        recordReadback('success');
+        return record;
     }
     decodeRowForSchema(schema, row) {
         const result = { ...row };
@@ -755,7 +850,10 @@ class AbstractSQLTeaQLClient {
                 ['$notEndsWith', '%', '', true],
             ]) {
                 if (predicate?.[operator] !== undefined) {
-                    this.bindValue(values, `${prefix}${String(predicate[operator])}${suffix}`, logPolicy);
+                    // Retain the exact original value; stripping SQL wildcard text
+                    // would misclassify literal %, _ or escape characters in intent.
+                    const operand = String(predicate[operator]);
+                    this.bindValue(values, `${prefix}${operand}${suffix}`, logPolicy, operand);
                     const like = `${quotedField} LIKE ${this.driver.placeholder(values.length)}`;
                     return negative ? `NOT (${like})` : like;
                 }
@@ -870,13 +968,9 @@ class AbstractSQLTeaQLClient {
             direction: order.direction,
         }));
     }
-    async compileQuery(query) {
-        const internal = query?.[this.internalQueryToken] === true;
-        const purpose = query?._purpose ?? query?.purposeText;
-        const comment = query?._comment ?? query?.commentText;
-        if (!internal && (!String(purpose || '').trim() || !String(comment || '').trim())) {
-            throw new Error('Security audit failure: purpose and comment are required before query execution');
-        }
+    async compileQuery(query, recordTrace = true) {
+        // Internal execution changes query shape/limits, never the intent contract.
+        new request_intent_1.QueryIntent(query?._comment ?? query?.commentText, query?._purpose ?? query?.purposeText);
         const schema = this.schema(query.entity);
         const values = [];
         const groupProperties = this.groupBy(query);
@@ -891,6 +985,19 @@ class AbstractSQLTeaQLClient {
         const requestedFields = Array.isArray(query.selectItems) && query.selectItems.length
             ? [...new Set(['id', 'version', ...query.selectItems])]
             : Object.keys(schema.columns);
+        // Explicitly requested relations need their real membership keys, even
+        // with a minimal parent projection. Missing projection is not SQL NULL.
+        if (!groupProperties.length && !this.aggregates(query).length) {
+            const relationNames = [...(query.relations ?? []).map((load) => load.name),
+                ...(query.relationAggregates ?? []).map((aggregate) => aggregate.relationName)];
+            for (const name of relationNames) {
+                const relation = schema.relations?.[name];
+                if (!relation)
+                    throw new Error(`Missing relation ${query.entity}.${name}`);
+                if (!requestedFields.includes(relation.localKey))
+                    requestedFields.push(relation.localKey);
+            }
+        }
         for (const field of requestedFields) {
             if (!schema.columns[field])
                 throw new Error(`Unknown selected field: ${field}`);
@@ -972,31 +1079,66 @@ class AbstractSQLTeaQLClient {
             this.bindValue(values, offset, 'plain');
             sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
         }
-        this.sqlTrace.push(sql);
+        if (recordTrace)
+            this.sqlTrace.push(sql);
         return { sql, values, aggregateNames };
     }
     async executeQuery(query) {
-        return this.executeQueryWithIntent(query, this.derivedQueryBindings.get(query));
+        const request = query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query);
+        // Keep the existing builder hard-limit normalization contract. Intent is
+        // already validated; the private execution snapshot is normalized again.
+        if (!(query instanceof request_intent_1.QueryRequest) && query?.[this.internalQueryToken] !== true
+            && typeof query?.prepareForList === 'function')
+            query.prepareForList();
+        return this.executeQueryWithIntent(request.query, this.derivedQueryBindings.get(query), this.derivedRelationAssembly.get(query));
     }
-    async executeDerivedQuery(query, inherited) {
+    async executeDerivedQuery(query, inherited, intent, assembly) {
         // Only fresh execution-local child requests are registered. Keep virtual
         // executeQuery dispatch for existing subclasses; no provenance on wire data.
+        const captured = new request_intent_1.QueryRequest(query, intent).query;
         if (inherited)
-            this.derivedQueryBindings.set(query, inherited);
+            this.derivedQueryBindings.set(captured, inherited);
+        if (assembly)
+            this.derivedRelationAssembly.set(captured, assembly);
         try {
-            return await this.executeQuery(query);
+            return await this.executeQuery(captured);
         }
         finally {
-            this.derivedQueryBindings.delete(query);
+            this.derivedQueryBindings.delete(captured);
+            this.derivedRelationAssembly.delete(captured);
         }
     }
     descendantBindings(query, sql, values, inherited) {
         if (!query.relations?.length && !query.relationAggregates?.length)
             return undefined;
-        return (0, log_privacy_1.inheritSQLLogBindings)({ parameterizedSQL: sql, parameters: values,
-            parameterLogPolicies: this.bindLogPolicies.get(values), sqlOrigin: 'generated' }, inherited);
+        return (0, log_privacy_1.inheritSQLLogBindings)(this.queryLogBindings(sql, values), inherited);
     }
-    async executeQueryWithIntent(query, inherited) {
+    async queryTreeBindings(query, sql, values, inherited) {
+        let source = (0, log_privacy_1.inheritSQLLogBindings)(this.queryLogBindings(sql, values), inherited);
+        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
+        const stack = [query];
+        const visited = new Set();
+        while (stack.length) {
+            const current = stack.pop();
+            if (!current || visited.has(current))
+                continue;
+            visited.add(current);
+            if (current !== query) {
+                // Pure compilation, not a physical query or an sqlTrace entry.
+                const compiled = await this.compileQuery(new request_intent_1.QueryRequest(current, intent).query, false);
+                source = (0, log_privacy_1.inheritSQLLogBindings)(this.queryLogBindings(compiled.sql, compiled.values), source);
+            }
+            const origin = (0, query_snapshot_1.queryDiagnosticOrigin)(current);
+            if (origin)
+                stack.push(origin);
+            for (const child of [...(current.relations ?? []), ...(current.relationAggregates ?? []), ...(current.facets ?? [])]) {
+                if (child.query)
+                    stack.push(child.query);
+            }
+        }
+        return source;
+    }
+    async executeQueryWithIntent(query, inherited, assembly) {
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
             family: 'query',
             name: `${String(query?.entity || 'unknown')}.list`,
@@ -1012,8 +1154,9 @@ class AbstractSQLTeaQLClient {
             }
             const idSetPrepared = internal ? { query, execution: undefined } : await this.prepareIdSetPage(query);
             const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
-            query = prepared.query;
+            query = new request_intent_1.QueryRequest(query).withQuery(prepared.query).query;
             const { sql, values, aggregateNames } = await this.compileQuery(query);
+            inherited = await this.queryTreeBindings(query, sql, values, inherited);
             const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query), () => (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, {
                 family: 'provider',
                 name: `${this.driver.databaseKind}.query`,
@@ -1029,8 +1172,10 @@ class AbstractSQLTeaQLClient {
                     - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER));
             }
             const descendantBindings = this.descendantBindings(query, sql, values, inherited);
-            await this.enhanceRelations(rows, query, descendantBindings);
-            await this.enhanceRelationAggregates(rows, query, descendantBindings);
+            if (assembly)
+                for (const row of rows)
+                    assembly.keys.set(row, row[assembly.field]);
+            await this.enhanceQueryRows(rows, query, descendantBindings);
             if (!internal)
                 await this.registerContinuousPage(query, prepared.execution, rows);
             scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
@@ -1147,9 +1292,13 @@ class AbstractSQLTeaQLClient {
         return { query: page, execution: { pageIds, totalCount: retained.ids.length } };
     }
     async executeFacetMembership(outerQuery, relationName) {
-        const query = outerQuery.clone();
+        const request = new request_intent_1.QueryRequest(outerQuery);
+        outerQuery = request.query;
+        const query = request.withQuery(outerQuery.clone()).query;
+        (0, query_snapshot_1.retainQueryDiagnosticOrigin)(outerQuery, query);
         query.facets = [];
         query.relations = [];
+        query.relationAggregates = [];
         query.orderItems = [];
         query.offsetValue = 0;
         query.limitValue = 0;
@@ -1165,11 +1314,13 @@ class AbstractSQLTeaQLClient {
         }));
     }
     async executeCount(query) {
+        const request = query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query);
+        query = request.query;
         if (typeof query?.forExactCount !== 'function') {
             throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
         }
         const alias = '__teaql_total';
-        const rows = await this.executeQuery(query.forExactCount(alias));
+        const rows = await this.executeQuery(request.withQuery(query.forExactCount(alias)).query);
         const value = rows[0]?.[alias];
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
@@ -1253,7 +1404,20 @@ class AbstractSQLTeaQLClient {
         if (execution.optimized)
             execution.runtime.observe('CURSOR_SEEK', execution.cursorId);
     }
-    async *executeForStream(query, chunkSize = 1000) {
+    executeForStream(query, chunkSize = 1000) {
+        // Capture before returning the lazy iterator. No SQL/cursor is opened here.
+        // Preserve the asynchronous failure contract, but never re-read a builder
+        // that the caller may "repair" or repurpose before the first poll.
+        try {
+            const request = query instanceof request_intent_1.QueryRequest
+                ? new request_intent_1.QueryRequest(query.query, query.intent) : new request_intent_1.QueryRequest(query);
+            return this.executeCapturedStream(request.query, chunkSize);
+        }
+        catch (error) {
+            return (async function* () { throw error; })();
+        }
+    }
+    async *executeCapturedStream(query, chunkSize) {
         if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
             throw new Error('stream chunk size must be a positive integer');
         }
@@ -1261,23 +1425,24 @@ class AbstractSQLTeaQLClient {
             throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
         }
         const { sql, values, aggregateNames } = await this.compileQuery(query);
+        const inherited = await this.queryTreeBindings(query, sql, values);
         const startedAt = Date.now();
         let outcome = 'cancelled';
         let delivered = 0;
         let chunk = [];
-        const descendantBindings = this.descendantBindings(query, sql, values);
+        const descendantBindings = this.descendantBindings(query, sql, values, inherited);
         try {
             for await (const rawRow of this.driver.stream(sql, values)) {
                 chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
                 if (chunk.length === chunkSize) {
-                    await this.enhanceRelations(chunk, query, descendantBindings);
+                    await this.enhanceQueryRows(chunk, query, descendantBindings);
                     delivered += chunk.length;
                     yield chunk;
                     chunk = [];
                 }
             }
             if (chunk.length) {
-                await this.enhanceRelations(chunk, query, descendantBindings);
+                await this.enhanceQueryRows(chunk, query, descendantBindings);
                 delivered += chunk.length;
                 yield chunk;
             }
@@ -1292,25 +1457,47 @@ class AbstractSQLTeaQLClient {
             // only delivered rows, not prefetched rows, and never stringify an error.
             if (outcome === 'failure') {
                 try {
-                    this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query, 'stream'), outcome);
+                    this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query), outcome, inherited);
                 }
                 catch { /* preserve driver failure */ }
             }
             else {
-                this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query, 'stream'), outcome);
+                this.recordSQL('select', sql, values, startedAt, delivered, undefined, this.queryLogIntent(query), outcome, inherited);
             }
         }
     }
-    async enhanceRelations(parents, query, inherited) {
+    async enhanceQueryRows(rows, query, inherited) {
+        if (!rows.length)
+            return;
+        const names = [...(query.relations ?? []).map((load) => load.name),
+            ...(query.relationAggregates ?? []).map((aggregate) => aggregate.relationName)];
+        if (!names.length)
+            return;
+        const schema = this.schema(query.entity);
+        const keys = new Map();
+        for (const name of names) {
+            const relation = schema.relations?.[name];
+            if (!relation)
+                throw new Error(`Missing relation ${query.entity}.${name}`);
+            if (!keys.has(relation.localKey))
+                keys.set(relation.localKey, rows.map(row => row[relation.localKey]));
+        }
+        // Lists and each streamed chunk capture before aliases or sibling loads can
+        // replace any scalar key. Keep existing execution order and trace sources.
+        await this.enhanceRelationAggregates(rows, query, keys, inherited);
+        await this.enhanceRelations(rows, query, keys, inherited);
+    }
+    async enhanceRelations(parents, query, keys, inherited) {
         if (!parents.length || !Array.isArray(query.relations) || !query.relations.length)
             return;
         const parentSchema = this.schema(query.entity);
+        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
         for (const load of query.relations) {
             const relation = parentSchema.relations?.[load.name];
             if (!relation)
                 throw new Error(`Missing relation ${query.entity}.${load.name}`);
-            const parentIds = parents
-                .map(parent => parent[relation.localKey])
+            const parentKeys = keys.get(relation.localKey);
+            const parentIds = parentKeys
                 .filter(value => value !== undefined && value !== null);
             const limit = load.query ? this.queryLimit(load.query) : undefined;
             const threshold = load.query?.localTopNProbeParentThreshold?.();
@@ -1334,7 +1521,7 @@ class AbstractSQLTeaQLClient {
                 },
             });
             try {
-                if (!parentIds.length) {
+                if (!parentIds.length && !(relation.many && load.query?.facets?.length)) {
                     for (const parent of parents)
                         parent[load.name] = relation.many ? [] : null;
                     relationScope.success({ attributes: { 'teaql.result.cardinality': 0 } });
@@ -1349,27 +1536,25 @@ class AbstractSQLTeaQLClient {
                     __teaqlPartitionBy: boundedTopN && !useProbes
                         ? relation.foreignKey
                         : undefined,
-                    __teaqlTracePath: [
-                        ...(Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath : [
-                            { level: 0, kind: 'operation', name: 'query' },
-                            { level: 1, kind: 'request', name: String(query.entity) },
-                        ]),
-                        {
-                            level: (Array.isArray(query.__teaqlTracePath) ? query.__teaqlTracePath.length : 2),
-                            kind: 'relation',
-                            name: `${String(query.entity)}.${String(load.name)}`,
-                        },
-                    ],
                     commentText: query?._comment ?? query?.commentText,
                     purposeText: query?._purpose ?? query?.purposeText,
                 };
-                if (boundedTopN && !childQuery.orderItems.some((order) => order.field === 'id')) {
-                    childQuery.orderItems.push(ast_1.OrderBy.asc('id'));
+                if (boundedTopN) {
+                    // Aggregate rows have group identity, not source-row identity. An
+                    // ungrouped id is invalid on strict SQL engines and cannot break ties.
+                    const groups = this.groupBy(childQuery);
+                    const stableFields = groups.length || this.aggregates(childQuery).length ? groups : ['id'];
+                    for (const field of stableFields) {
+                        if (!childQuery.orderItems.some((order) => order.field === field)) {
+                            childQuery.orderItems.push(ast_1.OrderBy.asc(field));
+                        }
+                    }
                 }
                 if (typeof childQuery.clearContinuousPageRuntime === 'function')
                     childQuery.clearContinuousPageRuntime();
                 childQuery[this.internalQueryToken] = true;
                 const children = [];
+                const assembly = { field: relation.foreignKey, keys: new WeakMap() };
                 if (useProbes) {
                     for (const parentId of parentIds) {
                         const probeQuery = {
@@ -1377,25 +1562,49 @@ class AbstractSQLTeaQLClient {
                             _filters: [...childQuery._filters, { [relation.foreignKey]: { $eq: parentId } }],
                             __teaqlPartitionBy: undefined,
                         };
-                        children.push(...await this.executeDerivedQuery(probeQuery, inherited));
+                        children.push(...await this.executeDerivedQuery(new request_intent_1.QueryRequest(query).derive(probeQuery, load.name).query, inherited, intent, assembly));
                     }
                 }
                 else {
                     childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
-                    children.push(...await this.executeDerivedQuery(childQuery, inherited));
+                    children.push(...await this.executeDerivedQuery(new request_intent_1.QueryRequest(query).derive(childQuery, load.name).query, inherited, intent, assembly));
                 }
                 for (const child of children)
                     delete child.__teaql_partition_rank;
                 const buckets = new Map();
                 for (const child of children) {
-                    const key = child[relation.foreignKey];
+                    if (!assembly.keys.has(child))
+                        throw new Error('Relation assembly lost its captured row identity');
+                    const key = assembly.keys.get(child);
                     const bucket = buckets.get(key) || [];
                     bucket.push(child);
                     buckets.set(key, bucket);
                 }
-                for (const parent of parents) {
-                    const related = buckets.get(parent[relation.localKey]) || [];
-                    parent[load.name] = relation.many ? related : (related[0] ?? null);
+                for (const [index, parent] of parents.entries()) {
+                    const related = buckets.get(parentKeys[index]) || [];
+                    if (relation.many && load.query?.facets?.length) {
+                        // Each loaded collection owns its own facet membership. The full
+                        // filtered child set, not its Top-N page or other parents, is counted.
+                        const facetQuery = load.query.clone();
+                        facetQuery.entity = relation.targetEntity;
+                        // A missing local key means no relationship, never orphan rows with
+                        // a NULL foreign key. Empty IN compiles to an unsatisfiable predicate.
+                        const key = parentKeys[index];
+                        const membership = { [relation.foreignKey]: key === null || key === undefined
+                                ? { $in: [] } : { $eq: key } };
+                        facetQuery.filterCondition = facetQuery.filterCondition
+                            ? { $and: [facetQuery.filterCondition, membership] } : membership;
+                        (0, query_snapshot_1.retainQueryDiagnosticOrigin)(query, facetQuery);
+                        const derived = new request_intent_1.QueryRequest(query).derive(facetQuery, load.name).query;
+                        parent[load.name] = new smart_list_1.SmartList(related, { facets: await (0, facet_1.executeRelationFacets)(this, item => item, derived, facetQuery.facets) });
+                    }
+                    else {
+                        // A failed detail selection does not erase the captured FK. Missing
+                        // target properties remain absent (NotLoaded), never loaded-null.
+                        const key = parentKeys[index];
+                        parent[load.name] = relation.many ? related : (related[0] ??
+                            (key === null || key === undefined ? null : { [relation.foreignKey]: key }));
+                    }
                 }
                 relationScope.success({ attributes: { 'teaql.result.cardinality': children.length } });
             }
@@ -1405,17 +1614,18 @@ class AbstractSQLTeaQLClient {
             }
         }
     }
-    async enhanceRelationAggregates(parents, query, inherited) {
+    async enhanceRelationAggregates(parents, query, keys, inherited) {
         const aggregates = query.relationAggregates;
         if (!parents.length || !Array.isArray(aggregates) || !aggregates.length)
             return;
         const parentSchema = this.schema(query.entity);
+        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
         for (const aggregate of aggregates) {
             const relation = parentSchema.relations?.[aggregate.relationName];
             if (!relation)
                 throw new Error(`Missing relation ${query.entity}.${aggregate.relationName}`);
-            const parentIds = parents
-                .map(parent => parent[relation.localKey])
+            const parentKeys = keys.get(relation.localKey);
+            const parentIds = parentKeys
                 .filter(value => value !== undefined && value !== null);
             if (!parentIds.length) {
                 for (const parent of parents) {
@@ -1447,19 +1657,12 @@ class AbstractSQLTeaQLClient {
             childQuery[this.internalQueryToken] = true;
             childQuery.commentText = query?._comment ?? query?.commentText;
             childQuery.purposeText = query?._purpose ?? query?.purposeText;
-            childQuery.__teaqlTracePath = [
-                ...(query.__teaqlTracePath ?? [
-                    { level: 0, kind: 'operation', name: 'query' },
-                    { level: 1, kind: 'request', name: String(query.entity) },
-                ]),
-                { level: query.__teaqlTracePath?.length ?? 2, kind: 'relation', name: `${query.entity}.${aggregate.relationName}` },
-            ];
-            const rows = await this.executeDerivedQuery(childQuery, inherited);
+            const rows = await this.executeDerivedQuery(new request_intent_1.QueryRequest(query).derive(childQuery, aggregate.relationName).query, inherited, intent);
             const buckets = new Map();
             for (const row of rows)
                 buckets.set(row[relation.foreignKey], row);
-            for (const parent of parents) {
-                const row = buckets.get(parent[relation.localKey]);
+            for (const [index, parent] of parents.entries()) {
+                const row = buckets.get(parentKeys[index]);
                 if (!row) {
                     parent[aggregate.alias] = aggregate.singleResult
                         ? this.emptyAggregateValue(aggregate.query)

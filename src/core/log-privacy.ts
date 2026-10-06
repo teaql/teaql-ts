@@ -60,6 +60,16 @@ const projections = new WeakMap<SQLExecutionMetadata, boolean>();
 // A debug record can later reach a sink after debug is disabled. Keep only its
 // already-safe alternative, never raw source parameters/provenance on a record.
 const safeAlternatives = new WeakMap<SQLExecutionMetadata, SQLExecutionMetadata>();
+const rawProvenance = new WeakMap<SQLExecutionMetadata, {
+  bindings?: SQLLogBindingSource; intentValues: readonly unknown[];
+}>();
+
+/** @internal Keep result reprojection safe without serializing raw provenance. */
+export function retainSQLLogProvenance(metadata: SQLExecutionMetadata, bindings?: SQLLogBindingSource,
+  intentValues: readonly unknown[] = []): void {
+  rawProvenance.set(metadata, { bindings: bindings ? inheritSQLLogBindings(bindings) : undefined,
+    intentValues: Object.freeze(intentValues.map(copyLogValue)) });
+}
 
 /** Internal SQL compiler/runtime plumbing, never a request or wire option. */
 export type SQLLogBindingSource = Pick<SQLExecutionMetadata,
@@ -79,6 +89,14 @@ function bindingPolicies(metadata: SQLLogBindingSource): SQLParameterLogPolicy[]
 
 function bindingIsMasked(policy: SQLParameterLogPolicy, allow: boolean): boolean {
   return policy === 'credential' || policy === 'unknown' || (!allow && policy !== 'plain');
+}
+
+/** Audit is always safe-mode; explicitly public loaded scalars are not secrets. */
+export function privateLogValueStrings(source?: SQLLogBindingSource): string[] {
+  if (!source) return [];
+  const policies = bindingPolicies(source);
+  return source.parameters.flatMap((value, index) =>
+    bindingIsMasked(policies[index], false) ? logValueStrings(value) : []);
 }
 
 function copyLogValue(value: unknown): unknown {
@@ -131,6 +149,9 @@ export function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLog
 
 function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inherited?: SQLLogBindingSource,
   intentValues: readonly unknown[] = []): SQLExecutionMetadata {
+  const retained = rawProvenance.get(metadata);
+  if (retained?.bindings) inherited = inheritSQLLogBindings(retained.bindings, inherited);
+  if (retained) intentValues = [...intentValues, ...retained.intentValues];
   const supplied = metadata.parameterLogPolicies;
   const policiesValid = !supplied || supplied.length === metadata.parameters.length;
   // Compiler-owned bindings identify credentials individually. Selecting a
@@ -179,6 +200,8 @@ function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inher
   }
   const projected = Object.freeze({
     ...metadata,
+    ...(metadata.statements ? { statements: Object.freeze(metadata.statements.map(statement =>
+      projectWithPolicy(statement, allow, inheritSQLLogBindings(metadata, inherited), intentValues))) } : {}),
     parameterizedSQL: unsafeSQL ? redactedSQL : metadata.sqlOrigin === 'generated'
       ? metadata.parameterizedSQL : scrubLogText(metadata.parameterizedSQL, secrets)!,
     parameters: Object.freeze(safeValues),
@@ -196,8 +219,12 @@ function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inher
       : scrubLogText(metadata.resultSummary, secrets)!,
     tracePath: Object.freeze(metadata.tracePath.map(frame => Object.freeze(
       Object.fromEntries(Object.entries(frame).map(([key,value]) =>
-        [key, typeof value === 'string' ? intentText(value) : value])),
+        [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value])),
     ))) as SQLExecutionMetadata['tracePath'],
+    // Typed identity is structural (as in the audit event's id), not prose.
+    ...(metadata.mutationLineage ? { mutationLineage: Object.freeze(metadata.mutationLineage.map(node =>
+      Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) =>
+        [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))) as SQLExecutionMetadata['mutationLineage'] } : {}),
   });
   return projected;
 }

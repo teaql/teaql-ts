@@ -1,5 +1,102 @@
 # TeaQL-TS (TypeScript Runtime)
 
+## Request intent on the feature branch
+
+`feature/request-trace-chain` adds validated, request-owned `QueryIntent` and
+`MutationIntent`. This is a local source checkpoint, not a published `0.2.10`
+capability. Query Request requires non-blank `comment` and `purpose`; Mutation
+Request requires non-blank `comment`, also exposed to policy/audit as its root
+reason. Existing generated `.comment(...).purpose(...)` and `.auditAs(...)`
+spelling stays unchanged after regeneration.
+
+Missing intent fails with `REQUEST_COMMENT_REQUIRED` at `comment`, or
+`QUERY_PURPOSE_REQUIRED` at `purpose`, before policies and provider access.
+The errors identify the request kind without echoing payload values. Context
+resources, fabricated trace frames, child comments, and logging switches do
+not supply a missing request property. Unicode whitespace validation follows
+Rust; valid text is preserved without trimming.
+
+Low-level adapters can construct `QueryRequest(query)` or
+`MutationRequest(mutation)`. Envelopes capture intent independently of mutable
+builders. SQL relations, aggregates, Facets and TFP Facet serialization inherit
+the root intent. Generated library guards delegate to the runtime validators;
+pair the changed generator with this local runtime before testing.
+
+The SQL execution path now uses the Rust-baseline canonical algorithm. Typed
+nodes separate entity/relation names from operation/qualified-property detail.
+The physical path contains no intent nodes; validated comment, purpose and root
+audit reason are separate fields. Mutation lineage is a separate typed carrier,
+not another name for the physical SQL path. Readback failure records a distinct
+`Sql(select)` path instead of adding a second SQL node to a mutation path.
+
+Query provenance belongs to immutable request snapshots. Derived relation,
+aggregate and Facet requests carry the original root and append the local
+relation name with its qualified property. Provenance never comes from a
+caller-supplied `__teaqlTracePath` or a mutable Context stack. This also preserves
+the root through overlapping queries and stream execution. Privacy projection
+scrubs reason text without removing structural typed identity or path shape.
+
+Graph saves now receive an explicit validated `MutationIntent` and an
+operation-owned `GraphMutationSession`. Persistent immutable parent scopes carry
+branch-local reasons; an unrelated request cannot join the active transaction
+or borrow another graph's scope. Type plus ID distinguishes ledger entries;
+an entity's complete ledger chain replaces its graph fallback. Database-assigned
+IDs are captured before saving descendants. Context owns no lineage stack.
+
+Audits are queued until the whole graph commits and discarded on rollback.
+After commit, a failing sink does not stop remaining cleanup/audits or pretend
+the database rolled back. `GraphCommittedError.committed` tells callers not to
+retry the operation as an uncommitted write. SQL metadata still distinguishes
+the physical path, root intent and each entity's mutation lineage. Failed
+readback remains a separate SELECT outcome.
+
+Successful SQL mutations also retain the actual persisted-row SELECT, not just
+failed readbacks. `MutationResult.metadata` is a trusted internal logical write
+summary; its frozen `statements` array contains ordered write/SELECT facts.
+There is no additional query for tracing. Safe sinks receive each physical fact
+once with inherited intent and per-item lineage, without double-counting audits.
+Query/mutation log switches control diagnostic output independently; an installed
+evidence sink and returned raw result metadata remain available when logs are
+off. Use the evidence store's own modes to disable evidence collection. Do not
+serialize raw result metadata across a trust boundary or log it directly.
+
+The runtime adapter SPI is intentionally changed to
+`executeGraphSave(intent, async graph => ...)`; adapter code must create each
+request with `graph.request(...)`. Regenerate domain libraries rather than
+patching their source. The generated public `.auditAs(...).save(context)` API
+is unchanged. A child can supply its own local reason or inherit its parent;
+save no longer overwrites child reasons with the root reason.
+
+The [generated SQLite example](examples/trace-chain/README.md) verifies the
+six-entity graph through real Q/E/Mutation APIs, independent overlapping saves,
+provider/readback failures and two runs on the same database without cleanup.
+Its generated library is hash-checked and unmodified. Shared graph vectors,
+native transaction/audit tests and the prior canonical SQL cases are separate
+evidence, not substitutes for generated acceptance.
+
+The [generated School Facet example](examples/facet-trace/) verifies 48
+root/nested/loaded-relation combinations twice on a retained SQLite database.
+It covers exact/prefix operands, empty metadata, full counts despite a limit-one
+list, exact ordered ancestry and future-binding masking. Diagnostic logging
+on/off is distinct from its explicitly installed safe evidence collector.
+`bash examples/facet-trace/verify.sh` rebuilds and resolves the local runtime;
+the all-examples gate includes it and checks generated library fingerprints.
+
+Relation assembly preserves scalar keys before hydrated references or aggregate
+aliases replace their source fields. A reference filtered to null does not
+remove its child from an enclosing list or break a sibling using the same FK.
+Private per-load key capture and per-chunk snapshots cover lists and streams;
+no key cache is added to records, mutation ledgers or UserContext. The example
+gate runs a small real-SQLite fixture with text keys, empty parents, nested
+graphs, filtered references and diagnostic logging on/off. These are native
+regression cases, separate from the generated Q/E/save acceptance above.
+
+Prepared same-type batches, complete entry-point/deep privacy coverage,
+file-backed/Expo graph acceptance and immutable internal Registry replay remain
+open. Verify local source with `npm test -- --runInBand` and
+`bash scripts/verify-examples.sh` before any internal artifact or public release.
+This branch does not change the released version or declare Trace Chain complete.
+
 ## Sensitive log data
 
 Runtime diagnostic logs redact payload values by default, before delivery to
@@ -63,9 +160,9 @@ internal ID/version pair. The current TypeScript profile deliberately does not
 hold backend AES keys or provide local encode/decode APIs; this is a supported
 frontend boundary rather than a conformance defect.
 
-Local SQL logging should remain parameterized and value-free by default.
-Copy/paste SQL or submitted values belong only in an explicit, access-controlled
-diagnostic surface. The server-side envelope, golden vector, stable errors, and
+Local SQL diagnostics show expanded SQL with parameters masked by default.
+Plaintext submitted values require the explicit, access-controlled diagnostic
+opt-in above. The server-side envelope, golden vector, stable errors, and
 development-only raw-reference acknowledgement are defined in the canonical
 [opaque entity reference contract](https://github.com/teaql/teaql-conformance/blob/main/design/opaque-entity-references.md).
 

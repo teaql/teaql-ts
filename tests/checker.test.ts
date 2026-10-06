@@ -1,4 +1,4 @@
-import { CheckException, CheckResult, EntityChecker, EntityRoot, ObjectLocation, RuntimeModule, UserContext } from '../src';
+import { CheckException, CheckResult, EntityChecker, EntityRoot, MutationIntent, ObjectLocation, RuntimeModule, UserContext } from '../src';
 import { AbstractSQLTeaQLClient, TeaQLSqlDriver } from '../src/sql/core';
 
 class Driver implements TeaQLSqlDriver {
@@ -122,10 +122,10 @@ test('one graph captures one fix clock and clears it after commit', async () => 
     } },
   }, { Task: checker }));
 
-  await client.executeGraphSave(async () => {
-    await client.executeMutation({ entity: 'Task', action: 'Create', payload: {}, comment: 'first node' });
+  await client.executeGraphSave(new MutationIntent('fix graph'), async graph => {
+    await client.executeMutation(graph.request({ entity: 'Task', action: 'Create', payload: {} }));
     await new Promise(resolve => setTimeout(resolve, 5));
-    await client.executeMutation({ entity: 'Task', action: 'Create', payload: {}, comment: 'second node' });
+    await client.executeMutation(graph.request({ entity: 'Task', action: 'Create', payload: {} }));
   });
 
   expect(observed).toHaveLength(2);
@@ -145,15 +145,15 @@ test('independent concurrent graph saves are serialized instead of joining', asy
   }));
   const events: string[] = [];
 
-  const first = client.executeGraphSave(async () => {
+  const first = client.executeGraphSave(new MutationIntent('first'), async graph => {
     events.push('first:start');
     await new Promise(resolve => setTimeout(resolve, 10));
-    await client.executeMutation({ entity: 'Task', action: 'Create', payload: { name: 'first' }, comment: 'first' });
+    await client.executeMutation(graph.request({ entity: 'Task', action: 'Create', payload: { name: 'first' } }));
     events.push('first:end');
   });
-  const second = client.executeGraphSave(async () => {
+  const second = client.executeGraphSave(new MutationIntent('second'), async graph => {
     events.push('second:start');
-    await client.executeMutation({ entity: 'Task', action: 'Create', payload: { name: 'second' }, comment: 'second' });
+    await client.executeMutation(graph.request({ entity: 'Task', action: 'Create', payload: { name: 'second' } }));
     events.push('second:end');
   });
 

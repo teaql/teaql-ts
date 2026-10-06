@@ -1,4 +1,5 @@
 /** Governed application policy for complete mutation graphs. */
+import { MutationIntent } from './request-intent';
 
 export const MISSING_MUTATION_POLICY = 'MUTATION-POLICY-001';
 export const MISSING_MUTATION_POLICY_APPROVAL = 'MUTATION-POLICY-002';
@@ -23,7 +24,7 @@ export type MutationPlan = Readonly<{
   executionId: string;
   requestKey: string;
   rootEntityType: string;
-  auditReason?: string;
+  auditReason: string;
   operations: readonly MutationOperation[];
 }>;
 
@@ -296,7 +297,7 @@ export class MutationPolicyRuntimeState {
       executionId: `teaql-mutation-${executionSequence}`,
       requestKey: `${root}.saveGraph`,
       rootEntityType: root,
-      auditReason: reason,
+      auditReason: new MutationIntent(reason).comment,
       operations,
     });
   }
@@ -350,12 +351,12 @@ function operationFromMutation(value: any): MutationOperation {
   });
 }
 
-function mutationComment(value: any): string | undefined {
-  const comment = value?.comment;
-  return typeof comment === 'string' && comment.trim() ? comment.trim() : undefined;
+function mutationComment(value: any): string {
+  return new MutationIntent(value?.comment).comment;
 }
 
 function validatePlan(plan: MutationPlan): void {
+  new MutationIntent(plan?.auditReason);
   if (!plan.executionId?.trim()) throw new MutationPolicyError('execution id is required');
   if (!plan.requestKey?.trim()) throw new MutationPolicyError('request key is required');
   if (!plan.rootEntityType?.trim()) throw new MutationPolicyError('root entity type is required');

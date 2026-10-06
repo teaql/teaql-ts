@@ -1,4 +1,3 @@
-/** Governed application policy for complete mutation graphs. */
 export declare const MISSING_MUTATION_POLICY = "MUTATION-POLICY-001";
 export declare const MISSING_MUTATION_POLICY_APPROVAL = "MUTATION-POLICY-002";
 export type MutationOperationKind = 'create' | 'update' | 'delete' | 'recover';
@@ -18,7 +17,7 @@ export type MutationPlan = Readonly<{
     executionId: string;
     requestKey: string;
     rootEntityType: string;
-    auditReason?: string;
+    auditReason: string;
     operations: readonly MutationOperation[];
 }>;
 export type MutationDecision = Readonly<{

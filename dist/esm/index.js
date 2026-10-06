@@ -5,23 +5,38 @@ import {
   DelegatingMutationGovernanceSink,
   DelegatingMutationPolicyApprovalProvider,
   DelegatingMutationPolicyRegistry,
+  GraphCommittedError,
+  GraphMutationSession,
   I18nCatalog,
+  LoadedScalarSnapshot,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
+  MutationIntent,
   MutationPolicyError,
   MutationPolicyRuntimeState,
   MutationQuery,
+  MutationRequest,
+  MutationTraceScope,
   OrderBy,
+  QueryIntent,
+  QueryRequest,
+  RequestIntentError,
   RuntimeModule,
   SelectQuery,
+  SmartList,
   SortDirection,
   UnsupportedLocaleError,
   UserContext,
+  canonicalSQLTracePath,
   checkResultToWire,
+  cloneTraceNodes,
+  executeRelationFacets,
   locales,
   mergeRuntimeBootstrap,
-  parseLocale
-} from "./chunks/chunk-DI6F3FE7.js";
+  mutationScopeForEntity,
+  parseLocale,
+  queryTraceSource
+} from "./chunks/chunk-YAAPRG2I.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -30,6 +45,7 @@ import {
   safeRuntimeOperation,
   startRuntimeOperation
 } from "./chunks/chunk-WZ3T4PU6.js";
+import "./chunks/chunk-IQGZNIAK.js";
 
 // src/core/value.ts
 var Values = {
@@ -76,6 +92,14 @@ var EntityRoot = class {
     this.originalVersions = /* @__PURE__ */ new Map();
     this.newKeys = /* @__PURE__ */ new Map();
     this.deletedKeys = /* @__PURE__ */ new Map();
+    this.traces = /* @__PURE__ */ new Map();
+  }
+  /** A complete per-entity lineage replaces, rather than extends, graph fallback. */
+  setTraceChain(key, nodes) {
+    this.traces.set(identity(key), { key: Object.freeze({ ...key }), nodes: cloneTraceNodes(nodes) });
+  }
+  traceChain(key) {
+    return this.traces.get(identity(key))?.nodes;
   }
   set(key, field, value) {
     if (!field.trim()) throw new TypeError("field is required");
@@ -95,10 +119,28 @@ var EntityRoot = class {
   }
   mergeFrom(other) {
     if (other === this) return;
+    for (const entry of other.snapshotVersions()) this.requireMatchingVersion(entry.key, entry.version);
     for (const entry of other.snapshot()) for (const [field, value] of Object.entries(entry.values)) this.set(entry.key, field, value);
     for (const key of other.newKeys.values()) this.markAsNew(key);
     for (const key of other.deletedKeys.values()) this.markAsDeleted(key);
     for (const entry of other.snapshotVersions()) this.setOriginalVersion(entry.key, entry.version);
+    for (const entry of other.traces.values()) this.setTraceChain(entry.key, entry.nodes);
+  }
+  /** Import one explicitly reached entity, never its foreign graph or ownership. */
+  mergeEntityFrom(other, key) {
+    if (other === this) return;
+    const version = other.originalVersion(key);
+    if (version !== void 0) this.requireMatchingVersion(key, version);
+    for (const [field, value] of Object.entries(other.change(key))) this.set(key, field, value);
+    if (other.isNew(key)) this.markAsNew(key);
+    if (other.isDeleted(key)) this.markAsDeleted(key);
+    if (version !== void 0) this.setOriginalVersion(key, version);
+    const trace = other.traceChain(key);
+    if (trace) this.setTraceChain(key, trace);
+  }
+  hasPending(key) {
+    const id = identity(key);
+    return this.newKeys.has(id) || this.deletedKeys.has(id) || Object.keys(this.changes.get(id)?.values ?? {}).length > 0;
   }
   snapshotVersions() {
     return [...this.originalVersions.values()];
@@ -107,6 +149,8 @@ var EntityRoot = class {
     const oldId = identity(oldKey);
     const newId = identity(newKey);
     if (oldId === newId) return;
+    const loadedVersion = this.originalVersion(oldKey);
+    if (loadedVersion !== void 0) this.requireMatchingVersion(newKey, loadedVersion);
     const entry = this.changes.get(oldId);
     if (entry) {
       this.changes.delete(oldId);
@@ -119,14 +163,32 @@ var EntityRoot = class {
     }
     if (this.newKeys.delete(oldId)) this.newKeys.set(newId, Object.freeze({ ...newKey }));
     if (this.deletedKeys.delete(oldId)) this.deletedKeys.set(newId, Object.freeze({ ...newKey }));
+    const trace = this.traces.get(oldId);
+    if (trace) {
+      this.traces.delete(oldId);
+      this.setTraceChain(newKey, trace.nodes);
+    }
   }
   clearEntity(key) {
     const id = identity(key);
     this.changes.delete(id);
     this.newKeys.delete(id);
     this.deletedKeys.delete(id);
+    this.traces.delete(id);
+  }
+  requireMatchingVersion(key, version) {
+    const original = this.originalVersion(key);
+    if (original !== void 0 && original !== version) {
+      throw new Error("ENTITY_VERSION_CONFLICT: one graph cannot contain different loaded versions of the same typed entity");
+    }
   }
   setOriginalVersion(key, version) {
+    this.requireMatchingVersion(key, version);
+    this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
+  }
+  /** @internal Accept only the authoritative result after this key committed. */
+  acceptCommittedVersion(key, version) {
+    if (this.hasPending(key)) throw new Error("ENTITY_COMMIT_PENDING: clear committed changes before accepting the persisted version");
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
   }
   originalVersion(key) {
@@ -150,6 +212,7 @@ var EntityRoot = class {
     this.changes.clear();
     this.newKeys.clear();
     this.deletedKeys.clear();
+    this.traces.clear();
   }
 };
 
@@ -532,107 +595,6 @@ var LocalCache = class {
 };
 var localCache = new LocalCache();
 
-// src/core/smart-list.ts
-var SmartList = class _SmartList extends Array {
-  static get [Symbol.species]() {
-    return Array;
-  }
-  constructor(data = [], options = {}) {
-    if (typeof data === "number") super(data);
-    else super(...data);
-    Object.setPrototypeOf(this, _SmartList.prototype);
-    this.totalCount = options.totalCount;
-    this.aggregations = options.aggregations ?? {};
-    this.summary = options.summary ?? {};
-    this.facets = options.facets ?? {};
-    this.isLoaded = options.isLoaded ?? true;
-  }
-  static empty() {
-    return new _SmartList([], { isLoaded: false });
-  }
-  get data() {
-    return this;
-  }
-  withTotalCount(totalCount) {
-    this.totalCount = totalCount;
-    return this;
-  }
-  withFacet(name, facet) {
-    this.facets[name] = facet;
-    return this;
-  }
-  facet(name) {
-    return this.facets[name];
-  }
-  totalCountOrLength() {
-    return this.totalCount ?? this.length;
-  }
-};
-
-// src/core/facet.ts
-function snakeCase(value) {
-  return value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
-}
-function scalarId(value) {
-  if (value && typeof value === "object") {
-    const record = value;
-    return record.id ?? record.Id;
-  }
-  return value;
-}
-function relationId(row, relationName) {
-  const snake = snakeCase(relationName);
-  for (const key of [relationName, `${relationName}Id`, snake, `${snake}_id`]) {
-    const value = scalarId(row[key]);
-    if (value !== void 0 && value !== null) return value;
-  }
-  return void 0;
-}
-async function executeRelationFacets(service, prepareQuery, outerQuery, facets) {
-  const result = {};
-  for (const facet of facets) {
-    let counts;
-    if (service.executeFacetMembership) {
-      counts = await service.executeFacetMembership(
-        prepareQuery(outerQuery.clone()),
-        facet.relationName
-      );
-    } else {
-      const membershipQuery = outerQuery.clone();
-      membershipQuery.facets = [];
-      membershipQuery.relations = [];
-      membershipQuery.orderItems = [];
-      membershipQuery.aggregateItems = [];
-      membershipQuery.groupByItems = [];
-      membershipQuery.offsetValue = 0;
-      membershipQuery.limitValue = 0;
-      membershipQuery.selectItems = [facet.relationName];
-      const memberships = await service.executeQuery(prepareQuery(membershipQuery));
-      counts = /* @__PURE__ */ new Map();
-      for (const row of memberships) {
-        const id = relationId(row, facet.relationName);
-        if (id === void 0 || id === null) continue;
-        const key = String(id);
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-    }
-    const nestedQuery = facet.query.clone();
-    nestedQuery.facets = [];
-    const countAliases = nestedQuery.aggregateItems.filter((item) => String(item.function).toLowerCase() === "count").map((item) => String(item.alias));
-    nestedQuery.aggregateItems = [];
-    nestedQuery.groupByItems = [];
-    const rows = await service.executeQuery(prepareQuery(nestedQuery));
-    const decorated = rows.map((row) => {
-      const count = counts.get(String(scalarId(row.id ?? row.Id))) ?? 0;
-      const copy = { ...row };
-      for (const alias of countAliases) copy[alias] = count;
-      return copy;
-    }).filter((row) => facet.includeAllFacets || counts.has(String(scalarId(row.id ?? row.Id))));
-    result[facet.facetName] = new SmartList(decorated);
-  }
-  return result;
-}
-
 // src/meta/descriptors.ts
 var DataType = /* @__PURE__ */ ((DataType2) => {
   DataType2["Text"] = "Text";
@@ -781,7 +743,9 @@ function rejectRemoteHardLimit(value, path = "$") {
     rejectRemoteHardLimit(child, `${path}.${key}`);
   }
 }
-function serializeQuery(query, nestedFacet = false) {
+function serializeQuery(query, nestedFacet = false, intent) {
+  const request = new QueryRequest(query, intent);
+  query = request.query;
   if (!Number.isSafeInteger(query.offsetValue) || query.offsetValue < 0) {
     throw new Error("TFP_INVALID_REQUEST: offset must be a non-negative safe integer");
   }
@@ -789,8 +753,6 @@ function serializeQuery(query, nestedFacet = false) {
     throw new Error("TFP_INVALID_REQUEST: limit must be a positive safe integer");
   }
   rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
-  if (!query.commentText?.trim()) throw new Error("TFP_INVALID_REQUEST: commentText is required");
-  if (!query.purposeText?.trim()) throw new Error("TFP_POLICY_VIOLATION: purposeText is required");
   if (query.relations.length || query.joins.length) {
     throw new Error("TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1");
   }
@@ -810,7 +772,7 @@ function serializeQuery(query, nestedFacet = false) {
       facetName: facet.facetName,
       relationName: facet.relationName,
       includeAllFacets: facet.includeAllFacets,
-      query: serializeQuery(facet.query, true)
+      query: serializeQuery(facet.query, true, request.intent)
     })),
     commentText: query.commentText,
     purposeText: query.purposeText
@@ -844,7 +806,8 @@ var TeaQLClient = class {
     return this.config.getHeaders ? { ...headers, ...await this.config.getHeaders() } : headers;
   }
   async executeQuery(query) {
-    const payload = serializeQuery(query);
+    const request = query instanceof QueryRequest ? query : new QueryRequest(query);
+    const payload = serializeQuery(request.query, false, request.intent);
     const url = `${this.config.baseUrl.replace(/\/$/, "")}/query`;
     return observeRuntimeOperation(
       this.runtimeTelemetry,
@@ -874,14 +837,14 @@ var TeaQLClient = class {
     );
   }
   async *executeForStream(_query, _chunkSize = 1e3) {
+    new QueryRequest(_query);
     throw new Error(
       "TeaQL federation does not support executeForStream over the ordinary TFP request/response protocol; use a dedicated streaming protocol"
     );
   }
   async executeMutation(query) {
-    if (!query?.comment?.trim?.()) {
-      throw new Error("TFP_AUDIT_REASON_REQUIRED: mutation audit reason is required");
-    }
+    const request = query instanceof MutationRequest ? query : new MutationRequest(query);
+    query = request.mutation;
     const payload = {
       entity: query.entity,
       action: query.action,
@@ -2259,20 +2222,29 @@ export {
   EntityDescriptor,
   EntityRoot,
   FetchHttpToolProvider,
+  GraphCommittedError,
+  GraphMutationSession,
   HTTP_TOOL,
   I18nCatalog,
+  LoadedScalarSnapshot,
   LocalCache,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
+  MutationIntent,
   MutationPolicyError,
   MutationPolicyRuntimeState,
   MutationQuery,
+  MutationRequest,
+  MutationTraceScope,
   NOOP_RUNTIME_TELEMETRY,
   ObjectLocation,
   OrderBy,
   PropertyDescriptor,
+  QueryIntent,
   QueryParser,
+  QueryRequest,
   RelationDescriptor,
+  RequestIntentError,
   RuntimeModule,
   SelectQuery,
   SmartList,
@@ -2284,7 +2256,9 @@ export {
   UserContext,
   Values,
   WireInputError,
+  canonicalSQLTracePath,
   checkResultToWire,
+  cloneTraceNodes,
   createWireEntityMetadata,
   encodeWireOutput,
   executeRelationFacets,
@@ -2293,10 +2267,12 @@ export {
   locales,
   mergeDynamicSearch,
   mergeRuntimeBootstrap,
+  mutationScopeForEntity,
   normalizeDynamicSearch,
   normalizeWireInput,
   observeRuntimeOperation,
   parseLocale,
+  queryTraceSource,
   renderJsonFieldName,
   retainSubmittedPaths,
   runtimeErrorCategory,

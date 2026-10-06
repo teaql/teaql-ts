@@ -42,7 +42,7 @@ describe('SQLite true streaming query', () => {
       for await (const _chunk of stream) { /* consume */ }
     };
     await expect(consume(client.executeForStream(new SelectQuery('Order'), 10)))
-      .rejects.toThrow(/purpose and comment/);
+      .rejects.toMatchObject({ code: 'REQUEST_COMMENT_REQUIRED', field: 'comment', requestKind: 'query' });
     const query = new SelectQuery('Order').comment('invalid size').purpose('verify validation');
     await expect(consume(client.executeForStream(query, 0))).rejects.toThrow(/positive integer/);
     await client.close();
@@ -50,15 +50,14 @@ describe('SQLite true streaming query', () => {
 });
 
 describe('real SQL driver streams', () => {
-  it.each([
+  for (const [name, envName, createDriver, sql] of [
     ['PostgreSQL', 'TEAQL_TEST_POSTGRES_URL', (url: string) => new PostgreSQLDriver(url),
       'SELECT id FROM (VALUES (1), (2), (3), (4), (5)) AS fixture(id) ORDER BY id'],
     ['MySQL', 'TEAQL_TEST_MYSQL_URL', (url: string) => new MySQLDriver(url),
       'SELECT id FROM (SELECT 1 id UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) fixture ORDER BY id'],
-  ] as const)('streams rows from %s', async (_name, envName, createDriver, sql) => {
+  ] as const) (process.env[envName] ? it : it.skip)(`streams rows from ${name}`, async () => {
     const url = process.env[envName];
-    if (!url) return;
-    const driver = createDriver(url);
+    const driver = createDriver(url!);
     const ids: number[] = [];
     try {
       for await (const row of driver.stream(sql)) ids.push(Number(row.id));

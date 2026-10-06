@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.executeRelationFacets = void 0;
 const smart_list_1 = require("./smart-list");
+const request_intent_1 = require("./request-intent");
+const query_snapshot_1 = require("./query-snapshot");
 function snakeCase(value) {
     return value.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 }
@@ -27,23 +29,27 @@ function relationId(row, relationName) {
  * determines which facet entities and fields are returned.
  */
 async function executeRelationFacets(service, prepareQuery, outerQuery, facets) {
+    const request = new request_intent_1.QueryRequest(outerQuery);
+    outerQuery = request.query;
     const result = {};
     for (const facet of facets) {
         let counts;
         if (service.executeFacetMembership) {
-            counts = await service.executeFacetMembership(prepareQuery(outerQuery.clone()), facet.relationName);
+            counts = await service.executeFacetMembership(request.withQuery(prepareQuery(outerQuery.clone())).query, facet.relationName);
         }
         else {
             const membershipQuery = outerQuery.clone();
+            (0, query_snapshot_1.retainQueryDiagnosticOrigin)(outerQuery, membershipQuery);
             membershipQuery.facets = [];
             membershipQuery.relations = [];
+            membershipQuery.relationAggregates = [];
             membershipQuery.orderItems = [];
             membershipQuery.aggregateItems = [];
             membershipQuery.groupByItems = [];
             membershipQuery.offsetValue = 0;
             membershipQuery.limitValue = 0;
             membershipQuery.selectItems = [facet.relationName];
-            const memberships = await service.executeQuery(prepareQuery(membershipQuery));
+            const memberships = await service.executeQuery(request.withQuery(prepareQuery(membershipQuery)).query);
             counts = new Map();
             for (const row of memberships) {
                 const id = relationId(row, facet.relationName);
@@ -53,14 +59,24 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
                 counts.set(key, (counts.get(key) ?? 0) + 1);
             }
         }
-        const nestedQuery = facet.query.clone();
+        const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
+        const nestedQuery = nestedRequest.query;
+        const nestedFacets = nestedQuery.facets;
         nestedQuery.facets = [];
         const countAliases = nestedQuery.aggregateItems
             .filter(item => String(item.function).toLowerCase() === 'count')
             .map(item => String(item.alias));
         nestedQuery.aggregateItems = [];
         nestedQuery.groupByItems = [];
-        const rows = await service.executeQuery(prepareQuery(nestedQuery));
+        // Restrict before pagination and before evaluating child facets. Filtering
+        // only the returned rows makes child counts include unrelated entities.
+        if (!facet.includeAllFacets) {
+            const membership = { id: { $in: [...counts.keys()] } };
+            nestedQuery.filterCondition = nestedQuery.filterCondition
+                ? { $and: [nestedQuery.filterCondition, membership] } : membership;
+        }
+        (0, query_snapshot_1.retainQueryDiagnosticOrigin)(outerQuery, nestedQuery);
+        const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
         const decorated = rows
             .map(row => {
             const count = counts.get(String(scalarId(row.id ?? row.Id))) ?? 0;
@@ -70,7 +86,11 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
             return copy;
         })
             .filter(row => facet.includeAllFacets || counts.has(String(scalarId(row.id ?? row.Id))));
-        result[facet.facetName] = new smart_list_1.SmartList(decorated);
+        const list = new smart_list_1.SmartList(decorated);
+        if (nestedFacets.length) {
+            list.facets = await executeRelationFacets(service, prepareQuery, nestedRequest.withQuery(nestedQuery).query, nestedFacets);
+        }
+        result[facet.facetName] = list;
     }
     return result;
 }

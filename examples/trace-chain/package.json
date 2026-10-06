@@ -1,0 +1,7 @@
+{
+  "name": "teaql-typescript-trace-chain-example",
+  "private": true,
+  "scripts": { "build": "tsc --noEmit", "start": "ts-node app.ts", "test:shared-reference": "ts-node shared-reference.ts", "test:page": "ts-node paging.ts", "test:stream-capture": "ts-node stream-capture.ts", "test:relation-aggregate": "ts-node relation-aggregate.ts", "test:checker-overlap": "ts-node checker-overlap.ts", "test:plan-item-lineage": "ts-node plan-item-lineage.ts", "test:bootstrap-intent": "ts-node bootstrap-intent.ts" },
+  "dependencies": { "teaql-ts": "file:../..", "better-sqlite3": "^12.10.0" },
+  "devDependencies": { "typescript": "5.4.5", "ts-node": "^10.9.2", "@types/node": "^22.0.0", "@types/better-sqlite3": "^7.6.12" }
+}

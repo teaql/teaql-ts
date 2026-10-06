@@ -2,6 +2,7 @@ import { SelectQuery } from '../core/ast';
 import { SmartList } from '../core/smart-list';
 import { UserContext } from '../core/context';
 import { MutationGovernanceSnapshot } from '../core/mutation-policy';
+import { QueryRequest } from '../core/request-intent';
 import { RuntimeTelemetry } from '../core/telemetry';
 export interface TeaQLClientConfig {
     baseUrl: string;
@@ -22,7 +23,7 @@ export declare class TeaQLClient {
     setUserContext(context: UserContext): this;
     get mutationGovernanceTrace(): readonly MutationGovernanceSnapshot[];
     private requestHeaders;
-    executeQuery<T = any>(query: SelectQuery): Promise<SmartList<T>>;
+    executeQuery<T = any>(query: SelectQuery | QueryRequest): Promise<SmartList<T>>;
     executeForStream<T = any>(_query: SelectQuery, _chunkSize?: number): AsyncIterable<T[]>;
     executeMutation(query: any): Promise<any>;
 }

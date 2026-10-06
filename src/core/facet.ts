@@ -1,5 +1,7 @@
 import { FacetRequest, SelectQuery } from './ast';
 import { SmartList, SmartListRecord } from './smart-list';
+import { QueryRequest } from './request-intent';
+import { retainQueryDiagnosticOrigin } from './query-snapshot';
 
 export interface FacetQueryService {
   executeQuery(query: SelectQuery): Promise<SmartListRecord[]>;
@@ -40,23 +42,27 @@ export async function executeRelationFacets(
   outerQuery: SelectQuery,
   facets: readonly FacetRequest[],
 ): Promise<Record<string, SmartList<SmartListRecord>>> {
+  const request = new QueryRequest(outerQuery);
+  outerQuery = request.query;
   const result: Record<string, SmartList<SmartListRecord>> = {};
   for (const facet of facets) {
     let counts: Map<string, number>;
     if (service.executeFacetMembership) {
       counts = await service.executeFacetMembership(
-        prepareQuery(outerQuery.clone()), facet.relationName);
+        request.withQuery(prepareQuery(outerQuery.clone())).query, facet.relationName);
     } else {
       const membershipQuery = outerQuery.clone();
+      retainQueryDiagnosticOrigin(outerQuery, membershipQuery);
       membershipQuery.facets = [];
       membershipQuery.relations = [];
+      membershipQuery.relationAggregates = [];
       membershipQuery.orderItems = [];
       membershipQuery.aggregateItems = [];
       membershipQuery.groupByItems = [];
       membershipQuery.offsetValue = 0;
       membershipQuery.limitValue = 0;
       membershipQuery.selectItems = [facet.relationName];
-      const memberships = await service.executeQuery(prepareQuery(membershipQuery));
+      const memberships = await service.executeQuery(request.withQuery(prepareQuery(membershipQuery)).query);
       counts = new Map<string, number>();
       for (const row of memberships) {
         const id = relationId(row, facet.relationName);
@@ -66,14 +72,24 @@ export async function executeRelationFacets(
       }
     }
 
-    const nestedQuery = facet.query.clone();
+    const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
+    const nestedQuery = nestedRequest.query;
+    const nestedFacets = nestedQuery.facets;
     nestedQuery.facets = [];
     const countAliases = nestedQuery.aggregateItems
       .filter(item => String(item.function).toLowerCase() === 'count')
       .map(item => String(item.alias));
     nestedQuery.aggregateItems = [];
     nestedQuery.groupByItems = [];
-    const rows = await service.executeQuery(prepareQuery(nestedQuery));
+    // Restrict before pagination and before evaluating child facets. Filtering
+    // only the returned rows makes child counts include unrelated entities.
+    if (!facet.includeAllFacets) {
+      const membership = { id: { $in: [...counts.keys()] } };
+      nestedQuery.filterCondition = nestedQuery.filterCondition
+        ? { $and: [nestedQuery.filterCondition, membership] } : membership;
+    }
+    retainQueryDiagnosticOrigin(outerQuery, nestedQuery);
+    const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
     const decorated = rows
       .map(row => {
         const count = counts.get(String(scalarId(row.id ?? row.Id))) ?? 0;
@@ -82,7 +98,12 @@ export async function executeRelationFacets(
         return copy;
       })
       .filter(row => facet.includeAllFacets || counts.has(String(scalarId(row.id ?? row.Id))));
-    result[facet.facetName] = new SmartList(decorated);
+    const list = new SmartList(decorated);
+    if (nestedFacets.length) {
+      list.facets = await executeRelationFacets(service, prepareQuery,
+        nestedRequest.withQuery(nestedQuery).query, nestedFacets);
+    }
+    result[facet.facetName] = list;
   }
   return result;
 }

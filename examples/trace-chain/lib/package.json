@@ -1,0 +1,13 @@
+{
+  "name": "trace-chain-service-lib",
+  "version": "1.0.0",
+  "description": "Generated typescript library",
+  "main": "src/generated/Q.ts",
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "teaql-ts": "npm:@teaql/teaql@0.2.10"},
+  "devDependencies": {
+    "typescript": "^5.0.0"}
+}

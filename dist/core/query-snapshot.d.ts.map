@@ -1,0 +1,1 @@
+{"version":3,"file":"query-snapshot.d.ts","sourceRoot":"","sources":["../../src/core/query-snapshot.ts"],"names":[],"mappings":"AAIA,wBAAgB,qBAAqB,CAAC,KAAK,EAAE,MAAM,GAAG,MAAM,GAAG,SAAS,CAA+B;AAEvG,wBAAgB,2BAA2B,CAAC,MAAM,EAAE,MAAM,EAAE,MAAM,EAAE,MAAM,GAAG,IAAI,CAEhF;AAED;;oEAEoE;AACpE,wBAAgB,aAAa,CAAC,CAAC,EAAE,KAAK,EAAE,CAAC,EAAE,IAAI,uBAA6B,GAAG,CAAC,CAe/E"}
