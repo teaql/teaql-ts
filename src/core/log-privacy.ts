@@ -234,6 +234,9 @@ function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inher
       Object.fromEntries(Object.entries(frame).map(([key,value]) =>
         [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value])),
     ))) as SQLExecutionMetadata['tracePath'],
+    ...(metadata.traceChain ? { traceChain: Object.freeze(metadata.traceChain.map(node =>
+      Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) =>
+        [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))) as SQLExecutionMetadata['traceChain'] } : {}),
     // Typed identity is structural (as in the audit event's id), not prose.
     ...(metadata.mutationLineage ? { mutationLineage: Object.freeze(metadata.mutationLineage.map(node =>
       Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) =>

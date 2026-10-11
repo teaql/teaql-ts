@@ -3,9 +3,9 @@ import { executeRelationFacets, SelectQuery } from '../src';
 describe('relation facets', () => {
   const rowsByEntity: Record<string, Record<string, unknown>[]> = {
     School: [
-      { id: 1, name: 'Riverside', schoolType: 1001 },
-      { id: 2, name: 'Riverside Annex', schoolType: 1001 },
-      { id: 3, name: 'Other', schoolType: 1002 },
+      { id: 1, name: 'Riverside', schoolType: 1001, annualBudget: 120 },
+      { id: 2, name: 'Riverside Annex', schoolType: 1001, annualBudget: 80 },
+      { id: 3, name: 'Other', schoolType: 1002, annualBudget: 50 },
     ],
     SchoolType: [
       { id: 1001, code: 'PRIMARY' },
@@ -50,5 +50,20 @@ describe('relation facets', () => {
 
     const facets = await executeRelationFacets(service(), query => query, outer, outer.facets);
     expect(facets.types.map(row => [row.code, row.schoolCount])).toEqual([['PRIMARY', 2]]);
+  });
+
+  it('returns multiple aggregate measures for each facet value', async () => {
+    const outer = new SelectQuery('School')
+      .comment('aggregate school facets')
+      .purpose('verify multiple facet measures');
+    const nested = new SelectQuery('SchoolType')
+      .aggregate('Count', 'id', 'schoolCount')
+      .aggregate('Sum', 'annualBudget', 'totalBudget');
+    outer.facetBy('types', 'schoolType', { toQuery: () => nested });
+
+    const facets = await executeRelationFacets(service(), query => query, outer, outer.facets);
+    expect(facets.types.map(row => [row.code, row.schoolCount, row.totalBudget])).toEqual([
+      ['PRIMARY', 2, 200], ['SECONDARY', 1, 50], ['VOCATIONAL', 0, 0],
+    ]);
   });
 });

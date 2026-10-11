@@ -144,7 +144,9 @@ export class QueryRequest<T extends object = SelectQuery> {
     this.#operation = binding?.operation ?? owner?.operation;
     this.#query = snapshotQuery(query);
     const captured = this.#query as any;
-    // Internal derivations cannot pick a nested builder's different intent.
+    // Every request owns its local comment. Purpose is resolved from the root
+    // request through parent ownership and is copied only onto the private SQL
+    // execution snapshot for boundary validation.
     for (const [field, value] of [
       ['commentText', this.intent.comment], ['purposeText', this.purpose],
       ['_comment', this.intent.comment], ['_purpose', this.purpose],

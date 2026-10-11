@@ -261,10 +261,11 @@ test('captured Query Request intent survives mutable builders and relation loadi
     expect(rows).toHaveLength(1);
     expect(rows[0].related.name).toBe('Example');
     expect(logs).toHaveLength(2);
-    for (const log of logs) {
-      expect(log.comment).toBe(' load document ');
-      expect(log.purpose).toBe('inspect graph');
-    }
+    expect(logs.map(log => log.comment)).toEqual([' load document ', ' load document ']);
+    for (const log of logs) expect(log.purpose).toBe('inspect graph');
+    expect(logs[1].traceChain.map((node: TraceNode) => node.detail)).toEqual([
+      'inspect graph', ' load document ', 'not the root',
+    ]);
   } finally { await f.client.close(); }
 });
 

@@ -24,6 +24,7 @@ const schemas: Record<string, EntitySchema> = {
       orderId: { columnName: 'order_id', logicalType: 'integer', decode: 'string' },
       name: { columnName: 'name', logicalType: 'text', decode: 'native' },
       state: { columnName: 'state', logicalType: 'text', decode: 'native' },
+      amount: { columnName: 'amount', logicalType: 'decimal', decode: 'number' },
     },
   },
   QueryRecord: {
@@ -247,26 +248,29 @@ describe('SQLite relation loading', () => {
     for (const id of ['11', '12', '13']) {
       await client.executeMutation({ entity: 'Order', action: 'Create', id, payload: {}, comment: 'seed order facet' });
     }
-    for (const [id, orderId, name] of [
-      ['101', '11', 'Riverside one'], ['102', '11', 'Riverside two'], ['103', '12', 'Other'],
+    for (const [id, orderId, name, amount] of [
+      ['101', '11', 'Riverside one', 120], ['102', '11', 'Riverside two', 80], ['103', '12', 'Other', 50],
     ]) {
       await client.executeMutation({
-        entity: 'OrderLine', action: 'Create', id, payload: { orderId, name }, comment: 'seed line facet',
+        entity: 'OrderLine', action: 'Create', id, payload: { orderId, name, amount }, comment: 'seed line facet',
       });
     }
     const outer = new SelectQuery('OrderLine')
       .purpose('render order facet').comment('count Riverside lines')
       .filter({ name: { $contains: 'Riverside' } });
     outer.facetBy('orders', 'orderId', {
-      toQuery: () => new SelectQuery('Order').aggregate('Count', 'id', 'lineCount')
+      toQuery: () => new SelectQuery('Order')
+        .aggregate('Count', 'id', 'lineCount')
+        .aggregate('Sum', 'amount', 'totalAmount')
         .purpose('render order facet').comment('load order facet values'),
     });
 
     const facets = await executeRelationFacets(client, query => query, outer, outer.facets);
-    expect(facets.orders.map(row => [row.id, row.lineCount])).toEqual([
-      ['11', 2], ['12', 0], ['13', 0],
+    expect(facets.orders.map(row => [row.id, row.lineCount, row.totalAmount])).toEqual([
+      ['11', 2, 200], ['12', 0, 0], ['13', 0, 0],
     ]);
-    expect(client.sqlTrace.some(sql => sql.includes('GROUP BY') && sql.includes('COUNT('))).toBe(true);
+    expect(client.sqlTrace.some(sql => sql.includes('GROUP BY')
+      && sql.includes('COUNT(') && sql.includes('SUM('))).toBe(true);
     await client.close();
   });
 
@@ -297,6 +301,34 @@ describe('SQLite relation loading', () => {
     expect(rows.flatMap(row => row.lines).every(
       (line: any) => line.__teaql_partition_rank === undefined,
     )).toBe(true);
+    await client.close();
+  });
+
+  it('loads relation assembly keys implicitly without exposing them in the requested shape', async () => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas);
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    await client.executeMutation({
+      entity: 'Order', action: 'Create', id: '21', payload: {}, comment: 'seed projected relation parent',
+    });
+    await client.executeMutation({
+      entity: 'OrderLine', action: 'Create', id: '211',
+      payload: { orderId: '21', name: 'visible name', state: 'internal state' },
+      comment: 'seed projected relation child',
+    });
+    const child = new SelectQuery('OrderLine').select(['name']);
+    const rows = await client.executeQuery<any>(
+      new SelectQuery('Order')
+        .relationQuery('lines', child)
+        .comment('what: load a projected child relation')
+        .purpose('why: prove relation keys remain runtime-internal'),
+    );
+
+    expect(child.selectItems).toEqual(['name']);
+    expect(rows[0].lines).toHaveLength(1);
+    expect(rows[0].lines[0]).toMatchObject({ name: 'visible name' });
+    expect(rows[0].lines[0]).not.toHaveProperty('orderId');
+    expect(rows[0].lines[0]).not.toHaveProperty('state');
+    expect(client.sqlTrace[1]).toContain('order_id');
     await client.close();
   });
 

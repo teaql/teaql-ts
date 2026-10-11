@@ -18,7 +18,7 @@ export * from './core/telemetry';
 export { SelectQuery, MutationQuery, AggregationCacheOptions, OrderBy, SortDirection } from './core/ast';
 export type { TeaQLPage, QuerySelection, FacetRequest } from './core/ast';
 export { executeRelationFacets } from './core/facet';
-export type { FacetQueryService } from './core/facet';
+export type { FacetAggregate, FacetQueryService } from './core/facet';
 export * from './meta/descriptors';
 export * from './tfp/client';
 export * from './parser/dsl';

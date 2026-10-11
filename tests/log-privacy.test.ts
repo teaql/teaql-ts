@@ -14,6 +14,10 @@ afterAll(() => {
 function fixture(field = 'name'): SQLExecutionMetadata {
   return {
     operation: 'update', comment: 'edit PRIVATE-CUSTOMER-CANARY', purpose: 'test logging',
+    traceChain: [
+      { kind: 'purpose', name: 'Customer', detail: 'test logging' },
+      { kind: 'comment', name: 'Customer', detail: 'edit PRIVATE-CUSTOMER-CANARY' },
+    ],
     tracePath: [{ level: 0, kind: 'request', name: 'edit PRIVATE-CUSTOMER-CANARY' }],
     parameterizedSQL: `UPDATE customer SET ${field} = ?`, parameters: ['PRIVATE-CUSTOMER-CANARY'],
     debugSQL: `UPDATE customer SET ${field} = 'PRIVATE-CUSTOMER-CANARY'`,

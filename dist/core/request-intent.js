@@ -125,7 +125,9 @@ class QueryRequest {
         __classPrivateFieldSet(this, _QueryRequest_operation, binding?.operation ?? owner?.operation, "f");
         __classPrivateFieldSet(this, _QueryRequest_query, (0, query_snapshot_1.snapshotQuery)(query), "f");
         const captured = __classPrivateFieldGet(this, _QueryRequest_query, "f");
-        // Internal derivations cannot pick a nested builder's different intent.
+        // Every request owns its local comment. Purpose is resolved from the root
+        // request through parent ownership and is copied only onto the private SQL
+        // execution snapshot for boundary validation.
         for (const [field, value] of [
             ['commentText', this.intent.comment], ['purposeText', this.purpose],
             ['_comment', this.intent.comment], ['_purpose', this.purpose],

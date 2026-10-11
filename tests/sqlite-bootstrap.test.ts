@@ -7,6 +7,10 @@ import { RuntimeModule } from '../src/core/runtime-module';
 import { EntitySchema, SQLExecutionEvidenceStore } from '../src/sql/core';
 import { MutationRequest } from '../src/core/request-intent';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
+import {
+  DelegatingMutationPolicyApprovalProvider,
+  DelegatingMutationPolicyRegistry,
+} from '../src/core/mutation-policy';
 
 function assertProviderSchemaAPIIsHidden(client: SQLiteTeaQLClient): void {
   // @ts-expect-error Ensure Schema is intentionally available only through UserContext.
@@ -81,6 +85,23 @@ it.each([false, true])('metadata bootstrap owns request intent and committed aud
         'operation', entry.operation === 'select' ? 'request' : 'entity', 'provider', 'sql',
       ]);
     }
+  } finally { await client.close(); }
+});
+
+it('preflights the complete bootstrap graph before a customer policy reviews it', async () => {
+  const client = new SQLiteTeaQLClient(':memory:', {}).install(moduleWithStatus('Pending')) as SQLiteTeaQLClient;
+  const identity = Object.freeze({ policyId: 'bootstrap-review', version: '1', fingerprint: 'sha256:test' });
+  const review = jest.fn((_context, plan) => ({ verdict: 'allow' as const }));
+  const context = new UserContext().insertResource('dataService', client)
+    .withMutationPolicyRegistry(new DelegatingMutationPolicyRegistry(() => ({ identity, review })))
+    .withMutationPolicyApprovalProvider(new DelegatingMutationPolicyApprovalProvider(
+      policy => ({ policy, approvedBy: 'test', approvedAt: new Date(0) }),
+    ));
+  try {
+    await context.ensureSchema();
+    expect(review).toHaveBeenCalledTimes(1);
+    expect(review.mock.calls[0][1].operations.map((operation: { entity: string }) => operation.entity))
+      .toEqual(['Platform', 'OrderStatus']);
   } finally { await client.close(); }
 });
 

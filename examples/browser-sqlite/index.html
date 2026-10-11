@@ -4,21 +4,137 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:," />
-    <title>TeaQL Browser SQLite</title>
+    <meta name="description" content="A TeaQL order-query playground running entirely in the browser" />
+    <title>TeaQL Order Query Playground</title>
   </head>
   <body>
-    <main>
-      <p class="eyebrow">TEAQL TYPESCRIPT RUNTIME</p>
-      <h1>Browser-local Data Service</h1>
-      <p>Generated Q APIs and audited mutations, backed by SQLite/WASM.</p>
-      <p><a href="/orders.html">Try the generated order query and TraceChain</a></p>
-      <div class="controls">
-        <label><input id="persist" type="checkbox" /> Persist locally with OPFS</label>
-        <button id="reset">Reset demo data</button>
-      </div>
-      <p id="status">Starting SQLite/WASM…</p>
-      <pre id="result"></pre>
-    </main>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="#recent-orders" aria-label="TeaQL Playground home">
+          <span class="brand-mark">T</span>
+          <span>TeaQL Playground</span>
+        </a>
+        <div class="header-actions">
+          <div class="language-switch" aria-label="Language">
+            <button type="button" data-locale="en" class="active">EN</button>
+            <button type="button" data-locale="zh">中文</button>
+          </div>
+          <a class="docs-link" href="https://teaql.io/" target="_blank" rel="noreferrer">teaql.io ↗</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow">BROWSER SQLITE · ORDER DOMAIN</p>
+            <h1 data-i18n="heroTitle">Understand TeaQL queries through a familiar order model.</h1>
+            <p class="hero-intro" data-i18n="heroIntro">Platform, customer, order, item, payment, and shipment data all run in the browser. Order status is backed by a constant model. Choose a query below to inspect real SQLite/WASM results.</p>
+          </div>
+          <div class="model-map" aria-label="Order domain model">
+            <div class="model-flow">
+              <span class="model-root">Platform<small data-i18n="platform">Platform</small></span>
+              <span class="model-arrow">→</span>
+              <span>Customer<small data-i18n="customer">Customer</small></span>
+              <span class="model-arrow">→</span>
+              <span class="model-root">Order<small data-i18n="order">Order</small></span>
+            </div>
+            <span class="model-arrow model-arrow-split">↓</span>
+            <div class="model-leaves">
+              <span>Item<small data-i18n="item">Item</small></span>
+              <span>Payment<small data-i18n="payment">Payment</small></span>
+              <span>Shipment<small data-i18n="shipment">Shipment</small></span>
+              <span>OrderStatus<small data-i18n="constantModel">Constant model</small></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="runtime-bar" aria-label="Runtime settings">
+          <p id="status" role="status">Starting SQLite/WASM…</p>
+          <div class="controls">
+            <label class="toggle">
+              <input id="persist" type="checkbox" />
+              <span aria-hidden="true"></span>
+              <span data-i18n="persist">Persist locally with OPFS</span>
+            </label>
+            <button id="reset" class="secondary-button" type="button" data-i18n="reset">Reset demo data</button>
+          </div>
+        </section>
+
+        <section class="query-browser" aria-labelledby="query-browser-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-index">01 / QUERIES</p>
+              <h2 id="query-browser-title" data-i18n="chooseQuery">Choose a query</h2>
+            </div>
+            <p data-i18n="queryIntro">Queries are grouped by purpose and share the same order dataset.</p>
+          </div>
+          <nav id="query-catalog" aria-label="Example queries"></nav>
+        </section>
+
+        <section class="result-panel" aria-labelledby="result-title">
+          <div class="result-heading">
+            <div>
+              <p class="section-index">02 / RESULT</p>
+              <h2 id="result-title">Recent orders</h2>
+              <p id="result-description"></p>
+            </div>
+            <div class="result-actions">
+              <div class="result-view-switch" aria-label="Result views">
+                <button id="view-table" type="button" data-i18n="table">Table</button>
+                <button id="view-tree" type="button" data-i18n="resultTree">Result Tree</button>
+              </div>
+              <div class="tree-actions" aria-label="Result tree actions">
+                <button id="expand-all" type="button" data-i18n="expandAll">Expand all</button>
+                <button id="collapse-all" type="button" data-i18n="collapseAll">Collapse all</button>
+              </div>
+            </div>
+          </div>
+          <div id="result-grid" class="result-grid">
+            <div class="tree-card">
+              <div class="tree-card-bar">
+                <span id="result-view-label">Result tree</span>
+                <p id="result-meta" data-i18n="waiting">Waiting for query…</p>
+              </div>
+              <div id="result" class="json-tree" aria-live="polite"></div>
+            </div>
+            <div class="query-card">
+              <p class="query-card-label">GENERATED Q QUERY</p>
+              <pre><code id="query-code"></code></pre>
+              <div id="query-params-block" class="query-params hidden">
+                <p class="query-card-label">DYNAMIC PARAMETERS</p>
+                <pre><code id="query-params-code"></code></pre>
+              </div>
+              <p class="query-note" data-i18n="queryNote">The Q expression stays fixed; search, status cards, and pagination only update dynamic parameters. The underlying SelectQuery remains inside the generated request implementation.</p>
+            </div>
+            <div class="sql-card">
+              <div class="sql-card-heading">
+                <p class="query-card-label" data-i18n="executionEvidence">EXECUTION EVIDENCE</p>
+                <span id="sql-count">0 statements</span>
+              </div>
+              <div class="execution-evidence-wrap">
+                <table class="execution-evidence">
+                  <thead>
+                    <tr>
+                      <th data-i18n="evidenceTime">Time</th>
+                      <th data-i18n="identity">Identity</th>
+                      <th data-i18n="traceChain">Trace chain</th>
+                      <th>SQL</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sql-output"></tbody>
+                </table>
+              </div>
+              <p class="query-note" data-i18n="sqlNote">One plain-text line per statement: time, identity, trace chain, and the SQL SQLite executed.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>TeaQL TypeScript Runtime</span>
+        <span data-i18n="localData">Data stays in this browser</span>
+      </footer>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

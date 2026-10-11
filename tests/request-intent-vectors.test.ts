@@ -69,3 +69,24 @@ test('JavaScript-supplied explicit intent is validated and captured, not trusted
   expect(() => new MutationRequest(new MutationQuery('Document', 'Create', {}), input as any))
     .toThrow('REQUEST_COMMENT_REQUIRED');
 });
+
+test('derived query requests own local comments and recover root purpose through parents', () => {
+  const root = new QueryRequest(new SelectQuery('CustomerOrder')
+    .comment('load orders').purpose('render order center'));
+  const status = root.derive(new SelectQuery('OrderStatus')
+    .comment('load status label and color'), 'status');
+  const organization = status.derive(new SelectQuery('Organization')
+    .comment('load status owner'), 'organization');
+
+  expect(status.parentRequest).toBe(root);
+  expect(organization.parentRequest).toBe(status);
+  expect(organization.rootRequest).toBe(root);
+  expect(organization.comment).toBe('load status owner');
+  expect(organization.purpose).toBe('render order center');
+  expect(organization.traceChain.map(node => [node.kind, node.name, node.detail])).toEqual([
+    ['purpose', 'CustomerOrder', 'render order center'],
+    ['comment', 'CustomerOrder', 'load orders'],
+    ['comment', 'CustomerOrder.status', 'load status label and color'],
+    ['comment', 'OrderStatus.organization', 'load status owner'],
+  ]);
+});

@@ -131,6 +131,7 @@ class SQLExecutionEvidenceStore {
             return;
         this.entries.push(Object.freeze({
             ...metadata,
+            ...(metadata.traceChain ? { traceChain: (0, trace_chain_1.cloneTraceNodes)(metadata.traceChain) } : {}),
             parameters: Object.freeze([...metadata.parameters]),
         }));
     }
@@ -316,6 +317,7 @@ class AbstractSQLTeaQLClient {
         const { targetID, inheritedBindings, ...visibleIntent } = intent;
         const metadata = Object.freeze({
             operation, ...visibleIntent, executionOutcome,
+            traceChain: (0, trace_chain_1.cloneTraceNodes)(intent.traceChain ?? []),
             tracePath: sqlTraceFrames(intent.tracePath ?? []),
             ...(intent.traceChain ? { traceChain: (0, trace_chain_1.cloneTraceNodes)(intent.traceChain) } : {}),
             ...(intent.mutationLineage ? { mutationLineage: (0, trace_chain_1.cloneTraceNodes)(intent.mutationLineage) } : {}),
@@ -446,11 +448,22 @@ class AbstractSQLTeaQLClient {
         if (!records.length)
             return;
         await this.executeGraphSave(new request_intent_1.MutationIntent('reconcile model bootstrap data'), async (graph) => {
+            const session = this.graphMutationSession;
+            const planned = [];
+            for (const record of records) {
+                const mutation = await this.planBootstrapMutation(session, record);
+                if (mutation)
+                    planned.push({ record, request: graph.request(mutation) });
+            }
+            for (const { request } of planned)
+                this.preflightMutation(request);
+            for (const { request } of planned)
+                await this.executeMutation(request);
             for (const record of records)
-                await this.reconcileBootstrapEntity(this.graphMutationSession, graph, record);
+                await this.driver.ensureIdFloor(session, record.entity, record.id);
         });
     }
-    async reconcileBootstrapEntity(session, graph, record) {
+    async planBootstrapMutation(session, record) {
         const schema = this.schema(record.entity);
         const entries = Object.entries(record.values ?? {}).map(([field, value]) => {
             const column = schema.columns[field];
@@ -474,20 +487,17 @@ class AbstractSQLTeaQLClient {
         this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
         const current = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(request.query), () => session.query(sql, values));
         if (!current.rowCount) {
-            await this.executeMutation(graph.request({ entity: record.entity, action: 'Create',
-                id: record.id, version: 0, payload: { ...record.values } }));
+            return { entity: record.entity, action: 'Create', id: record.id, version: 0,
+                payload: { ...record.values } };
         }
-        else {
-            const row = current.rows[0];
-            const changed = entries.filter(entry => !sameBootstrapValue(row[entry.column], entry.value));
-            if (changed.length) {
-                // Checker sees the fully loaded object, not a partial update projection.
-                await this.executeMutation(graph.request({ entity: record.entity, action: 'Update',
-                    id: record.id, version: Number(row[schema.columns.version?.columnName ?? 'version']),
-                    payload: { ...this.decodeRowForSchema(schema, row), ...record.values } }));
-            }
-        }
-        await this.driver.ensureIdFloor(session, record.entity, record.id);
+        const row = current.rows[0];
+        const changed = entries.filter(entry => !sameBootstrapValue(row[entry.column], entry.value));
+        if (!changed.length)
+            return undefined;
+        // Checker sees the fully loaded object, not a partial update projection.
+        return { entity: record.entity, action: 'Update', id: record.id,
+            version: Number(row[schema.columns.version?.columnName ?? 'version']),
+            payload: { ...this.decodeRowForSchema(schema, row), ...record.values } };
     }
     async executeGraphSave(intent, work) {
         // Root intent is mandatory before lifecycle initialization or provider work.
@@ -1039,7 +1049,7 @@ class AbstractSQLTeaQLClient {
     }
     async compileQuery(query, recordTrace = true, assemblyFields = []) {
         // Internal execution changes query shape/limits, never the intent contract.
-        new request_intent_1.QueryIntent(query?._comment ?? query?.commentText, query?._purpose ?? query?.purposeText);
+        new request_intent_1.QueryIntent(query?.commentText ?? query?._comment, query?.purposeText ?? query?._purpose);
         const schema = this.schema(query.entity);
         const values = [];
         const groupProperties = this.groupBy(query);
@@ -1187,7 +1197,7 @@ class AbstractSQLTeaQLClient {
     }
     async queryTreeBindings(query, sql, values, inherited) {
         let source = (0, log_privacy_1.inheritSQLLogBindings)(this.queryLogBindings(sql, values), inherited);
-        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
+        const intent = new request_intent_1.QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
         const stack = [query];
         const visited = new Set();
         while (stack.length) {
@@ -1203,9 +1213,20 @@ class AbstractSQLTeaQLClient {
             const origin = (0, query_snapshot_1.queryDiagnosticOrigin)(current);
             if (origin)
                 stack.push(origin);
-            for (const child of [...(current.relations ?? []), ...(current.relationAggregates ?? []), ...(current.facets ?? [])]) {
+            for (const child of [...(current.relations ?? []), ...(current.relationAggregates ?? [])]) {
                 if (child.query)
                     stack.push(child.query);
+            }
+            for (const facet of current.facets ?? []) {
+                if (!facet.query)
+                    continue;
+                // Facet aggregates describe membership rows from the outer entity.
+                // The nested query only selects the facet value object itself, so its
+                // diagnostic compilation must mirror execution and omit those measures.
+                const facetValueQuery = facet.query.clone();
+                facetValueQuery.aggregateItems = [];
+                facetValueQuery.groupByItems = [];
+                stack.push(facetValueQuery);
             }
         }
         return source;
@@ -1376,6 +1397,14 @@ class AbstractSQLTeaQLClient {
         return { query: page, execution: { pageIds, totalCount: retained.ids.length } };
     }
     async executeFacetMembership(outerQuery, relationName, countAliases = []) {
+        const aggregates = await this.executeFacetAggregates(outerQuery, relationName, [{
+                function: 'Count', field: 'id', alias: '__teaql_facet_count',
+            }]);
+        return new Map([...aggregates].map(([key, values]) => [
+            key, Number(values.__teaql_facet_count ?? 0),
+        ]));
+    }
+    async executeFacetAggregates(outerQuery, relationName, aggregates) {
         const request = new request_intent_1.QueryRequest(outerQuery);
         outerQuery = request.query;
         const query = request.withQuery(outerQuery.clone()).query;
@@ -1388,14 +1417,17 @@ class AbstractSQLTeaQLClient {
         query.limitValue = 0;
         query.selectItems = [];
         query.groupByItems = [relationName];
-        const aliases = countAliases.length ? [...countAliases] : ['__teaql_facet_count'];
-        query.aggregateItems = aliases.map(alias => ({ function: 'Count', field: 'id', alias }));
+        query.aggregateItems = aggregates.map(aggregate => ({ ...aggregate }));
         query[this.internalQueryToken] = true;
         const rows = await this.executeQuery(query);
         return new Map(rows.flatMap(row => {
             const value = row[relationName];
-            const count = Number(row[aliases[0]] ?? 0);
-            return value === null || value === undefined ? [] : [[String(value), count]];
+            if (value === null || value === undefined)
+                return [];
+            const result = {};
+            for (const aggregate of aggregates)
+                result[aggregate.alias] = row[aggregate.alias];
+            return [[String(value), result]];
         }));
     }
     async executeCount(query, countAlias, operation) {
@@ -1613,7 +1645,7 @@ class AbstractSQLTeaQLClient {
         if (!parents.length || !Array.isArray(query.relations) || !query.relations.length)
             return;
         const parentSchema = this.schema(query.entity);
-        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
+        const intent = new request_intent_1.QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
         for (const load of query.relations) {
             const relation = parentSchema.relations?.[load.name];
             if (!relation)
@@ -1624,6 +1656,11 @@ class AbstractSQLTeaQLClient {
             const limit = load.query ? this.queryLimit(load.query) : undefined;
             const threshold = load.query?.localTopNProbeParentThreshold?.();
             const boundedTopN = relation.many && limit !== undefined;
+            const requestedChildFields = Array.isArray(load.query?.selectItems)
+                ? load.query.selectItems
+                : [];
+            const implicitRelationKey = requestedChildFields.length > 0
+                && !requestedChildFields.includes(relation.foreignKey);
             const providerAlwaysProbe = this.driver.topNRelationPlanPolicy === 'alwaysProbe';
             const useProbes = boundedTopN && (threshold === undefined
                 ? providerAlwaysProbe
@@ -1652,6 +1689,11 @@ class AbstractSQLTeaQLClient {
                 const childQuery = {
                     ...(load.query || {}),
                     entity: relation.targetEntity,
+                    // Relation assembly keys belong to the runtime protocol. Callers should
+                    // not have to expose selectId()/selectOrderId() in their domain query.
+                    selectItems: implicitRelationKey
+                        ? [...requestedChildFields, relation.foreignKey]
+                        : requestedChildFields,
                     _filters: [...this.filters(load.query || {})],
                     relations: [...(load.query?.relations || [])],
                     orderItems: [...(load.query?.orderItems || [])],
@@ -1700,6 +1742,10 @@ class AbstractSQLTeaQLClient {
                     bucket.push(child);
                     buckets.set(key, bucket);
                 }
+                if (implicitRelationKey) {
+                    for (const child of children)
+                        delete child[relation.foreignKey];
+                }
                 for (const [index, parent] of parents.entries()) {
                     const related = buckets.get(parentKeys[index]) || [];
                     if (relation.many && load.query?.facets?.length) {
@@ -1739,7 +1785,7 @@ class AbstractSQLTeaQLClient {
         if (!parents.length || !Array.isArray(aggregates) || !aggregates.length)
             return;
         const parentSchema = this.schema(query.entity);
-        const intent = new request_intent_1.QueryIntent(query._comment ?? query.commentText, query._purpose ?? query.purposeText);
+        const intent = new request_intent_1.QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
         for (const aggregate of aggregates) {
             const relation = parentSchema.relations?.[aggregate.relationName];
             if (!relation)

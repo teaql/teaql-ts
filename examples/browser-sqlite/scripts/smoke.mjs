@@ -28,7 +28,9 @@ let browser;
 try {
   await waitForServer();
   browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
+    executablePath: process.env.CHROME_BIN || (process.platform === 'darwin'
+      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+      : '/usr/bin/google-chrome'),
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
     headless: true,
   });
@@ -55,16 +57,315 @@ try {
   }
   const first = await page.$eval('#result', element => element.textContent || '');
   const firstStatus = await page.$eval('#status', element => element.textContent || '');
+  const defaultLocale = await page.evaluate(() => ({
+    lang: document.documentElement.lang,
+    title: document.querySelector('#query-browser-title')?.textContent || '',
+    englishActive: document.querySelector('[data-locale="en"]')?.classList.contains('active'),
+  }));
+  if (defaultLocale.lang !== 'en' || defaultLocale.title !== 'Choose a query' || !defaultLocale.englishActive) {
+    throw new Error(`English was not the default locale: ${JSON.stringify(defaultLocale)}`);
+  }
   if (!firstStatus.includes('policy installed')) {
     throw new Error(`Browser runtime did not install Mutation Policy: ${firstStatus}`);
   }
-  if (!first.includes('Evaluate semantic model') || !first.includes('Verify browser runtime')) {
-    throw new Error(`Generated Q API did not return mutation-seeded rows:\n${first}`);
+  if (!firstStatus.includes('7 entities') || !first.includes('TQL-2026-1008')
+    || !first.includes('Shipped')) {
+    throw new Error(`Order model did not return deterministic seeded rows:\n${first}`);
   }
+  const defaultTable = await page.$('#result .result-table');
+  const tableViewActive = await page.$eval('#view-table', button => button.classList.contains('active'));
+  if (!defaultTable || !tableViewActive) throw new Error('Tabular query did not default to the table view');
+  const catalog = await page.$$eval('#query-catalog .query-group', groups => groups.map(group => ({
+    title: group.querySelector('h2')?.textContent,
+    links: group.querySelectorAll('a').length,
+  })));
+  if (catalog.length !== 4 || catalog.some(group => group.links < 3)) {
+    throw new Error(`Expected four query groups with at least three links: ${JSON.stringify(catalog)}`);
+  }
+  const rawResult = await page.$('#result pre');
+  if (rawResult) throw new Error('Result regressed to a raw preformatted JSON block');
+  await page.click('#view-tree');
+  await page.waitForSelector('#result details');
+  const treeText = await page.$eval('#result', element => element.textContent || '');
+  const treeBranches = await page.$$('#result details');
+  if (treeBranches.length < 2 || !treeText.includes('Shipped') || !treeText.includes('#16A34A')) {
+    throw new Error('Result Tree did not preserve the expandable raw result');
+  }
+  await page.click('#view-table');
+  await page.waitForSelector('#result .result-table');
+  const defaultSql = await page.$eval('#sql-output', element => element.textContent || '');
+  if (!defaultSql.includes('SELECT') || !defaultSql.includes('customer_order_data')) {
+    throw new Error(`Executed SQL was not rendered for the default query:\n${defaultSql}`);
+  }
+
+  await page.click('[data-query-id="order-center"]');
+  await page.waitForFunction(() => document.querySelector('#result-title')?.textContent === 'Comprehensive: Order management center'
+    && !document.querySelector('#result')?.hasAttribute('aria-busy'));
+  const dashboard = await page.$eval('#result', element => element.textContent || '');
+  const metricCount = await page.$$('#result .metric-card');
+  const dashboardRows = await page.$$('#result .order-row:not(.order-row-head)');
+  const dashboardColumns = await page.$$('#result .order-row-head > span');
+  const productTitles = await page.$$eval('#result .product-thumb', elements =>
+    elements.map(element => element.getAttribute('title') || ''));
+  const selectedColors = await page.$$eval('#result .metric-card:not(.metric-total)', elements =>
+    elements.map(element => element.style.getPropertyValue('--metric-color')));
+  const facetCards = await page.$$eval('#result .metric-card:not(.metric-total)', elements =>
+    elements.map(element => ({
+      name: element.querySelector('span')?.textContent || '',
+      count: element.querySelector('strong')?.textContent || '',
+      total: element.querySelector('small')?.textContent || '',
+      color: element.style.getPropertyValue('--metric-color'),
+    })));
+  const cancelledMetric = await page.$eval('#result .metric-cancelled', element => ({
+    text: element.textContent || '',
+    color: element.style.getPropertyValue('--metric-color'),
+  }));
+  const badgeColors = await page.$$eval('#result .status-badge', elements =>
+    elements.map(element => element.style.color));
+  if (!dashboard.includes('Order Management Center') || metricCount.length !== 6
+    || dashboardRows.length !== 4 || dashboardColumns.length !== 4
+    || !productTitles.some(title => title.includes('TeaQL Portable Keyboard'))
+    || !cancelledMetric.text.includes('Cancelled') || !cancelledMetric.text.includes('1')
+    || cancelledMetric.color !== '#9F1239'
+    || JSON.stringify(facetCards) !== JSON.stringify([
+      { name: 'Pending payment', count: '1', total: 'Total 79.90', color: '#D97706' },
+      { name: 'Paid', count: '2', total: 'Total 968.80', color: '#2563EB' },
+      { name: 'Shipped', count: '2', total: 'Total 1,567.00', color: '#16A34A' },
+      { name: 'Delivered', count: '2', total: 'Total 718.00', color: '#047857' },
+      { name: 'Cancelled', count: '1', total: 'Total 159.00', color: '#9F1239' },
+    ])
+    || selectedColors.some(color => !color) || badgeColors.some(color => !color)) {
+    throw new Error('Comprehensive order center did not render metrics and the first paginated page');
+  }
+  const dashboardSqlCount = await page.$$('#sql-output .evidence-row');
+  if (dashboardSqlCount.length < 5) {
+    throw new Error(`Order center should expose every executed SQL statement, found ${dashboardSqlCount.length}`);
+  }
+  const evidenceRows = await page.$$eval('#sql-output .evidence-row', rows => rows.map(row => ({
+    cells: row.querySelectorAll('td').length,
+    time: row.querySelector('.evidence-time')?.textContent || '',
+    identity: row.querySelector('td:nth-child(2)')?.textContent || '',
+    trace: row.querySelector('.evidence-trace')?.textContent || '',
+    sql: row.querySelector('.evidence-sql')?.textContent || '',
+    whiteSpace: getComputedStyle(row.querySelector('td')).whiteSpace,
+  })));
+  const traceRoot = 'render order list page: load order list';
+  if (evidenceRows.some(row => row.cells !== 4 || row.whiteSpace !== 'nowrap')
+    || evidenceRows.some(row => !row.time.includes('T') || !row.time.endsWith(' ms'))
+    || evidenceRows.some(row => !row.identity.startsWith('order-center · #'))
+    || evidenceRows.some(row => !row.trace.startsWith(traceRoot))
+    || !evidenceRows.some(row => row.trace.endsWith("→ countAs('totalOrders')"))
+    || !evidenceRows.some(row => row.trace.endsWith('→ count items'))
+    || !evidenceRows.some(row => row.trace.endsWith('→ load status'))
+    || !evidenceRows.some(row => row.trace.endsWith('→ load item previews'))
+    || !evidenceRows.some(row => row.trace === `${traceRoot} → facetByStatusAs('statusCounts') → aggregate status`)
+    || !evidenceRows.some(row => row.trace === `${traceRoot} → facetByStatusAs('statusCounts') → load status facets`)
+    || evidenceRows.some(row => !row.sql.includes('SELECT') || !row.sql.includes(' · bindings: '))
+    || evidenceRows.some(row => /[{}\[\]"]/.test(row.trace))) {
+    throw new Error(`Execution evidence was not rendered as plain one-line log text: ${JSON.stringify(evidenceRows)}`);
+  }
+  const reviewLayout = await page.$eval('#result-grid', grid => ({
+    order: [...grid.children].map(child => child.className),
+    columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+    gridWidth: grid.getBoundingClientRect().width,
+    queryWidth: grid.querySelector('.query-card')?.getBoundingClientRect().width ?? 0,
+    evidenceColumns: [...grid.querySelectorAll('.execution-evidence th')].map(cell => cell.textContent || ''),
+  }));
+  if (reviewLayout.order.join('|') !== 'tree-card|query-card|sql-card'
+    || reviewLayout.columns !== 1
+    || Math.abs(reviewLayout.gridWidth - reviewLayout.queryWidth) > 1
+    || reviewLayout.evidenceColumns.join('|') !== 'Time|Identity|Trace chain|SQL') {
+    throw new Error(`Review layout or execution identity is incomplete: ${JSON.stringify(reviewLayout)}`);
+  }
+  const dashboardQuery = await page.$eval('#query-code', element => element.textContent || '');
+  if (!dashboardQuery.includes('Q.customerOrdersWithMinimalFields()')
+    || !dashboardQuery.includes('Q.orderStatuses()')
+    || !dashboardQuery.includes('.selectColor()')
+    || !dashboardQuery.includes(".sumOrderTotalAmountAs('orderTotalAmount')")
+    || !dashboardQuery.includes(".facetByStatusAs('statusCounts'")
+    || !dashboardQuery.includes('.filterByJson(searchParams)')
+    || !dashboardQuery.includes('.executeForPage(ctx, pageOffset, pageSize)')
+    || dashboardQuery.includes('new SelectQuery')
+    || dashboardQuery.includes('.selectCode()')
+    || dashboardQuery.includes('Q.orderStatuses()\n')
+    || dashboardQuery.includes('Q.orderItems()\n')
+    || dashboardQuery.includes('selectPlatformWith')
+    || dashboardQuery.includes('selectCustomerWith')) {
+    throw new Error(`Order center must execute one generated Q expression:\n${dashboardQuery}`);
+  }
+  for (const implementationField of [
+    '.selectId()', '.selectOrderId()', '.selectDisplayOrder()', '.selectSku()',
+  ]) {
+    if (dashboardQuery.includes(implementationField)) {
+      throw new Error(`Order center leaked runtime-only field ${implementationField}:\n${dashboardQuery}`);
+    }
+  }
+  const visualQueryOrder = [
+    '.filterByJson(searchParams)',
+    ".countAs('totalOrders')",
+    ".facetByStatusAs('statusCounts'",
+    '.selectOrderNumber()',
+    '.selectOrderDate()',
+    '.selectStatusWith(',
+    '.selectItemListWith(',
+    '.executeForPage(ctx, pageOffset, pageSize)',
+  ].map(fragment => dashboardQuery.indexOf(fragment));
+  if (visualQueryOrder.some(index => index < 0)
+    || visualQueryOrder.some((index, position) => position > 0 && index <= visualQueryOrder[position - 1])) {
+    throw new Error(`Q expression no longer follows the visual order:\n${dashboardQuery}`);
+  }
+  const dashboardSql = evidenceRows.map(row => row.sql).join('\n');
+  if (!dashboardSql.includes('COUNT("id") AS "totalOrders"')) {
+    throw new Error(`countAs('totalOrders') did not reach the executed SQL:\n${dashboardSql}`);
+  }
+  if (!dashboardSql.includes('COUNT("id") AS "orderCount"')
+    || !dashboardSql.includes('SUM("total_amount") AS "orderTotalAmount"')
+    || !dashboardSql.includes('GROUP BY "status_id"')) {
+    throw new Error(`Status facet did not execute count and total amount in one grouped SQL query:\n${dashboardSql}`);
+  }
+  if (dashboardSql.includes('platform_data') || dashboardSql.includes('customer_data')) {
+    throw new Error(`Order center executed unused Platform/Customer queries:\n${dashboardSql}`);
+  }
+  if (!dashboardSql.includes('"color"') || dashboardSql.includes('"code"')) {
+    throw new Error(`Order status projection should select color, not code:\n${dashboardSql}`);
+  }
+  if (!dashboardSql.includes('order_item_data') || !dashboardSql.includes('order_id')
+    || !dashboardSql.includes('product_name') || dashboardSql.includes('"sku"')) {
+    throw new Error(`Order item projection was not derived from the public Q selection:\n${dashboardSql}`);
+  }
+  await page.click('#view-tree');
+  await page.waitForFunction(() => document.querySelector('#result-view-label')?.textContent === 'Result tree'
+    && !!document.querySelector('#result details'));
+  const dashboardTree = await page.$eval('#result', element => element.textContent || '');
+  if (!dashboardTree.includes('statusFacets') || !dashboardTree.includes('itemList')) {
+    throw new Error(`Dashboard Result Tree is incomplete:\n${dashboardTree}`);
+  }
+  await page.click('#view-table');
+  await page.waitForFunction(() => document.querySelector('#result-view-label')?.textContent === 'Result table'
+    && !!document.querySelector('#result .order-center'));
+  await page.$$eval('#result .pagination button', buttons =>
+    buttons.find(button => button.textContent === '2')?.click());
+  await page.waitForFunction(() => !document.querySelector('#result')?.hasAttribute('aria-busy')
+    && document.querySelector('#result')?.textContent?.includes('Showing 5–8'));
+  const pageQuery = await page.$eval('#query-code', element => element.textContent || '');
+  const pageParams = await page.$eval('#query-params-code', element => element.textContent || '');
+  if (pageQuery !== dashboardQuery || !pageParams.includes('"pageOffset": 4')) {
+    throw new Error(`Pagination changed the Q expression instead of only its parameters:\n${pageParams}`);
+  }
+  await page.$$eval('#result .pagination button', buttons =>
+    buttons.find(button => button.textContent === '1')?.click());
+  await page.waitForFunction(() => !document.querySelector('#result')?.hasAttribute('aria-busy')
+    && document.querySelector('#result')?.textContent?.includes('Showing 1–4'));
+  await page.type('#result .order-search input', 'Keyboard');
+  await page.click('#result .order-search button');
+  await page.waitForFunction(() => !document.querySelector('#result')?.hasAttribute('aria-busy')
+    && document.querySelector('#result-meta')?.textContent?.includes('2 matching orders'));
+  const searchedDashboard = await page.$eval('#result', element => element.textContent || '');
+  if (!searchedDashboard.includes('TQL-2026-1008') || !searchedDashboard.includes('TQL-2026-1001')) {
+    throw new Error(`Product subquery search did not return both keyboard orders:\n${searchedDashboard}`);
+  }
+  const searchedQuery = await page.$eval('#query-code', element => element.textContent || '');
+  const searchedParams = await page.$eval('#query-params-code', element => element.textContent || '');
+  if (searchedQuery !== dashboardQuery
+    || !searchedParams.includes('itemList.productName')
+    || !searchedParams.includes('Keyboard')) {
+    throw new Error(`Search changed the Q expression instead of only its parameters:\n${searchedQuery}\n${searchedParams}`);
+  }
+  const statusSql = await page.$$eval('#sql-output .evidence-sql', cells => cells
+    .map(cell => cell.textContent || '')
+    .join('\n'));
+  if (!statusSql.includes('order_status_data')) {
+    throw new Error(`OrderStatus relation/facet SQL was not executed:\n${statusSql}`);
+  }
+  await page.click('#result .metric-pending_payment');
+  await page.waitForFunction(() => !document.querySelector('#result')?.hasAttribute('aria-busy')
+    && document.querySelector('#result-meta')?.textContent?.includes('1 matching order'));
+  const statusQuery = await page.$eval('#query-code', element => element.textContent || '');
+  const statusParams = await page.$eval('#query-params-code', element => element.textContent || '');
+  if (statusQuery !== dashboardQuery || !statusParams.includes('status.code')
+    || !statusParams.includes('PENDING_PAYMENT')) {
+    throw new Error(`Status selection changed the Q expression instead of only its parameters:\n${statusParams}`);
+  }
+
+  await page.click('[data-query-id="order-detail"]');
+  await page.waitForFunction(() => document.querySelector('#result-title')?.textContent === 'Complete order details'
+    && !document.querySelector('#result')?.hasAttribute('aria-busy'));
+  await page.click('#view-tree');
+  await page.waitForSelector('#result details');
+  await page.click('#expand-all');
+  const detail = await page.$eval('#result', element => element.textContent || '');
+  for (const value of ['TQL-2026-1003', 'White Porcelain Travel Tea Set', 'ALI-260906-11', 'SF2609061003']) {
+    if (!detail.includes(value)) throw new Error(`Complete order graph is missing ${value}`);
+  }
+
+  await page.click('[data-query-id="orders-by-status"]');
+  await page.waitForFunction(() => document.querySelector('#result-title')?.textContent === 'Orders by status'
+    && !document.querySelector('#result')?.hasAttribute('aria-busy'));
+  const summary = await page.$eval('#result', element => element.textContent || '');
+  if (!summary.includes('grossAmount') || !summary.includes('averageOrderValue')) {
+    throw new Error(`Aggregation result is incomplete:\n${summary}`);
+  }
+
+  await page.click('[data-query-id="dynamic-safe-fields"]');
+  await page.waitForFunction(() => document.querySelector('#result-title')?.textContent === 'Dynamic: field allowlist'
+    && !document.querySelector('#result')?.hasAttribute('aria-busy'));
+  const dynamic = await page.$eval('#result', element => element.textContent || '');
+  if (!dynamic.includes('DYNAMIC_SEARCH_UNKNOWN_FIELD') || !dynamic.includes('TQL-2026-1001')) {
+    throw new Error(`Dynamic search did not report an unknown field and execute valid clauses:\n${dynamic}`);
+  }
+
+  const beforeLocaleSwitch = await page.evaluate(() => ({
+    executionId: document.querySelector('.evidence-time')?.dataset.executedAt || '',
+    rows: [...document.querySelectorAll('#sql-output .evidence-row')].map(element => element.textContent || ''),
+  }));
+  await page.click('[data-locale="zh"]');
+  await page.waitForFunction(() => document.documentElement.lang === 'zh-CN'
+    && document.querySelector('#result-title')?.textContent === '动态：字段白名单');
+  const chineseLocale = await page.evaluate(() => ({
+    title: document.querySelector('#query-browser-title')?.textContent || '',
+    evidenceTitle: document.querySelector('.sql-card-heading .query-card-label')?.textContent || '',
+    evidenceColumns: [...document.querySelectorAll('.execution-evidence th')].map(element => element.textContent || ''),
+    executionId: document.querySelector('.evidence-time')?.dataset.executedAt || '',
+    rows: [...document.querySelectorAll('#sql-output .evidence-row')].map(element => element.textContent || ''),
+  }));
+  if (chineseLocale.title !== '选择一个查询'
+    || chineseLocale.evidenceTitle !== '执行证据'
+    || chineseLocale.evidenceColumns.join('|') !== '时间|身份|追踪链|SQL'
+    || chineseLocale.executionId !== beforeLocaleSwitch.executionId
+    || JSON.stringify(chineseLocale.rows) !== JSON.stringify(beforeLocaleSwitch.rows)) {
+    throw new Error(`Chinese locale did not rerender safely: ${JSON.stringify(chineseLocale)}`);
+  }
+  await page.click('[data-locale="en"]');
+  await page.waitForFunction(() => document.documentElement.lang === 'en'
+    && document.querySelector('#result-title')?.textContent === 'Dynamic: field allowlist');
+
+  const queryIds = await page.$$eval('[data-query-id]', links => links.map(link => link.dataset.queryId));
+  for (const queryId of queryIds) {
+    await page.click(`[data-query-id="${queryId}"]`);
+    await page.waitForFunction(id => document.querySelector(`[data-query-id="${id}"]`)?.classList.contains('active')
+      && !document.querySelector('#result')?.hasAttribute('aria-busy'), {}, queryId);
+    const queryState = await page.evaluate(() => ({
+      status: document.querySelector('#status')?.textContent || '',
+      meta: document.querySelector('#result-meta')?.textContent || '',
+    }));
+    if (!queryState.status.includes('ready') || queryState.meta.includes('失败') || queryState.meta.includes('failed')) {
+      throw new Error(`Query ${queryId} failed: ${JSON.stringify(queryState)}`);
+    }
+    const unexpectedChinese = await page.$eval('body', body => {
+      const copy = body.cloneNode(true);
+      copy.querySelector('[data-locale="zh"]')?.remove();
+      return copy.textContent?.match(/[\u4e00-\u9fff]+/g) ?? [];
+    });
+    if (unexpectedChinese.length) {
+      throw new Error(`English query ${queryId} still renders Chinese: ${unexpectedChinese.join(', ')}`);
+    }
+  }
+
+  const beforeReset = await page.$eval('#result', element => element.textContent || '');
   await page.click('#reset');
-  await page.waitForFunction(() => !document.querySelector('button')?.hasAttribute('disabled'));
+  await page.waitForFunction(() => !document.querySelector('#reset')?.hasAttribute('disabled'));
   const reset = await page.$eval('#result', element => element.textContent || '');
-  if (reset !== first) throw new Error('Reset did not restore deterministic mutation-seeded data');
+  if (reset !== beforeReset) throw new Error('Reset did not restore deterministic order data');
 
   await page.click('#persist');
   await page.waitForFunction(() => {
@@ -72,7 +373,7 @@ try {
     return text.startsWith('OPFS') && text.includes('ready');
   }, { timeout: 20_000 });
   const persisted = await page.$eval('#result', element => element.textContent || '');
-  if (persisted !== first) throw new Error('OPFS did not receive deterministic mutation-seeded data');
+  if (persisted !== beforeReset) throw new Error('OPFS did not receive deterministic order data');
 
   await page.reload({ waitUntil: 'networkidle0' });
   await page.waitForFunction(() => {
@@ -85,7 +386,7 @@ try {
     throw new Error('OPFS preference or data did not survive a browser reload');
   }
   if (browserErrors.length) throw new Error(`Browser console errors:\n${browserErrors.join('\n')}`);
-  console.log('PASS browser SQLite/WASM memory, OPFS persistence, Mutation Policy, mutation seed, Q API, and reset');
+  console.log('PASS generated Q queries, order center, executed SQL, result tree, all queries, OPFS, and reset');
 } finally {
   await browser?.close();
   server.kill('SIGTERM');

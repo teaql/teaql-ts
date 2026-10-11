@@ -6,6 +6,7 @@ import { GraphMutationSession, MutationIntent } from '../core/request-intent';
 import type { QueryOperation } from '../core/request-intent';
 import { TraceNode } from '../core/trace-chain';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
+import type { FacetAggregate } from '../core/facet';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
 export type ColumnSchema = {
     columnName: string;
@@ -95,9 +96,10 @@ export type SQLExecutionMetadata = Readonly<{
     comment?: string;
     purpose?: string;
     auditReason?: string;
-    tracePath: readonly SQLTraceFrame[];
-    /** Root intent and immutable request-parent comments, distinct from the physical route. */
+    /** Business intent lineage: root purpose followed by each request's comment. */
     traceChain?: readonly TraceNode[];
+    /** Physical execution route: operation/request/relation/provider/sql. */
+    tracePath: readonly SQLTraceFrame[];
     /** Business responsibility, not the physical SQL route. */
     mutationLineage?: readonly TraceNode[];
     parameterizedSQL: string;
@@ -116,7 +118,8 @@ export type SQLExecutionMetadata = Readonly<{
     affectedRows?: number;
     resultSummary: string;
 }>;
-export { debugSQL, SQLDatabaseKind } from './log-rendering';
+export { debugSQL } from './log-rendering';
+export type { SQLDatabaseKind } from './log-rendering';
 export interface RuntimeTelemetrySink {
     record(metadata: SQLExecutionMetadata): void;
 }
@@ -203,7 +206,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     /** Allows a provider which replaces its physical store to require explicit schema reconciliation again. */
     protected invalidateSchemaState(): void;
     private ensureBootstrapData;
-    private reconcileBootstrapEntity;
+    private planBootstrapMutation;
     executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -228,6 +231,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private executeQueryWithIntent;
     private prepareIdSetPage;
     executeFacetMembership(outerQuery: SelectQuery, relationName: string, countAliases?: readonly string[]): Promise<Map<string, number>>;
+    executeFacetAggregates(outerQuery: SelectQuery, relationName: string, aggregates: readonly FacetAggregate[]): Promise<Map<string, Record<string, unknown>>>;
     executeCount(query: any, countAlias?: string, operation?: QueryOperation): Promise<number>;
     private prepareContinuousPage;
     private registerContinuousPage;

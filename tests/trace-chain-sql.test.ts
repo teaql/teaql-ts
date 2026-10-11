@@ -59,10 +59,10 @@ async function fixture(privatePlatformName = false) {
   return { driver, client, context, evidence };
 }
 function graphQuery(comment = 'load school graph') {
-  const region = new SelectQuery('Region').limit(1);
-  const organization = new SelectQuery('Organization').limit(1);
+  const region = new SelectQuery('Region').limit(1).comment('load region');
+  const organization = new SelectQuery('Organization').limit(1).comment('load organization');
   organization.relations.push({ name: 'region', query: region });
-  const platform = new SelectQuery('Platform').limit(1);
+  const platform = new SelectQuery('Platform').limit(1).comment('load platform');
   platform.relations.push({ name: 'organization', query: organization });
   const school = new SelectQuery('School').limit(1).comment(comment).purpose('inspect native graph trace');
   school.relations.push({ name: 'platform', query: platform });
@@ -100,9 +100,13 @@ it('derives three relation frames from actual SQLite loading without injected tr
     expect(entries).toHaveLength(4);
     const route = [['platform', 'School.platform'], ['organization', 'Platform.organization'],
       ['region', 'Organization.region']];
+    const comments = ['load school graph', 'load platform', 'load organization', 'load region'];
     entries.forEach((entry, index) => {
       expect(entry.comment).toBe('load school graph');
       expect(entry.purpose).toBe('inspect native graph trace');
+      expect(entry.traceChain?.map(node => node.detail)).toEqual([
+        'inspect native graph trace', 'load school graph', ...comments.slice(1, index + 1),
+      ]);
       expect(entry.tracePath.map(frame => [frame.kind, frame.name, (frame as any).detail ?? ''])).toEqual([
         ['operation', 'School', 'query'], ['request', 'School', ''],
         ...route.slice(0, index).map(([name, detail]) => ['relation', name, detail]),
@@ -362,6 +366,12 @@ it('propagates typed facet provenance through actual membership and nested relat
       .map(frame => [frame.name, frame.detail]))).toEqual([
       [], [['platform', 'School.platform']],
       [['platform', 'School.platform'], ['organization', 'Platform.organization']],
+    ]);
+    expect(entries.map(entry => entry.traceChain?.map(node => node.detail))).toEqual([
+      ['inspect native facets', 'load platform facets', "facetByPlatformAs('platforms')", 'aggregate platform'],
+      ['inspect native facets', 'load platform facets', "facetByPlatformAs('platforms')", 'load School.platform'],
+      ['inspect native facets', 'load platform facets', "facetByPlatformAs('platforms')",
+        'load School.platform', 'load Platform.organization'],
     ]);
     expect(entries.every(entry => entry.comment === 'load platform facets')).toBe(true);
   } finally { await f.client.close(); }

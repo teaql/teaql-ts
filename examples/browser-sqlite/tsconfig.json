@@ -3,9 +3,17 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "teaql-ts": ["../../src/index.ts"],
+      "teaql-ts/sql/core": ["../../src/sql/core.ts"],
+      "teaql-ts/sql/browser-sqlite": ["../../src/sql/browser-sqlite.ts"],
+      "teaql-ts/sql/browser-sqlite-worker": ["../../src/sql/browser-sqlite-worker.ts"],
+      "@sqlite.org/sqlite-wasm": ["node_modules/@sqlite.org/sqlite-wasm/dist/index.d.mts"]
+    },
     "strict": true,
     "skipLibCheck": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "lib": ["ES2022", "DOM", "WebWorker"]
   },
   "include": ["src"]
