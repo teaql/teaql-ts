@@ -3,6 +3,25 @@ import { TraceNode, MutationTraceScope } from './trace-chain';
 import type { EntityKey } from './entity-root';
 import type { SQLLogBindingSource } from './log-privacy';
 import { LoadedScalarSnapshot } from './loaded-scalar-snapshot';
+export type QueryOperation = Readonly<{
+    kind: 'named-count' | 'facet' | 'relation-count' | 'relation-select' | 'aggregate' | 'pagination';
+    /** Exact generator-supplied native method; absent for a low-level runtime operation. */
+    method?: string;
+    alias?: string;
+    relation?: string;
+}>;
+/** One native literal renderer for all count/facet aliases. Never parse SQL. */
+export declare function queryOperationComment(operation: QueryOperation): string;
+declare const requestBindingToken: unique symbol;
+type QueryBinding = {
+    [requestBindingToken]: true;
+    parent?: QueryRequest<any>;
+    comment: string;
+    name: string;
+    operation?: QueryOperation;
+    source: readonly TraceNode[];
+    invocation?: object;
+};
 export type RequestKind = 'query' | 'mutation';
 /** Stable, value-free request-boundary diagnostics. */
 export declare class RequestIntentError extends Error {
@@ -30,16 +49,29 @@ export declare class MutationIntent {
  */
 export declare class QueryRequest<T extends object = SelectQuery> {
     #private;
-    constructor(query: T, intent?: QueryIntent);
+    constructor(query: T, intent?: QueryIntent, binding?: QueryBinding);
     get intent(): QueryIntent;
     get query(): T;
     get comment(): string;
     get purpose(): string;
     get traceSource(): readonly TraceNode[];
+    get parentRequest(): QueryRequest<any> | undefined;
+    get rootRequest(): QueryRequest<any>;
+    get requestName(): string;
+    get operation(): QueryOperation | undefined;
+    get traceChain(): readonly TraceNode[];
     /** Runtime derivation preserves this invocation's source across builder clones. */
     withQuery<Q extends object>(query: Q): QueryRequest<Q>;
-    /** Append one local relation and its qualified property; never accept caller frames. */
-    derive<Q extends object>(query: Q, relation: string): QueryRequest<Q>;
+    /** A real operation child need not execute SQL itself; descendants retain it. */
+    deriveOperation<Q extends object>(query: Q, operation: QueryOperation): QueryRequest<Q>;
+    /** Local description for work created by the framework, never a root authorization. */
+    deriveHelper<Q extends object>(query: Q, comment: string): QueryRequest<Q>;
+    /** Preserve the Q-operation parent and the actual nested request's own comment. */
+    derive<Q extends object>(query: Q, relation: string, operation?: QueryOperation): QueryRequest<Q>;
+    /** Aggregates execute their operation; an anonymous template is not a value load. */
+    deriveAggregate<Q extends object>(query: Q, relation: string, operation: QueryOperation): QueryRequest<Q>;
+    /** Bind a framework helper or value query below an existing operation parent. */
+    deriveChild<Q extends object>(query: Q, relation?: string, defaultComment?: string): QueryRequest<Q>;
 }
 /** A batch also needs this root envelope; child comments are not a fallback. */
 export declare class MutationRequest<T extends object = MutationQuery> {
@@ -79,4 +111,5 @@ export declare class GraphCommittedError extends Error {
     readonly committed = true;
     constructor(cause: unknown);
 }
+export {};
 //# sourceMappingURL=request-intent.d.ts.map

@@ -69,6 +69,28 @@ function graphQuery(comment = 'load school graph') {
   return school;
 }
 
+it.each([false, true])('compound aggregates emit one physical SQLite statement: logging=%p', async logging => {
+  const f = await fixture();
+  try {
+    const diagnostics: unknown[] = [];
+    f.client.setQueryLoggingEnabled(logging).setDiagnosticSQLLogSink({write: entry => diagnostics.push(entry)});
+    const reads = jest.spyOn(f.driver, 'query');
+    const query = new SelectQuery('School').aggregate('Count', 'id', 'schoolCount').aggregate('Sum', 'id', 'idTotal')
+      .comment('calculate school totals').purpose('render totals');
+    const rows = await f.client.executeQuery<any>(query);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({schoolCount: 1, idTotal: 1});
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect(reads.mock.calls[0][0]).toMatch(/COUNT\(/i);
+    expect(reads.mock.calls[0][0]).toMatch(/SUM\(/i);
+    const facts = f.evidence.snapshot();
+    expect(facts).toHaveLength(1);
+    expect(facts[0].traceChain!.map(node => node.detail)).toEqual(['render totals', 'calculate school totals']);
+    expect(diagnostics).toHaveLength(logging ? 1 : 0);
+    console.log(`RTC_COM_07_AGGREGATE_PASS logging=${logging} expressions=2 statements=1`);
+  } finally { await f.client.close(); }
+});
+
 it('derives three relation frames from actual SQLite loading without injected trace frames', async () => {
   const f = await fixture();
   try {
@@ -87,6 +109,210 @@ it('derives three relation frames from actual SQLite loading without injected tr
         ['provider', 'sqlite', ''], ['sql', 'select', ''],
       ]);
     });
+  } finally { await f.client.close(); }
+});
+
+it.each([false, true])('retains native operation parents, explicit comments and local defaults in real SQLite evidence: logging=%p', async logging => {
+  const f = await fixture();
+  try {
+    f.client.setQueryLoggingEnabled(logging);
+    const diagnostics: unknown[] = [];
+    f.client.setDiagnosticSQLLogSink({ write: entry => diagnostics.push(entry) });
+    const reads = jest.spyOn(f.driver, 'query');
+    const query = graphQuery('load schools').purpose('render school list');
+    query.relations[0].operation = { kind: 'relation-select', method: 'selectPlatformWith', relation: 'platform' };
+    query.relations[0].query!.comment('load visible platforms');
+    query.relations[0].query!.relations[0].operation = {
+      kind: 'relation-select', method: 'selectOrganizationWith', relation: 'organization',
+    };
+    expect((await f.client.executeQuery<any>(query))[0].platform.organization.name).toBe('Organization');
+    const entries = f.evidence.snapshot();
+    expect(reads).toHaveBeenCalledTimes(4);
+    expect(entries).toHaveLength(4); // retained evidence is independent of diagnostic logging
+    expect(diagnostics).toHaveLength(logging ? 4 : 0);
+    expect(entries[1].traceChain!.map(node => node.detail)).toEqual([
+      'render school list', 'load schools', 'selectPlatformWith(...)', 'load visible platforms',
+    ]);
+    expect(entries[2].traceChain!.map(node => node.detail)).toEqual([
+      'render school list', 'load schools', 'selectPlatformWith(...)', 'load visible platforms',
+      'selectOrganizationWith(...)', 'load Organization',
+    ]);
+    expect(entries.every(entry => entry.comment === 'load schools')).toBe(true);
+    expect(query.relations[0].query!.relations[0].query!.commentText).toBeUndefined();
+    console.log(`RTC_COM_02_PASS logging=${logging} explicit=both`);
+  } finally { await f.client.close(); }
+});
+
+it.each([false, true])('rejects explicitly blank relation comments before child SQLite: logging=%p', async logging => {
+  const f = await fixture();
+  try {
+    f.client.setQueryLoggingEnabled(logging);
+    const reads = jest.spyOn(f.driver, 'query');
+    for (const blank of ['', ' \t', '\u0085']) {
+      reads.mockClear();
+      const query = graphQuery();
+      query.relations[0].query!.comment(blank);
+      await expect(f.client.executeQuery(query)).rejects.toMatchObject({ field: 'comment', requestKind: 'query' });
+      expect(reads.mock.calls.length).toBeLessThanOrEqual(1);
+      expect(reads.mock.calls.some(([sql]) => sql.includes('FROM "platform_data"'))).toBe(false);
+      expect(query.relations[0].query!.commentText).toBe(blank);
+      console.log(`RTC_COM_04_RELATION_PASS logging=${logging} invalid_child_provider=0`);
+    }
+    reads.mockClear();
+    expect((await f.client.executeQuery<any>(graphQuery()))[0].platform.organization.region.name).toBe('Region');
+    expect(reads).toHaveBeenCalledTimes(4);
+  } finally { await f.client.close(); }
+});
+
+it.each([false, true])('rejects explicitly blank facet value comments before value SQLite: logging=%p', async logging => {
+  const f = await fixture();
+  try {
+    f.client.setQueryLoggingEnabled(logging);
+    const reads = jest.spyOn(f.driver, 'query');
+    for (const blank of ['', ' \t', '\u0085']) {
+      reads.mockClear();
+      const child = new SelectQuery('Platform').aggregate('Count', 'id', 'schoolCount').comment(blank);
+      const outer = new SelectQuery('School').comment('load schools').purpose('validate facet input');
+      outer.facetBy('platformCounts', 'platform', { toQuery: () => child }, true, {
+        kind: 'facet', method: 'facetByPlatformAs', relation: 'platform', alias: 'platformCounts',
+      });
+      await expect(executeRelationFacets(f.client, query => query, outer, outer.facets))
+        .rejects.toMatchObject({ field: 'comment', requestKind: 'query' });
+      expect(reads.mock.calls.some(([sql]) => sql.includes('FROM "platform_data"'))).toBe(false);
+      expect(child.commentText).toBe(blank);
+      console.log(`RTC_COM_04_FACET_PASS logging=${logging} invalid_value_provider=0`);
+    }
+  } finally { await f.client.close(); }
+});
+
+it.each([false, true])('retains named and unnamed exact-count intent in real SQLite: logging=%p', async logging => {
+  const f = await fixture();
+  try {
+    f.client.setQueryLoggingEnabled(logging);
+    const diagnostics: unknown[] = [];
+    f.client.setDiagnosticSQLLogSink({write: entry => diagnostics.push(entry)});
+    const query = new SelectQuery('School').limit(1).comment('load schools').purpose('render school list');
+    expect(await f.client.executeCount(query, 'totalSchools', {
+      kind: 'named-count', method: 'countAs', alias: 'totalSchools',
+    })).toBe(1);
+    const entries = f.evidence.snapshot();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].parameterizedSQL).toContain('totalSchools');
+    expect(entries[0].traceChain!.map(node => node.detail)).toEqual([
+      'render school list', 'load schools', "countAs('totalSchools')",
+    ]);
+    expect(entries[0].tracePath.some(node => node.kind === 'relation')).toBe(false);
+    f.evidence.enableAll(); diagnostics.length = 0;
+    expect(await f.client.executeCount(query)).toBe(1);
+    const defaults = f.evidence.snapshot();
+    expect(defaults).toHaveLength(1);
+    expect(defaults[0].parameterizedSQL).toContain('__teaql_total');
+    expect(defaults[0].traceChain!.map(node => node.detail)).toEqual([
+      'render school list', 'load schools', 'framework: named-count',
+    ]);
+    expect(defaults[0].tracePath.some(node => node.kind === 'relation')).toBe(false);
+    expect(diagnostics).toHaveLength(logging ? 1 : 0);
+    expect(query.commentText).toBe('load schools');
+    console.log(`RTC_COM_05_PASS logging=${logging} named=true unnamed=true`);
+  } finally { await f.client.close(); }
+});
+
+it('shares one named facet operation between the aggregate and value-query SQLite branches', async () => {
+  const f = await fixture();
+  try {
+    const nested = new SelectQuery('Platform').aggregate('Count', 'id', 'schoolCount')
+      .comment('load platform facets');
+    const outer = new SelectQuery('School').comment('load schools').purpose('render school list');
+    outer.facetBy('platformCounts', 'platform', { toQuery: () => nested }, true, {
+      kind: 'facet', method: 'facetByPlatformAs', relation: 'platform', alias: 'platformCounts',
+    });
+    const facets = await executeRelationFacets(f.client, query => query, outer, outer.facets);
+    expect(facets.platformCounts.map(row => row.schoolCount)).toEqual([1]);
+    const entries = f.evidence.snapshot();
+    expect(entries).toHaveLength(2);
+    const prefix = ['render school list', 'load schools', "facetByPlatformAs('platformCounts')"];
+    expect(entries[0].traceChain!.map(node => node.detail)).toEqual([...prefix, 'aggregate platform']);
+    expect(entries[0].parameterizedSQL).toContain('AS "schoolCount"');
+    expect(entries[1].traceChain!.map(node => node.detail)).toEqual([...prefix, 'load platform facets']);
+  } finally { await f.client.close(); }
+});
+
+it('assembles minimal reverse children using a private key without publishing an unselected field', async () => {
+  const f = await fixture();
+  const model = { ...schemas, Platform: { ...schemas.Platform, relations: {
+    ...schemas.Platform.relations,
+    schoolList: { targetEntity: 'School', localKey: 'id', foreignKey: 'platform', many: true },
+  } } };
+  const client = new Client(f.driver, model).setDiagnosticSQLLogSink(undefined);
+  try {
+    const child = new SelectQuery('School').select(['name']).limit(3).comment('load school previews');
+    const query = new SelectQuery('Platform').select(['name']).limit(1)
+      .comment('load platforms').purpose('render bounded previews')
+      .relationQuery('schoolList', child, 'id', 'platform', true, {
+        kind: 'relation-select', method: 'selectSchoolListWith', relation: 'schoolList',
+      });
+    const rows = await client.executeQuery<any>(query);
+    expect(rows[0].schoolList).toHaveLength(1);
+    expect(rows[0].schoolList[0].name).toBe('School');
+    expect(Object.prototype.hasOwnProperty.call(rows[0].schoolList[0], 'platform')).toBe(false);
+    expect(child.selectItems).toEqual(['name']);
+  } finally { await f.client.close(); }
+});
+
+it.each([false, true])('prefixes and escaped facet aliases preserve bindings under privacy projection: logging=%p', async logging => {
+  const f = await fixture(true);
+  const secret = 'TRACE-PRIVATE-CANARY';
+  try {
+    await f.client.executeMutation({entity: 'Platform', action: 'Update', id: '1', version: 1,
+      payload: {name: secret}, comment: 'seed privacy canary'});
+    f.client.setQueryLoggingEnabled(logging);
+    const diagnostics: unknown[] = [];
+    f.client.setDiagnosticSQLLogSink({write: entry => diagnostics.push(entry)});
+    const reads = jest.spyOn(f.driver, 'query');
+    for (const privateInput of [false, true]) {
+      f.evidence.enableAll(); diagnostics.length = 0; reads.mockClear();
+      const alias = 'choices"\\\n' + (privateInput ? secret : '');
+      const comment = privateInput ? `what: load ${secret}` : 'what: load schools';
+      const purpose = privateInput ? `why: inspect ${secret}` : 'why: inspect schools';
+      const child = new SelectQuery('Platform').limit(10).aggregate('Count', 'id', 'schoolCount')
+        .comment(privateInput ? `load ${secret} facets` : 'load platform facets');
+      if (privateInput) child.filter({name: {$eq: secret}});
+      const query = new SelectQuery('School').limit(10).comment(comment).purpose(purpose)
+        .facetBy(alias, 'platform', {toQuery: () => child}, false,
+          {kind: 'facet', method: 'facetByPlatformAs', alias, relation: 'platform'});
+      const before = JSON.stringify(query);
+      const result = await executeRelationFacets(f.client, query => query, query, query.facets);
+      expect(result[alias]).toHaveLength(1);
+      expect(result[alias][0]).toMatchObject({id: '1', name: secret, schoolCount: 1});
+      const facts = f.evidence.snapshot();
+      expect(facts).toHaveLength(2); expect(reads).toHaveBeenCalledTimes(2);
+      expect(diagnostics).toHaveLength(logging ? 2 : 0);
+      const safeComment = privateInput ? 'what: load [REDACTED]' : comment;
+      const safePurpose = privateInput ? 'why: inspect [REDACTED]' : purpose;
+      const chains = facts.map(entry => entry.traceChain!.map(node => node.detail));
+      for (const local of ['aggregate platform', privateInput ? 'load [REDACTED] facets' : 'load platform facets'])
+        expect(chains).toContainEqual([safePurpose, safeComment, 'facetByPlatformAs(\'choices"\\\\\\n' + (privateInput ? '[REDACTED]' : '') + '\')', local]);
+      if (privateInput) {
+        expect(JSON.stringify(facts)).not.toContain(secret);
+        expect(reads.mock.calls.some(call => call[1]?.includes(secret))).toBe(true);
+      }
+      expect(JSON.stringify(query)).toBe(before);
+    }
+    console.log(`RTC_COM_09_12_PASS logging=${logging} plain=true private=true escaped=true bindings=true`);
+  } finally { await f.client.close(); }
+});
+
+it('projects private operands out of nested business trace comments as well as SQL diagnostics', async () => {
+  const f = await fixture(true);
+  try {
+    const query = graphQuery('load Platform graph');
+    query.relations[0].query!.filter({ name: { $eq: 'Platform' } }).comment('load Platform details');
+    await f.client.executeQuery(query);
+    expect(f.evidence.snapshot()).toHaveLength(4);
+    for (const entry of f.evidence.snapshot()) {
+      expect(entry.traceChain).toBeDefined();
+      expect(entry.traceChain!.map(node => node.detail).join('/')).not.toContain('Platform');
+    }
   } finally { await f.client.close(); }
 });
 
@@ -168,7 +394,8 @@ it('retains query semantics and provenance when a three-level graph is streamed'
   } finally { await f.client.close(); }
 });
 
-it.each([false, true])('isolates two live native query graphs with logging=%p', async logging => {
+it.each([[false, false], [true, false], [false, true], [true, true]])(
+  'isolates two live native query graphs with logging=%p sharedTemplate=%p', async (logging, sharedTemplate) => {
   const f = await fixture();
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
@@ -189,8 +416,23 @@ it.each([false, true])('isolates two live native query graphs with logging=%p', 
   });
   try {
     f.client.setQueryLoggingEnabled(logging);
-    const first = f.context.prepareQuery(graphQuery('first independent query').purpose('render first graph'));
-    const second = f.context.prepareQuery(graphQuery('second independent query').purpose('render second graph'));
+    const template = graphQuery().relations[0].query!;
+    const templateBefore = JSON.stringify(template);
+    const build = (comment: string, purpose: string) => {
+      const query = graphQuery(comment).purpose(purpose);
+      if (sharedTemplate) query.relations[0].query = template;
+      return f.context.prepareQuery(query);
+    };
+    const assertTemplateUnchanged = () => {
+      expect(JSON.stringify(template)).toBe(templateBefore);
+      let query: SelectQuery | undefined = template;
+      while (query) {
+        expect(query.commentText).toBeUndefined(); expect(query.purposeText).toBeUndefined();
+        query = query.relations[0]?.query;
+      }
+    };
+    const first = build('first independent query', 'render first graph');
+    const second = build('second independent query', 'render second graph');
     // Query optimization observers legitimately initialize these optional
     // public fields to undefined; that is not a runtime-owned trace frame.
     f.context.idSetPaginationCount = undefined;
@@ -215,12 +457,14 @@ it.each([false, true])('isolates two live native query graphs with logging=%p', 
     expect(contextResources).toEqual(resourcesBefore);
     expect(first.commentText).toBe('first independent query');
     expect(second.commentText).toBe('second independent query');
+    assertTemplateUnchanged();
     release();
     const results = await completed;
     expect(Reflect.ownKeys(f.context)).toEqual(contextKeysBefore);
     expect(contextResources).toEqual(resourcesBefore);
     expect(results.map(rows => rows.length)).toEqual([1, 1]);
     expect(results.map(rows => rows[0].platform.organization.region.name)).toEqual(['Region', 'Region']);
+    assertTemplateUnchanged();
     const entries = f.evidence.snapshot();
     expect(entries).toHaveLength(8);
     for (const [reason, purpose] of [['first independent query', 'render first graph'],

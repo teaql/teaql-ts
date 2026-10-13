@@ -1,6 +1,7 @@
 import { UserContext } from '../src/core/context';
 import { OrderBy, SelectQuery } from '../src/core/ast';
-import { EntitySchema } from '../src/sql/core';
+import { EntitySchema, SQLExecutionEvidenceStore } from '../src/sql/core';
+import { QueryRequest } from '../src/core/request-intent';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
 import { PostgreSQLDriver } from '../src/sql/postgres';
 import { MySQLDriver } from '../src/sql/mysql';
@@ -16,6 +17,30 @@ const schemas: Record<string, EntitySchema> = {
 };
 
 describe('SQLite true streaming query', () => {
+  it.each([true, false])('preserves a native named-count owner on a real cursor, logging=%p', async logging => {
+    const client = new SQLiteTeaQLClient(':memory:', schemas).setDiagnosticSQLLogSink(undefined);
+    try {
+      await new UserContext().insertResource('dataService', client).ensureSchema();
+      for (const id of ['1', '2']) await client.executeMutation({entity:'Order', action:'Create', id,
+        payload:{}, comment:'seed native cursor fixture'});
+      const evidence = new SQLExecutionEvidenceStore(), diagnostics: unknown[] = [];
+      client.setRuntimeTelemetrySink(evidence).setDiagnosticSQLLogSink({write: entry => diagnostics.push(entry)})
+        .setQueryLoggingEnabled(logging);
+      const root = new QueryRequest(new SelectQuery('Order').comment('load order totals').purpose('render totals'));
+      const counted = root.deriveOperation(root.query.forExactCount('totalOrders'),
+        {kind:'named-count',method:'countAs',alias:'totalOrders'});
+      const chunks: any[][] = [];
+      for await (const chunk of client.executeForStream(counted.query, 1)) chunks.push(chunk);
+      expect(chunks.flat().map(row=>row.totalOrders)).toEqual([2]);
+      const entries = evidence.snapshot();
+      expect(entries).toHaveLength(1); expect(diagnostics).toHaveLength(logging ? 1 : 0);
+      expect(entries[0].traceChain?.map(node=>node.detail)).toEqual(['render totals','load order totals',"countAs('totalOrders')"]);
+      expect(entries[0].executionOutcome).toBe('success');
+      expect((entries[0].tracePath ?? []).some(node=>node.kind==='relation')).toBe(false);
+      expect(root.traceChain).toHaveLength(2);
+    } finally { await client.close(); }
+  });
+
   it('yields bounded chunks from the statement iterator', async () => {
     const client = new SQLiteTeaQLClient(':memory:', schemas);
     await new UserContext().insertResource('dataService', client).ensureSchema();

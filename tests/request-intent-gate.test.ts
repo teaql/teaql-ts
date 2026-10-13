@@ -115,6 +115,34 @@ test.each([false, true])('TC-REQ-12 rejects actual trace-only request input befo
   } finally { await f.client.close(); }
 });
 
+describe.each([false, true])('RTC-COM-01 annotated children cannot authorize a root: logging=%s', logging => {
+  test.each(['comment', 'purpose'] as const)('missing %s rejects before compilation and SQLite', async field => {
+    const f = await observedFixture(logging);
+    try {
+      const child = new SelectQuery('Document').comment('load related documents').purpose('render related documents');
+      const query = new SelectQuery('Document').comment('load documents').purpose('render documents')
+        .relationQuery('related', child);
+      if (field === 'comment') query.commentText = undefined;
+      else query.purposeText = undefined;
+      expect(child.commentText).toBe('load related documents');
+      expect(child.purposeText).toBe('render related documents');
+      const code = field === 'comment' ? 'REQUEST_COMMENT_REQUIRED' : 'QUERY_PURPOSE_REQUIRED';
+      for (const execute of [
+        () => new QueryRequest(query),
+        () => f.client.executeQuery(query),
+        () => f.client.executeCount(query),
+        () => f.client.executeForStream(query)[Symbol.asyncIterator]().next(),
+      ]) await expect(Promise.resolve().then(async () => { await execute(); }))
+        .rejects.toMatchObject({ code, field, requestKind: 'query' });
+      f.expectNoExecution();
+      await f.client.executeQuery(new SelectQuery('Document').comment('load validation control').purpose('verify live SQLite'));
+      expect(f.compile).toHaveBeenCalled();
+      expect(f.sql).toHaveBeenCalled();
+      console.log(`RTC_COM_01_PASS logging=${logging} field=${field} invalid_provider=0 invalid_compile=0 annotated_child=true live_control=true`);
+    } finally { await f.client.close(); }
+  });
+});
+
 test.each([false, true])('TC-REQ-14 rejects missing graph root comment despite annotated children: logging=%s', async logging => {
   const f = await observedFixture(logging);
   try {

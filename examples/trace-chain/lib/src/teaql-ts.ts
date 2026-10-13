@@ -1,14 +1,14 @@
 import {
     CheckException, EntityChecker, RuntimeModule,
     SelectQuery as RuntimeSelectQuery, UserContext,
-    GraphCommittedError, GraphMutationSession, MutationIntent, MutationRequest, QueryRequest,
-    executeRelationFacets,
+    executeRelationFacets, QueryRequest, MutationIntent, MutationRequest, GraphMutationSession,
 } from "teaql-ts";
 
-export { CheckException, EntityRoot, LoadedScalarSnapshot, ObjectLocation, SmartList, UserContext, executeRelationFacets } from "teaql-ts";
-export { GraphCommittedError, GraphMutationSession, MutationIntent, MutationRequest, MutationTraceScope, QueryIntent, QueryRequest, RequestIntentError } from "teaql-ts";
+export { CheckException, EntityRoot, ObjectLocation, SmartList, UserContext, executeRelationFacets, MutationIntent } from "teaql-ts";
+export { GraphMutationSession, LoadedScalarSnapshot, MutationTraceScope } from "teaql-ts";
 export type { EntityKey } from "teaql-ts";
 export type { TeaQLPage } from "teaql-ts";
+import type { QueryOperation } from "teaql-ts";
 
 function soundex(input: unknown): string {
     const text = String(input ?? "").toUpperCase().replace(/[^A-Z]/g, "");
@@ -34,9 +34,9 @@ export class SelectQuery extends RuntimeSelectQuery {
 
     relationQuery(
         name: string, query: RuntimeSelectQuery, localKey = "id", foreignKey = "id", many = true,
+        operation?: QueryOperation,
     ): this {
-        (this.relations as any[]).push({ name, query, localKey, foreignKey, many });
-        return this;
+        return super.relationQuery(name, query, localKey, foreignKey, many, operation);
     }
 }
 
@@ -47,7 +47,7 @@ export interface TeaQLDataService {
     afterGraphRollback(work: () => void): void;
     executeMutation(mutation: any): Promise<any>;
     executeQuery(query: any): Promise<any[]>;
-    executeCount(query: any): Promise<number>;
+    executeCount(query: any, alias?: string, operation?: QueryOperation): Promise<number>;
     executeForStream(query: any, chunkSize?: number): AsyncIterable<any[]>;
     close?(): Promise<void>;
 }
@@ -58,14 +58,10 @@ export class TeaQLClient implements TeaQLDataService {
     private readonly checkers: Record<string, EntityChecker> = {};
     private userContext = new UserContext();
     private graphSaveActive = false;
-    private activeGraph?: GraphMutationSession;
     private graphCommitActions: Array<() => void> = [];
     private graphRollbackActions: Array<() => void> = [];
-    private graphAuditActions: Array<() => Promise<void>> = [];
     private graphSaveTail: Promise<void> = Promise.resolve();
     private readonly mutationGovernanceEvents: any[] = [];
-    private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
-    private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
 
     constructor(private storagePath?: string) {
         if (storagePath) {
@@ -93,12 +89,6 @@ export class TeaQLClient implements TeaQLDataService {
         return [...this.mutationGovernanceEvents];
     }
 
-    get auditTrace(): ReadonlyArray<Readonly<Record<string, unknown>>> { return [...this.auditEvents]; }
-    setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this {
-        this.auditSink = sink;
-        return this;
-    }
-
     private persist() {
         if (!this.storagePath) return;
         const fs = require("fs");
@@ -119,13 +109,10 @@ export class TeaQLClient implements TeaQLDataService {
         const nextIdsSnapshot = { ...this.nextIds };
         let fixEvidenceStarted = false;
         let mutationPolicyGraphStarted = false;
-        let committed = false;
         try {
             this.graphSaveActive = true;
-            this.activeGraph = graph;
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
-            this.graphAuditActions = [];
             this.userContext.insertResource("fixTime", new Date());
             this.userContext.beginFixEvidence();
             fixEvidenceStarted = true;
@@ -134,29 +121,17 @@ export class TeaQLClient implements TeaQLDataService {
             const result = await work(graph);
             this.userContext.ensureMutationPolicyGraphComplete();
             this.persist();
-            committed = true;
-            let failure: unknown;
-            let failed = false;
-            for (const action of [...this.graphCommitActions, ...this.graphAuditActions]) {
-                try { await action(); } catch (error) { if (!failed) failure = error; failed = true; }
-            }
-            if (failed) throw new GraphCommittedError(failure);
+            for (const action of this.graphCommitActions) action();
             return result;
         } catch (error) {
-            if (!committed) {
-                this.data = dataSnapshot;
-                this.nextIds = nextIdsSnapshot;
-                for (const action of [...this.graphRollbackActions].reverse()) {
-                    try { action(); } catch { /* retain the original failure */ }
-                }
-            }
+            this.data = dataSnapshot;
+            this.nextIds = nextIdsSnapshot;
+            for (const action of [...this.graphRollbackActions].reverse()) action();
             throw error;
         } finally {
             this.graphSaveActive = false;
-            this.activeGraph = undefined;
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
-            this.graphAuditActions = [];
             if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
             this.userContext.removeResource("fixTime");
             if (fixEvidenceStarted) this.userContext.finishFixEvidence();
@@ -175,25 +150,15 @@ export class TeaQLClient implements TeaQLDataService {
     }
 
     preflightMutation(mutation: any): any {
-        const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
-        mutation = this.checkAndFixMutation(request);
-        if (request.graphSession) {
-            const values = [...Object.values(mutation.payload || {}), ...Object.values(request.loadedValues())];
-            request.graphSession.captureLogBindings({ parameterizedSQL: "", sqlOrigin: "generated",
-                parameters: values, parameterLogPolicies: values.map(() => "unknown" as const) });
-        }
+        mutation = this.checkAndFixMutation(mutation);
         this.userContext.recordMutationPolicyPreflight(mutation);
         return mutation;
     }
 
     private checkAndFixMutation(mutation: any): any {
-        const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
-        if (request.graphSession !== this.activeGraph || (this.graphSaveActive && !request.graphSession)) {
-            throw new Error("GRAPH_MUTATION_SESSION_REQUIRED: use the explicit active graph request capability");
-        }
-        mutation = request.mutation;
+        if (mutation instanceof MutationRequest) mutation = mutation.mutation;
+        if (!String(mutation?.comment || "").trim()) throw new Error("Security audit failure: audit reason is required before mutation");
         mutation = { ...mutation, payload: { ...(mutation?.payload || {}) } };
-        Object.defineProperty(mutation, "comment", { value: request.comment, enumerable: true });
         const checker = this.checkers[String(mutation.entity)];
         if (!checker) return mutation;
         const results: any[] = [];
@@ -209,9 +174,9 @@ export class TeaQLClient implements TeaQLDataService {
     }
 
     async executeMutation(mutation: any): Promise<any> {
-        const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
-        mutation = this.checkAndFixMutation(request);
+        mutation = this.checkAndFixMutation(mutation);
         const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
+        this.mutationGovernanceEvents.push(mutationGovernance);
         const table = this.data[mutation.entity] ||= {};
         if (mutation.action === "Create") {
             const id = mutation.id ?? String(this.nextIds[mutation.entity] || 1);
@@ -219,8 +184,7 @@ export class TeaQLClient implements TeaQLDataService {
             const record = { ...mutation.payload, id: String(id), version: Number(mutation.version || 0) + 1 };
             table[String(id)] = record;
             if (!this.graphSaveActive) this.persist();
-            return this.finishMutation(request, mutation, mutationGovernance,
-                { success: true, id: String(id), version: record.version, persistedRecord: { ...record } });
+            return { success: true, id: String(id), version: record.version, persistedRecord: { ...record } };
         }
         if (mutation.action === "Update") {
             const id = String(mutation.id);
@@ -233,8 +197,7 @@ export class TeaQLClient implements TeaQLDataService {
             }
             table[id] = { ...table[id], ...mutation.payload, id, version: Number(table[id].version || 0) + 1 };
             if (!this.graphSaveActive) this.persist();
-            return this.finishMutation(request, mutation, mutationGovernance,
-                { success: true, id, version: table[id].version, persistedRecord: { ...table[id] } });
+            return { success: true, id, version: table[id].version, persistedRecord: { ...table[id] } };
         }
         if (mutation.action === "Delete") {
             const id = String(mutation.id);
@@ -247,33 +210,14 @@ export class TeaQLClient implements TeaQLDataService {
             }
             table[id] = { ...table[id], id, version: -(currentVersion + 1) };
             if (!this.graphSaveActive) this.persist();
-            return this.finishMutation(request, mutation, mutationGovernance,
-                { success: true, id, version: table[id].version, deleted: true, persistedRecord: { ...table[id] } });
+            return { success: true, id, version: table[id].version, deleted: true, persistedRecord: { ...table[id] } };
         }
         throw new Error(`Unsupported mutation action: ${mutation.action}`);
-    }
-    private async finishMutation(request: MutationRequest<any>, mutation: any,
-        mutationGovernance: unknown, result: any): Promise<any> {
-        const event = Object.freeze({ entity: mutation.entity, action: mutation.action,
-            id: result.id, version: result.version,
-            ...request.auditProjection({ entity: mutation.entity, id: result.id }, mutation.payload),
-            changedFields: Object.freeze(Object.keys(mutation.payload || {}).sort()),
-            mutationGovernance, recordedAt: new Date().toISOString() });
-        const publish = async () => {
-            this.mutationGovernanceEvents.push(mutationGovernance);
-            this.auditEvents.push(event);
-            await this.auditSink?.(event);
-        };
-        if (request.graphSession) this.graphAuditActions.push(publish);
-        else { try { await publish(); } catch (error) { throw new GraphCommittedError(error); } }
-        return result;
     }
     async query(context: any, req: any): Promise<any> {
         return { rows: [] };
     }
     async executeQuery(query: any): Promise<any> {
-        const request = query instanceof QueryRequest ? query : new QueryRequest(query);
-        query = request.query;
         if (!(query instanceof RuntimeSelectQuery)) {
             throw new Error("TeaQL list execution requires the formal runtime SelectQuery");
         }
@@ -319,7 +263,7 @@ export class TeaQLClient implements TeaQLDataService {
         rows = rows.slice(start, start + query.limitValue);
         for (const relation of (query.relations || []) as any[]) {
             const localValues = new Set(rows.map((row: any) => row[relation.localKey || "id"]));
-            const relatedRows = (await this.executeQuery(request.derive(relation.query, relation.name))).filter(
+            const relatedRows = (await this.executeQuery(relation.query)).filter(
                 (row: any) => localValues.has(row[relation.foreignKey || "id"]));
             for (const row of rows) {
                 const matches = relatedRows.filter(
@@ -335,12 +279,14 @@ export class TeaQLClient implements TeaQLDataService {
         }
         return rows;
     }
-    async executeCount(query: any): Promise<number> {
+    async executeCount(query: any, countAlias?: string, operation?: QueryOperation): Promise<number> {
         if (typeof query?.forExactCount !== "function") {
             throw new Error("TeaQL exact count requires the formal runtime SelectQuery");
         }
-        const alias = "__teaql_total";
-        const rows = await this.executeQuery(query.forExactCount(alias));
+        const alias = countAlias ?? "__teaql_total";
+        const request = new QueryRequest(query).deriveOperation(query.forExactCount(alias), operation ?? {
+            kind: "named-count", ...(countAlias === undefined ? {} : { alias: countAlias }) });
+        const rows = await this.executeQuery(request.query);
         const value = rows[0]?.[alias];
         if (typeof value !== "number" || !Number.isFinite(value)) {
             throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
@@ -348,7 +294,6 @@ export class TeaQLClient implements TeaQLDataService {
         return value;
     }
     async *executeForStream(query: any, chunkSize = 1000): AsyncIterable<any[]> {
-        query = (query instanceof QueryRequest ? query : new QueryRequest(query)).query;
         if (!Number.isInteger(chunkSize) || chunkSize <= 0) throw new Error("stream chunk size must be a positive integer");
         const rows = await this.executeQuery(query);
         for (let offset = 0; offset < rows.length; offset += chunkSize) {

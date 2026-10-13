@@ -33,6 +33,8 @@ export declare class ContextRootError extends Error {
     }> | undefined);
 }
 export declare class UserContext {
+    /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
+    withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
     private readonly mutationPolicy;
     private readonly resources;
     private readonly continuousPageCursors;

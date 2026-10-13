@@ -262,9 +262,10 @@ export class SchoolTypeExpression {
                 new TeaQLNotLoadedError(this.root, path, 'platform'),
             );
         }
-        const relation = this.value.platform;
+        const reference = this.value.platform;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof Platform
+                ? reference.id : reference as string | number | undefined,
         );
     }
 
@@ -433,9 +434,10 @@ export class SchoolExpression {
                 new TeaQLNotLoadedError(this.root, path, 'platform'),
             );
         }
-        const relation = this.value.platform;
+        const reference = this.value.platform;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof Platform
+                ? reference.id : reference as string | number | undefined,
         );
     }
 
@@ -448,9 +450,10 @@ export class SchoolExpression {
                 new TeaQLNotLoadedError(this.root, path, 'schoolType'),
             );
         }
-        const relation = this.value.schoolType;
+        const reference = this.value.schoolType;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof SchoolType
+                ? reference.id : reference as string | number | undefined,
         );
     }
 

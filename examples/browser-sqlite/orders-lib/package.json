@@ -1,0 +1,15 @@
+{
+  "name" : "request-tree-order-service-lib",
+  "version" : "1.0.0",
+  "description" : "Generated typescript library",
+  "main" : "src/generated/Q.ts",
+  "scripts" : {
+    "build" : "tsc --noEmit"
+  },
+  "dependencies" : {
+    "teaql-ts" : "file:../../.."
+  },
+  "devDependencies" : {
+    "typescript" : "^5.0.0"
+  }
+}

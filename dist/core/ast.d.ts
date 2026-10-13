@@ -1,4 +1,5 @@
 import { SmartList } from './smart-list';
+import type { QueryOperation } from './request-intent';
 export declare enum SortDirection {
     Asc = "Asc",
     Desc = "Desc"
@@ -36,12 +37,14 @@ export interface FacetRequest {
     relationName: string;
     query: SelectQuery;
     includeAllFacets: boolean;
+    operation?: QueryOperation;
 }
 export interface RelationAggregate {
     relationName: string;
     alias: string;
     query: SelectQuery;
     singleResult: boolean;
+    operation?: QueryOperation;
 }
 export declare class SelectQuery {
     private hardLimitValue;
@@ -68,6 +71,7 @@ export declare class SelectQuery {
         localKey?: string;
         foreignKey?: string;
         many?: boolean;
+        operation?: QueryOperation;
     }>;
     relationAggregates: RelationAggregate[];
     commentText?: string;
@@ -75,7 +79,7 @@ export declare class SelectQuery {
     constructor(entity: string);
     comment(text: string): this;
     purpose(text: string): this;
-    facetBy(facetName: string, relationName: string, request: QuerySelection, includeAllFacets?: boolean): this;
+    facetBy(facetName: string, relationName: string, request: QuerySelection, includeAllFacets?: boolean, operation?: QueryOperation): this;
     clone(): SelectQuery;
     filter(condition: any): this;
     limit(limit: number): this;
@@ -105,8 +109,8 @@ export declare class SelectQuery {
     private applyListLimit;
     offset(offset: number): this;
     relation(name: string): this;
-    relationQuery(name: string, query: SelectQuery, localKey?: string, foreignKey?: string, many?: boolean): this;
-    relationAggregate(relationName: string, alias: string, query: SelectQuery, singleResult?: boolean): this;
+    relationQuery(name: string, query: SelectQuery, localKey?: string, foreignKey?: string, many?: boolean, operation?: QueryOperation): this;
+    relationAggregate(relationName: string, alias: string, query: SelectQuery, singleResult?: boolean, operation?: QueryOperation): this;
     order(orderBy: OrderBy): this;
     select(items: string[]): this;
     enableAggregationCacheFor(cacheExpiredMillis: number): this;

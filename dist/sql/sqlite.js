@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SQLiteTeaQLClient = exports.SQLiteDriver = void 0;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
+const standard_node_1 = require("../telemetry/standard-node");
 const core_1 = require("./core");
 function soundex(value) {
     const letters = String(value ?? '').toUpperCase().match(/[A-Z]/g) ?? [];
@@ -180,6 +181,7 @@ exports.SQLiteDriver = SQLiteDriver;
 class SQLiteTeaQLClient extends core_1.AbstractSQLTeaQLClient {
     constructor(filename, schemas) {
         super(new SQLiteDriver(filename), schemas);
+        this.attachStandardTelemetryStartup((0, standard_node_1.startStandardNodeTelemetry)());
     }
 }
 exports.SQLiteTeaQLClient = SQLiteTeaQLClient;

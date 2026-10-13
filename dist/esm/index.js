@@ -35,8 +35,9 @@ import {
   mergeRuntimeBootstrap,
   mutationScopeForEntity,
   parseLocale,
+  queryOperationComment,
   queryTraceSource
-} from "./chunks/chunk-YAAPRG2I.js";
+} from "./chunks/chunk-ZH5FDHR6.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -44,7 +45,7 @@ import {
   runtimeErrorCategory,
   safeRuntimeOperation,
   startRuntimeOperation
-} from "./chunks/chunk-WZ3T4PU6.js";
+} from "./chunks/chunk-D5QV4N46.js";
 import "./chunks/chunk-IQGZNIAK.js";
 
 // src/core/value.ts
@@ -365,6 +366,26 @@ function escapeJsonPointer2(value) {
 }
 
 // src/core/dynamic-search.ts
+function mergeGeneratedScalarSearch(base, source, models, warn) {
+  const field = (path) => {
+    if (path.includes(".")) throw new Error("Dynamic search requires a trusted relation binding");
+    const fields = models[base.entity]?.queryFields;
+    if (!fields || !Object.prototype.hasOwnProperty.call(fields, path)) {
+      throw new Error("Missing generated scalar search binding");
+    }
+    return fields[path];
+  };
+  return mergeDynamicSearch(base, source, models, {
+    filter: (path, predicate) => {
+      const [operator, value] = Object.entries(predicate)[0];
+      if (value === null && operator !== "$eq" && operator !== "$ne") {
+        throw new Error("Null supports only equality predicates");
+      }
+      return { [field(path)]: predicate };
+    },
+    order: (path, direction) => direction === "asc" ? OrderBy.asc(field(path)) : OrderBy.desc(field(path))
+  }, warn);
+}
 function mergeDynamicSearch(base, source, models, bindings, warn = (warning) => console.warn({ ...warning, fieldPath: "<omitted>" })) {
   const normalized = normalizeDynamicSearch(source, base.entity, models, () => {
   });
@@ -440,6 +461,7 @@ function normalizeDynamicSearch(source, entity, models, warn = (warning) => cons
       missing(path, "FILTER");
       continue;
     }
+    if (type === "unsupported") throw new Error("Known search field has no supported scalar binding");
     if (operator === "$contains" && type !== "string") throw new Error("String operator requires a string field");
     if (Array.isArray(value)) {
       if (operator !== "$in" && operator !== "$notIn") throw new Error("Unexpected search value list");
@@ -451,10 +473,12 @@ function normalizeDynamicSearch(source, entity, models, warn = (warning) => cons
     if (!object(order) || Object.keys(order).some((key) => !["field", "direction"].includes(key)) || typeof order.field !== "string" || !["asc", "desc"].includes(order.direction)) {
       throw new Error("Invalid dynamic search ordering");
     }
-    if (fieldType(order.field) === void 0) {
+    const type = fieldType(order.field);
+    if (type === void 0) {
       missing(order.field, "ORDER_BY");
       continue;
     }
+    if (type === "unsupported") throw new Error("Known search field has no supported scalar binding");
     search.orderBy.push({ field: order.field, direction: order.direction });
   }
   warnings.forEach((warning) => warn({ ...warning }));
@@ -2266,12 +2290,14 @@ export {
   localCache,
   locales,
   mergeDynamicSearch,
+  mergeGeneratedScalarSearch,
   mergeRuntimeBootstrap,
   mutationScopeForEntity,
   normalizeDynamicSearch,
   normalizeWireInput,
   observeRuntimeOperation,
   parseLocale,
+  queryOperationComment,
   queryTraceSource,
   renderJsonFieldName,
   retainSubmittedPaths,

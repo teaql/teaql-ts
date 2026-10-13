@@ -1,4 +1,4 @@
-import { SelectQuery } from '../src/core/ast';
+import { OrderBy, SelectQuery } from '../src/core/ast';
 import { UserContext } from '../src/core/context';
 import { executeRelationFacets } from '../src/core/facet';
 import { SmartList } from '../src/core/smart-list';
@@ -71,6 +71,76 @@ function assertPaths(entries: ReturnType<SQLExecutionEvidenceStore['snapshot']>,
   });
 }
 
+it.each([true, false])('ID-set collection owns a helper and cache hits do not invent SQL, logging=%p', async logging => {
+  const f = await fixture(logging);
+  try {
+    const context = new UserContext().insertResource('dataService', f.client);
+    const reads = jest.spyOn(f.client.transport, 'query');
+    const page = (offset: number) => context.prepareQuery(new SelectQuery('School')
+      .select(['id', 'version', 'name']).order(OrderBy.desc('id'))
+      .offset(offset).limit(1).comment('load school page').purpose('render school page')
+      .optimizePaginationWithIdSetConfig('request-tree-schools', 60, 10));
+    expect((await f.client.executeQuery<any>(page(1))).map(row => row.id)).toEqual(['2']);
+    expect(context.idSetPaginationPlan).toBe('ID_SET_BUILD');
+    expect(context.idSetPaginationCount).toBe(3);
+    expect(context.idSetPaginationCountAccuracy).toBe('EXACT');
+    const first = f.evidence.snapshot();
+    expect(first).toHaveLength(2);
+    expect(first[0].traceChain?.map(node => node.detail)).toEqual([
+      'render school page', 'load school page', 'collect School IDs for pagination']);
+    expect(first[1].traceChain?.map(node => node.detail)).toEqual(['render school page', 'load school page']);
+    f.evidence.enableAll(); f.diagnostics.length = 0;
+    reads.mockClear();
+    expect((await f.client.executeQuery<any>(page(0))).map(row => row.id)).toEqual(['3']);
+    expect(context.idSetPaginationPlan).toBe('ID_SET_HIT');
+    expect(context.idSetPaginationCount).toBe(3);
+    expect(context.idSetPaginationCountAccuracy).toBe('EXACT');
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect(reads.mock.calls[0][0]).not.toMatch(/COUNT\(/i);
+    const second = f.evidence.snapshot();
+    expect(second).toHaveLength(1);
+    expect(second[0].traceChain?.map(node => node.detail)).toEqual(['render school page', 'load school page']);
+    expect(f.diagnostics).toHaveLength(logging ? 1 : 0);
+    expect((second[0].tracePath ?? []).some(node => node.kind === 'relation')).toBe(false);
+    console.log(`RTC_COM_07_CACHE_PASS logging=${logging} accuracy=EXACT hit_statements=1`);
+  } finally { await f.client.close(); }
+});
+
+it.each([true, false])('keeps native nested facet sibling comments isolated, logging=%p', async logging => {
+  const f = await fixture(logging);
+  try {
+    const outer = new SelectQuery('School').limit(10).comment('load branches').purpose('render branches');
+    for (const alias of ['left', 'right']) {
+      const organizations = new SelectQuery('Organization').limit(10).aggregate('Count', 'id', 'platformCount')
+        .comment(`load ${alias} organizations`);
+      const platforms = new SelectQuery('Platform').limit(10).aggregate('Count', 'id', 'schoolCount')
+        .comment(`load ${alias} platforms`);
+      platforms.facetBy('organizations', 'organization', {toQuery: () => organizations}, true,
+        {kind: 'facet', method: 'facetByOrganizationAs', alias: 'organizations', relation: 'organization'});
+      outer.facetBy(alias, 'platform', {toQuery: () => platforms}, true,
+        {kind: 'facet', method: 'facetByPlatformAs', alias, relation: 'platform'});
+    }
+    const before = JSON.stringify(outer);
+    const result = await executeRelationFacets(f.client, query => query, outer, outer.facets);
+    for (const alias of ['left', 'right']) {
+      expect(result[alias].map(row => [row.id, row.schoolCount])).toEqual([['1', 2], ['2', 1], ['3', 0]]);
+      expect(result[alias].facets.organizations?.map(row => [row.id, row.platformCount])).toEqual([['1', 1], ['2', 2]]);
+      const prefix = ['render branches', 'load branches', `facetByPlatformAs('${alias}')`];
+      const chains = f.evidence.snapshot().map(entry => entry.traceChain!.map(node => node.detail))
+        .filter(chain => chain[2] === prefix[2]);
+      expect(chains).toHaveLength(4);
+      expect(chains).toContainEqual([...prefix, 'aggregate platform']);
+      expect(chains).toContainEqual([...prefix, `load ${alias} platforms`]);
+      for (const local of ['aggregate organization', `load ${alias} organizations`])
+        expect(chains).toContainEqual([...prefix, `load ${alias} platforms`, "facetByOrganizationAs('organizations')", local]);
+    }
+    expect(f.evidence.snapshot()).toHaveLength(8);
+    expect(f.diagnostics).toHaveLength(logging ? 8 : 0);
+    expect(JSON.stringify(outer)).toBe(before);
+    console.log(`RTC_COM_06_PASS logging=${logging} nested=true siblings=true`);
+  } finally { await f.client.close(); }
+});
+
 it.each([true, false])('executes nested facets with inherited roots, logging=%p', async logging => {
   const f = await fixture(logging);
   try {
@@ -88,6 +158,59 @@ it.each([true, false])('executes nested facets with inherited roots, logging=%p'
     ], 'load nested facets');
     expect(f.diagnostics).toHaveLength(logging ? 4 : 0);
   } finally { await f.client.close(); }
+});
+
+it.each([true, false])('ID-set helper redacts a secret bound only by a selected descendant, logging=%p', async logging => {
+  const f = await fixture(logging);
+  try {
+    const context = new UserContext().insertResource('dataService', f.client);
+    const query = new SelectQuery('School').order(OrderBy.desc('id')).offset(1).limit(1)
+      .comment('load Alpha school page').purpose('inspect Alpha selections')
+      .relationQuery('platform', new SelectQuery('Platform').limit(5).filter({name: {$eq: 'Alpha'}}), 'platform', 'id', false)
+      .optimizePaginationWithIdSetConfig('private-id-set', 60, 10);
+    const rows = await f.client.executeQuery<any>(context.prepareQuery(query));
+    expect(rows.map(row => row.id)).toEqual(['2']);
+    const facts = f.evidence.snapshot();
+    expect(facts).toHaveLength(3);
+    expect(facts[0].traceChain?.map(node => node.detail)).toEqual([
+      'inspect [REDACTED] selections', 'load [REDACTED] school page', 'collect School IDs for pagination']);
+    expect(JSON.stringify(facts)).not.toContain('Alpha');
+    expect(JSON.stringify(f.diagnostics)).not.toContain('Alpha');
+  } finally { await f.client.close(); }
+});
+
+it.each([true, false])('preserves explicit facet SUM comments and rejects blank input with logging=%p', async logging => {
+  for (const comment of ['sum visible school IDs', '', ' \t', '\u0085']) {
+    const f = await fixture(logging);
+    try {
+      const sum = new SelectQuery('School').aggregate('Sum', 'id', 'schoolTotal').comment(comment);
+      const originalSum = JSON.stringify(sum);
+      const values = new SelectQuery('Platform').limit(10).comment('load platform facets')
+        .aggregate('Count', 'id', 'schoolCount').relationAggregate('schools', 'schoolTotal', sum);
+      const outer = new SelectQuery('School').limit(10).comment('load schools').purpose('render school list')
+        .facetBy('platforms', 'platform', { toQuery: () => values }, false,
+          { kind: 'facet', method: 'facetByPlatformAs', alias: 'platforms', relation: 'platform' });
+      if (comment !== 'sum visible school IDs') {
+        await expect(executeRelationFacets(f.client, query => query, outer, outer.facets)).rejects.toThrow();
+        expect(f.evidence.snapshot().every(entry => (entry.traceChain ?? []).length <= 4)).toBe(true);
+        continue;
+      }
+      const results = await executeRelationFacets(f.client, query => query, outer, outer.facets);
+      expect(results.platforms.map(row => [row.id, row.schoolTotal])).toEqual([['1', 3], ['2', 3]]);
+      const facts = f.evidence.snapshot();
+      expect(facts).toHaveLength(3);
+      expect(f.diagnostics).toHaveLength(logging ? 3 : 0);
+      const aggregateFacts = facts.filter(entry => {
+        const chain = entry.traceChain ?? [];
+        return chain[chain.length - 1]?.detail === comment;
+      });
+      expect(aggregateFacts).toHaveLength(1);
+      expect((aggregateFacts[0].traceChain ?? []).map(node => node.detail)).toEqual(['render school list', 'load schools',
+          "facetByPlatformAs('platforms')", 'aggregate platform', comment]);
+      expect(sum.commentText).toBe(comment);
+      expect(JSON.stringify(sum)).toBe(originalSum);
+    } finally { await f.client.close(); }
+  }
 });
 
 it.each([[true, 0], [true, 32], [false, 0], [false, 32]])(

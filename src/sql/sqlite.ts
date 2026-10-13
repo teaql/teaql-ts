@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { startStandardNodeTelemetry } from '../telemetry/standard-node';
 import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
@@ -208,5 +209,6 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
 export class SQLiteTeaQLClient extends AbstractSQLTeaQLClient {
   constructor(filename: string, schemas: Record<string, EntitySchema>) {
     super(new SQLiteDriver(filename), schemas);
+    this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
   }
 }

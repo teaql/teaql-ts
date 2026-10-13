@@ -3,6 +3,7 @@ import { UserContext } from '../core/context';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { SelectQuery } from '../core/ast';
 import { GraphMutationSession, MutationIntent } from '../core/request-intent';
+import type { QueryOperation } from '../core/request-intent';
 import { TraceNode } from '../core/trace-chain';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
@@ -68,15 +69,16 @@ export interface TeaQLSqlDriver extends SqlSession {
 }
 export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder: (index: number) => string, entity: string, floor: string): Promise<void>;
 export interface TeaQLDataService {
+    withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
     executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
     executeMutation(mutation: any): Promise<MutationResult>;
     executeQuery<T = any>(query: any): Promise<T[]>;
-    executeCount(query: any): Promise<number>;
+    executeCount(query: any, alias?: string, operation?: QueryOperation): Promise<number>;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
-    executeFacetMembership?(outerQuery: any, relationName: string): Promise<Map<string, number>>;
+    executeFacetMembership?(outerQuery: any, relationName: string, countAliases?: readonly string[]): Promise<Map<string, number>>;
     close?(): Promise<void>;
 }
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
@@ -94,6 +96,8 @@ export type SQLExecutionMetadata = Readonly<{
     purpose?: string;
     auditReason?: string;
     tracePath: readonly SQLTraceFrame[];
+    /** Root intent and immutable request-parent comments, distinct from the physical route. */
+    traceChain?: readonly TraceNode[];
     /** Business responsibility, not the physical SQL route. */
     mutationLineage?: readonly TraceNode[];
     parameterizedSQL: string;
@@ -159,6 +163,9 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private queryLoggingEnabled;
     private mutationLoggingEnabled;
     private runtimeTelemetry?;
+    private telemetryStartup?;
+    private standardTelemetryHandle?;
+    private customTelemetry;
     private readonly checkers;
     private userContext;
     private bootstrap;
@@ -184,6 +191,10 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     setQueryLoggingEnabled(enabled: boolean): this;
     setMutationLoggingEnabled(enabled: boolean): this;
     setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this;
+    /** Node provider startup hook. Optional module initialization remains fail-open. */
+    protected attachStandardTelemetryStartup(startup: Promise<import('../telemetry/standard-node').StandardTelemetryHandle | undefined>): void;
+    flushTelemetry(): Promise<void>;
+    withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
     private recordSQL;
     private queryLogIntent;
     private executeLoggedSQL;
@@ -216,8 +227,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private queryTreeBindings;
     private executeQueryWithIntent;
     private prepareIdSetPage;
-    executeFacetMembership(outerQuery: SelectQuery, relationName: string): Promise<Map<string, number>>;
-    executeCount(query: any): Promise<number>;
+    executeFacetMembership(outerQuery: SelectQuery, relationName: string, countAliases?: readonly string[]): Promise<Map<string, number>>;
+    executeCount(query: any, countAlias?: string, operation?: QueryOperation): Promise<number>;
     private prepareContinuousPage;
     private registerContinuousPage;
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;

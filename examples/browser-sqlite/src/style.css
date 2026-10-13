@@ -7,3 +7,8 @@ h1 { margin: 8px 0; font-size: clamp(36px, 7vw, 68px); letter-spacing: -.05em; }
 button { border: 0; border-radius: 5px; padding: 10px 14px; background: #d9ff52; font-weight: 800; }
 #status { color: #aab4c4; }
 pre { min-height: 260px; padding: 22px; overflow: auto; border: 1px solid #2b323e; border-radius: 8px; background: #11151c; color: #c6d1df; }
+.evidence-scroll { overflow-x: auto; margin: 24px 0; }
+.evidence-table { border-collapse: collapse; width: 100%; text-align: left; }
+.evidence-table th, .evidence-table td { padding: 12px; border: 1px solid #2b323e; vertical-align: top; }
+.evidence-table td { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 110px; }
+.evidence-table td:last-child { min-width: 320px; font-family: monospace; }

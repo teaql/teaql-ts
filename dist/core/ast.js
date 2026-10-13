@@ -72,12 +72,13 @@ class SelectQuery {
         this.purposeText = text;
         return this;
     }
-    facetBy(facetName, relationName, request, includeAllFacets = true) {
+    facetBy(facetName, relationName, request, includeAllFacets = true, operation) {
         this.facets.push({
             facetName,
             relationName,
             query: request.toQuery(),
             includeAllFacets,
+            operation,
         });
         return this;
     }
@@ -186,12 +187,12 @@ class SelectQuery {
         this.relations.push({ name });
         return this;
     }
-    relationQuery(name, query, localKey = 'id', foreignKey = 'id', many = true) {
-        this.relations.push({ name, query, localKey, foreignKey, many });
+    relationQuery(name, query, localKey = 'id', foreignKey = 'id', many = true, operation) {
+        this.relations.push({ name, query, localKey, foreignKey, many, operation });
         return this;
     }
-    relationAggregate(relationName, alias, query, singleResult = true) {
-        this.relationAggregates.push({ relationName, alias, query, singleResult });
+    relationAggregate(relationName, alias, query, singleResult = true, operation) {
+        this.relationAggregates.push({ relationName, alias, query, singleResult, operation });
         return this;
     }
     order(orderBy) {

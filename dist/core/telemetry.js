@@ -67,6 +67,14 @@ function startRuntimeOperation(telemetry, operation) {
         const delegate = telemetry.start(safeRuntimeOperation(operation));
         let ended = false;
         return {
+            correlation: () => {
+                try {
+                    return delegate.correlation?.();
+                }
+                catch {
+                    return undefined;
+                }
+            },
             run: delegate.run
                 ? (work) => delegate.run(work)
                 : (work) => work(),

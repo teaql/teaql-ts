@@ -198,9 +198,10 @@ export class WorkItemExpression {
                 new TeaQLNotLoadedError(this.root, path, 'platform'),
             );
         }
-        const relation = this.value.platform;
+        const reference = this.value.platform;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof Platform
+                ? reference.id : reference as string | number | undefined,
         );
     }
 

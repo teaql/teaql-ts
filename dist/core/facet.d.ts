@@ -2,7 +2,7 @@ import { FacetRequest, SelectQuery } from './ast';
 import { SmartList, SmartListRecord } from './smart-list';
 export interface FacetQueryService {
     executeQuery(query: SelectQuery): Promise<SmartListRecord[]>;
-    executeFacetMembership?(outerQuery: SelectQuery, relationName: string): Promise<Map<string, number>>;
+    executeFacetMembership?(outerQuery: SelectQuery, relationName: string, countAliases?: readonly string[]): Promise<Map<string, number>>;
 }
 /**
  * Execute relation facets without crossing entity boundaries with the outer

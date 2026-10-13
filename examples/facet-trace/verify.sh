@@ -11,7 +11,7 @@ fingerprint() {
 fingerprint > "$facet_run_directory/library-before.sha256"
 # Always rebuild repository runtime outputs before exercising a file: dependency.
 (cd "$repo" && npm run build) > "$facet_run_directory/runtime-build.log" 2>&1
-(cd "$example" && npm install --prefer-offline --no-audit --no-fund && npm run build) > "$facet_run_directory/compile.log" 2>&1
+(cd "$example" && npm_config_package_lock=false npm install --prefer-offline --no-audit --no-fund && npm run build) > "$facet_run_directory/compile.log" 2>&1
 (cd "$example" && node -e 'const fs=require("node:fs"), path=require("node:path");
   const actual=fs.realpathSync(require.resolve("teaql-ts"));
   if(actual!==path.join(fs.realpathSync("../.."),"dist/index.js")) throw Error("runtime must resolve repository dist");

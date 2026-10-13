@@ -1,0 +1,19 @@
+{
+  "src/generated-bootstrap.ts": "5f3065c1e4794c0d21ada7c2eef48f4694cec1cbc4771fa48bc7d6ff9221540b",
+  "src/generated-search-models.ts": "7ece2e29eeb80306d09623c8685c8a0b8d3b25aad6b38f845d5c9f069bd6f7a3",
+  "src/generated/E.ts": "940a5dfa19912a7973ac44879488b37132d981cd3325f7f28aefdef0480c7542",
+  "src/generated/Q.ts": "e03153a1477298d4b6568bdeab1b98cab21bf98fcafd6a2fb248a1129db0b46f",
+  "src/generated/models/Customer.ts": "5ff4b46a58b2dad54858b7ed444f3b78c49941b8e01b150008d6f48ae11cc067",
+  "src/generated/models/CustomerOrder.ts": "94168486fb9dffd2f99296bf93eb0bfcfa83744d4516e706f8b144cec8317f1a",
+  "src/generated/models/OrderItem.ts": "e2884b4013b7478d8e3083b1a18ed9b3321c19b49004249b5486a31385c6797e",
+  "src/generated/models/OrderStatus.ts": "2bb7bfe245ab3dd75ca4359037769a3f760c90fed5ac214032f008c90fb39c14",
+  "src/generated/models/Platform.ts": "55d9146a4b42929e4f206beb9288921dfaee5c08ac9616100898d4c6e7817c5a",
+  "src/generated/requests/CustomerOrderRequest.ts": "167326d997fa314411fdad1349ea34aef3c1232c2c469253714318905f041744",
+  "src/generated/requests/CustomerRequest.ts": "7c1dfc760a67d523579ef0758731d7c6772930d8360e5594a37926aa5df3e5f3",
+  "src/generated/requests/OrderItemRequest.ts": "ee3fe2e2d3dc6eae0c1ff1697cb7f73626595682dd2b5a87218b855287468c0a",
+  "src/generated/requests/OrderStatusRequest.ts": "fbb8ed0507ec80f4b9a5d0d260f7e08ecc524d56cc4b78166326750629cfec24",
+  "src/generated/requests/PlatformRequest.ts": "dcf958694498114f744ea59570dc92e4fd2e93b84ddb2c831af99be04b08c2b7",
+  "src/runtime-module.ts": "f92fe9a9474678d26a233eb734b14493b4ddc216ed3b648bfad723b4b6a46eeb",
+  "src/teaql-schemas.ts": "68cb7cacc725ff041d2289f17d7817ae56f37d035c92f2feb6c1318face6f806",
+  "src/teaql-ts.ts": "cc705f9f7873450eae541311317db3402dc40b7cf068c440169bd7ba06dcb1ed"
+}

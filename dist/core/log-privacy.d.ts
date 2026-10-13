@@ -18,4 +18,6 @@ export declare function privateLogValueStrings(source?: SQLLogBindingSource): st
  * Never attach this raw provenance to a query payload or projected log record. */
 export declare function inheritSQLLogBindings(source: SQLLogBindingSource, inherited?: SQLLogBindingSource): SQLLogBindingSource;
 export declare function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLogBindingSource, intentValues?: readonly unknown[]): SQLExecutionMetadata;
+/** Telemetry always uses safe mode even when local plaintext debugging is enabled. */
+export declare function projectSafeSQLLog(metadata: SQLExecutionMetadata): SQLExecutionMetadata;
 //# sourceMappingURL=log-privacy.d.ts.map

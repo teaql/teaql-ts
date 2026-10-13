@@ -58,12 +58,14 @@ async function main() {
         sql.enableAll();audits.length=0;context.calls=0;
         const request=Q.customerOrders().withDescriptionIs(group)
           .selectOrderItemListWith(Q.orderItems().withNameIs(privateName).limit(2))
-          .orderByIdAscending().limit(3).comment(`inspect ${privateName} ${group}`).purpose(`verify ${privateName} ${group}`);
+          .orderByIdAscending().limit(3).comment(`inspect ${privateName} ${group}`);
         let page;
-        if(paged)page=await request.executeForPage(context,1,2);
+        if(paged)page=await request.offset(1).limit(2).count()
+          .purpose(`verify ${privateName} ${group}`).executeForList(context);
         else {
-          const data=mode==='list'?Array.from(await request.executeForList(context)):[];
-          if(mode==='stream')for await(const entity of request.executeForStream(context,1))data.push(entity);
+          const executable=request.purpose(`verify ${privateName} ${group}`);
+          const data=mode==='list'?Array.from(await executable.executeForList(context)):[];
+          if(mode==='stream')for await(const entity of executable.executeForStream(context,1))data.push(entity);
           page={data,totalCount:undefined};
         }
         assert.equal(page.totalCount,paged?3:undefined,'count and data must use the same Context-scoped request');
@@ -80,7 +82,9 @@ async function main() {
           return child.id!;
         });
         const statements=sql.snapshot();
-        assert.equal(statements.filter(entry=>entry.parameterizedSQL.includes('__teaql_total')).length,paged?1:0);
+        assert.equal(statements.filter(entry=>entry.traceChain?.some(node=>
+          node.kind==='comment' && node.detail==='count()')).length,paged?1:0,
+          'only explicit count() creates the total query; no retired page-route alias');
         assert.equal(statements.length,paged?4:3,'only count (if requested), root and two SQLite child probes execute');
         assert(!JSON.stringify(statements).includes(privateName),'page/count/relation logs must mask child source');
         for(const entry of statements){

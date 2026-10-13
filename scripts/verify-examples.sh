@@ -13,6 +13,11 @@ if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2
   exit 1
 fi
+if rg -n --glob '*.ts' --glob '!**/node_modules/**' --glob '!**/dist/**' \
+    '\b(executeForPage|ExecuteForPage|execute_for_page)\b' "$repo/examples"; then
+  echo 'FAIL: an example still exposes or calls a retired page terminal; regenerate its library' >&2
+  exit 1
+fi
 
 for example in conformance ensure-schema-bootstrap school-management; do
   (
@@ -28,7 +33,7 @@ for example in conformance ensure-schema-bootstrap school-management; do
 done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
 (cd "$repo/examples/task-board" && npm install && npm run build)
-(cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke)
+(cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke && npm run smoke:orders)
 (
   cd "$repo/examples/trace-chain"
   npm install
@@ -41,6 +46,19 @@ done
     rg -Fxq 'PASS TypeScript generated trace-chain example: 7 checks' "$graph_log"
     [[ "$(rg -c '^PRIVATE_LINEAGE_OBSERVED ' "$graph_log")" == 8 ]]
     [[ "$(rg -c '^PASS TypeScript complete private lineage:' "$graph_log")" == 8 ]]
+  done
+  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry
+  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry
+  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry-graph
+  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry-graph
+  response_directory="$(mktemp -d -t teaql-ts-response-example.XXXXXXXX)"
+  for attempt in 1 2; do
+    response_log="$response_directory/round-$attempt.log"
+    env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT \
+      TEAQL_STANDARD_RESPONSE_DB="$response_directory/graphs.sqlite" \
+      node node_modules/ts-node/dist/bin.js standard-export-responses.ts | tee "$response_log"
+    rg -Fxq 'PASS TypeScript standard response graph: create, rollback, retry, update, delete, Q/E, committed audit' "$response_log"
+    rg -Fq "\"firstSeedAudits\":$((2-attempt)),\"repeatSeedAudits\":0" "$response_log"
   done
   env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference
   env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference

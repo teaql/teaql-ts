@@ -167,7 +167,9 @@ exports.MySQLDriver = MySQLDriver;
 class MySQLTeaQLClient extends core_1.AbstractSQLTeaQLClient {
     constructor(connectionString, schemas) {
         super(new MySQLDriver(connectionString), schemas);
+        this.attachStandardTelemetryStartup((0, standard_node_1.startStandardNodeTelemetry)());
     }
 }
 exports.MySQLTeaQLClient = MySQLTeaQLClient;
+const standard_node_1 = require("../telemetry/standard-node");
 //# sourceMappingURL=mysql.js.map

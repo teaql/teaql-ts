@@ -57,6 +57,12 @@
       "require": "./dist/sql/browser-sqlite-worker.js",
       "default": "./dist/sql/browser-sqlite-worker.js"
     },
+    "./telemetry/standard-node": {
+      "types": "./dist/telemetry/standard-node.d.ts",
+      "import": "./dist/esm/telemetry/standard-node.js",
+      "require": "./dist/telemetry/standard-node.js",
+      "default": "./dist/telemetry/standard-node.js"
+    },
     "./telemetry/opentelemetry": {
       "types": "./dist/telemetry/opentelemetry.d.ts",
       "import": "./dist/esm/telemetry/opentelemetry.js",
@@ -86,6 +92,9 @@
       ],
       "sql/browser-sqlite-worker": [
         "dist/sql/browser-sqlite-worker.d.ts"
+      ],
+      "telemetry/standard-node": [
+        "dist/telemetry/standard-node.d.ts"
       ]
     }
   },
@@ -122,6 +131,7 @@
     "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
     "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/otlp-transformer": "0.221.0",
     "@opentelemetry/sdk-logs": "^0.221.0",
     "@opentelemetry/sdk-metrics": "^2.10.0",
     "@opentelemetry/sdk-trace-base": "^2.10.0",
@@ -145,6 +155,16 @@
     "node-fetch": "^2.7.0"
   },
   "peerDependencies": {
+    "@opentelemetry/otlp-transformer": "0.221.0",
+    "@opentelemetry/core": "^2.10.0",
+    "@opentelemetry/context-async-hooks": "^2.10.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
+    "@opentelemetry/sdk-metrics": "^2.10.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.221.0",
     "@sqlite.org/sqlite-wasm": "3.53.0-build1",
@@ -155,6 +175,16 @@
     "pg-query-stream": "^4.7.0"
   },
   "peerDependenciesMeta": {
+    "@opentelemetry/otlp-transformer": { "optional": true },
+    "@opentelemetry/core": { "optional": true },
+    "@opentelemetry/context-async-hooks": { "optional": true },
+    "@opentelemetry/exporter-logs-otlp-http": { "optional": true },
+    "@opentelemetry/exporter-metrics-otlp-http": { "optional": true },
+    "@opentelemetry/exporter-trace-otlp-http": { "optional": true },
+    "@opentelemetry/resources": { "optional": true },
+    "@opentelemetry/sdk-logs": { "optional": true },
+    "@opentelemetry/sdk-metrics": { "optional": true },
+    "@opentelemetry/sdk-trace-base": { "optional": true },
     "@opentelemetry/api": {
       "optional": true
     },
