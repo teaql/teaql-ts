@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:," />
+  <title>TeaQL browser order TraceChain</title>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">GENERATED Q + E · SQLITE/WASM · NO BACKEND</p>
+    <h1>Order query evidence</h1>
+    <p>One filtered page, named total, status facets and bounded item previews.</p>
+    <p><a href="/">WorkItem demo</a> · <a href="https://github.com/teaql/teaql-ts">Runtime source</a></p>
+    <div class="controls">
+      <label><input id="persist" type="checkbox" /> Persist locally with OPFS</label>
+      <label><input id="logging" type="checkbox" checked /> Diagnostic logging</label>
+      <button id="reset">Reset demo data</button>
+    </div>
+    <label for="search">Search JSON, validated by the generated request</label>
+    <textarea id="search" rows="4" style="display:block;width:100%;margin:12px 0">{"filter":{"orderNumber":{"$contains":"KEEP"}}}</textarea>
+    <button id="query">Run query</button>
+    <button id="preset">Restore example search</button>
+    <p id="status">Starting SQLite/WASM…</p>
+    <h2>Response data and metadata</h2>
+    <pre id="result"></pre>
+    <h2>SQL execution evidence</h2>
+    <p>Time is the recorded execution duration. Identity is the request entity from tracePath, not a user or object ID.</p>
+    <div class="evidence-scroll">
+      <table class="evidence-table">
+        <thead><tr><th scope="col">Time</th><th scope="col">Identity</th><th scope="col">Trace chain</th><th scope="col">SQL</th></tr></thead>
+        <tbody id="evidence-rows"></tbody>
+      </table>
+    </div>
+    <details><summary>Business TraceChain as text</summary><pre id="trace"></pre></details>
+    <details><summary>Runtime metadata and physical tracePath</summary><pre id="sql"></pre></details>
+  </main>
+  <script type="module" src="/src/orders.ts"></script>
+</body>
+</html>

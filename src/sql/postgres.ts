@@ -186,5 +186,7 @@ export class PostgreSQLDriver implements TeaQLSqlDriver {
 export class PostgreSQLTeaQLClient extends AbstractSQLTeaQLClient {
   constructor(connectionString: string, schemas: Record<string, EntitySchema>) {
     super(new PostgreSQLDriver(connectionString), schemas);
+    this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
   }
 }
+import { startStandardNodeTelemetry } from '../telemetry/standard-node';

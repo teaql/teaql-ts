@@ -61,6 +61,11 @@ class UserContext {
         this.locale = 'en';
         this.i18nCatalog = i18n_1.I18nCatalog.builtin;
     }
+    /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
+    async withQueryRequest(query, work) {
+        const service = this.requireResource('dataService');
+        return service.withQueryRequest ? service.withQueryRequest(query, work) : work();
+    }
     setLocaleCode(code) { const locale = (0, i18n_1.parseLocale)(code); this.locale = locale; return this; }
     setLanguageCode(code) { return this.setLocaleCode(code); }
     installI18nCatalog(catalog) { if (!catalog)

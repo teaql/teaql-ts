@@ -1,9 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.snapshotQuery = exports.retainQueryDiagnosticOrigin = exports.queryDiagnosticOrigin = void 0;
+exports.snapshotQuery = exports.retainQueryDiagnosticOrigin = exports.queryDiagnosticOrigin = exports.retainQueryExecutionOwner = exports.queryExecutionOwner = void 0;
 // Internal execution plumbing. Never export provenance from the public facade
 // or store it as a JSON/symbol property on a builder, entity or Context.
 const origins = new WeakMap();
+const requestOwners = new WeakMap();
+/** Internal capability: never a field on query JSON, entities or Context. */
+function queryExecutionOwner(query) { return requestOwners.get(query); }
+exports.queryExecutionOwner = queryExecutionOwner;
+function retainQueryExecutionOwner(query, owner) { requestOwners.set(query, owner); }
+exports.retainQueryExecutionOwner = retainQueryExecutionOwner;
 function queryDiagnosticOrigin(query) { return origins.get(query); }
 exports.queryDiagnosticOrigin = queryDiagnosticOrigin;
 function retainQueryDiagnosticOrigin(source, target) {
@@ -33,6 +39,9 @@ function snapshotQuery(value, seen = new Map()) {
     const origin = origins.get(value);
     if (origin)
         origins.set(copy, origin);
+    const owner = requestOwners.get(value);
+    if (owner)
+        requestOwners.set(copy, owner);
     return copy;
 }
 exports.snapshotQuery = snapshotQuery;

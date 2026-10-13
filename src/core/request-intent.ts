@@ -3,7 +3,7 @@ import { cloneTraceNodes, queryTraceSource, TraceNode, MutationTraceScope, mutat
 import type { EntityKey, EntityRoot } from './entity-root';
 import { inheritSQLLogBindings, logValueStrings, privateLogValueStrings, scrubLogText } from './log-privacy';
 import type { SQLLogBindingSource } from './log-privacy';
-import { snapshotQuery } from './query-snapshot';
+import { snapshotQuery, queryExecutionOwner, retainQueryExecutionOwner } from './query-snapshot';
 import { LoadedScalarSnapshot } from './loaded-scalar-snapshot';
 
 const mutationSnapshots = new WeakMap<object, LoadedScalarSnapshot>();
@@ -14,6 +14,49 @@ const querySources = new WeakMap<object, readonly TraceNode[]>();
 const graphRequests = new WeakMap<object, { session: GraphMutationSession;
   parent?: MutationTraceScope; localComment?: string }>();
 const scopeOwners = new WeakMap<MutationTraceScope, GraphMutationSession>();
+
+export type QueryOperation = Readonly<{
+  kind: 'named-count' | 'facet' | 'relation-count' | 'relation-select' | 'aggregate' | 'pagination';
+  /** Exact generator-supplied native method; absent for a low-level runtime operation. */
+  method?: string;
+  alias?: string;
+  relation?: string;
+}>;
+
+function operationSnapshot(operation: QueryOperation): QueryOperation {
+  if (!['named-count', 'facet', 'relation-count', 'relation-select', 'aggregate', 'pagination'].includes(operation.kind)
+    || (operation.method !== undefined && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(operation.method))
+    || (operation.alias !== undefined && typeof operation.alias !== 'string')
+    || (operation.relation !== undefined && typeof operation.relation !== 'string')) {
+    throw new Error('QUERY_OPERATION_INVALID: invalid generated operation descriptor');
+  }
+  return Object.freeze({ kind: operation.kind, method: operation.method,
+    alias: operation.alias, relation: operation.relation });
+}
+
+/** One native literal renderer for all count/facet aliases. Never parse SQL. */
+export function queryOperationComment(operation: QueryOperation): string {
+  const captured = operationSnapshot(operation);
+  const literal = (value: string) => "'" + value.replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + "'";
+  if (!captured.method) return 'framework: ' + captured.kind
+    + (captured.relation ? ' ' + captured.relation : '')
+    + (captured.alias !== undefined ? ' ' + literal(captured.alias) : '');
+  return captured.method + '(' + (captured.alias !== undefined ? literal(captured.alias)
+    : captured.kind === 'relation-select' ? '...' : '') + ')';
+}
+
+const requestBindingToken = Symbol('runtime request binding');
+type QueryBinding = {
+  [requestBindingToken]: true;
+  parent?: QueryRequest<any>;
+  comment: string;
+  name: string;
+  operation?: QueryOperation;
+  source: readonly TraceNode[];
+  invocation?: object;
+};
 
 export type RequestKind = 'query' | 'mutation';
 
@@ -76,47 +119,122 @@ export class MutationIntent {
 export class QueryRequest<T extends object = SelectQuery> {
   readonly #intent: QueryIntent;
   readonly #query: T;
+  readonly #parent?: QueryRequest<any>;
+  readonly #comment: string;
+  readonly #name: string;
+  readonly #operation?: QueryOperation;
+  readonly #invocation: object;
 
-  constructor(query: T, intent?: QueryIntent) {
+  constructor(query: T, intent?: QueryIntent, binding?: QueryBinding) {
     const source = query as any;
     this.#intent = intent === undefined
       ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText)
       : new QueryIntent(intent?.comment, intent?.purpose);
+    if (binding && binding[requestBindingToken] !== true)
+      throw new Error('QUERY_REQUEST_OWNERSHIP_INVALID: request binding is runtime-owned');
+    const previous = queryExecutionOwner(query);
+    const owner = previous instanceof QueryRequest
+      && previous.intent.comment === this.#intent.comment
+      && previous.purpose === this.#intent.purpose ? previous : undefined;
+    this.#invocation = binding?.invocation ?? (binding?.parent ? binding.parent.#invocation : undefined)
+      ?? (owner ? owner.#invocation : undefined) ?? Object.freeze({});
+    this.#parent = binding ? binding.parent : owner?.parentRequest;
+    this.#comment = requireText(binding?.comment ?? owner?.comment ?? this.#intent.comment, 'comment', 'query');
+    this.#name = binding?.name ?? owner?.requestName ?? String(source.entity ?? 'query');
+    this.#operation = binding?.operation ?? owner?.operation;
     this.#query = snapshotQuery(query);
     const captured = this.#query as any;
     // Internal derivations cannot pick a nested builder's different intent.
     for (const [field, value] of [
-      ['commentText', this.comment], ['purposeText', this.purpose],
-      ['_comment', this.comment], ['_purpose', this.purpose],
+      ['commentText', this.intent.comment], ['purposeText', this.purpose],
+      ['_comment', this.intent.comment], ['_purpose', this.purpose],
     ] as const) {
       Object.defineProperty(captured, field, { value, enumerable: !field.startsWith('_'),
         configurable: true, writable: false });
     }
-    querySources.set(captured, cloneTraceNodes(querySources.get(query)
-      ?? queryTraceSource(String(source.entity), this.comment, this.purpose)));
+    querySources.set(captured, cloneTraceNodes(binding?.source ?? owner?.traceSource ?? querySources.get(query)
+      ?? queryTraceSource(String(source.entity), this.intent.comment, this.purpose)));
+    retainQueryExecutionOwner(captured, this);
     Object.freeze(this);
   }
 
   get intent(): QueryIntent { return this.#intent; }
   get query(): T { return this.#query; }
-  get comment(): string { return this.#intent.comment; }
+  get comment(): string { return this.#comment; }
   get purpose(): string { return this.#intent.purpose; }
   get traceSource(): readonly TraceNode[] { return querySources.get(this.#query)!; }
+  get parentRequest(): QueryRequest<any> | undefined { return this.#parent; }
+  get rootRequest(): QueryRequest<any> {
+    let root: QueryRequest<any> = this;
+    while (root.parentRequest) root = root.parentRequest;
+    return root;
+  }
+  get requestName(): string { return this.#name; }
+  get operation(): QueryOperation | undefined { return this.#operation; }
+  get traceChain(): readonly TraceNode[] {
+    const comments: TraceNode[] = [];
+    for (let node: QueryRequest<any> | undefined = this; node; node = node.parentRequest)
+      comments.push({ kind: 'comment', name: node.requestName, detail: node.comment });
+    return cloneTraceNodes([{ kind: 'purpose', name: this.rootRequest.requestName, detail: this.purpose },
+      ...comments.reverse()]);
+  }
 
   /** Runtime derivation preserves this invocation's source across builder clones. */
   withQuery<Q extends object>(query: Q): QueryRequest<Q> {
-    const request = new QueryRequest(query, this.intent);
-    querySources.set(request.query, cloneTraceNodes(this.traceSource));
-    return request;
+    const previous = queryExecutionOwner(query);
+    if (previous instanceof QueryRequest && previous.#invocation !== this.#invocation) {
+      throw new Error('QUERY_SCOPE_OWNER_MISMATCH: replacement belongs to another query invocation');
+    }
+    return new QueryRequest(query, this.intent, { [requestBindingToken]: true,
+      parent: this.parentRequest, comment: this.comment, name: this.requestName,
+      operation: this.operation, source: this.traceSource, invocation: this.#invocation });
   }
 
-  /** Append one local relation and its qualified property; never accept caller frames. */
-  derive<Q extends object>(query: Q, relation: string): QueryRequest<Q> {
-    const request = this.withQuery(query);
-    querySources.set(request.query, cloneTraceNodes([...this.traceSource, {
+  /** A real operation child need not execute SQL itself; descendants retain it. */
+  deriveOperation<Q extends object>(query: Q, operation: QueryOperation): QueryRequest<Q> {
+    const captured = operationSnapshot(operation);
+    return new QueryRequest(query, this.intent, { [requestBindingToken]: true,
+      parent: this, comment: queryOperationComment(captured), name: String((query as any).entity ?? this.requestName),
+      operation: captured, source: this.traceSource });
+  }
+
+  /** Local description for work created by the framework, never a root authorization. */
+  deriveHelper<Q extends object>(query: Q, comment: string): QueryRequest<Q> {
+    return new QueryRequest(query, this.intent, { [requestBindingToken]: true,
+      parent: this, comment: requireText(comment, 'comment', 'query'),
+      name: String((query as any).entity ?? this.requestName), source: this.traceSource });
+  }
+
+  /** Preserve the Q-operation parent and the actual nested request's own comment. */
+  derive<Q extends object>(query: Q, relation: string, operation?: QueryOperation): QueryRequest<Q> {
+    const parent = this.deriveOperation(this.query, operation ?? { kind: 'relation-select', relation });
+    return parent.deriveChild(query, relation);
+  }
+
+  /** Aggregates execute their operation; an anonymous template is not a value load. */
+  deriveAggregate<Q extends object>(query: Q, relation: string, operation: QueryOperation): QueryRequest<Q> {
+    const facet = this.parentRequest?.operation?.kind === 'facet' ? this.parentRequest : undefined;
+    const branch = facet
+      ? facet.deriveHelper(query, 'aggregate ' + facet.operation!.relation)
+      : this.deriveOperation(query, operation);
+    const physical = [...this.traceSource, { kind: 'relation' as const, name: relation,
+      detail: `${String((this.query as any).entity)}.${relation}` }];
+    const scoped = new QueryRequest(query, this.intent, { [requestBindingToken]: true,
+      parent: branch.parentRequest, comment: branch.comment, name: branch.requestName,
+      operation: branch.operation, source: physical });
+    const comment = (query as any)._comment ?? (query as any).commentText;
+    return comment === undefined ? scoped : scoped.deriveChild(query);
+  }
+
+  /** Bind a framework helper or value query below an existing operation parent. */
+  deriveChild<Q extends object>(query: Q, relation?: string, defaultComment?: string): QueryRequest<Q> {
+    const source = query as any;
+    const comment = source._comment ?? source.commentText;
+    return new QueryRequest(query, this.intent, { [requestBindingToken]: true,
+      parent: this, comment: comment === undefined ? (defaultComment ?? 'load ' + String(source.entity)) : requireText(comment, 'comment', 'query'),
+      name: String(source.entity), source: relation === undefined ? this.traceSource : [...this.traceSource, {
       kind: 'relation', name: relation, detail: `${String((this.query as any).entity)}.${relation}`,
-    }]));
-    return request;
+    }] });
   }
 }
 

@@ -156,7 +156,9 @@ exports.PostgreSQLDriver = PostgreSQLDriver;
 class PostgreSQLTeaQLClient extends core_1.AbstractSQLTeaQLClient {
     constructor(connectionString, schemas) {
         super(new PostgreSQLDriver(connectionString), schemas);
+        this.attachStandardTelemetryStartup((0, standard_node_1.startStandardNodeTelemetry)());
     }
 }
 exports.PostgreSQLTeaQLClient = PostgreSQLTeaQLClient;
+const standard_node_1 = require("../telemetry/standard-node");
 //# sourceMappingURL=postgres.js.map

@@ -1,8 +1,35 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.normalizeDynamicSearch = exports.mergeDynamicSearch = void 0;
+exports.normalizeDynamicSearch = exports.mergeDynamicSearch = exports.mergeGeneratedScalarSearch = void 0;
 /** Local UI-search normalization. This is deliberately not a federation decoder. */
 const ast_1 = require("./ast");
+/**
+ * Default generated binding for scalar fields. Known relation paths require a
+ * trusted application binding via mergeDynamicSearch, which owns authorization.
+ * No relation predicate is guessed or silently dropped.
+ */
+function mergeGeneratedScalarSearch(base, source, models, warn) {
+    const field = (path) => {
+        if (path.includes('.'))
+            throw new Error('Dynamic search requires a trusted relation binding');
+        const fields = models[base.entity]?.queryFields;
+        if (!fields || !Object.prototype.hasOwnProperty.call(fields, path)) {
+            throw new Error('Missing generated scalar search binding');
+        }
+        return fields[path];
+    };
+    return mergeDynamicSearch(base, source, models, {
+        filter: (path, predicate) => {
+            const [operator, value] = Object.entries(predicate)[0];
+            if (value === null && operator !== '$eq' && operator !== '$ne') {
+                throw new Error('Null supports only equality predicates');
+            }
+            return { [field(path)]: predicate };
+        },
+        order: (path, direction) => direction === 'asc' ? ast_1.OrderBy.asc(field(path)) : ast_1.OrderBy.desc(field(path)),
+    }, warn);
+}
+exports.mergeGeneratedScalarSearch = mergeGeneratedScalarSearch;
 /** Add validated search clauses to an existing scoped query; never replace its policies. */
 function mergeDynamicSearch(base, source, models, bindings, warn = warning => console.warn({ ...warning, fieldPath: '<omitted>' })) {
     const normalized = normalizeDynamicSearch(source, base.entity, models, () => { });
@@ -109,6 +136,8 @@ function normalizeDynamicSearch(source, entity, models, warn = warning => consol
             missing(path, 'FILTER');
             continue;
         }
+        if (type === 'unsupported')
+            throw new Error('Known search field has no supported scalar binding');
         if (operator === '$contains' && type !== 'string')
             throw new Error('String operator requires a string field');
         if (Array.isArray(value)) {
@@ -125,10 +154,13 @@ function normalizeDynamicSearch(source, entity, models, warn = warning => consol
             || typeof order.field !== 'string' || !['asc', 'desc'].includes(order.direction)) {
             throw new Error('Invalid dynamic search ordering');
         }
-        if (fieldType(order.field) === undefined) {
+        const type = fieldType(order.field);
+        if (type === undefined) {
             missing(order.field, 'ORDER_BY');
             continue;
         }
+        if (type === 'unsupported')
+            throw new Error('Known search field has no supported scalar binding');
         search.orderBy.push({ field: order.field, direction: order.direction });
     }
     // Publish diagnostics only after all fatal validation completes; never log source values.

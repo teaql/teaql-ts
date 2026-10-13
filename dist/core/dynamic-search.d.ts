@@ -1,10 +1,23 @@
 /** Local UI-search normalization. This is deliberately not a federation decoder. */
 import { OrderBy, SelectQuery } from './ast';
-export type SearchValueType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'timestamp' | 'decimal';
+export type SearchValueType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'timestamp' | 'decimal' | 'unsupported';
 export interface SearchModel {
     fields: Readonly<Record<string, SearchValueType>>;
     relations: Readonly<Record<string, string>>;
 }
+/** Model-derived scalar bindings. Native query keys are trusted, not input JSON. */
+export interface GeneratedSearchModel extends SearchModel {
+    queryFields: Readonly<Record<string, string>>;
+}
+/**
+ * Default generated binding for scalar fields. Known relation paths require a
+ * trusted application binding via mergeDynamicSearch, which owns authorization.
+ * No relation predicate is guessed or silently dropped.
+ */
+export declare function mergeGeneratedScalarSearch(base: SelectQuery, source: unknown, models: Readonly<Record<string, GeneratedSearchModel>>, warn?: (warning: DynamicSearchWarning) => void): {
+    query: SelectQuery;
+    warnings: DynamicSearchWarning[];
+};
 export interface DynamicSearchWarning {
     code: 'DYNAMIC_SEARCH_UNKNOWN_FIELD';
     entity: string;

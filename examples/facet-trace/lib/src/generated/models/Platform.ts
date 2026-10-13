@@ -18,61 +18,54 @@ export class Platform {
         Object.defineProperty(this, "_loadedFields", { value: new Set(Object.keys(init || {})), writable: true, enumerable: false });
         Object.defineProperty(this, "_root", { value: new EntityRoot(), writable: true, enumerable: false });
         Object.defineProperty(this, "_ledgerId", { value: init?.id ?? --Platform.teaqlTemporaryId, writable: true, enumerable: false });
-        Object.defineProperty(this, "_schoolTypeList", { value: SmartList.empty<SchoolType>(), writable: true, enumerable: false });
-        Object.defineProperty(this, "_schoolList", { value: SmartList.empty<School>(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_schoolTypeList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_schoolList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
         if (init) {
             const fields: Record<string, unknown> = { ...(init as Record<string, unknown>) };
             delete fields["schoolTypeList"];
             delete fields["schoolList"];
             Object.assign(this, fields);
             if (Array.isArray((init as any).schoolTypeList)) {
-                const source = (init as any).schoolTypeList;
-                (this as any)._schoolTypeList = new SmartList<SchoolType>(source.map(
+                const selected = (init as any).schoolTypeList;
+                (this as any)._schoolTypeList = new SmartList(selected.map(
                     (child: unknown) => child instanceof SchoolType
                         ? child
                         : SchoolType.fromRecord(child as Record<string, unknown>),
-                ), source instanceof SmartList ? {
-                    totalCount: source.totalCount, aggregations: source.aggregations,
-                    summary: source.summary, facets: source.facets, isLoaded: source.isLoaded,
-                } : { isLoaded: true });
+                ), { totalCount: selected.totalCount, aggregations: selected.aggregations,
+                    summary: selected.summary, facets: selected.facets, isLoaded: selected.isLoaded ?? true });
                 this.markLoaded("schoolTypeList");
             }
             if (Array.isArray((init as any).schoolList)) {
-                const source = (init as any).schoolList;
-                (this as any)._schoolList = new SmartList<School>(source.map(
+                const selected = (init as any).schoolList;
+                (this as any)._schoolList = new SmartList(selected.map(
                     (child: unknown) => child instanceof School
                         ? child
                         : School.fromRecord(child as Record<string, unknown>),
-                ), source instanceof SmartList ? {
-                    totalCount: source.totalCount, aggregations: source.aggregations,
-                    summary: source.summary, facets: source.facets, isLoaded: source.isLoaded,
-                } : { isLoaded: true });
+                ), { totalCount: selected.totalCount, aggregations: selected.aggregations,
+                    summary: selected.summary, facets: selected.facets, isLoaded: selected.isLoaded ?? true });
                 this.markLoaded("schoolList");
             }
         }
         const key = this.teaqlEntityKey();
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, Number((this as any).version));
-        Object.defineProperty(this, "_loadedSnapshot", { value: (this as any)._action === "Update"
-            ? this.teaqlScalarSnapshot() : new LoadedScalarSnapshot(), writable: true, enumerable: false });
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload());
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "Platform", id: (this as any)._ledgerId }; }
-    private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
+    private teaqlAttachRoot(root: EntityRoot): this {
         if ((this as any)._root !== root) {
-            const source = (this as any)._root as EntityRoot;
-            const key = this.teaqlEntityKey();
-            root.mergeEntityFrom(source, key);
-            if (hydration || source.hasPending(key)) (this as any)._root = root;
+            root.mergeEntityFrom((this as any)._root, this.teaqlEntityKey());
+            (this as any)._root = root;
         }
-        for (const child of (this as any)._schoolTypeList) child.teaqlAttachRoot(root, hydration);
-        for (const child of (this as any)._schoolList) child.teaqlAttachRoot(root, hydration);
+        for (const child of (this as any)._schoolTypeList) child.teaqlAttachRoot(root);
+        for (const child of (this as any)._schoolList) child.teaqlAttachRoot(root);
         return this;
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): Platform {
         const entity = new Platform(record as Partial<Platform>);
-        return root ? entity.teaqlAttachRoot(root, true) : entity;
+        return root ? entity.teaqlAttachRoot(root) : entity;
     }
 
     isLoaded(field: string): boolean {
@@ -106,21 +99,22 @@ export class Platform {
     }
 
     auditAs(comment: string): this {
-        (this as any)._comment = new MutationIntent(comment).comment;
+        new MutationIntent(comment);
+        (this as any)._comment = comment;
         return this;
     }
 
     async save(context: UserContext): Promise<Platform> {
-        const intent = new MutationIntent((this as any)._comment);
         const service = context.requireResource<TeaQLDataService>("dataService");
-        return service.executeGraphSave(intent, async graph => {
+        return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             this.teaqlPreflightGraph(context, service, graph);
             return this.teaqlSaveWithinGraph(context, service, graph);
         });
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
+        if (!parent) new MutationIntent((this as any)._comment);
         const action = (this as any)._action;
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
@@ -134,21 +128,23 @@ export class Platform {
                 }]);
             }
         }
-        if (pending) service.preflightMutation(graph.request({
+        const request = graph.request({
             entity: "Platform", action,
             payload: action === "Update"
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
-            id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            id: (this as any).id, version: (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
-        }).withLoadedSnapshot((this as any)._loadedSnapshot));
+        }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
+        if (pending) service.preflightMutation(request);
+        const scope = request.scopeFor(this.teaqlEntityKey());
         for (const [index, child] of (this as any)._schoolTypeList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            if (this.id === undefined || String((child.platform as any)?.id ?? child.platform) !== String(this.id))
-                child.updatePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph); }
+            const currentParent = child.platform;
+            if (this.id === undefined || !child.isLoaded("platform") || (typeof currentParent === "object" && currentParent !== null
+                ? currentParent.id : currentParent) !== this.id) child.updatePlatform(this);
+            try { child.teaqlPreflightGraph(context, service, graph, scope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_type_list").index(index);
@@ -159,9 +155,10 @@ export class Platform {
         }
         for (const [index, child] of (this as any)._schoolList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            if (this.id === undefined || String((child.platform as any)?.id ?? child.platform) !== String(this.id))
-                child.updatePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph); }
+            const currentParent = child.platform;
+            if (this.id === undefined || !child.isLoaded("platform") || (typeof currentParent === "object" && currentParent !== null
+                ? currentParent.id : currentParent) !== this.id) child.updatePlatform(this);
+            try { child.teaqlPreflightGraph(context, service, graph, scope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_list").index(index);
@@ -173,8 +170,8 @@ export class Platform {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService,
-        graph: GraphMutationSession, parent?: MutationTraceScope): Promise<Platform> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<Platform> {
+        if (!parent) new MutationIntent((this as any)._comment);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -182,20 +179,21 @@ export class Platform {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
         };
         const request = graph.request(mutation, parent, (this as any)._comment)
-            .withLoadedSnapshot((this as any)._loadedSnapshot);
+            .withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
         if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
-            const activeScope = request.scopeFor(this.teaqlEntityKey());
+            const scope = request.scopeFor(this.teaqlEntityKey());
             for (const [index, child] of (this as any)._schoolTypeList.entries()) {
                 child.teaqlAttachRoot((this as any)._root);
-                if (this.id === undefined || String((child.platform as any)?.id ?? child.platform) !== String(this.id))
-                    child.updatePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+                const currentParent = child.platform;
+                if (this.id === undefined || !child.isLoaded("platform") || (typeof currentParent === "object" && currentParent !== null
+                    ? currentParent.id : currentParent) !== this.id) child.updatePlatform(this);
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("school_type_list").index(index);
@@ -206,9 +204,10 @@ export class Platform {
             }
             for (const [index, child] of (this as any)._schoolList.entries()) {
                 child.teaqlAttachRoot((this as any)._root);
-                if (this.id === undefined || String((child.platform as any)?.id ?? child.platform) !== String(this.id))
-                    child.updatePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+                const currentParent = child.platform;
+                if (this.id === undefined || !child.isLoaded("platform") || (typeof currentParent === "object" && currentParent !== null
+                    ? currentParent.id : currentParent) !== this.id) child.updatePlatform(this);
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("school_list").index(index);
@@ -232,30 +231,33 @@ export class Platform {
             action: (this as any)._action,
             loadedFields: new Set((this as any)._loadedFields),
             fullyLoaded: (this as any)._fullyLoaded,
+            loadedSnapshot: LoadedScalarSnapshot.forEntity(this),
         };
         const oldKey = this.teaqlEntityKey();
         Object.assign(this, result.persistedRecord);
-        const committedSnapshot = this.teaqlScalarSnapshot();
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload());
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
-        const activeScope = request.scopeFor(newKey);
         service.afterGraphRollback(() => {
             Object.assign(this, rollbackState.payload);
             (this as any)._ledgerId = rollbackState.ledgerId;
             (this as any)._action = rollbackState.action;
             (this as any)._loadedFields = rollbackState.loadedFields;
             (this as any)._fullyLoaded = rollbackState.fullyLoaded;
+            LoadedScalarSnapshot.restoreFor(this, rollbackState.loadedSnapshot);
             (this as any)._root.rekey(newKey, oldKey);
         });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
         if (mutation.action !== "Delete") (this as any)._action = "Update";
+        const scope = request.scopeFor(newKey);
         for (const [index, child] of (this as any)._schoolTypeList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            if (this.id === undefined || String((child.platform as any)?.id ?? child.platform) !== String(this.id))
-                child.updatePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+            const currentParent = child.platform;
+            if (this.id === undefined || !child.isLoaded("platform") || (typeof currentParent === "object" && currentParent !== null
+                ? currentParent.id : currentParent) !== this.id) child.updatePlatform(this);
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_type_list").index(index);
@@ -266,9 +268,10 @@ export class Platform {
         }
         for (const [index, child] of (this as any)._schoolList.entries()) {
             child.teaqlAttachRoot((this as any)._root);
-            if (this.id === undefined || String((child.platform as any)?.id ?? child.platform) !== String(this.id))
-                child.updatePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, activeScope); }
+            const currentParent = child.platform;
+            if (this.id === undefined || !child.isLoaded("platform") || (typeof currentParent === "object" && currentParent !== null
+                ? currentParent.id : currentParent) !== this.id) child.updatePlatform(this);
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_list").index(index);
@@ -278,7 +281,6 @@ export class Platform {
             }
         }
         service.afterGraphCommit(() => {
-            (this as any)._loadedSnapshot = committedSnapshot;
             (this as any)._root.clearEntity(newKey);
             if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
         });
@@ -294,17 +296,6 @@ export class Platform {
             "update_time": this.updateTime,
             "version": this.version
         };
-    }
-
-    private teaqlScalarSnapshot(): LoadedScalarSnapshot {
-        return new LoadedScalarSnapshot({
-            "id": this.id,
-            "name": this.name,
-            "base_url": this.baseUrl,
-            "create_time": this.createTime,
-            "update_time": this.updateTime,
-            "version": this.version
-        });
     }
 
     updateId(value: string): this {

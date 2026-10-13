@@ -1,12 +1,16 @@
 import {
+  startStandardNodeTelemetry
+} from "../chunks/chunk-JDDLP6GK.js";
+import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-SA73PHK2.js";
-import "../chunks/chunk-YAAPRG2I.js";
-import "../chunks/chunk-WZ3T4PU6.js";
+} from "../chunks/chunk-XBZV4HBJ.js";
+import "../chunks/chunk-LGSUBUWZ.js";
+import "../chunks/chunk-ZH5FDHR6.js";
+import "../chunks/chunk-D5QV4N46.js";
 import "../chunks/chunk-IQGZNIAK.js";
 
 // src/sql/sqlite.ts
@@ -182,6 +186,7 @@ var SQLiteDriver = class {
 var SQLiteTeaQLClient = class extends AbstractSQLTeaQLClient {
   constructor(filename, schemas) {
     super(new SQLiteDriver(filename), schemas);
+    this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
   }
 };
 export {

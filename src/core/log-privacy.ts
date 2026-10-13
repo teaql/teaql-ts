@@ -147,6 +147,16 @@ export function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLog
   return projected;
 }
 
+/** Telemetry always uses safe mode even when local plaintext debugging is enabled. */
+export function projectSafeSQLLog(metadata: SQLExecutionMetadata): SQLExecutionMetadata {
+  const safe = safeAlternatives.get(metadata);
+  if (safe) return safe;
+  if (projections.get(metadata) === false) return metadata;
+  const projected = projectWithPolicy(metadata, false);
+  projections.set(projected, false);
+  return projected;
+}
+
 function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inherited?: SQLLogBindingSource,
   intentValues: readonly unknown[] = []): SQLExecutionMetadata {
   const retained = rawProvenance.get(metadata);
@@ -213,6 +223,9 @@ function projectWithPolicy(metadata: SQLExecutionMetadata, allow: boolean, inher
     comment: intentText(metadata.comment),
     purpose: intentText(metadata.purpose),
     auditReason: intentText(metadata.auditReason),
+    ...(metadata.traceChain ? { traceChain: Object.freeze(metadata.traceChain.map(node =>
+      Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) =>
+        [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))) as SQLExecutionMetadata['traceChain'] } : {}),
     // Counts are operational metadata, not a copy of a masked numeric binding.
     resultSummary: metadata.resultCount !== undefined ? `${metadata.resultCount} rows returned`
       : metadata.affectedRows !== undefined ? `${metadata.affectedRows} rows affected`

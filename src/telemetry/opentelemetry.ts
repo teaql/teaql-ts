@@ -1,5 +1,6 @@
 import {
   Attributes,
+  Context,
   context,
   Meter,
   propagation,
@@ -15,12 +16,18 @@ import {
   RuntimeOperationCompletion,
   RuntimeTelemetry,
   RuntimeTelemetryScope,
+  RuntimeDiagnosticEvent,
   runtimeErrorCategory,
 } from '../core/telemetry';
 
 export interface OpenTelemetryRuntimeLifecycle {
   flush?: () => void | Promise<void>;
   shutdown?: () => void | Promise<void>;
+}
+
+export interface OpenTelemetryExecutionContext {
+  active(): Context;
+  with<T>(active: Context, work: () => T): T;
 }
 
 /** Bridges the provider-neutral TeaQL lifecycle to application-owned OTel providers. */
@@ -33,6 +40,7 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     meter: Meter,
     private readonly lifecycle: OpenTelemetryRuntimeLifecycle = {},
     private readonly logger?: Logger,
+    private readonly executionContext: OpenTelemetryExecutionContext = context,
   ) {
     this.duration = meter.createHistogram('teaql.runtime.operation.duration', {
       description: 'TeaQL runtime operation duration',
@@ -48,8 +56,8 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     const startedAt = performance.now();
     const span = this.tracer.startSpan(`teaql.${operation.family}`, {
       attributes: operation.attributes as Attributes,
-    });
-    const activeContext = trace.setSpan(context.active(), span);
+    }, this.executionContext.active());
+    const activeContext = trace.setSpan(this.executionContext.active(), span);
     let ended = false;
 
     const finishInContext = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion,
@@ -68,6 +76,7 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
       this.duration.record(durationMs, metricAttributes);
       this.operations.add(1, metricAttributes);
       this.logger?.emit({
+        context: activeContext,
         severityNumber: 9,
         severityText: 'INFO',
         body: 'TeaQL runtime operation completed',
@@ -82,10 +91,11 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     };
     const finish = (outcome: 'success' | 'failure', completion?: RuntimeOperationCompletion,
       errorCategory?: string) =>
-      context.with(activeContext, () => finishInContext(outcome, completion, errorCategory));
+      this.executionContext.with(activeContext, () => finishInContext(outcome, completion, errorCategory));
 
     return {
-      run: work => context.with(activeContext, work),
+      correlation: () => ({ traceId: span.spanContext().traceId, spanId: span.spanContext().spanId }),
+      run: work => this.executionContext.with(activeContext, work),
       success: completion => finish('success', completion),
       failure: error => {
         const category = runtimeErrorCategory(error);
@@ -96,8 +106,19 @@ export class OpenTelemetryRuntimeTelemetry implements RuntimeTelemetry {
     };
   }
 
+  recordDiagnostic(event: RuntimeDiagnosticEvent): void {
+    const identity = event.correlation;
+    if (!identity || !/^[0-9a-f]{32}$/.test(identity.traceId) || !/^[0-9a-f]{16}$/.test(identity.spanId)
+      || /^0+$/.test(identity.traceId) || /^0+$/.test(identity.spanId)) {
+      throw new Error('Missing SQL execution correlation');
+    }
+    this.logger?.emit({ severityNumber: 9, severityText: 'INFO', body: event.body,
+      context: trace.setSpanContext(this.executionContext.active(), { ...identity, traceFlags: 1 }),
+      attributes: event.attributes });
+  }
+
   inject(carrier: Record<string, string>): void {
-    propagation.inject(context.active(), carrier);
+    propagation.inject(this.executionContext.active(), carrier);
   }
 
   flush(): void | Promise<void> {

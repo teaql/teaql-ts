@@ -1,3 +1,6 @@
+/** Internal capability: never a field on query JSON, entities or Context. */
+export declare function queryExecutionOwner(query: object): object | undefined;
+export declare function retainQueryExecutionOwner(query: object, owner: object): void;
 export declare function queryDiagnosticOrigin(query: object): object | undefined;
 export declare function retainQueryDiagnosticOrigin(source: object, target: object): void;
 /** Capture request-owned AST values while retaining opaque local capabilities.

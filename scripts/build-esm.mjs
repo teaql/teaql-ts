@@ -14,6 +14,7 @@ await build({
     'sql/browser-sqlite': 'src/sql/browser-sqlite.ts',
     'sql/browser-sqlite-worker': 'src/sql/browser-sqlite-worker.ts',
     'telemetry/opentelemetry': 'src/telemetry/opentelemetry.ts',
+    'telemetry/standard-node': 'src/telemetry/standard-node.ts',
   },
   outdir: 'dist/esm',
   bundle: true,

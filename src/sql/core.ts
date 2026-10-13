@@ -1,6 +1,8 @@
 import {
   observeRuntimeOperation,
   RuntimeTelemetry,
+  RuntimeExecutionCorrelation,
+  RuntimeTelemetryScope,
   startRuntimeOperation,
 } from '../core/telemetry';
 import { CheckException, EntityChecker } from '../core/checker';
@@ -10,8 +12,11 @@ import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { OrderBy, SelectQuery } from '../core/ast';
 import { GraphCommittedError, GraphMutationSession, MutationIntent, MutationRequest, QueryIntent, QueryRequest } from '../core/request-intent';
+import type { QueryOperation } from '../core/request-intent';
 import { canonicalSQLTracePath, cloneTraceNodes, queryTraceSource, TraceNode } from '../core/trace-chain';
-import { projectSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings, retainSQLLogProvenance } from '../core/log-privacy';
+import { projectSQLLog, projectSafeSQLLog, logValueStrings, scrubLogText, credentialName, inheritSQLLogBindings, retainSQLLogProvenance } from '../core/log-privacy';
+import { sqlDiagnosticEvent } from '../core/sql-diagnostic-event';
+import { telemetryNotice } from '../core/telemetry-startup';
 import type { SQLLogBindingSource } from '../core/log-privacy';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 import { queryDiagnosticOrigin, retainQueryDiagnosticOrigin } from '../core/query-snapshot';
@@ -176,15 +181,16 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 }
 
 export interface TeaQLDataService {
+  withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
   executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
   preflightMutation(mutation: any): any;
   afterGraphCommit(work: () => void): void;
   afterGraphRollback(work: () => void): void;
   executeMutation(mutation: any): Promise<MutationResult>;
   executeQuery<T = any>(query: any): Promise<T[]>;
-  executeCount(query: any): Promise<number>;
+  executeCount(query: any, alias?: string, operation?: QueryOperation): Promise<number>;
   executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
-  executeFacetMembership?(outerQuery: any, relationName: string): Promise<Map<string, number>>;
+  executeFacetMembership?(outerQuery: any, relationName: string, countAliases?: readonly string[]): Promise<Map<string, number>>;
   close?(): Promise<void>;
 }
 
@@ -193,6 +199,7 @@ export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
 
 type SQLLogIntent = { comment?: string; purpose?: string; auditReason?: string; tracePath?: readonly SQLTraceFrame[];
+  traceChain?: readonly TraceNode[];
   mutationLineage?: readonly TraceNode[];
   inheritedBindings?: SQLLogBindingSource;
   /** Compiler-only target ID for free-text projection; never included in log metadata. */
@@ -225,6 +232,8 @@ export type SQLExecutionMetadata = Readonly<{
   purpose?: string;
   auditReason?: string;
   tracePath: readonly SQLTraceFrame[];
+  /** Root intent and immutable request-parent comments, distinct from the physical route. */
+  traceChain?: readonly TraceNode[];
   /** Business responsibility, not the physical SQL route. */
   mutationLineage?: readonly TraceNode[];
   parameterizedSQL: string;
@@ -268,6 +277,7 @@ export class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
       `${metadata.executionOutcome ? ` outcome=${metadata.executionOutcome}` : ''}\n` +
       `comment=${metadata.comment ?? ''} purpose=${metadata.purpose ?? ''} ` +
       `auditReason=${metadata.auditReason ?? ''} tracePath=${diagnosticJSON(metadata.tracePath)}` +
+      ` traceChain=${diagnosticJSON(metadata.traceChain ?? [])}` +
       ` mutationLineage=${diagnosticJSON(metadata.mutationLineage ?? [])}\n` +
       (metadata.omissionReason ? `SQL omitted: ${metadata.omissionReason}\n` : '') +
       `Debug SQL: ${metadata.debugSQL}`,
@@ -358,6 +368,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private queryLoggingEnabled = true;
   private mutationLoggingEnabled = true;
   private runtimeTelemetry?: RuntimeTelemetry;
+  private telemetryStartup?: Promise<void>;
+  private standardTelemetryHandle?: import('../telemetry/standard-node').StandardTelemetryHandle;
+  private customTelemetry = false;
   private readonly checkers: Record<string, EntityChecker> = {};
   private userContext = new UserContext();
   private bootstrap: RuntimeBootstrap = {};
@@ -464,8 +477,34 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   setRuntimeTelemetry(telemetry: RuntimeTelemetry | undefined): this {
+    this.customTelemetry = true;
     this.runtimeTelemetry = telemetry;
     return this;
+  }
+
+  /** Node provider startup hook. Optional module initialization remains fail-open. */
+  protected attachStandardTelemetryStartup(
+    startup: Promise<import('../telemetry/standard-node').StandardTelemetryHandle | undefined>,
+  ): void {
+    this.telemetryStartup = startup.then(async handle => {
+      if (!handle) return;
+      if (this.customTelemetry) { await handle.release(); return; }
+      this.standardTelemetryHandle = handle;
+      this.runtimeTelemetry = handle.telemetry;
+    }).catch(() => { telemetryNotice('TeaQL telemetry: initialization failed; business continues without export.', true); });
+  }
+
+  async flushTelemetry(): Promise<void> {
+    await this.telemetryStartup;
+    try { await this.standardTelemetryHandle?.flush(); }
+    catch { telemetryNotice('TeaQL telemetry: export flush failed; business outcome unchanged.', true); }
+  }
+
+  async withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T> {
+    new QueryRequest(query); // Reject invalid intent before starting execution.
+    await this.telemetryStartup;
+    return observeRuntimeOperation(this.runtimeTelemetry, { family: 'query',
+      name: `${String(query.entity)}.request`, attributes: { 'teaql.entity.type': String(query.entity) } }, work);
   }
 
   private recordSQL(
@@ -474,6 +513,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     intent: SQLLogIntent = {},
     executionOutcome: SQLExecutionOutcome = 'success',
     inherited?: SQLLogBindingSource,
+    correlation?: RuntimeExecutionCorrelation,
   ): SQLExecutionMetadata {
     const isSelect = operation === 'select';
     const logsEnabled = isSelect ? this.queryLoggingEnabled : this.mutationLoggingEnabled;
@@ -481,6 +521,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const metadata = Object.freeze({
       operation, ...visibleIntent, executionOutcome,
       tracePath: sqlTraceFrames(intent.tracePath ?? []),
+      ...(intent.traceChain ? { traceChain: cloneTraceNodes(intent.traceChain) } : {}),
       ...(intent.mutationLineage ? { mutationLineage: cloneTraceNodes(intent.mutationLineage) } : {}),
       parameterizedSQL, parameters: Object.freeze([...parameters]),
       // Never build a plaintext SQL copy before the log policy boundary.
@@ -497,6 +538,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const operands = this.bindOperandSources.get(parameters);
     const provenance = operands ? inheritSQLLogBindings(operands, ancestors) : ancestors;
     retainSQLLogProvenance(metadata, provenance, targetID === undefined ? [] : [targetID]);
+    if (this.runtimeTelemetry?.recordDiagnostic) {
+      try {
+        if (this.runtimeTelemetry.recordsSQLDiagnostics?.() !== false)
+          this.runtimeTelemetry.recordDiagnostic(sqlDiagnosticEvent(projectSafeSQLLog(metadata), correlation));
+      }
+      catch { telemetryNotice('TeaQL telemetry: SQL diagnostic rejected; business outcome unchanged.', true); }
+    }
     if (!this.telemetrySink && !(logsEnabled && this.diagnosticSQLLogSink)) return metadata;
     try {
       const projected = projectSQLLog(metadata);
@@ -513,7 +561,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private queryLogIntent(query: any): SQLLogIntent {
     const request = new QueryRequest(query);
     const path = canonicalSQLTracePath(request.traceSource, this.driver.databaseKind, 'select');
-    return { comment: request.comment, purpose: request.purpose, tracePath: sqlTraceFrames(path.tracePath) };
+    return { comment: request.intent.comment, purpose: request.purpose,
+      traceChain: request.traceChain, tracePath: sqlTraceFrames(path.tracePath) };
   }
 
   private async executeLoggedSQL(
@@ -523,27 +572,35 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     inherited?: SQLLogBindingSource,
     statements?: SQLExecutionMetadata[],
   ): Promise<SqlQueryResult> {
+    await this.telemetryStartup;
+    const scope = startRuntimeOperation(this.runtimeTelemetry, { family: 'provider',
+      name: `${this.driver.databaseKind}.${operation}`,
+      attributes: { 'teaql.provider.kind': this.driver.databaseKind,
+        'teaql.provider.operation': operation === 'select' ? 'query' : operation } });
+    const correlation = scope.correlation?.();
     const startedAt = Date.now();
     let result: SqlQueryResult;
-    try { result = await execute(); }
+    try { result = await (scope.run ? scope.run(execute) : execute()); }
     catch (error) {
       // No exception text/cause/driver object enters a diagnostic sink. Preserve
       // the original error for the caller, even if a sink itself is broken.
       try {
-        const metadata = this.recordSQL(operation, sql, values, startedAt, undefined, undefined, intent, 'failure', inherited);
+        const metadata = this.recordSQL(operation, sql, values, startedAt, undefined, undefined, intent, 'failure', inherited, correlation);
         statements?.push(metadata);
       }
-      finally { throw error; }
+      finally { scope.failure(error); throw error; }
     }
     const metadata = this.recordSQL(operation, sql, values, startedAt,
       operation === 'select' ? result.rowCount : undefined,
-      operation === 'select' ? undefined : result.rowCount, intent, 'success', inherited);
+      operation === 'select' ? undefined : result.rowCount, intent, 'success', inherited, correlation);
     statements?.push(metadata);
+    scope.success({ attributes: { 'teaql.result.cardinality': result.rowCount } });
     return result;
   }
 
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */
   async [contextSchemaCapability](context: UserContext): Promise<void> {
+    await this.telemetryStartup;
     if (!this.schemaReady) {
       this.schemaReady = this.driver.ensureSchema(this.schemas);
     }
@@ -630,6 +687,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T> {
     // Root intent is mandatory before lifecycle initialization or provider work.
     const graph = new GraphMutationSession(intent);
+    await this.telemetryStartup;
+    const save = async () => {
     // Generated child saves call their within-graph entry point directly. Every
     // public/root save comes through here and is queued, so an unrelated async
     // save cannot accidentally join another graph's transaction merely because
@@ -686,6 +745,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (fixEvidenceStarted) this.userContext.finishFixEvidence();
       release();
     }
+    };
+    return observeRuntimeOperation(this.runtimeTelemetry, { family: 'mutation', name: 'graph.save',
+      attributes: { 'teaql.entity.type': 'graph', 'teaql.mutation.kind': 'graph' } }, save);
   }
 
   afterGraphCommit(work: () => void): void {
@@ -761,6 +823,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeMutation(mutation: any): Promise<MutationResult> {
+    await this.telemetryStartup;
     // Validate before Checker, policy, telemetry and transaction/provider work.
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
@@ -773,7 +836,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         'teaql.mutation.kind': String(mutation?.action || 'unknown').toLowerCase(),
       },
     });
-    try {
+    const work = async () => { try {
       mutation = this.checkAndFixMutation(request);
       const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
       const schema = this.schema(mutation.entity);
@@ -939,7 +1002,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     } catch (error) {
       scope.failure(error);
       throw error;
-    }
+    } };
+    return scope.run ? scope.run(work) : work();
   }
 
   private async readPersistedRecord(
@@ -954,6 +1018,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`;
     const values = [id];
     this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
+    const scope = startRuntimeOperation(this.runtimeTelemetry, { family: 'provider',
+      name: `${this.driver.databaseKind}.readback`, attributes: {
+        'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query' } });
     const startedAt = Date.now();
     let result: SqlQueryResult | undefined;
     const inherited: SQLLogBindingSource = { parameterizedSQL: writeSQL, parameters: writeValues,
@@ -966,13 +1033,15 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const readIntent = { ...intent, tracePath: sqlTraceFrames(path.tracePath),
       comment: intent.auditReason, purpose: 'verify persisted mutation result' };
     const recordReadback = (outcome: SQLExecutionOutcome) => statements.push(
-      this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined, readIntent, outcome, inherited));
+      this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined, readIntent, outcome, inherited, scope.correlation?.()));
     let record: Record<string, unknown>;
     try {
-      result = await session.query(sql, values);
+      result = await (scope.run ? scope.run(() => session.query(sql, values)) : session.query(sql, values));
+      scope.success({ attributes: { 'teaql.result.cardinality': result.rowCount } });
       if (result.rowCount !== 1) throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
       record = this.decodeRowForSchema(schema, result.rows[0]);
     } catch (error) {
+      if (!result) scope.failure(error);
       // Write success remains a separate statement fact. A snapshot validation
       // failure means SELECT success with its real count, not a driver failure.
       const outcome: SQLExecutionOutcome = result ? 'success'
@@ -1174,7 +1243,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }));
   }
 
-  private async compileQuery(query: any, recordTrace = true): Promise<{
+  private async compileQuery(query: any, recordTrace = true, assemblyFields: readonly string[] = []): Promise<{
     sql: string;
     values: any[];
     aggregateNames: string[];
@@ -1199,6 +1268,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // Explicitly requested relations need their real membership keys, even
     // with a minimal parent projection. Missing projection is not SQL NULL.
     if (!groupProperties.length && !this.aggregates(query).length) {
+      for (const field of assemblyFields) if (!requestedFields.includes(field)) requestedFields.push(field);
       const relationNames = [...(query.relations ?? []).map((load: any) => load.name),
         ...(query.relationAggregates ?? []).map((aggregate: any) => aggregate.relationName)];
       for (const name of relationNames) {
@@ -1348,12 +1418,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   private async executeQueryWithIntent<T = any>(query: any, inherited?: SQLLogBindingSource,
     assembly?: RelationAssembly): Promise<T[]> {
+    await this.telemetryStartup;
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'query',
       name: `${String(query?.entity || 'unknown')}.list`,
       attributes: { 'teaql.entity.type': String(query?.entity || 'unknown') },
     });
-    try {
+    const work = async () => { try {
     const internal = query?.[this.internalQueryToken] === true;
     if (!internal) {
       if (typeof query?.prepareForList !== 'function') {
@@ -1361,20 +1432,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       }
       query.prepareForList();
     }
-    const idSetPrepared = internal ? { query, execution: undefined } : await this.prepareIdSetPage(query);
+    const idSetPrepared = internal ? { query, execution: undefined } : await this.prepareIdSetPage(query, inherited);
     const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
     query = new QueryRequest(query).withQuery(prepared.query).query;
-    const { sql, values, aggregateNames } = await this.compileQuery(query);
+    const { sql, values, aggregateNames } = await this.compileQuery(query, true, assembly ? [assembly.field] : []);
     inherited = await this.queryTreeBindings(query, sql, values, inherited);
     const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query),
-      () => observeRuntimeOperation(this.runtimeTelemetry, {
-      family: 'provider',
-      name: `${this.driver.databaseKind}.query`,
-      attributes: {
-        'teaql.provider.kind': this.driver.databaseKind,
-        'teaql.provider.operation': 'query',
-      },
-    }, () => this.driver.query(sql, values)), inherited);
+      () => this.driver.query(sql, values), inherited);
     const rows = result.rows.map(row =>
       this.decodeRow(query.entity, row, aggregateNames),
     );
@@ -1391,16 +1455,25 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const descendantBindings = this.descendantBindings(query, sql, values, inherited);
     if (assembly) for (const row of rows) assembly.keys.set(row, row[assembly.field]);
     await this.enhanceQueryRows(rows, query, descendantBindings);
+    if (assembly && Array.isArray(query.selectItems) && query.selectItems.length
+      && !['id', 'version', ...query.selectItems, ...this.groupBy(query)].includes(assembly.field)) {
+      const schema = this.schema(query.entity);
+      const selectedRelations = [...(query.relations ?? []).map((load: any) => load.name),
+        ...(query.relationAggregates ?? []).map((aggregate: any) => aggregate.relationName)];
+      if (!selectedRelations.some(name => schema.relations?.[name]?.localKey === assembly.field))
+        for (const row of rows) delete row[assembly.field];
+    }
     if (!internal) await this.registerContinuousPage(query, prepared.execution, rows);
     scope.success({ attributes: { 'teaql.result.cardinality': rows.length } });
     return rows as T[];
     } catch (error) {
       scope.failure(error);
       throw error;
-    }
+    } };
+    return scope.run ? scope.run(work) : work();
   }
 
-  private async prepareIdSetPage(query: any): Promise<{ query: any; execution?: any }> {
+  private async prepareIdSetPage(query: any, inherited?: SQLLogBindingSource): Promise<{ query: any; execution?: any }> {
     const options = query.localIdSetPaginationOptions?.();
     const runtime = query.localIdSetPaginationRuntime?.();
     if (!options || !runtime) { runtime?.observe('ID_SET_DISABLED'); return { query }; }
@@ -1450,7 +1523,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           idQuery.clearIdSetPaginationRuntime();
           idQuery.clearContinuousPageRuntime();
           (idQuery as any)[this.internalQueryToken] = true;
-          const idRows = await this.executeQuery<any>(idQuery);
+          const helper = new QueryRequest(query).deriveHelper(idQuery, `collect ${query.entity} IDs for pagination`);
+          // Classification is pure compilation, not another SQL execution.
+          // The collector drops relations, but its inherited prose can still
+          // mention a secret bound only by one of those future requests.
+          const diagnostic = await this.compileQuery(query, false);
+          const helperBindings = await this.queryTreeBindings(query, diagnostic.sql, diagnostic.values, inherited);
+          const idRows = await this.executeDerivedQuery<any>(helper.query,
+            helperBindings, helper.intent);
           if (idRows.length > options.maxIds) return undefined;
           let ids: BigUint64Array;
           try { ids = BigUint64Array.from(idRows.map(row => BigInt(row.id))); }
@@ -1492,6 +1572,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async executeFacetMembership(
     outerQuery: SelectQuery,
     relationName: string,
+    countAliases: readonly string[] = [],
   ): Promise<Map<string, number>> {
     const request = new QueryRequest(outerQuery);
     outerQuery = request.query;
@@ -1505,24 +1586,28 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     query.limitValue = 0;
     query.selectItems = [];
     query.groupByItems = [relationName];
-    query.aggregateItems = [{ function: 'Count', field: 'id', alias: '__teaql_facet_count' }];
+    const aliases = countAliases.length ? [...countAliases] : ['__teaql_facet_count'];
+    query.aggregateItems = aliases.map(alias => ({ function: 'Count', field: 'id', alias }));
     (query as any)[this.internalQueryToken] = true;
     const rows = await this.executeQuery<Record<string, unknown>>(query);
     return new Map(rows.flatMap(row => {
       const value = row[relationName];
-      const count = Number(row.__teaql_facet_count ?? 0);
+      const count = Number(row[aliases[0]] ?? 0);
       return value === null || value === undefined ? [] : [[String(value), count]];
     }));
   }
 
-  async executeCount(query: any): Promise<number> {
+  async executeCount(query: any, countAlias?: string, operation?: QueryOperation): Promise<number> {
     const request = query instanceof QueryRequest ? query : new QueryRequest(query);
     query = request.query;
     if (typeof query?.forExactCount !== 'function') {
       throw new Error('TeaQL exact count requires the formal runtime SelectQuery');
     }
-    const alias = '__teaql_total';
-    const rows = await this.executeQuery<Record<string, unknown>>(request.withQuery(query.forExactCount(alias)).query);
+    const alias = countAlias ?? '__teaql_total';
+    const countRequest = request.deriveOperation(query.forExactCount(alias), operation ?? {
+      kind: 'named-count', ...(countAlias !== undefined ? { alias: countAlias } : {}),
+    });
+    const rows = await this.executeQuery<Record<string, unknown>>(countRequest.query);
     const value = rows[0]?.[alias];
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
@@ -1596,6 +1681,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   private async *executeCapturedStream<T>(query: any, chunkSize: number): AsyncIterable<T[]> {
+    await this.telemetryStartup;
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
       throw new Error('stream chunk size must be a positive integer');
     }
@@ -1604,14 +1690,25 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
     const { sql, values, aggregateNames } = await this.compileQuery(query);
     const inherited = await this.queryTreeBindings(query, sql, values);
+    const queryScope = startRuntimeOperation(this.runtimeTelemetry, { family: 'query',
+      name: `${String(query.entity)}.stream`, attributes: { 'teaql.entity.type': String(query.entity) } });
+    let providerScope!: RuntimeTelemetryScope;
+    const startProvider = async () => { providerScope = startRuntimeOperation(this.runtimeTelemetry, {
+      family: 'provider', name: `${this.driver.databaseKind}.stream`, attributes: {
+        'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query' } }); };
+    await (queryScope.run ? queryScope.run(startProvider) : startProvider());
+    const correlation = providerScope.correlation?.();
+    const iterator = this.driver.stream(sql, values)[Symbol.asyncIterator]();
     const startedAt = Date.now();
     let outcome: SQLExecutionOutcome = 'cancelled';
     let delivered = 0;
     let chunk: any[] = [];
     const descendantBindings = this.descendantBindings(query, sql, values, inherited);
     try {
-      for await (const rawRow of this.driver.stream(sql, values)) {
-        chunk.push(this.decodeRow(query.entity, rawRow, aggregateNames));
+      while (true) {
+        const next = await (providerScope.run ? providerScope.run(() => iterator.next()) : iterator.next());
+        if (next.done) break;
+        chunk.push(this.decodeRow(query.entity, next.value, aggregateNames));
         if (chunk.length === chunkSize) {
           await this.enhanceQueryRows(chunk, query, descendantBindings);
           delivered += chunk.length;
@@ -1627,16 +1724,28 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       outcome = 'success';
     } catch (error) {
       outcome = 'failure';
+      providerScope.failure(error); queryScope.failure(error);
       throw error;
     } finally {
+      try { await iterator.return?.(); }
+      catch (error) {
+        if (outcome !== 'failure') {
+          outcome = 'failure';
+          providerScope.failure(error); queryScope.failure(error);
+          throw error;
+        }
+      } finally {
       // Generator.return()/consumer break also closes the driver's cursor. Report
       // only delivered rows, not prefetched rows, and never stringify an error.
       if (outcome === 'failure') {
         try { this.recordSQL('select', sql, values, startedAt, delivered, undefined,
-          this.queryLogIntent(query), outcome, inherited); } catch { /* preserve driver failure */ }
+          this.queryLogIntent(query), outcome, inherited, correlation); } catch { /* preserve driver failure */ }
       } else {
         this.recordSQL('select', sql, values, startedAt, delivered, undefined,
-          this.queryLogIntent(query), outcome, inherited);
+          this.queryLogIntent(query), outcome, inherited, correlation);
+        providerScope.success({ attributes: { 'teaql.result.cardinality': delivered } });
+        queryScope.success({ attributes: { 'teaql.result.cardinality': delivered } });
+      }
       }
     }
   }
@@ -1706,8 +1815,6 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         __teaqlPartitionBy: boundedTopN && !useProbes
           ? relation.foreignKey
           : undefined,
-        commentText: query?._comment ?? query?.commentText,
-        purposeText: query?._purpose ?? query?.purposeText,
       };
       if (boundedTopN) {
         // Aggregate rows have group identity, not source-row identity. An
@@ -1732,12 +1839,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             __teaqlPartitionBy: undefined,
           };
           children.push(...await this.executeDerivedQuery<any>(
-            new QueryRequest(query).derive(probeQuery, load.name).query, inherited, intent, assembly));
+            new QueryRequest(query).derive(probeQuery, load.name, load.operation).query, inherited, intent, assembly));
         }
       } else {
         childQuery._filters.push({ [relation.foreignKey]: { $in: parentIds } });
         children.push(...await this.executeDerivedQuery<any>(
-          new QueryRequest(query).derive(childQuery, load.name).query, inherited, intent, assembly));
+          new QueryRequest(query).derive(childQuery, load.name, load.operation).query, inherited, intent, assembly));
       }
       for (const child of children) delete child.__teaql_partition_rank;
       const buckets = new Map<any, any[]>();
@@ -1763,7 +1870,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           facetQuery.filterCondition = facetQuery.filterCondition
             ? { $and: [facetQuery.filterCondition, membership] } : membership;
           retainQueryDiagnosticOrigin(query, facetQuery);
-          const derived = new QueryRequest(query).derive(facetQuery, load.name).query;
+          const derived = new QueryRequest(query).derive(facetQuery, load.name, load.operation).query;
           parent[load.name] = new SmartList(related, { facets:
             await executeRelationFacets(this, item => item, derived, facetQuery.facets) });
         } else {
@@ -1817,15 +1924,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (!childQuery.groupByItems.includes(relation.foreignKey)) {
         childQuery.groupBy(relation.foreignKey);
       }
-      childQuery.filterCondition = {
-        ...(childQuery.filterCondition || {}),
-        [relation.foreignKey]: { $in: parentIds },
-      };
+      const membership = { [relation.foreignKey]: { $in: parentIds } };
+      childQuery.filterCondition = childQuery.filterCondition
+        ? { $and: [childQuery.filterCondition, membership] } : membership;
       (childQuery as any)[this.internalQueryToken] = true;
-      childQuery.commentText = query?._comment ?? query?.commentText;
-      childQuery.purposeText = query?._purpose ?? query?.purposeText;
       const rows = await this.executeDerivedQuery<any>(
-        new QueryRequest(query).derive(childQuery, aggregate.relationName).query, inherited, intent);
+        new QueryRequest(query).deriveAggregate(childQuery, aggregate.relationName, aggregate.operation ?? {
+          kind: 'relation-count', relation: aggregate.relationName, alias: aggregate.alias,
+        }).query, inherited, intent);
       const buckets = new Map<any, any>();
       for (const row of rows) buckets.set(row[relation.foreignKey], row);
       for (const [index, parent] of parents.entries()) {
@@ -1859,7 +1965,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async close(): Promise<void> {
-    await this.driver.close();
+    try { await this.driver.close(); }
+    finally {
+      await this.telemetryStartup;
+      await this.standardTelemetryHandle?.release();
+      this.standardTelemetryHandle = undefined;
+    }
   }
 }
 

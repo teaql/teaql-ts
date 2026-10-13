@@ -182,6 +182,41 @@ is labeled `MASKED; NOT REPLAYABLE`; SQL that cannot be safely rendered is omitt
 Application mutation audits are delivered after commit and discarded on rollback.
 This is not a durable audit outbox. Do not put secrets in comment or purpose.
 
+### Standard Node telemetry
+
+The local source candidate provides optional environment-driven telemetry for
+Node applications. It is separate from default-on SQL logging and committed
+business audit. No SDK setup or logging calls are needed in each business method.
+
+```bash
+export TEAQL_TELEMETRY_ENABLED=true
+export TEAQL_TELEMETRY_SERVICE_NAME=payment-service
+export TEAQL_TELEMETRY_OTLP_ENDPOINT=http://localhost:4318
+```
+
+Without enablement, startup reports support and these three settings without
+loading the SDK or creating export resources. Enabled startup reports full
+recording and masked SQL. The module owns its providers and HTTP agents; it
+does not replace customer globals. Telemetry uses official SDK protobuf
+serialization and bounded acknowledgements. Remote error text is never logged;
+fixed diagnostics and loss/rejection counters explain export problems without
+changing business outcomes. Partial acceptance never resends the entire batch,
+following the [OTLP response contract](https://opentelemetry.io/docs/specs/otlp/#partial-success).
+
+Install the optional SDK cohort listed in this checkout's `package.json`,
+including its pinned `@opentelemetry/otlp-transformer`, when using the standard
+Node entry. Browser SQLite does not enable this Node-only module. Run
+`bash scripts/verify-standard-telemetry.sh` for local startup and graph checks;
+`bash scripts/verify-examples.sh` also verifies rollback, retry, selective update
+and deletion. This is an unreleased source capability, not a published-package
+installation claim. Local production-capacity tests qualify queue saturation,
+recovery and backlogged shutdown. Span/log admission includes queued and exporting
+records; fixed counters distinguish overflow, failed export, queued retirement
+and late handoff. Flush waits for the records accepted before that call. Shutdown
+has a six-second budget and closes only module-owned resources; closing telemetry
+does not disable database operations or committed audit. Advanced graph/stream
+and private artifact installation remain separate acceptance gates.
+
 ## Discover only the API needed next
 
 A coding agent does not need every generated method in its context. Start with

@@ -37,18 +37,33 @@ export interface RuntimeOperationCompletion {
   readonly attributes?: Readonly<Record<string, RuntimeAttributeValue>>;
 }
 
+export interface RuntimeExecutionCorrelation {
+  readonly traceId: string;
+  readonly spanId: string;
+}
+
+/** Only runtime-projected, allow-listed diagnostics may enter this event. */
+export interface RuntimeDiagnosticEvent {
+  readonly body: 'TeaQL SQL execution';
+  readonly correlation?: RuntimeExecutionCorrelation;
+  readonly attributes: Readonly<Record<string, RuntimeAttributeValue>>;
+}
+
 export interface RuntimeTelemetryScope {
   success(completion?: RuntimeOperationCompletion): void;
   failure(error: unknown): void;
   run?<T>(work: () => Promise<T>): Promise<T>;
+  correlation?(): RuntimeExecutionCorrelation | undefined;
 }
 
 /** Provider-neutral TeaQL lifecycle contract. Implementations must be fail open. */
 export interface RuntimeTelemetry {
+  recordsSQLDiagnostics?(): boolean;
   start(operation: RuntimeOperation): RuntimeTelemetryScope;
   inject?(carrier: Record<string, string>): void;
   flush?(): void | Promise<void>;
   shutdown?(): void | Promise<void>;
+  recordDiagnostic?(event: RuntimeDiagnosticEvent): void;
 }
 
 /** Inject the active runtime trace into transport metadata without affecting business work. */
@@ -101,6 +116,9 @@ export function startRuntimeOperation(
     const delegate = telemetry.start(safeRuntimeOperation(operation));
     let ended = false;
     return {
+      correlation: () => {
+        try { return delegate.correlation?.(); } catch { return undefined; }
+      },
       run: delegate.run
         ? <T>(work: () => Promise<T>) => delegate.run!(work)
         : <T>(work: () => Promise<T>) => work(),

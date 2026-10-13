@@ -202,9 +202,10 @@ export class CustomerOrderExpression {
                 new TeaQLNotLoadedError(this.root, path, 'platform'),
             );
         }
-        const relation = this.value.platform;
+        const reference = this.value.platform;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof Platform
+                ? reference.id : reference as string | number | undefined,
         );
     }
 
@@ -331,9 +332,10 @@ export class OrderItemExpression {
                 new TeaQLNotLoadedError(this.root, path, 'customerOrder'),
             );
         }
-        const relation = this.value.customerOrder;
+        const reference = this.value.customerOrder;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof CustomerOrder
+                ? reference.id : reference as string | number | undefined,
         );
     }
 
@@ -416,9 +418,10 @@ export class PaymentExpression {
                 new TeaQLNotLoadedError(this.root, path, 'customerOrder'),
             );
         }
-        const relation = this.value.customerOrder;
+        const reference = this.value.customerOrder;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof CustomerOrder
+                ? reference.id : reference as string | number | undefined,
         );
     }
 
@@ -515,9 +518,10 @@ export class PaymentAttemptExpression {
                 new TeaQLNotLoadedError(this.root, path, 'payment'),
             );
         }
-        const relation = this.value.payment;
+        const reference = this.value.payment;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof Payment
+                ? reference.id : reference as string | number | undefined,
         );
     }
 
@@ -600,9 +604,10 @@ export class ShipmentExpression {
                 new TeaQLNotLoadedError(this.root, path, 'customerOrder'),
             );
         }
-        const relation = this.value.customerOrder;
+        const reference = this.value.customerOrder;
         return new ValueExpression<string | number>(
-            relation != null && typeof relation === 'object' ? relation.id : relation,
+            reference instanceof CustomerOrder
+                ? reference.id : reference as string | number | undefined,
         );
     }
 

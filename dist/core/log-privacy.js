@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.projectSQLLog = exports.inheritSQLLogBindings = exports.privateLogValueStrings = exports.retainSQLLogProvenance = exports.scrubLogText = exports.logValueStrings = exports.hasCredentials = exports.credentialName = exports.plaintextLogsEnabled = exports.maskAuditValue = exports.PLAINTEXT_LOG_ACK = exports.PLAINTEXT_LOG_ENV = void 0;
+exports.projectSafeSQLLog = exports.projectSQLLog = exports.inheritSQLLogBindings = exports.privateLogValueStrings = exports.retainSQLLogProvenance = exports.scrubLogText = exports.logValueStrings = exports.hasCredentials = exports.credentialName = exports.plaintextLogsEnabled = exports.maskAuditValue = exports.PLAINTEXT_LOG_ACK = exports.PLAINTEXT_LOG_ENV = void 0;
 const log_rendering_1 = require("../sql/log-rendering");
 exports.PLAINTEXT_LOG_ENV = 'TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS';
 exports.PLAINTEXT_LOG_ACK = 'I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK';
@@ -147,6 +147,18 @@ function projectSQLLog(metadata, inherited, intentValues = []) {
     return projected;
 }
 exports.projectSQLLog = projectSQLLog;
+/** Telemetry always uses safe mode even when local plaintext debugging is enabled. */
+function projectSafeSQLLog(metadata) {
+    const safe = safeAlternatives.get(metadata);
+    if (safe)
+        return safe;
+    if (projections.get(metadata) === false)
+        return metadata;
+    const projected = projectWithPolicy(metadata, false);
+    projections.set(projected, false);
+    return projected;
+}
+exports.projectSafeSQLLog = projectSafeSQLLog;
 function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
     const retained = rawProvenance.get(metadata);
     if (retained?.bindings)
@@ -212,6 +224,7 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
         comment: intentText(metadata.comment),
         purpose: intentText(metadata.purpose),
         auditReason: intentText(metadata.auditReason),
+        ...(metadata.traceChain ? { traceChain: Object.freeze(metadata.traceChain.map(node => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))) } : {}),
         // Counts are operational metadata, not a copy of a masked numeric binding.
         resultSummary: metadata.resultCount !== undefined ? `${metadata.resultCount} rows returned`
             : metadata.affectedRows !== undefined ? `${metadata.affectedRows} rows affected`

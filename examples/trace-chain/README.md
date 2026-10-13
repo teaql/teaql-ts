@@ -190,7 +190,7 @@ remaining gates. The full examples script also includes a task-board
 compilation-only group and a School demo that resets data; neither is evidence
 for this example's no-cleanup gate.
 
-The local runtime's package label remains `0.2.10`; these unreleased source
+The local runtime's package label is `0.3.0`; these unreleased source
 changes require regenerated models. The old generated post-commit hook cannot
 use hydration to overwrite an existing loaded version. The producer now calls
 the explicit runtime post-commit version hook instead. This example does not

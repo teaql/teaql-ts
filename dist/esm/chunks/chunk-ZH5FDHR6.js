@@ -552,6 +552,14 @@ function projectSQLLog(metadata, inherited, intentValues = []) {
   }
   return projected;
 }
+function projectSafeSQLLog(metadata) {
+  const safe = safeAlternatives.get(metadata);
+  if (safe) return safe;
+  if (projections.get(metadata) === false) return metadata;
+  const projected = projectWithPolicy(metadata, false);
+  projections.set(projected, false);
+  return projected;
+}
 function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
   const retained = rawProvenance.get(metadata);
   if (retained?.bindings) inherited = inheritSQLLogBindings(retained.bindings, inherited);
@@ -600,6 +608,7 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
     comment: intentText(metadata.comment),
     purpose: intentText(metadata.purpose),
     auditReason: intentText(metadata.auditReason),
+    ...metadata.traceChain ? { traceChain: Object.freeze(metadata.traceChain.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {},
     // Counts are operational metadata, not a copy of a masked numeric binding.
     resultSummary: metadata.resultCount !== void 0 ? `${metadata.resultCount} rows returned` : metadata.affectedRows !== void 0 ? `${metadata.affectedRows} rows affected` : scrubLogText(metadata.resultSummary, secrets),
     tracePath: Object.freeze(metadata.tracePath.map((frame) => Object.freeze(
@@ -613,6 +622,13 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
 
 // src/core/query-snapshot.ts
 var origins = /* @__PURE__ */ new WeakMap();
+var requestOwners = /* @__PURE__ */ new WeakMap();
+function queryExecutionOwner(query) {
+  return requestOwners.get(query);
+}
+function retainQueryExecutionOwner(query, owner) {
+  requestOwners.set(query, owner);
+}
 function queryDiagnosticOrigin(query) {
   return origins.get(query);
 }
@@ -633,12 +649,15 @@ function snapshotQuery(value, seen = /* @__PURE__ */ new Map()) {
   }
   const origin = origins.get(value);
   if (origin) origins.set(copy, origin);
+  const owner = requestOwners.get(value);
+  if (owner) requestOwners.set(copy, owner);
   return copy;
 }
 
 // src/core/loaded-scalar-snapshot.ts
+var loadedSnapshots = /* @__PURE__ */ new WeakMap();
 var _values;
-var LoadedScalarSnapshot = class {
+var _LoadedScalarSnapshot = class _LoadedScalarSnapshot {
   constructor(values = {}) {
     __privateAdd(this, _values);
     __privateSet(this, _values, snapshotQuery(values));
@@ -648,14 +667,48 @@ var LoadedScalarSnapshot = class {
   values() {
     return snapshotQuery(__privateGet(this, _values));
   }
+  /** @internal Generated hydration stores provenance outside entity/JSON state. */
+  static captureFor(entity, values) {
+    const snapshot = new _LoadedScalarSnapshot(values);
+    loadedSnapshots.set(entity, snapshot);
+    return snapshot;
+  }
+  /** @internal Mutation uses the loaded values, not already-edited properties. */
+  static forEntity(entity) {
+    return loadedSnapshots.get(entity);
+  }
+  /** @internal Rollback restores provenance together with authoritative entity state. */
+  static restoreFor(entity, snapshot) {
+    if (snapshot) loadedSnapshots.set(entity, snapshot);
+    else loadedSnapshots.delete(entity);
+  }
 };
 _values = new WeakMap();
+var LoadedScalarSnapshot = _LoadedScalarSnapshot;
 
 // src/core/request-intent.ts
 var mutationSnapshots = /* @__PURE__ */ new WeakMap();
 var querySources = /* @__PURE__ */ new WeakMap();
 var graphRequests = /* @__PURE__ */ new WeakMap();
 var scopeOwners = /* @__PURE__ */ new WeakMap();
+function operationSnapshot(operation) {
+  if (!["named-count", "facet", "relation-count", "relation-select", "aggregate", "pagination"].includes(operation.kind) || operation.method !== void 0 && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(operation.method) || operation.alias !== void 0 && typeof operation.alias !== "string" || operation.relation !== void 0 && typeof operation.relation !== "string") {
+    throw new Error("QUERY_OPERATION_INVALID: invalid generated operation descriptor");
+  }
+  return Object.freeze({
+    kind: operation.kind,
+    method: operation.method,
+    alias: operation.alias,
+    relation: operation.relation
+  });
+}
+function queryOperationComment(operation) {
+  const captured = operationSnapshot(operation);
+  const literal = (value) => "'" + value.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") + "'";
+  if (!captured.method) return "framework: " + captured.kind + (captured.relation ? " " + captured.relation : "") + (captured.alias !== void 0 ? " " + literal(captured.alias) : "");
+  return captured.method + "(" + (captured.alias !== void 0 ? literal(captured.alias) : captured.kind === "relation-select" ? "..." : "") + ")";
+}
+var requestBindingToken = /* @__PURE__ */ Symbol("runtime request binding");
 var RequestIntentError = class extends Error {
   constructor(code, field, requestKind) {
     super(`${code}: ${requestKind} request requires a non-blank ${field}; supply it at the request entry point`);
@@ -711,19 +764,33 @@ var MutationIntent = class {
   }
 };
 _comment2 = new WeakMap();
-var _intent, _query;
+var _intent, _query, _parent2, _comment3, _name, _operation, _invocation;
 var _QueryRequest = class _QueryRequest {
-  constructor(query, intent) {
+  constructor(query, intent, binding) {
     __privateAdd(this, _intent);
     __privateAdd(this, _query);
+    __privateAdd(this, _parent2);
+    __privateAdd(this, _comment3);
+    __privateAdd(this, _name);
+    __privateAdd(this, _operation);
+    __privateAdd(this, _invocation);
     const source = query;
     __privateSet(this, _intent, intent === void 0 ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText) : new QueryIntent(intent?.comment, intent?.purpose));
+    if (binding && binding[requestBindingToken] !== true)
+      throw new Error("QUERY_REQUEST_OWNERSHIP_INVALID: request binding is runtime-owned");
+    const previous = queryExecutionOwner(query);
+    const owner = previous instanceof _QueryRequest && previous.intent.comment === __privateGet(this, _intent).comment && previous.purpose === __privateGet(this, _intent).purpose ? previous : void 0;
+    __privateSet(this, _invocation, binding?.invocation ?? (binding?.parent ? __privateGet(binding.parent, _invocation) : void 0) ?? (owner ? __privateGet(owner, _invocation) : void 0) ?? Object.freeze({}));
+    __privateSet(this, _parent2, binding ? binding.parent : owner?.parentRequest);
+    __privateSet(this, _comment3, requireText(binding?.comment ?? owner?.comment ?? __privateGet(this, _intent).comment, "comment", "query"));
+    __privateSet(this, _name, binding?.name ?? owner?.requestName ?? String(source.entity ?? "query"));
+    __privateSet(this, _operation, binding?.operation ?? owner?.operation);
     __privateSet(this, _query, snapshotQuery(query));
     const captured = __privateGet(this, _query);
     for (const [field, value] of [
-      ["commentText", this.comment],
+      ["commentText", this.intent.comment],
       ["purposeText", this.purpose],
-      ["_comment", this.comment],
+      ["_comment", this.intent.comment],
       ["_purpose", this.purpose]
     ]) {
       Object.defineProperty(captured, field, {
@@ -733,7 +800,8 @@ var _QueryRequest = class _QueryRequest {
         writable: false
       });
     }
-    querySources.set(captured, cloneTraceNodes(querySources.get(query) ?? queryTraceSource(String(source.entity), this.comment, this.purpose)));
+    querySources.set(captured, cloneTraceNodes(binding?.source ?? owner?.traceSource ?? querySources.get(query) ?? queryTraceSource(String(source.entity), this.intent.comment, this.purpose)));
+    retainQueryExecutionOwner(captured, this);
     Object.freeze(this);
   }
   get intent() {
@@ -743,7 +811,7 @@ var _QueryRequest = class _QueryRequest {
     return __privateGet(this, _query);
   }
   get comment() {
-    return __privateGet(this, _intent).comment;
+    return __privateGet(this, _comment3);
   }
   get purpose() {
     return __privateGet(this, _intent).purpose;
@@ -751,25 +819,116 @@ var _QueryRequest = class _QueryRequest {
   get traceSource() {
     return querySources.get(__privateGet(this, _query));
   }
+  get parentRequest() {
+    return __privateGet(this, _parent2);
+  }
+  get rootRequest() {
+    let root = this;
+    while (root.parentRequest) root = root.parentRequest;
+    return root;
+  }
+  get requestName() {
+    return __privateGet(this, _name);
+  }
+  get operation() {
+    return __privateGet(this, _operation);
+  }
+  get traceChain() {
+    const comments = [];
+    for (let node = this; node; node = node.parentRequest)
+      comments.push({ kind: "comment", name: node.requestName, detail: node.comment });
+    return cloneTraceNodes([
+      { kind: "purpose", name: this.rootRequest.requestName, detail: this.purpose },
+      ...comments.reverse()
+    ]);
+  }
   /** Runtime derivation preserves this invocation's source across builder clones. */
   withQuery(query) {
-    const request = new _QueryRequest(query, this.intent);
-    querySources.set(request.query, cloneTraceNodes(this.traceSource));
-    return request;
+    const previous = queryExecutionOwner(query);
+    if (previous instanceof _QueryRequest && __privateGet(previous, _invocation) !== __privateGet(this, _invocation)) {
+      throw new Error("QUERY_SCOPE_OWNER_MISMATCH: replacement belongs to another query invocation");
+    }
+    return new _QueryRequest(query, this.intent, {
+      [requestBindingToken]: true,
+      parent: this.parentRequest,
+      comment: this.comment,
+      name: this.requestName,
+      operation: this.operation,
+      source: this.traceSource,
+      invocation: __privateGet(this, _invocation)
+    });
   }
-  /** Append one local relation and its qualified property; never accept caller frames. */
-  derive(query, relation) {
-    const request = this.withQuery(query);
-    querySources.set(request.query, cloneTraceNodes([...this.traceSource, {
+  /** A real operation child need not execute SQL itself; descendants retain it. */
+  deriveOperation(query, operation) {
+    const captured = operationSnapshot(operation);
+    return new _QueryRequest(query, this.intent, {
+      [requestBindingToken]: true,
+      parent: this,
+      comment: queryOperationComment(captured),
+      name: String(query.entity ?? this.requestName),
+      operation: captured,
+      source: this.traceSource
+    });
+  }
+  /** Local description for work created by the framework, never a root authorization. */
+  deriveHelper(query, comment) {
+    return new _QueryRequest(query, this.intent, {
+      [requestBindingToken]: true,
+      parent: this,
+      comment: requireText(comment, "comment", "query"),
+      name: String(query.entity ?? this.requestName),
+      source: this.traceSource
+    });
+  }
+  /** Preserve the Q-operation parent and the actual nested request's own comment. */
+  derive(query, relation, operation) {
+    const parent = this.deriveOperation(this.query, operation ?? { kind: "relation-select", relation });
+    return parent.deriveChild(query, relation);
+  }
+  /** Aggregates execute their operation; an anonymous template is not a value load. */
+  deriveAggregate(query, relation, operation) {
+    const facet = this.parentRequest?.operation?.kind === "facet" ? this.parentRequest : void 0;
+    const branch = facet ? facet.deriveHelper(query, "aggregate " + facet.operation.relation) : this.deriveOperation(query, operation);
+    const physical = [...this.traceSource, {
       kind: "relation",
       name: relation,
       detail: `${String(this.query.entity)}.${relation}`
-    }]));
-    return request;
+    }];
+    const scoped = new _QueryRequest(query, this.intent, {
+      [requestBindingToken]: true,
+      parent: branch.parentRequest,
+      comment: branch.comment,
+      name: branch.requestName,
+      operation: branch.operation,
+      source: physical
+    });
+    const comment = query._comment ?? query.commentText;
+    return comment === void 0 ? scoped : scoped.deriveChild(query);
+  }
+  /** Bind a framework helper or value query below an existing operation parent. */
+  deriveChild(query, relation, defaultComment) {
+    const source = query;
+    const comment = source._comment ?? source.commentText;
+    return new _QueryRequest(query, this.intent, {
+      [requestBindingToken]: true,
+      parent: this,
+      comment: comment === void 0 ? defaultComment ?? "load " + String(source.entity) : requireText(comment, "comment", "query"),
+      name: String(source.entity),
+      source: relation === void 0 ? this.traceSource : [...this.traceSource, {
+        kind: "relation",
+        name: relation,
+        detail: `${String(this.query.entity)}.${relation}`
+      }]
+    });
   }
 };
 _intent = new WeakMap();
 _query = new WeakMap();
+_parent2 = new WeakMap();
+_comment3 = new WeakMap();
+_name = new WeakMap();
+_operation = new WeakMap();
+_invocation = new WeakMap();
 var QueryRequest = _QueryRequest;
 var _intent2, _mutation;
 var MutationRequest = class {
@@ -1269,6 +1428,11 @@ var UserContext = class {
     this.locale = "en";
     this.i18nCatalog = I18nCatalog.builtin;
   }
+  /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
+  async withQueryRequest(query, work) {
+    const service = this.requireResource("dataService");
+    return service.withQueryRequest ? service.withQueryRequest(query, work) : work();
+  }
   setLocaleCode(code) {
     const locale = parseLocale(code);
     this.locale = locale;
@@ -1552,12 +1716,13 @@ var SelectQuery = class _SelectQuery {
     this.purposeText = text;
     return this;
   }
-  facetBy(facetName, relationName, request, includeAllFacets = true) {
+  facetBy(facetName, relationName, request, includeAllFacets = true, operation) {
     this.facets.push({
       facetName,
       relationName,
       query: request.toQuery(),
-      includeAllFacets
+      includeAllFacets,
+      operation
     });
     return this;
   }
@@ -1678,12 +1843,12 @@ var SelectQuery = class _SelectQuery {
     this.relations.push({ name });
     return this;
   }
-  relationQuery(name, query, localKey = "id", foreignKey = "id", many = true) {
-    this.relations.push({ name, query, localKey, foreignKey, many });
+  relationQuery(name, query, localKey = "id", foreignKey = "id", many = true, operation) {
+    this.relations.push({ name, query, localKey, foreignKey, many, operation });
     return this;
   }
-  relationAggregate(relationName, alias, query, singleResult = true) {
-    this.relationAggregates.push({ relationName, alias, query, singleResult });
+  relationAggregate(relationName, alias, query, singleResult = true, operation) {
+    this.relationAggregates.push({ relationName, alias, query, singleResult, operation });
     return this;
   }
   order(orderBy) {
@@ -1825,11 +1990,18 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
   outerQuery = request.query;
   const result = {};
   for (const facet of facets) {
+    const operation = request.deriveOperation(outerQuery, facet.operation ?? {
+      kind: "facet",
+      relation: facet.relationName,
+      alias: facet.facetName
+    });
+    const countAliases = facet.query.aggregateItems.filter((item) => String(item.function).toLowerCase() === "count").map((item) => String(item.alias));
     let counts;
     if (service.executeFacetMembership) {
       counts = await service.executeFacetMembership(
-        request.withQuery(prepareQuery(outerQuery.clone())).query,
-        facet.relationName
+        operation.deriveHelper(prepareQuery(outerQuery.clone()), "aggregate " + facet.relationName).query,
+        facet.relationName,
+        countAliases
       );
     } else {
       const membershipQuery = outerQuery.clone();
@@ -1843,7 +2015,10 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
       membershipQuery.offsetValue = 0;
       membershipQuery.limitValue = 0;
       membershipQuery.selectItems = [facet.relationName];
-      const memberships = await service.executeQuery(request.withQuery(prepareQuery(membershipQuery)).query);
+      const memberships = await service.executeQuery(operation.deriveHelper(
+        prepareQuery(membershipQuery),
+        "aggregate " + facet.relationName
+      ).query);
       counts = /* @__PURE__ */ new Map();
       for (const row of memberships) {
         const id = relationId(row, facet.relationName);
@@ -1852,13 +2027,29 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
     }
-    const nestedRequest = request.derive(facet.query.clone(), facet.relationName);
+    const nestedRequest = operation.deriveChild(facet.query.clone(), facet.relationName);
     const nestedQuery = nestedRequest.query;
     const nestedFacets = nestedQuery.facets;
     nestedQuery.facets = [];
-    const countAliases = nestedQuery.aggregateItems.filter((item) => String(item.function).toLowerCase() === "count").map((item) => String(item.alias));
     nestedQuery.aggregateItems = [];
     nestedQuery.groupByItems = [];
+    for (const aggregate of nestedQuery.relationAggregates) {
+      if (aggregate.query.entity !== outerQuery.entity) continue;
+      const membership = outerQuery.clone();
+      membership.selectItems = ["id"];
+      membership.properties = [];
+      membership.relations = [];
+      membership.relationAggregates = [];
+      membership.facets = [];
+      membership.aggregateItems = [];
+      membership.groupByItems = [];
+      membership.orderItems = [];
+      membership.offsetValue = 0;
+      membership.limitValue = 0;
+      const filter = { id: { $inSubquery: { query: membership, field: "id" } } };
+      aggregate.query.filterCondition = aggregate.query.filterCondition ? { $and: [aggregate.query.filterCondition, filter] } : filter;
+      retainQueryDiagnosticOrigin(outerQuery, aggregate.query);
+    }
     if (!facet.includeAllFacets) {
       const membership = { id: { $in: [...counts.keys()] } };
       nestedQuery.filterCondition = nestedQuery.filterCondition ? { $and: [nestedQuery.filterCondition, membership] } : membership;
@@ -1902,9 +2093,11 @@ export {
   retainSQLLogProvenance,
   inheritSQLLogBindings,
   projectSQLLog,
+  projectSafeSQLLog,
   queryDiagnosticOrigin,
   retainQueryDiagnosticOrigin,
   LoadedScalarSnapshot,
+  queryOperationComment,
   RequestIntentError,
   QueryIntent,
   MutationIntent,
@@ -1932,4 +2125,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-YAAPRG2I.js.map
+//# sourceMappingURL=chunk-ZH5FDHR6.js.map

@@ -199,5 +199,7 @@ export class MySQLDriver implements TeaQLSqlDriver {
 export class MySQLTeaQLClient extends AbstractSQLTeaQLClient {
   constructor(connectionString: string, schemas: Record<string, EntitySchema>) {
     super(new MySQLDriver(connectionString), schemas);
+    this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
   }
 }
+import { startStandardNodeTelemetry } from '../telemetry/standard-node';

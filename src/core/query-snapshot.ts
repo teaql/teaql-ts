@@ -1,6 +1,11 @@
 // Internal execution plumbing. Never export provenance from the public facade
 // or store it as a JSON/symbol property on a builder, entity or Context.
 const origins = new WeakMap<object, object>();
+const requestOwners = new WeakMap<object, object>();
+
+/** Internal capability: never a field on query JSON, entities or Context. */
+export function queryExecutionOwner(query: object): object | undefined { return requestOwners.get(query); }
+export function retainQueryExecutionOwner(query: object, owner: object): void { requestOwners.set(query, owner); }
 
 export function queryDiagnosticOrigin(query: object): object | undefined { return origins.get(query); }
 
@@ -25,5 +30,7 @@ export function snapshotQuery<T>(value: T, seen = new Map<object, unknown>()): T
   }
   const origin = origins.get(value);
   if (origin) origins.set(copy, origin);
+  const owner = requestOwners.get(value);
+  if (owner) requestOwners.set(copy, owner);
   return copy;
 }

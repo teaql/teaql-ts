@@ -51,6 +51,14 @@ export class ContextRootError extends Error {
 }
 
 export class UserContext {
+  /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
+  async withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T> {
+    const service = this.requireResource<{
+      withQueryRequest?<R>(query: SelectQuery, work: () => Promise<R>): Promise<R>;
+    }>('dataService');
+    return service.withQueryRequest ? service.withQueryRequest(query, work) : work();
+  }
+
   private readonly mutationPolicy = new MutationPolicyRuntimeState();
   private readonly resources = new Map<string, unknown>();
   private readonly continuousPageCursors = new Map<string, Cursor>();

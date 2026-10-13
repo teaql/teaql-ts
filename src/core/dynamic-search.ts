@@ -1,9 +1,45 @@
 /** Local UI-search normalization. This is deliberately not a federation decoder. */
 import { OrderBy, SelectQuery } from './ast';
-export type SearchValueType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'timestamp' | 'decimal';
+export type SearchValueType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'timestamp' | 'decimal' | 'unsupported';
 export interface SearchModel {
   fields: Readonly<Record<string, SearchValueType>>;
   relations: Readonly<Record<string, string>>;
+}
+
+/** Model-derived scalar bindings. Native query keys are trusted, not input JSON. */
+export interface GeneratedSearchModel extends SearchModel {
+  queryFields: Readonly<Record<string, string>>;
+}
+
+/**
+ * Default generated binding for scalar fields. Known relation paths require a
+ * trusted application binding via mergeDynamicSearch, which owns authorization.
+ * No relation predicate is guessed or silently dropped.
+ */
+export function mergeGeneratedScalarSearch(
+  base: SelectQuery,
+  source: unknown,
+  models: Readonly<Record<string, GeneratedSearchModel>>,
+  warn?: (warning: DynamicSearchWarning) => void,
+): { query: SelectQuery; warnings: DynamicSearchWarning[] } {
+  const field = (path: string): string => {
+    if (path.includes('.')) throw new Error('Dynamic search requires a trusted relation binding');
+    const fields = models[base.entity]?.queryFields;
+    if (!fields || !Object.prototype.hasOwnProperty.call(fields, path)) {
+      throw new Error('Missing generated scalar search binding');
+    }
+    return fields[path];
+  };
+  return mergeDynamicSearch(base, source, models, {
+    filter: (path, predicate) => {
+      const [operator, value] = Object.entries(predicate as Record<string, unknown>)[0];
+      if (value === null && operator !== '$eq' && operator !== '$ne') {
+        throw new Error('Null supports only equality predicates');
+      }
+      return { [field(path)]: predicate };
+    },
+    order: (path, direction) => direction === 'asc' ? OrderBy.asc(field(path)) : OrderBy.desc(field(path)),
+  }, warn);
 }
 export interface DynamicSearchWarning {
   code: 'DYNAMIC_SEARCH_UNKNOWN_FIELD';
@@ -123,6 +159,7 @@ export function normalizeDynamicSearch(
     }
     const type = fieldType(path);
     if (type === undefined) { missing(path, 'FILTER'); continue; }
+    if (type === 'unsupported') throw new Error('Known search field has no supported scalar binding');
     if (operator === '$contains' && type !== 'string') throw new Error('String operator requires a string field');
     if (Array.isArray(value)) {
       if (operator !== '$in' && operator !== '$notIn') throw new Error('Unexpected search value list');
@@ -135,7 +172,9 @@ export function normalizeDynamicSearch(
         || typeof order.field !== 'string' || !['asc', 'desc'].includes(order.direction as string)) {
       throw new Error('Invalid dynamic search ordering');
     }
-    if (fieldType(order.field) === undefined) { missing(order.field, 'ORDER_BY'); continue; }
+    const type = fieldType(order.field);
+    if (type === undefined) { missing(order.field, 'ORDER_BY'); continue; }
+    if (type === 'unsupported') throw new Error('Known search field has no supported scalar binding');
     search.orderBy!.push({ field: order.field, direction: order.direction as 'asc' | 'desc' });
   }
   // Publish diagnostics only after all fatal validation completes; never log source values.

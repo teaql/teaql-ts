@@ -1,0 +1,1 @@
+{"version":3,"file":"sql-diagnostic-event.d.ts","sourceRoot":"","sources":["../../src/core/sql-diagnostic-event.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,sBAAsB,EAAE,2BAA2B,EAAE,MAAM,aAAa,CAAC;AACvF,OAAO,KAAK,EAAE,oBAAoB,EAAE,MAAM,aAAa,CAAC;AAExD,gFAAgF;AAChF,wBAAgB,kBAAkB,CAAC,QAAQ,EAAE,oBAAoB,EAC/D,WAAW,CAAC,EAAE,2BAA2B,GAAG,sBAAsB,CAmBnE"}

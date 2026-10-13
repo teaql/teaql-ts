@@ -1,6 +1,7 @@
 import { Value } from './value';
 import { SmartList } from './smart-list';
 import { retainQueryDiagnosticOrigin, snapshotQuery } from './query-snapshot';
+import type { QueryOperation } from './request-intent';
 
 export enum SortDirection {
   Asc = 'Asc',
@@ -61,6 +62,7 @@ export interface FacetRequest {
   relationName: string;
   query: SelectQuery;
   includeAllFacets: boolean;
+  operation?: QueryOperation;
 }
 
 export interface RelationAggregate {
@@ -68,6 +70,7 @@ export interface RelationAggregate {
   alias: string;
   query: SelectQuery;
   singleResult: boolean;
+  operation?: QueryOperation;
 }
 
 export class SelectQuery {
@@ -95,6 +98,7 @@ export class SelectQuery {
     localKey?: string;
     foreignKey?: string;
     many?: boolean;
+    operation?: QueryOperation;
   }> = [];
   public relationAggregates: RelationAggregate[] = [];
   public commentText?: string;
@@ -126,12 +130,14 @@ export class SelectQuery {
     relationName: string,
     request: QuerySelection,
     includeAllFacets = true,
+    operation?: QueryOperation,
   ): this {
     this.facets.push({
       facetName,
       relationName,
       query: request.toQuery(),
       includeAllFacets,
+      operation,
     });
     return this;
   }
@@ -256,9 +262,10 @@ export class SelectQuery {
     query: SelectQuery,
     localKey = 'id',
     foreignKey = 'id',
-    many = true
+    many = true,
+    operation?: QueryOperation,
   ): this {
-    this.relations.push({ name, query, localKey, foreignKey, many });
+    this.relations.push({ name, query, localKey, foreignKey, many, operation });
     return this;
   }
 
@@ -267,8 +274,9 @@ export class SelectQuery {
     alias: string,
     query: SelectQuery,
     singleResult = true,
+    operation?: QueryOperation,
   ): this {
-    this.relationAggregates.push({ relationName, alias, query, singleResult });
+    this.relationAggregates.push({ relationName, alias, query, singleResult, operation });
     return this;
   }
 

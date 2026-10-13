@@ -1,5 +1,7 @@
-import { EntityRoot, QueryIntent, SelectQuery, SmartList, TeaQLDataService, TeaQLPage, UserContext, executeRelationFacets } from '../../teaql-ts';
+import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { Payment } from '../models/Payment';
+import { mergeGeneratedScalarSearch, DynamicSearchWarning, QueryIntent } from 'teaql-ts';
+import { GENERATED_SEARCH_MODELS } from '../../generated-search-models';
 
 
 
@@ -8,6 +10,9 @@ export class PaymentRequest {
     private filters: any[] = [];
     private _purpose: string | undefined;
     private _comment: string | undefined;
+    private _pageCountAlias: string | undefined;
+    private _pageCountMethod: "count" | "countAs" | undefined;
+    private _dynamicSearchWarnings: DynamicSearchWarning[] = [];
 
     constructor(minimal = false) {
         this.query = new SelectQuery("Payment");
@@ -25,13 +30,26 @@ export class PaymentRequest {
         return this;
     }
 
+    filterByJson(source: unknown, warn?: (warning: DynamicSearchWarning) => void): this {
+        const base = this.query.clone();
+        if (this.filters.length > 0) base.filter({ "$and": this.filters });
+        const merged = mergeGeneratedScalarSearch(base, source, GENERATED_SEARCH_MODELS, warn);
+        this.query = merged.query as SelectQuery;
+        this.filters = this.query.filterCondition ? [this.query.filterCondition] : [];
+        this._dynamicSearchWarnings.push(...merged.warnings);
+        return this;
+    }
+
+    get dynamicSearchWarnings(): readonly DynamicSearchWarning[] {
+        return this._dynamicSearchWarnings.map(warning => ({ ...warning }));
+    }
+
     purpose(p: string): ExecutablePaymentRequest {
         this.query.purpose(p);
         this._purpose = p;
         return new ExecutablePaymentRequest(
-            (context) => this.executeForListInternal(context),
-            (context) => this.executeForRowsInternal(context),
-            (context, offset, limit) => this.executeForPageInternal(context, offset, limit),
+            (context) => context.withQueryRequest(this.query, () => this.executeForListInternal(context)),
+            (context) => context.withQueryRequest(this.query, () => this.executeForRowsInternal(context)),
             (context, chunkSize) => this.executeForStreamInternal(context, chunkSize),
             () => this.limit(1),
             (c) => this.comment(c),
@@ -116,7 +134,8 @@ export class PaymentRequest {
     selectCustomerOrderWith(request: { toQuery(): SelectQuery }): this {
         this.query.select(["customerOrder"]);
         this.query.relationQuery(
-            "customerOrder", request.toQuery(), "customerOrder", "id", false);
+            "customerOrder", request.toQuery(), "customerOrder", "id", false,
+            { kind: "relation-select", method: "selectCustomerOrderWith", relation: "customerOrder" });
         return this;
     }
 
@@ -140,7 +159,8 @@ export class PaymentRequest {
 
     selectPaymentAttemptListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
-            "paymentAttemptList", request.toQuery(), "id", "payment", true);
+            "paymentAttemptList", request.toQuery(), "id", "payment", true,
+            { kind: "relation-select", method: "selectPaymentAttemptListWith", relation: "paymentAttemptList" });
         return this;
     }
 
@@ -184,12 +204,18 @@ export class PaymentRequest {
 
     countPaymentAttemptsAs(alias: string): this {
         const query = new SelectQuery("PaymentAttempt").filter({ version: { "$gte": 1 } });
-        return this.countPaymentAttemptsWith(alias, { toQuery: () => query });
+        this.countPaymentAttemptsWith(alias, { toQuery: () => query });
+        this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
+            kind: "relation-count", method: "countPaymentAttemptsAs", relation: "paymentAttemptList", alias };
+        return this;
     }
 
     countPaymentAttemptsWith(alias: string, child: { toQuery(): SelectQuery }): this {
-        child.toQuery().aggregate("Count", "id", alias);
-        this.query.relationAggregate("paymentAttemptList", alias, child.toQuery(), true);
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("Count", "id", alias);
+        this.query.relationAggregate("paymentAttemptList", alias, query, true,
+            { kind: "relation-count", method: "countPaymentAttemptsWith", relation: "paymentAttemptList", alias });
         return this;
     }
 
@@ -449,11 +475,15 @@ export class PaymentRequest {
     // --- Aggregations ---
     count(): this {
         this.query.aggregate("Count", "id", "count");
+        this._pageCountAlias = "count";
+        this._pageCountMethod = "count";
         return this;
     }
 
     countAs(retName: string): this {
         this.query.aggregate("Count", "id", retName);
+        this._pageCountAlias = retName;
+        this._pageCountMethod = "countAs";
         return this;
     }
 
@@ -502,13 +532,15 @@ export class PaymentRequest {
         request: { toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "customerOrder", request, includeAllFacets);
+        this.query.facetBy(facetName, "customerOrder", request, includeAllFacets,
+            { kind: "facet", method: "facetByCustomerOrderAs", relation: "customerOrder", alias: facetName });
         return this;
     }
 
 
     private async executeForListInternal(context: UserContext): Promise<SmartList<Payment>> {
         this.ensureIntent();
+        if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
         if (this.filters.length > 0) {
             this.query.filter({ "$and": this.filters });
         }
@@ -539,34 +571,47 @@ export class PaymentRequest {
             await service.executeQuery(context.prepareQuery(this.query)) as Record<string, unknown>[]);
     }
 
-    private async executeForPageInternal(
-        context: UserContext, offset: number, limit: number,
-    ): Promise<TeaQLPage<Payment>> {
+    private async executeCountedListInternal(
+        context: UserContext,
+    ): Promise<SmartList<Payment>> {
         this.ensureIntent();
-        const candidate = this.query.clone().offset(offset).limit(limit);
-        if (this.filters.length > 0) candidate.filter({ "$and": this.filters });
+        if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
-        const query = context.prepareQuery(candidate);
-        const useIdSet = query.localIdSetPaginationOptions() !== undefined;
-        const totalCountBeforeRows = useIdSet ? undefined : await service.executeCount(query);
-        const rows = await service.executeQuery(query);
+        const preparedQuery = context.prepareQuery(this.query);
+        const useIdSet = preparedQuery.localIdSetPaginationOptions() !== undefined;
+        const countOperation = { kind: "named-count" as const,
+            method: this._pageCountMethod ?? "count",
+            ...(this._pageCountMethod === "countAs" ? { alias: this._pageCountAlias } : {}) };
+        const totalCountBeforeRows = useIdSet ? undefined : await service.executeCount(
+            preparedQuery, this._pageCountAlias, countOperation);
+        const pageQuery = preparedQuery.clone();
+        // A page count describes the full filtered set, not an aggregate-only page row.
+        pageQuery.aggregateItems = pageQuery.aggregateItems.filter(item =>
+            !(String(item.function).toLowerCase() === "count" && item.alias === this._pageCountAlias));
+        const rows = await service.executeQuery(pageQuery);
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
-            : (totalCountBeforeRows ?? await service.executeCount(query));
+            : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
         const data = new SmartList(rows.map((row: unknown) =>
             row instanceof Payment
                 ? row
                 : Payment.fromRecord(row as Record<string, unknown>, new EntityRoot())));
         data.totalCount = totalCount;
-        return { data, totalCount, offset, limit };
+        if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
+        if (this.query.facets.length > 0) {
+            data.facets = await executeRelationFacets(
+                service, (query: any) => context.prepareQuery(query), preparedQuery, preparedQuery.facets);
+        }
+        return data;
     }
 
     private executeForStreamInternal(context: UserContext, chunkSize: number): AsyncIterable<Payment> {
         this.ensureIntent();
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
-        const query = context.prepareQuery(this.query.clone());
-        const chunks = service.executeForStream(query, chunkSize);
+        const preparedQuery = context.prepareQuery(this.query);
+        // Prepare Context and capture the runtime request before returning a lazy iterator.
+        const chunks = service.executeForStream(preparedQuery, chunkSize);
         return (async function* () {
             for await (const chunk of chunks) {
                 for (const entity of chunk) {
@@ -579,6 +624,7 @@ export class PaymentRequest {
     }
 
     private ensureIntent(): void {
+        // Runtime owns validation, Unicode whitespace rules and typed diagnostics.
         new QueryIntent(this._comment, this._purpose);
     }
 
@@ -588,9 +634,6 @@ export class ExecutablePaymentRequest {
     constructor(
         private readonly execute: (context: UserContext) => Promise<SmartList<Payment>>,
         private readonly executeRows: (context: UserContext) => Promise<SmartList<Record<string, unknown>>>,
-        private readonly page: (
-            context: UserContext, offset: number, limit: number,
-        ) => Promise<TeaQLPage<Payment>>,
         private readonly stream: (context: UserContext, chunkSize: number) => AsyncIterable<Payment>,
         private readonly limitOne: () => void,
         private readonly addComment: (comment: string) => void,
@@ -615,13 +658,6 @@ export class ExecutablePaymentRequest {
     executeForRows(context: UserContext): Promise<SmartList<Record<string, unknown>>> {
         this.ensureIntent();
         return this.executeRows(context);
-    }
-
-    executeForPage(
-        context: UserContext, offset: number, limit: number,
-    ): Promise<TeaQLPage<Payment>> {
-        this.ensureIntent();
-        return this.page(context, offset, limit);
     }
 
     executeForStream(context: UserContext, chunkSize = 1000): AsyncIterable<Payment> {

@@ -18,9 +18,12 @@ export async function verifyRequestIntent(context: UserContext, client: SQLiteTe
   };
   try {
     await reject(() => Q.schools().limit(1).comment('').purpose('verify request gate').executeForList(context), 'query', 'comment');
+    await reject(() => Q.schools().limit(1).comment('\u0085').purpose('verify request gate').executeForList(context), 'query', 'comment');
     await reject(() => Q.schools().limit(1).comment('verify request gate').purpose('').executeForList(context), 'query', 'purpose');
+    await reject(() => Q.schools().limit(1).comment('verify request gate').purpose('\u0085').executeForList(context), 'query', 'purpose');
     const school = Q.schools().comment('construct rejected school').purpose('verify request gate').newEntity(context);
     await reject(() => school.auditAs('').save(context), 'mutation', 'comment');
+    await reject(() => school.auditAs('\u0085').save(context), 'mutation', 'comment');
     if (client.sqlTrace.length !== before) throw new Error('Invalid request reached SQL compilation');
     console.log('PASS TypeScript generated School request-intent gates');
   } finally {

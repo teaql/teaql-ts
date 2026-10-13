@@ -14,6 +14,7 @@ var _LoadedScalarSnapshot_values;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LoadedScalarSnapshot = void 0;
 const query_snapshot_1 = require("./query-snapshot");
+const loadedSnapshots = new WeakMap();
 /** @internal Loaded scalar provenance. No relations, ownership, SQL or Context. */
 class LoadedScalarSnapshot {
     constructor(values = {}) {
@@ -23,6 +24,21 @@ class LoadedScalarSnapshot {
     }
     /** Copies prevent callers or mutable JSON/date fields from rewriting history. */
     values() { return (0, query_snapshot_1.snapshotQuery)(__classPrivateFieldGet(this, _LoadedScalarSnapshot_values, "f")); }
+    /** @internal Generated hydration stores provenance outside entity/JSON state. */
+    static captureFor(entity, values) {
+        const snapshot = new LoadedScalarSnapshot(values);
+        loadedSnapshots.set(entity, snapshot);
+        return snapshot;
+    }
+    /** @internal Mutation uses the loaded values, not already-edited properties. */
+    static forEntity(entity) { return loadedSnapshots.get(entity); }
+    /** @internal Rollback restores provenance together with authoritative entity state. */
+    static restoreFor(entity, snapshot) {
+        if (snapshot)
+            loadedSnapshots.set(entity, snapshot);
+        else
+            loadedSnapshots.delete(entity);
+    }
 }
 exports.LoadedScalarSnapshot = LoadedScalarSnapshot;
 _LoadedScalarSnapshot_values = new WeakMap();
