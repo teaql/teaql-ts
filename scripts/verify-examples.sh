@@ -5,9 +5,10 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # file: dependencies resolve the package's dist entry points, not TypeScript source.
 # Rebuild here so examples can never silently validate stale checked-in output.
 (cd "$repo" && npm run build)
+bash "$repo/examples/object-storage/verify.sh"
 (cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
 mkdir -p "$repo/.local"
-expected=(browser-sqlite conformance ensure-schema-bootstrap facet-trace order-management school-management task-board trace-chain)
+expected=(browser-sqlite conformance ensure-schema-bootstrap facet-trace object-storage order-management school-management task-board trace-chain)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2

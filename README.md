@@ -352,6 +352,7 @@ Request JSON is not allowed to replace those trusted capabilities.
 - [Browser SQLite example](examples/browser-sqlite/README.md)
 - [Facet example](examples/facet-trace/README.md)
 - [Trace Chain example](examples/trace-chain/README.md)
+- [Binary object storage and temporary S3 URLs](examples/object-storage/README.md)
 
 ## Safe troubleshooting
 

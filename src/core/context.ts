@@ -1,4 +1,5 @@
 import { SelectQuery } from './ast';
+import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
 import {
   contextSchemaCapability,
@@ -51,6 +52,9 @@ export class ContextRootError extends Error {
 }
 
 export class UserContext {
+  withObjectStorage(provider: ObjectStorageProvider): this { return this.insertResource('objectStorageProvider', provider); }
+  withObjectStorageObserver(observer: ObjectStorageObserver): this { return this.insertResource('objectStorageObserver', observer); }
+  objectStorage(comment: string): ObjectStorage { return new ObjectStorage(this, comment); }
   /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
   async withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T> {
     const service = this.requireResource<{

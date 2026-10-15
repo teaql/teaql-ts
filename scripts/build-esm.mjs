@@ -6,6 +6,7 @@ await rm(output, {recursive: true, force: true});
 await build({
   entryPoints: {
     index: 'src/index.ts',
+    'object-storage/s3': 'src/object-storage/s3.ts',
     'sql/core': 'src/sql/core.ts',
     'sql/postgres': 'src/sql/postgres.ts',
     'sql/mysql': 'src/sql/mysql.ts',

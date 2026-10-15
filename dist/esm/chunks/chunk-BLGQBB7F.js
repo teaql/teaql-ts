@@ -1,8 +1,11 @@
 import {
+  ObjectStorage
+} from "./chunk-MJFGQZSQ.js";
+import {
   __privateAdd,
   __privateGet,
   __privateSet
-} from "./chunk-IQGZNIAK.js";
+} from "./chunk-AQT573VW.js";
 
 // src/core/builtin-messages-v1.json
 var builtin_messages_v1_default = {
@@ -1428,6 +1431,15 @@ var UserContext = class {
     this.locale = "en";
     this.i18nCatalog = I18nCatalog.builtin;
   }
+  withObjectStorage(provider) {
+    return this.insertResource("objectStorageProvider", provider);
+  }
+  withObjectStorageObserver(observer) {
+    return this.insertResource("objectStorageObserver", observer);
+  }
+  objectStorage(comment) {
+    return new ObjectStorage(this, comment);
+  }
   /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
   async withQueryRequest(query, work) {
     const service = this.requireResource("dataService");
@@ -2125,4 +2137,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-ZH5FDHR6.js.map
+//# sourceMappingURL=chunk-BLGQBB7F.js.map

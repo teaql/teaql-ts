@@ -1,4 +1,5 @@
 import { SelectQuery } from './ast';
+import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
 import { MutationGovernanceSink, MutationGovernanceSnapshot, MutationPlan, MutationPolicyApprovalProvider, MutationPolicyRegistry } from './mutation-policy';
 export type RetainedIdSet = {
@@ -33,6 +34,9 @@ export declare class ContextRootError extends Error {
     }> | undefined);
 }
 export declare class UserContext {
+    withObjectStorage(provider: ObjectStorageProvider): this;
+    withObjectStorageObserver(observer: ObjectStorageObserver): this;
+    objectStorage(comment: string): ObjectStorage;
     /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
     withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
     private readonly mutationPolicy;

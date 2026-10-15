@@ -18,7 +18,7 @@ function startStandardNodeTelemetry() {
   const key = `${configuration.serviceName}|${configuration.endpoint}`;
   let entry = pipelines.get(key);
   if (!entry) {
-    entry = { references: 0, ready: import("./standard-node-sdk-X6MM23MY.js").then((module) => module.createStandardNodePipeline(configuration.serviceName, configuration.endpoint)) };
+    entry = { references: 0, ready: import("./standard-node-sdk-CX5SOKI2.js").then((module) => module.createStandardNodePipeline(configuration.serviceName, configuration.endpoint)) };
     pipelines.set(key, entry);
   }
   const ownedEntry = entry;
@@ -52,4 +52,4 @@ function startStandardNodeTelemetry() {
 export {
   startStandardNodeTelemetry
 };
-//# sourceMappingURL=chunk-JDDLP6GK.js.map
+//# sourceMappingURL=chunk-ZY7L4QDF.js.map
