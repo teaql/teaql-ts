@@ -68,13 +68,24 @@ try {
   if (!firstStatus.includes('policy installed')) {
     throw new Error(`Browser runtime did not install Mutation Policy: ${firstStatus}`);
   }
-  if (!firstStatus.includes('7 entities') || !first.includes('TQL-2026-1008')
+  const defaultLanding = await page.evaluate(() => ({
+    hash: window.location.hash,
+    activeQuery: document.querySelector('[data-query-id].active')?.dataset.queryId || '',
+    resultTitle: document.querySelector('#result-title')?.textContent || '',
+    hasOrderCenter: !!document.querySelector('#result .order-center'),
+    tableViewActive: document.querySelector('#view-table')?.classList.contains('active'),
+  }));
+  if (!firstStatus.includes('7 entities')
+    || defaultLanding.hash !== '#order-center'
+    || defaultLanding.activeQuery !== 'order-center'
+    || defaultLanding.resultTitle !== 'Comprehensive: Order management center'
+    || !defaultLanding.hasOrderCenter
+    || !defaultLanding.tableViewActive
+    || !first.includes('Order Management Center')
+    || !first.includes('TQL-2026-1008')
     || !first.includes('Shipped')) {
-    throw new Error(`Order model did not return deterministic seeded rows:\n${first}`);
+    throw new Error(`Order center was not the default business page: ${JSON.stringify(defaultLanding)}\n${first}`);
   }
-  const defaultTable = await page.$('#result .result-table');
-  const tableViewActive = await page.$eval('#view-table', button => button.classList.contains('active'));
-  if (!defaultTable || !tableViewActive) throw new Error('Tabular query did not default to the table view');
   const catalog = await page.$$eval('#query-catalog .query-group', groups => groups.map(group => ({
     title: group.querySelector('h2')?.textContent,
     links: group.querySelectorAll('a').length,
@@ -84,23 +95,12 @@ try {
   }
   const rawResult = await page.$('#result pre');
   if (rawResult) throw new Error('Result regressed to a raw preformatted JSON block');
-  await page.click('#view-tree');
-  await page.waitForSelector('#result details');
-  const treeText = await page.$eval('#result', element => element.textContent || '');
-  const treeBranches = await page.$$('#result details');
-  if (treeBranches.length < 2 || !treeText.includes('Shipped') || !treeText.includes('#16A34A')) {
-    throw new Error('Result Tree did not preserve the expandable raw result');
-  }
-  await page.click('#view-table');
-  await page.waitForSelector('#result .result-table');
   const defaultSql = await page.$eval('#sql-output', element => element.textContent || '');
-  if (!defaultSql.includes('SELECT') || !defaultSql.includes('customer_order_data')) {
-    throw new Error(`Executed SQL was not rendered for the default query:\n${defaultSql}`);
+  if (!defaultSql.includes('SELECT') || !defaultSql.includes('customer_order_data')
+    || !defaultSql.includes('render order list page: load order list')) {
+    throw new Error(`Default order center did not render its business-to-SQL evidence:\n${defaultSql}`);
   }
 
-  await page.click('[data-query-id="order-center"]');
-  await page.waitForFunction(() => document.querySelector('#result-title')?.textContent === 'Comprehensive: Order management center'
-    && !document.querySelector('#result')?.hasAttribute('aria-busy'));
   const dashboard = await page.$eval('#result', element => element.textContent || '');
   const metricCount = await page.$$('#result .metric-card');
   const dashboardRows = await page.$$('#result .order-row:not(.order-row-head)');

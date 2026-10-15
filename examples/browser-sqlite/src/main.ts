@@ -132,7 +132,8 @@ function localize(value: string): string {
 }
 
 let runtime: Runtime | undefined;
-let activeQueryId = window.location.hash.slice(1) || 'recent-orders';
+let activeQueryId = window.location.hash.slice(1) || 'order-center';
+if (!window.location.hash) history.replaceState(null, '', '#order-center');
 let activeResultView: ResultView = 'tree';
 let currentResult: { data: unknown; query: QueryExample; active: Runtime } | undefined;
 let lastElapsed = 0;
