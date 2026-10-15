@@ -25,7 +25,9 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   assert.ok(ready, serverOutput);
-  browser = await puppeteer.launch({executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
+  browser = await puppeteer.launch({executablePath: process.env.CHROME_BIN || (process.platform === 'darwin'
+      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+      : '/usr/bin/google-chrome'),
     args: ['--no-sandbox', '--disable-dev-shm-usage'], headless: true});
   const page = await browser.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));

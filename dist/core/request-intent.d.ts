@@ -71,7 +71,7 @@ export declare class QueryRequest<T extends object = SelectQuery> {
     /** Aggregates execute their operation; an anonymous template is not a value load. */
     deriveAggregate<Q extends object>(query: Q, relation: string, operation: QueryOperation): QueryRequest<Q>;
     /** Bind a framework helper or value query below an existing operation parent. */
-    deriveChild<Q extends object>(query: Q, relation?: string, defaultComment?: string): QueryRequest<Q>;
+    deriveChild<Q extends object>(query: Q, relation?: string, defaultComment?: string, requestName?: string): QueryRequest<Q>;
 }
 /** A batch also needs this root envelope; child comments are not a fallback. */
 export declare class MutationRequest<T extends object = MutationQuery> {

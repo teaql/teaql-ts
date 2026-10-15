@@ -1405,7 +1405,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   private async queryTreeBindings(query: any, sql: string, values: any[], inherited?: SQLLogBindingSource): Promise<SQLLogBindingSource> {
     let source = inheritSQLLogBindings(this.queryLogBindings(sql, values), inherited);
-    const intent = new QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+    const intent = new QueryRequest(query).intent;
     const stack: any[] = [query];
     const visited = new Set<object>();
     while (stack.length) {
@@ -1806,7 +1806,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     inherited?: SQLLogBindingSource): Promise<void> {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
-    const intent = new QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+    const intent = new QueryRequest(query).intent;
     for (const load of query.relations) {
       const relation = parentSchema.relations?.[load.name];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
@@ -1941,7 +1941,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const aggregates = query.relationAggregates;
     if (!parents.length || !Array.isArray(aggregates) || !aggregates.length) return;
     const parentSchema = this.schema(query.entity);
-    const intent = new QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+    const intent = new QueryRequest(query).intent;
     for (const aggregate of aggregates) {
       const relation = parentSchema.relations?.[aggregate.relationName];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${aggregate.relationName}`);

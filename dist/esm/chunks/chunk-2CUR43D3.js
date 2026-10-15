@@ -776,11 +776,12 @@ var _QueryRequest = class _QueryRequest {
     __privateAdd(this, _operation);
     __privateAdd(this, _invocation);
     const source = query;
-    __privateSet(this, _intent, intent === void 0 ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText) : new QueryIntent(intent?.comment, intent?.purpose));
+    const previous = queryExecutionOwner(query);
+    const previousOwner = previous instanceof _QueryRequest ? previous : void 0;
+    __privateSet(this, _intent, intent === void 0 ? previousOwner?.intent ?? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText) : new QueryIntent(intent?.comment, intent?.purpose));
     if (binding && binding[requestBindingToken] !== true)
       throw new Error("QUERY_REQUEST_OWNERSHIP_INVALID: request binding is runtime-owned");
-    const previous = queryExecutionOwner(query);
-    const owner = previous instanceof _QueryRequest && previous.intent.comment === __privateGet(this, _intent).comment && previous.purpose === __privateGet(this, _intent).purpose ? previous : void 0;
+    const owner = previousOwner && previousOwner.intent.comment === __privateGet(this, _intent).comment && previousOwner.purpose === __privateGet(this, _intent).purpose ? previousOwner : void 0;
     __privateSet(this, _invocation, binding?.invocation ?? (binding?.parent ? __privateGet(binding.parent, _invocation) : void 0) ?? (owner ? __privateGet(owner, _invocation) : void 0) ?? Object.freeze({}));
     __privateSet(this, _parent2, binding ? binding.parent : owner?.parentRequest);
     __privateSet(this, _comment3, requireText(binding?.comment ?? owner?.comment ?? __privateGet(this, _intent).comment, "comment", "query"));
@@ -789,9 +790,9 @@ var _QueryRequest = class _QueryRequest {
     __privateSet(this, _query, snapshotQuery(query));
     const captured = __privateGet(this, _query);
     for (const [field, value] of [
-      ["commentText", this.intent.comment],
+      ["commentText", this.comment],
       ["purposeText", this.purpose],
-      ["_comment", this.intent.comment],
+      ["_comment", this.comment],
       ["_purpose", this.purpose]
     ]) {
       Object.defineProperty(captured, field, {
@@ -883,8 +884,9 @@ var _QueryRequest = class _QueryRequest {
   }
   /** Preserve the Q-operation parent and the actual nested request's own comment. */
   derive(query, relation, operation) {
-    const parent = this.deriveOperation(this.query, operation ?? { kind: "relation-select", relation });
-    return parent.deriveChild(query, relation);
+    if (operation) return this.deriveOperation(this.query, operation).deriveChild(query, relation);
+    const owner = `${String(this.query.entity)}.${relation}`;
+    return this.deriveChild(query, relation, void 0, owner);
   }
   /** Aggregates execute their operation; an anonymous template is not a value load. */
   deriveAggregate(query, relation, operation) {
@@ -907,14 +909,14 @@ var _QueryRequest = class _QueryRequest {
     return comment === void 0 ? scoped : scoped.deriveChild(query);
   }
   /** Bind a framework helper or value query below an existing operation parent. */
-  deriveChild(query, relation, defaultComment) {
+  deriveChild(query, relation, defaultComment, requestName) {
     const source = query;
     const comment = source._comment ?? source.commentText;
     return new _QueryRequest(query, this.intent, {
       [requestBindingToken]: true,
       parent: this,
-      comment: comment === void 0 ? defaultComment ?? "load " + String(source.entity) : requireText(comment, "comment", "query"),
-      name: String(source.entity),
+      comment: comment === void 0 ? defaultComment ?? `load ${String(source.entity)}` : requireText(comment, "comment", "query"),
+      name: requestName ?? String(source.entity),
       source: relation === void 0 ? this.traceSource : [...this.traceSource, {
         kind: "relation",
         name: relation,
@@ -2212,4 +2214,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-XTWMNTWJ.js.map
+//# sourceMappingURL=chunk-2CUR43D3.js.map

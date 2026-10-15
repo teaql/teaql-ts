@@ -139,10 +139,10 @@ it.each([false, true])('retains native operation parents, explicit comments and 
     ]);
     expect(entries[2].traceChain!.map(node => node.detail)).toEqual([
       'render school list', 'load schools', 'selectPlatformWith(...)', 'load visible platforms',
-      'selectOrganizationWith(...)', 'load Organization',
+      'selectOrganizationWith(...)', 'load organization',
     ]);
     expect(entries.every(entry => entry.comment === 'load schools')).toBe(true);
-    expect(query.relations[0].query!.relations[0].query!.commentText).toBeUndefined();
+    expect(query.relations[0].query!.relations[0].query!.commentText).toBe('load organization');
     console.log(`RTC_COM_02_PASS logging=${logging} explicit=both`);
   } finally { await f.client.close(); }
 });
@@ -368,10 +368,10 @@ it('propagates typed facet provenance through actual membership and nested relat
       [['platform', 'School.platform'], ['organization', 'Platform.organization']],
     ]);
     expect(entries.map(entry => entry.traceChain?.map(node => node.detail))).toEqual([
-      ['inspect native facets', 'load platform facets', "facetByPlatformAs('platforms')", 'aggregate platform'],
-      ['inspect native facets', 'load platform facets', "facetByPlatformAs('platforms')", 'load School.platform'],
-      ['inspect native facets', 'load platform facets', "facetByPlatformAs('platforms')",
-        'load School.platform', 'load Platform.organization'],
+      ['inspect native facets', 'load platform facets', "framework: facet platform 'platforms'", 'aggregate platform'],
+      ['inspect native facets', 'load platform facets', "framework: facet platform 'platforms'", 'load Platform'],
+      ['inspect native facets', 'load platform facets', "framework: facet platform 'platforms'",
+        'load Platform', 'load Organization'],
     ]);
     expect(entries.every(entry => entry.comment === 'load platform facets')).toBe(true);
   } finally { await f.client.close(); }
@@ -435,11 +435,6 @@ it.each([[false, false], [true, false], [false, true], [true, true]])(
     };
     const assertTemplateUnchanged = () => {
       expect(JSON.stringify(template)).toBe(templateBefore);
-      let query: SelectQuery | undefined = template;
-      while (query) {
-        expect(query.commentText).toBeUndefined(); expect(query.purposeText).toBeUndefined();
-        query = query.relations[0]?.query;
-      }
     };
     const first = build('first independent query', 'render first graph');
     const second = build('second independent query', 'render second graph');

@@ -1197,7 +1197,7 @@ class AbstractSQLTeaQLClient {
     }
     async queryTreeBindings(query, sql, values, inherited) {
         let source = (0, log_privacy_1.inheritSQLLogBindings)(this.queryLogBindings(sql, values), inherited);
-        const intent = new request_intent_1.QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+        const intent = new request_intent_1.QueryRequest(query).intent;
         const stack = [query];
         const visited = new Set();
         while (stack.length) {
@@ -1645,7 +1645,7 @@ class AbstractSQLTeaQLClient {
         if (!parents.length || !Array.isArray(query.relations) || !query.relations.length)
             return;
         const parentSchema = this.schema(query.entity);
-        const intent = new request_intent_1.QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+        const intent = new request_intent_1.QueryRequest(query).intent;
         for (const load of query.relations) {
             const relation = parentSchema.relations?.[load.name];
             if (!relation)
@@ -1785,7 +1785,7 @@ class AbstractSQLTeaQLClient {
         if (!parents.length || !Array.isArray(aggregates) || !aggregates.length)
             return;
         const parentSchema = this.schema(query.entity);
-        const intent = new request_intent_1.QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+        const intent = new request_intent_1.QueryRequest(query).intent;
         for (const aggregate of aggregates) {
             const relation = parentSchema.relations?.[aggregate.relationName];
             if (!relation)

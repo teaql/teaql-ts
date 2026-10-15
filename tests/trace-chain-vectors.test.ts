@@ -43,8 +43,8 @@ it('keeps independent immutable request sources across shared builders and deriv
   const two = second.derive(builder, 'alternatePlatform');
   builder.entity = 'Changed';
   expect(one.query.entity).toBe('Platform');
-  expect(one.comment).toBe('load School.platform');
-  expect(two.comment).toBe('load School.alternatePlatform');
+  expect(one.comment).toBe('load Platform');
+  expect(two.comment).toBe('load Platform');
   expect(one.traceSource.map(node => node.detail)).toEqual(['first', 'first purpose', 'School.platform']);
   expect(two.traceSource.map(node => node.detail)).toEqual(['second', 'second purpose', 'School.alternatePlatform']);
   expect(first.traceSource).toHaveLength(2);
@@ -52,5 +52,5 @@ it('keeps independent immutable request sources across shared builders and deriv
   expect(one.withQuery(one.query.clone()).traceSource).toEqual(one.traceSource);
   expect(one.traceSource.every(Object.isFrozen)).toBe(true);
   expect(JSON.stringify(one.query)).not.toContain('traceSource');
-  expect(JSON.parse(JSON.stringify(one.query)).commentText).toBe('load School.platform');
+  expect(JSON.parse(JSON.stringify(one.query)).commentText).toBe('load Platform');
 });

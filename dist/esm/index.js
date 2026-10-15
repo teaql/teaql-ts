@@ -37,7 +37,7 @@ import {
   parseLocale,
   queryOperationComment,
   queryTraceSource
-} from "./chunks/chunk-XTWMNTWJ.js";
+} from "./chunks/chunk-2CUR43D3.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,

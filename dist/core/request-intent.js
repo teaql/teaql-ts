@@ -108,15 +108,17 @@ class QueryRequest {
         _QueryRequest_operation.set(this, void 0);
         _QueryRequest_invocation.set(this, void 0);
         const source = query;
+        const previous = (0, query_snapshot_1.queryExecutionOwner)(query);
+        const previousOwner = previous instanceof QueryRequest ? previous : undefined;
         __classPrivateFieldSet(this, _QueryRequest_intent, intent === undefined
-            ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText)
+            ? previousOwner?.intent
+                ?? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText)
             : new QueryIntent(intent?.comment, intent?.purpose), "f");
         if (binding && binding[requestBindingToken] !== true)
             throw new Error('QUERY_REQUEST_OWNERSHIP_INVALID: request binding is runtime-owned');
-        const previous = (0, query_snapshot_1.queryExecutionOwner)(query);
-        const owner = previous instanceof QueryRequest
-            && previous.intent.comment === __classPrivateFieldGet(this, _QueryRequest_intent, "f").comment
-            && previous.purpose === __classPrivateFieldGet(this, _QueryRequest_intent, "f").purpose ? previous : undefined;
+        const owner = previousOwner
+            && previousOwner.intent.comment === __classPrivateFieldGet(this, _QueryRequest_intent, "f").comment
+            && previousOwner.purpose === __classPrivateFieldGet(this, _QueryRequest_intent, "f").purpose ? previousOwner : undefined;
         __classPrivateFieldSet(this, _QueryRequest_invocation, binding?.invocation ?? (binding?.parent ? __classPrivateFieldGet(binding.parent, _QueryRequest_invocation, "f") : undefined)
             ?? (owner ? __classPrivateFieldGet(owner, _QueryRequest_invocation, "f") : undefined) ?? Object.freeze({}), "f");
         __classPrivateFieldSet(this, _QueryRequest_parent, binding ? binding.parent : owner?.parentRequest, "f");
@@ -129,8 +131,8 @@ class QueryRequest {
         // request through parent ownership and is copied only onto the private SQL
         // execution snapshot for boundary validation.
         for (const [field, value] of [
-            ['commentText', this.intent.comment], ['purposeText', this.purpose],
-            ['_comment', this.intent.comment], ['_purpose', this.purpose],
+            ['commentText', this.comment], ['purposeText', this.purpose],
+            ['_comment', this.comment], ['_purpose', this.purpose],
         ]) {
             Object.defineProperty(captured, field, { value, enumerable: !field.startsWith('_'),
                 configurable: true, writable: false });
@@ -186,8 +188,10 @@ class QueryRequest {
     }
     /** Preserve the Q-operation parent and the actual nested request's own comment. */
     derive(query, relation, operation) {
-        const parent = this.deriveOperation(this.query, operation ?? { kind: 'relation-select', relation });
-        return parent.deriveChild(query, relation);
+        if (operation)
+            return this.deriveOperation(this.query, operation).deriveChild(query, relation);
+        const owner = `${String(this.query.entity)}.${relation}`;
+        return this.deriveChild(query, relation, undefined, owner);
     }
     /** Aggregates execute their operation; an anonymous template is not a value load. */
     deriveAggregate(query, relation, operation) {
@@ -204,12 +208,14 @@ class QueryRequest {
         return comment === undefined ? scoped : scoped.deriveChild(query);
     }
     /** Bind a framework helper or value query below an existing operation parent. */
-    deriveChild(query, relation, defaultComment) {
+    deriveChild(query, relation, defaultComment, requestName) {
         const source = query;
         const comment = source._comment ?? source.commentText;
         return new QueryRequest(query, this.intent, { [requestBindingToken]: true,
-            parent: this, comment: comment === undefined ? (defaultComment ?? 'load ' + String(source.entity)) : requireText(comment, 'comment', 'query'),
-            name: String(source.entity), source: relation === undefined ? this.traceSource : [...this.traceSource, {
+            parent: this, comment: comment === undefined
+                ? (defaultComment ?? `load ${String(source.entity)}`)
+                : requireText(comment, 'comment', 'query'),
+            name: requestName ?? String(source.entity), source: relation === undefined ? this.traceSource : [...this.traceSource, {
                     kind: 'relation', name: relation, detail: `${String(this.query.entity)}.${relation}`,
                 }] });
     }

@@ -127,15 +127,17 @@ export class QueryRequest<T extends object = SelectQuery> {
 
   constructor(query: T, intent?: QueryIntent, binding?: QueryBinding) {
     const source = query as any;
+    const previous = queryExecutionOwner(query);
+    const previousOwner = previous instanceof QueryRequest ? previous : undefined;
     this.#intent = intent === undefined
-      ? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText)
+      ? previousOwner?.intent
+        ?? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText)
       : new QueryIntent(intent?.comment, intent?.purpose);
     if (binding && binding[requestBindingToken] !== true)
       throw new Error('QUERY_REQUEST_OWNERSHIP_INVALID: request binding is runtime-owned');
-    const previous = queryExecutionOwner(query);
-    const owner = previous instanceof QueryRequest
-      && previous.intent.comment === this.#intent.comment
-      && previous.purpose === this.#intent.purpose ? previous : undefined;
+    const owner = previousOwner
+      && previousOwner.intent.comment === this.#intent.comment
+      && previousOwner.purpose === this.#intent.purpose ? previousOwner : undefined;
     this.#invocation = binding?.invocation ?? (binding?.parent ? binding.parent.#invocation : undefined)
       ?? (owner ? owner.#invocation : undefined) ?? Object.freeze({});
     this.#parent = binding ? binding.parent : owner?.parentRequest;
@@ -148,8 +150,8 @@ export class QueryRequest<T extends object = SelectQuery> {
     // request through parent ownership and is copied only onto the private SQL
     // execution snapshot for boundary validation.
     for (const [field, value] of [
-      ['commentText', this.intent.comment], ['purposeText', this.purpose],
-      ['_comment', this.intent.comment], ['_purpose', this.purpose],
+      ['commentText', this.comment], ['purposeText', this.purpose],
+      ['_comment', this.comment], ['_purpose', this.purpose],
     ] as const) {
       Object.defineProperty(captured, field, { value, enumerable: !field.startsWith('_'),
         configurable: true, writable: false });
@@ -209,8 +211,9 @@ export class QueryRequest<T extends object = SelectQuery> {
 
   /** Preserve the Q-operation parent and the actual nested request's own comment. */
   derive<Q extends object>(query: Q, relation: string, operation?: QueryOperation): QueryRequest<Q> {
-    const parent = this.deriveOperation(this.query, operation ?? { kind: 'relation-select', relation });
-    return parent.deriveChild(query, relation);
+    if (operation) return this.deriveOperation(this.query, operation).deriveChild(query, relation);
+    const owner = `${String((this.query as any).entity)}.${relation}`;
+    return this.deriveChild(query, relation, undefined, owner);
   }
 
   /** Aggregates execute their operation; an anonymous template is not a value load. */
@@ -229,12 +232,19 @@ export class QueryRequest<T extends object = SelectQuery> {
   }
 
   /** Bind a framework helper or value query below an existing operation parent. */
-  deriveChild<Q extends object>(query: Q, relation?: string, defaultComment?: string): QueryRequest<Q> {
+  deriveChild<Q extends object>(
+    query: Q,
+    relation?: string,
+    defaultComment?: string,
+    requestName?: string,
+  ): QueryRequest<Q> {
     const source = query as any;
     const comment = source._comment ?? source.commentText;
     return new QueryRequest(query, this.intent, { [requestBindingToken]: true,
-      parent: this, comment: comment === undefined ? (defaultComment ?? 'load ' + String(source.entity)) : requireText(comment, 'comment', 'query'),
-      name: String(source.entity), source: relation === undefined ? this.traceSource : [...this.traceSource, {
+      parent: this, comment: comment === undefined
+        ? (defaultComment ?? `load ${String(source.entity)}`)
+        : requireText(comment, 'comment', 'query'),
+      name: requestName ?? String(source.entity), source: relation === undefined ? this.traceSource : [...this.traceSource, {
       kind: 'relation', name: relation, detail: `${String((this.query as any).entity)}.${relation}`,
     }] });
   }

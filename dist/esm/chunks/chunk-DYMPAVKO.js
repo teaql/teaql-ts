@@ -26,7 +26,7 @@ import {
   queryTraceSource,
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-XTWMNTWJ.js";
+} from "./chunk-2CUR43D3.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -1241,7 +1241,7 @@ var AbstractSQLTeaQLClient = class {
   }
   async queryTreeBindings(query, sql, values, inherited) {
     let source = inheritSQLLogBindings(this.queryLogBindings(sql, values), inherited);
-    const intent = new QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+    const intent = new QueryRequest(query).intent;
     const stack = [query];
     const visited = /* @__PURE__ */ new Set();
     while (stack.length) {
@@ -1686,7 +1686,7 @@ var AbstractSQLTeaQLClient = class {
   async enhanceRelations(parents, query, keys, inherited) {
     if (!parents.length || !Array.isArray(query.relations) || !query.relations.length) return;
     const parentSchema = this.schema(query.entity);
-    const intent = new QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+    const intent = new QueryRequest(query).intent;
     for (const load of query.relations) {
       const relation = parentSchema.relations?.[load.name];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${load.name}`);
@@ -1805,7 +1805,7 @@ var AbstractSQLTeaQLClient = class {
     const aggregates = query.relationAggregates;
     if (!parents.length || !Array.isArray(aggregates) || !aggregates.length) return;
     const parentSchema = this.schema(query.entity);
-    const intent = new QueryIntent(query.commentText ?? query._comment, query.purposeText ?? query._purpose);
+    const intent = new QueryRequest(query).intent;
     for (const aggregate of aggregates) {
       const relation = parentSchema.relations?.[aggregate.relationName];
       if (!relation) throw new Error(`Missing relation ${query.entity}.${aggregate.relationName}`);
@@ -1909,4 +1909,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-VEF77UIG.js.map
+//# sourceMappingURL=chunk-DYMPAVKO.js.map
