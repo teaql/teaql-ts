@@ -1,4 +1,4 @@
-import "../chunks/chunk-IQGZNIAK.js";
+import "../chunks/chunk-AQT573VW.js";
 
 // src/sql/browser-sqlite-worker.ts
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";

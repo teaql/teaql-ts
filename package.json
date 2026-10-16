@@ -9,6 +9,11 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./object-storage/s3": {
+      "types": "./dist/object-storage/s3.d.ts",
+      "import": "./dist/esm/object-storage/s3.js",
+      "require": "./dist/object-storage/s3.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
@@ -72,6 +77,7 @@
   },
   "typesVersions": {
     "*": {
+      "object-storage/s3": ["dist/object-storage/s3.d.ts"],
       "sql/core": [
         "dist/sql/core.d.ts"
       ],
@@ -124,6 +130,8 @@
     "access": "public"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.1151.0",
+    "@aws-sdk/s3-request-presigner": "3.1151.0",
     "@opentelemetry/api-logs": "^0.221.0",
     "@opentelemetry/context-async-hooks": "^2.10.0",
     "@opentelemetry/core": "^2.10.0",
@@ -155,6 +163,8 @@
     "node-fetch": "^2.7.0"
   },
   "peerDependencies": {
+    "@aws-sdk/client-s3": "3.1151.0",
+    "@aws-sdk/s3-request-presigner": "3.1151.0",
     "@opentelemetry/otlp-transformer": "0.221.0",
     "@opentelemetry/core": "^2.10.0",
     "@opentelemetry/context-async-hooks": "^2.10.0",
@@ -175,6 +185,8 @@
     "pg-query-stream": "^4.7.0"
   },
   "peerDependenciesMeta": {
+    "@aws-sdk/client-s3": { "optional": true },
+    "@aws-sdk/s3-request-presigner": { "optional": true },
     "@opentelemetry/otlp-transformer": { "optional": true },
     "@opentelemetry/core": { "optional": true },
     "@opentelemetry/context-async-hooks": { "optional": true },
