@@ -41,8 +41,8 @@ page query.
 The order-center projection intentionally contains only the four visible table
 columns: order number, order date, the `OrderStatus` object, and item preview.
 It does not load Platform or Customer. The Q chain follows the page vertically:
-dynamic filter, `countAs('totalOrders')`, status facet, four table projections, then page
-execution.
+dynamic filter, `countAs('totalOrders')`, status facet, four table projections,
+then bounded `offset` / `limit` list execution.
 
 ```bash
 npm install

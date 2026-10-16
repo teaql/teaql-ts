@@ -6,7 +6,6 @@ import {
   UserContext,
   executeRelationFacets,
   type QueryOperation,
-  type TeaQLPage,
 } from 'teaql-ts';
 import { ORDER_STATUS } from '../order-model';
 
@@ -103,48 +102,38 @@ abstract class GeneratedRequest {
   }
 
   async executeForList(context: UserContext): Promise<SmartList<Row>> {
+    return this.executeList(context, this.pageTotalAlias !== undefined);
+  }
+
+  async executeForRows(context: UserContext): Promise<SmartList<Row>> {
+    return this.executeList(context, false);
+  }
+
+  private async executeList(context: UserContext, counted: boolean): Promise<SmartList<Row>> {
     this.ensureIntent();
     const service = this.service(context);
     const query = this.toQuery();
-    const rows = await service.executeQuery<Row>(context.prepareQuery(query));
-    const data = new SmartList(rows);
+    const totalCount = counted ? await service.executeCount(
+      query,
+      this.pageTotalAlias,
+      { kind: 'named-count', method: 'countAs', alias: this.pageTotalAlias },
+    ) : undefined;
+    const rowsQuery = query.clone();
+    if (counted) {
+      rowsQuery.aggregateItems = rowsQuery.aggregateItems.filter(item =>
+        !(String(item.function).toLowerCase() === 'count' && item.alias === this.pageTotalAlias));
+    }
+    const rows = await service.executeQuery<Row>(context.prepareQuery(rowsQuery));
+    const data = new SmartList(rows, { totalCount });
+    if (counted && this.pageTotalAlias !== undefined) {
+      data.aggregations[this.pageTotalAlias] = totalCount;
+    }
     if (query.facets.length) {
       data.facets = await executeRelationFacets(
         service, nested => context.prepareQuery(nested), query, query.facets,
       );
     }
     return data;
-  }
-
-  async executeForRows(context: UserContext): Promise<SmartList<Row>> {
-    return this.executeForList(context);
-  }
-
-  async executeForPage(context: UserContext, offset: number, limit: number): Promise<TeaQLPage<Row>> {
-    this.ensureIntent();
-    const service = this.service(context);
-    const countQuery = this.toQuery();
-    // The runtime derives the count child request and its comment from this
-    // alias. Generated requests do not manufacture TraceChain text.
-    const totalCount = await service.executeCount(
-      countQuery,
-      this.pageTotalAlias,
-      this.pageTotalAlias
-        ? { kind: 'named-count', method: 'countAs', alias: this.pageTotalAlias }
-        : undefined,
-    );
-    const pageQuery = this.toQuery().offset(offset).limit(limit);
-    const data = new SmartList(
-      await service.executeQuery<Row>(context.prepareQuery(pageQuery)),
-      { totalCount },
-    );
-    if (this.pageTotalAlias) data.aggregations[this.pageTotalAlias] = totalCount;
-    if (countQuery.facets.length) {
-      data.facets = await executeRelationFacets(
-        service, nested => context.prepareQuery(nested), countQuery, countQuery.facets,
-      );
-    }
-    return { data, totalCount, offset, limit };
   }
   protected addFilter(filter: unknown): this { this.filters.push(filter); return this; }
   protected select(...fields: string[]): this { this.query.select(fields); return this; }
@@ -390,22 +379,13 @@ export class CustomerOrderRequest extends GeneratedRequest {
   averageTotalAmountAs(alias: string): this { return this.aggregate('Avg', 'totalAmount', alias); }
 
   override executeForList(context: UserContext): Promise<SmartList<Row>> {
-    this.applyRowCount();
+    if (this.countAlias) this.includePageTotalAs(this.countAlias);
     return super.executeForList(context);
   }
 
   override executeForRows(context: UserContext): Promise<SmartList<Row>> {
     this.applyRowCount();
-    return super.executeForList(context);
-  }
-
-  override executeForPage(
-    context: UserContext,
-    offset: number,
-    limit: number,
-  ): Promise<TeaQLPage<Row>> {
-    if (this.countAlias) this.includePageTotalAs(this.countAlias);
-    return super.executeForPage(context, offset, limit);
+    return super.executeForRows(context);
   }
 
   private applyRowCount(): void {

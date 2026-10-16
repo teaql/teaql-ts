@@ -184,7 +184,9 @@ try {
     || !dashboardQuery.includes(".sumOrderTotalAmountAs('orderTotalAmount')")
     || !dashboardQuery.includes(".facetByStatusAs('statusCounts'")
     || !dashboardQuery.includes('.filterByJson(searchParams)')
-    || !dashboardQuery.includes('.executeForPage(ctx, pageOffset, pageSize)')
+    || !dashboardQuery.includes('.offset(pageOffset)')
+    || !dashboardQuery.includes('.limit(pageSize)')
+    || !dashboardQuery.includes('.executeForList(ctx)')
     || dashboardQuery.includes('new SelectQuery')
     || dashboardQuery.includes('.selectCode()')
     || dashboardQuery.includes('Q.orderStatuses()\n')
@@ -208,7 +210,9 @@ try {
     '.selectOrderDate()',
     '.selectStatusWith(',
     '.selectItemListWith(',
-    '.executeForPage(ctx, pageOffset, pageSize)',
+    '.offset(pageOffset)',
+    '.limit(pageSize)',
+    '.executeForList(ctx)',
   ].map(fragment => dashboardQuery.indexOf(fragment));
   if (visualQueryOrder.some(index => index < 0)
     || visualQueryOrder.some((index, position) => position > 0 && index <= visualQueryOrder[position - 1])) {

@@ -209,16 +209,16 @@ async function runOrderCenter(active: Runtime): Promise<DashboardData> {
       .orderByIdDescending()
     .comment('load order list')
     .purpose('render order list page');
-  const page = await request.executeForPage(
-    active.context,
-    dashboardState.page * dashboardState.pageSize,
-    dashboardState.pageSize,
-  );
-  const statusRows = page.data.facet('statusCounts') ?? [];
+  const queryExpression = request.toQExpression('offset(pageOffset)\n  .limit(pageSize)\n  .executeForList(ctx);');
+  const orders = await request
+    .offset(dashboardState.page * dashboardState.pageSize)
+    .limit(dashboardState.pageSize)
+    .executeForList(active.context);
+  const statusRows = orders.facet('statusCounts') ?? [];
   return {
-    orders: page.data,
-    totalOrders: Number(page.data.aggregations.totalOrders ?? page.totalCount),
-    filteredOrders: page.totalCount,
+    orders,
+    totalOrders: Number(orders.aggregations.totalOrders ?? orders.totalCount),
+    filteredOrders: orders.totalCount ?? 0,
     statusFacets: statusRows.map(row => ({
       code: statusCodeFor(row),
       name: String(row.name ?? ''),
@@ -229,7 +229,7 @@ async function runOrderCenter(active: Runtime): Promise<DashboardData> {
     search: dashboardState.search,
     page: dashboardState.page,
     pageSize: dashboardState.pageSize,
-    queryExpression: request.toQExpression('executeForPage(ctx, pageOffset, pageSize);'),
+    queryExpression,
   };
 }
 
