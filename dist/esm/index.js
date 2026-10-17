@@ -37,7 +37,18 @@ import {
   parseLocale,
   queryOperationComment,
   queryTraceSource
-} from "./chunks/chunk-2CUR43D3.js";
+} from "./chunks/chunk-XOHMK4P5.js";
+import {
+  MAX_OBJECT_PUT_SIZE,
+  ObjectContent,
+  ObjectKey,
+  ObjectMetadata,
+  ObjectPutOptions,
+  ObjectReadUrl,
+  ObjectReadUrlOptions,
+  ObjectStorage,
+  StorageError
+} from "./chunks/chunk-MJFGQZSQ.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -45,8 +56,8 @@ import {
   runtimeErrorCategory,
   safeRuntimeOperation,
   startRuntimeOperation
-} from "./chunks/chunk-D5QV4N46.js";
-import "./chunks/chunk-IQGZNIAK.js";
+} from "./chunks/chunk-WEYNFMW2.js";
+import "./chunks/chunk-AQT573VW.js";
 
 // src/core/value.ts
 var Values = {
@@ -2252,6 +2263,7 @@ export {
   I18nCatalog,
   LoadedScalarSnapshot,
   LocalCache,
+  MAX_OBJECT_PUT_SIZE,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
   MutationIntent,
@@ -2261,7 +2273,14 @@ export {
   MutationRequest,
   MutationTraceScope,
   NOOP_RUNTIME_TELEMETRY,
+  ObjectContent,
+  ObjectKey,
   ObjectLocation,
+  ObjectMetadata,
+  ObjectPutOptions,
+  ObjectReadUrl,
+  ObjectReadUrlOptions,
+  ObjectStorage,
   OrderBy,
   PropertyDescriptor,
   QueryIntent,
@@ -2273,6 +2292,7 @@ export {
   SelectQuery,
   SmartList,
   SortDirection,
+  StorageError,
   TeaQLClient,
   ToolPolicy,
   ToolPolicyBuilder,

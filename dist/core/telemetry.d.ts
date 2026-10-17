@@ -1,4 +1,4 @@
-export type RuntimeOperationFamily = 'query' | 'mutation' | 'relation_load' | 'provider' | 'cache' | 'tfp' | 'audit';
+export type RuntimeOperationFamily = 'query' | 'mutation' | 'relation_load' | 'provider' | 'cache' | 'tfp' | 'audit' | 'object_storage';
 export type RuntimeAttributeValue = string | number | boolean;
 export type RuntimeErrorCategory = 'validation' | 'authorization' | 'conflict' | 'timeout' | 'transport' | 'provider' | 'internal';
 /** Stable classification derived from a native error type, never its message. */

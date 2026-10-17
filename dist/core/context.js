@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserContext = exports.ContextRootError = void 0;
+const object_storage_1 = require("./object-storage");
 const i18n_1 = require("./i18n");
 const schema_capability_1 = require("./schema-capability");
 const mutation_policy_1 = require("./mutation-policy");
@@ -61,6 +62,9 @@ class UserContext {
         this.locale = 'en';
         this.i18nCatalog = i18n_1.I18nCatalog.builtin;
     }
+    withObjectStorage(provider) { return this.insertResource('objectStorageProvider', provider); }
+    withObjectStorageObserver(observer) { return this.insertResource('objectStorageObserver', observer); }
+    objectStorage(comment) { return new object_storage_1.ObjectStorage(this, comment); }
     /** Runtime-owned outer boundary used by generated Q execution, never SDK code. */
     async withQueryRequest(query, work) {
         const service = this.requireResource('dataService');

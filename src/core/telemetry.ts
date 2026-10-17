@@ -5,7 +5,8 @@ export type RuntimeOperationFamily =
   | 'provider'
   | 'cache'
   | 'tfp'
-  | 'audit';
+  | 'audit'
+  | 'object_storage';
 
 export type RuntimeAttributeValue = string | number | boolean;
 

@@ -1,6 +1,6 @@
 import {
   runtimeErrorCategory
-} from "./chunk-D5QV4N46.js";
+} from "./chunk-WEYNFMW2.js";
 
 // src/telemetry/opentelemetry.ts
 import {
@@ -108,4 +108,4 @@ var OpenTelemetryRuntimeTelemetry = class {
 export {
   OpenTelemetryRuntimeTelemetry
 };
-//# sourceMappingURL=chunk-O2KIXNMG.js.map
+//# sourceMappingURL=chunk-XX7VNC23.js.map

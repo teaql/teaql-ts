@@ -26,11 +26,11 @@ import {
   queryTraceSource,
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-2CUR43D3.js";
+} from "./chunk-XOHMK4P5.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
-} from "./chunk-D5QV4N46.js";
+} from "./chunk-WEYNFMW2.js";
 
 // src/core/sql-diagnostic-event.ts
 function sqlDiagnosticEvent(metadata, correlation) {
@@ -1909,4 +1909,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-DYMPAVKO.js.map
+//# sourceMappingURL=chunk-2WIK333Y.js.map
