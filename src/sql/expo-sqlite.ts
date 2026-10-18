@@ -98,6 +98,14 @@ export class ExpoSQLiteDriver implements TeaQLSqlDriver {
     return standardAggregateFunction(name);
   }
 
+  longComparison(columnSql: string, operator: string, placeholder: string): string {
+    return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;
+  }
+
+  longOrderExpression(columnSql: string): string {
+    return `CAST(${columnSql} AS INTEGER)`;
+  }
+
   private sqlType(type: LogicalColumnType): string {
     const types: Record<LogicalColumnType, string> = {
       boolean: 'INTEGER',

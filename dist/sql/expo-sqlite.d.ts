@@ -31,6 +31,8 @@ export declare class ExpoSQLiteDriver implements TeaQLSqlDriver {
     encode(value: any, column?: ColumnSchema): ExpoSQLiteBindValue;
     contains(columnSql: string, placeholder: string): string;
     aggregateFunction(name: string): string;
+    longComparison(columnSql: string, operator: string, placeholder: string): string;
+    longOrderExpression(columnSql: string): string;
     private sqlType;
     private initialize;
     ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;

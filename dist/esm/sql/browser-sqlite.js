@@ -111,6 +111,12 @@ var BrowserSQLiteDriver = class _BrowserSQLiteDriver {
   aggregateFunction(name) {
     return standardAggregateFunction(name);
   }
+  longComparison(columnSql, operator, placeholder) {
+    return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;
+  }
+  longOrderExpression(columnSql) {
+    return `CAST(${columnSql} AS INTEGER)`;
+  }
   encode(value, column) {
     if (value === null || value === void 0) return value;
     if (column?.logicalType === "decimal") return decimal(value);

@@ -130,6 +130,14 @@ export class BrowserSQLiteDriver implements TeaQLSqlDriver {
   }
   aggregateFunction(name: string): string { return standardAggregateFunction(name); }
 
+  longComparison(columnSql: string, operator: string, placeholder: string): string {
+    return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;
+  }
+
+  longOrderExpression(columnSql: string): string {
+    return `CAST(${columnSql} AS INTEGER)`;
+  }
+
   encode(value: any, column?: ColumnSchema): any {
     if (value === null || value === undefined) return value;
     if (column?.logicalType === 'decimal') return decimal(value);

@@ -102,6 +102,12 @@ class BrowserSQLiteDriver {
         return `CAST(${columnSql} AS TEXT) LIKE '%' || ${placeholder} || '%'`;
     }
     aggregateFunction(name) { return (0, core_1.standardAggregateFunction)(name); }
+    longComparison(columnSql, operator, placeholder) {
+        return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;
+    }
+    longOrderExpression(columnSql) {
+        return `CAST(${columnSql} AS INTEGER)`;
+    }
     encode(value, column) {
         if (value === null || value === undefined)
             return value;

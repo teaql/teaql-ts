@@ -61,6 +61,12 @@ var ExpoSQLiteDriver = class {
   aggregateFunction(name) {
     return standardAggregateFunction(name);
   }
+  longComparison(columnSql, operator, placeholder) {
+    return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;
+  }
+  longOrderExpression(columnSql) {
+    return `CAST(${columnSql} AS INTEGER)`;
+  }
   sqlType(type) {
     const types = {
       boolean: "INTEGER",
