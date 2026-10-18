@@ -1,4 +1,5 @@
 import { UserContext } from '../src/core/context';
+import { decimal } from '../src/core/decimal';
 import Database from 'better-sqlite3';
 import { MutationQuery, OrderBy, SelectQuery } from '../src/core/ast';
 import {
@@ -95,6 +96,31 @@ const schemas: Record<string, EntitySchema> = {
 };
 
 describe('Expo SQLite TeaQL driver', () => {
+  it('stores and reloads exact Decimal text without coercing through REAL', async () => {
+    const database = new TestExpoDatabase();
+    const amount = { columnName: 'amount', logicalType: 'decimal' as const, decode: 'decimal' as const };
+    const client = new ExpoSQLiteTeaQLClient(database, { Payment: { table: 'payments', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      amount,
+    } } });
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    const schemaStatement = await database.prepareAsync('PRAGMA table_info(payments)');
+    const schemaRows = await (await schemaStatement.executeAsync<any>([])).getAllAsync();
+    expect(schemaRows.find(row => row.name === 'amount')?.type).toBe('TEXT');
+    await schemaStatement.finalizeAsync();
+    await client.executeMutation(new MutationQuery('Payment', 'Create',
+      { amount: decimal('123456789012.3456789') }, undefined, 'create exact payment'));
+    const rows = await client.executeQuery<any>(new SelectQuery('Payment')
+      .comment('read exact payment values').purpose('verify Decimal storage'));
+    expect(rows[0].amount).toBe('123456789012.3456789');
+    await expect(client.executeQuery<any>(new SelectQuery('Payment')
+      .filter({ amount: { $gt: decimal('1') } })
+      .comment('filter exact payment values').purpose('verify fail-closed predicates')))
+      .rejects.toThrow(/EXACT_DECIMAL_UNSUPPORTED/);
+    await client.close();
+  });
+
   it('ensures schema, persists governed mutations, and queries real SQLite', async () => {
     const database = new TestExpoDatabase();
     const client = new ExpoSQLiteTeaQLClient(database, schemas);

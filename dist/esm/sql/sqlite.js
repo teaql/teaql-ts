@@ -7,9 +7,14 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-2WIK333Y.js";
+} from "../chunks/chunk-CARZAUC4.js";
 import "../chunks/chunk-LGSUBUWZ.js";
-import "../chunks/chunk-XOHMK4P5.js";
+import {
+  addDecimals,
+  compareDecimals,
+  decimal,
+  decimalOrderKey
+} from "../chunks/chunk-K6MAGURX.js";
 import "../chunks/chunk-MJFGQZSQ.js";
 import "../chunks/chunk-WEYNFMW2.js";
 import "../chunks/chunk-AQT573VW.js";
@@ -43,6 +48,30 @@ var SQLiteDriver = class {
     this.database = new Database(filename);
     this.database.pragma("journal_mode = WAL");
     this.database.pragma("foreign_keys = ON");
+    const exactText = (value) => {
+      if (typeof value !== "string") throw new TypeError("Inexact SQLite Decimal value");
+      return decimal(value);
+    };
+    this.database.function("teaql_decimal_cmp", { deterministic: true }, (left, right) => left === null || right === null ? null : compareDecimals(exactText(left), exactText(right)));
+    this.database.function("teaql_decimal_order_key", { deterministic: true }, (value) => value === null ? null : decimalOrderKey(exactText(value)));
+    this.database.aggregate("teaql_decimal_sum", {
+      start: () => ({ value: null }),
+      step: (state, next) => {
+        if (next !== null) state.value = state.value === null ? exactText(next) : addDecimals(state.value, exactText(next));
+      },
+      result: (state) => state.value
+    });
+    for (const [name, order] of [["teaql_decimal_min", -1], ["teaql_decimal_max", 1]]) {
+      this.database.aggregate(name, {
+        start: () => ({ value: null }),
+        step: (state, next) => {
+          if (next === null) return;
+          const value = exactText(next);
+          if (state.value === null || compareDecimals(value, state.value) === order) state.value = value;
+        },
+        result: (state) => state.value
+      });
+    }
   }
   identifier(value) {
     return `"${assertSafeIdentifier(value)}"`;
@@ -52,6 +81,7 @@ var SQLiteDriver = class {
   }
   encode(value, column) {
     if (value === null || value === void 0) return value;
+    if (column?.logicalType === "decimal") return decimal(value);
     if (column?.logicalType === "json" && typeof value !== "string") {
       return JSON.stringify(value);
     }
@@ -74,11 +104,27 @@ var SQLiteDriver = class {
   aggregateFunction(name) {
     return standardAggregateFunction(name);
   }
+  decimalComparison(columnSql, operator, placeholder) {
+    return `teaql_decimal_cmp(${columnSql}, ${placeholder}) ${operator} 0`;
+  }
+  decimalOrderExpression(columnSql) {
+    return `teaql_decimal_order_key(${columnSql})`;
+  }
+  decimalAggregateFunction(name) {
+    const functions = {
+      sum: "teaql_decimal_sum",
+      min: "teaql_decimal_min",
+      max: "teaql_decimal_max"
+    };
+    const result = functions[name.toLowerCase()];
+    if (!result) throw new Error(`EXACT_DECIMAL_UNSUPPORTED: ${name} requires an explicit exact rounding policy`);
+    return result;
+  }
   sqlType(type) {
     const types = {
       boolean: "INTEGER",
       double: "REAL",
-      decimal: "NUMERIC",
+      decimal: "TEXT",
       date: "TEXT",
       datetime: "INTEGER",
       json: "TEXT",
@@ -100,6 +146,12 @@ var SQLiteDriver = class {
       const columns = await this.query(`PRAGMA table_info(${table})`);
       const existing = new Set(columns.rows.map((row) => String(row.name)));
       for (const [field, column] of Object.entries(schema.columns)) {
+        if (column.logicalType === "decimal") {
+          const installed = columns.rows.find((row) => String(row.name) === column.columnName);
+          if (installed && String(installed.type).toUpperCase() !== "TEXT") {
+            throw new Error(`EXACT_DECIMAL_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
+          }
+        }
         if (field === "id" || field === "version" || existing.has(column.columnName)) continue;
         await this.query(
           `ALTER TABLE ${table} ADD COLUMN ${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}${column.nullable === false ? " NOT NULL" : ""}`

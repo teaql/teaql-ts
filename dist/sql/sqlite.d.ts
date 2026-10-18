@@ -10,6 +10,9 @@ export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     encode(value: any, column?: ColumnSchema): any;
     contains(columnSql: string, placeholder: string): string;
     aggregateFunction(name: string): string;
+    decimalComparison(columnSql: string, operator: string, placeholder: string): string;
+    decimalOrderExpression(columnSql: string): string;
+    decimalAggregateFunction(name: string): string;
     private sqlType;
     ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;
     transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T>;

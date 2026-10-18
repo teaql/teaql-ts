@@ -1,4 +1,5 @@
 import { UserContext } from '../src/core/context';
+import { decimal } from '../src/core/decimal';
 import {
   DelegatingMutationPolicyRegistry,
   MutationPolicyError,
@@ -50,6 +51,22 @@ class FakeWorker implements BrowserSQLiteWorkerLike {
 }
 
 describe('BrowserSQLiteDriver', () => {
+  test('declares exact Decimal as TEXT and rejects JS number binding', async () => {
+    const worker = new FakeWorker();
+    const driver = await BrowserSQLiteDriver.open(worker);
+    const amount = { columnName: 'amount', logicalType: 'decimal' as const, decode: 'decimal' as const };
+    await driver.ensureSchema({ Payment: { table: 'payments', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      amount,
+    } } });
+    expect(worker.requests.some(request =>
+      String(request.payload?.sql).includes('ADD COLUMN "amount" TEXT'))).toBe(true);
+    expect(driver.encode(decimal('123456789012.3456789'), amount)).toBe('123456789012.3456789');
+    expect(() => driver.encode(3.5, amount)).toThrow(/Decimal requires/);
+    await driver.close();
+  });
+
   test('defaults to a deterministic in-memory database', async () => {
     const worker = new FakeWorker();
     const driver = await BrowserSQLiteDriver.open(worker);

@@ -4,9 +4,11 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-2WIK333Y.js";
+} from "../chunks/chunk-CARZAUC4.js";
 import "../chunks/chunk-LGSUBUWZ.js";
-import "../chunks/chunk-XOHMK4P5.js";
+import {
+  decimal
+} from "../chunks/chunk-K6MAGURX.js";
 import "../chunks/chunk-MJFGQZSQ.js";
 import "../chunks/chunk-WEYNFMW2.js";
 import "../chunks/chunk-AQT573VW.js";
@@ -109,6 +111,7 @@ var BrowserSQLiteDriver = class _BrowserSQLiteDriver {
   }
   encode(value, column) {
     if (value === null || value === void 0) return value;
+    if (column?.logicalType === "decimal") return decimal(value);
     if (column?.logicalType === "json" && typeof value !== "string") return JSON.stringify(value);
     if (column?.logicalType === "boolean") return value ? 1 : 0;
     if (value instanceof Date) return value.toISOString();
@@ -160,6 +163,12 @@ var BrowserSQLiteDriver = class _BrowserSQLiteDriver {
       const columns = await this.query(`PRAGMA table_info(${table})`);
       const existing = new Set(columns.rows.map((row) => String(row.name)));
       for (const [field, column] of Object.entries(schema.columns)) {
+        if (column.logicalType === "decimal") {
+          const installed = columns.rows.find((row) => String(row.name) === column.columnName);
+          if (installed && String(installed.type).toUpperCase() !== "TEXT") {
+            throw new Error(`EXACT_DECIMAL_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
+          }
+        }
         if (field === "id" || field === "version" || existing.has(column.columnName)) continue;
         await this.query(
           `ALTER TABLE ${table} ADD COLUMN ${this.identifier(column.columnName)} ${sqliteType(column.logicalType)}${column.nullable === false ? " NOT NULL" : ""}`
@@ -242,7 +251,7 @@ function sqliteType(type) {
   const types = {
     boolean: "INTEGER",
     double: "REAL",
-    decimal: "NUMERIC",
+    decimal: "TEXT",
     date: "TEXT",
     datetime: "TEXT",
     json: "TEXT",

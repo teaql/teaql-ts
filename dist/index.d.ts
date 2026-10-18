@@ -1,4 +1,5 @@
 export * from './core/value';
+export * from './core/decimal';
 export * from './core/context';
 export * from './core/object-storage';
 export * from './core/request-intent';

@@ -15,6 +15,7 @@ const telemetry_startup_1 = require("../core/telemetry-startup");
 const query_snapshot_1 = require("../core/query-snapshot");
 const facet_1 = require("../core/facet");
 const smart_list_1 = require("../core/smart-list");
+const decimal_1 = require("../core/decimal");
 /** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
 function canonicalRelationIndexes(schemas) {
     const indexes = new Map();
@@ -229,6 +230,8 @@ class AbstractSQLTeaQLClient {
         const normalized = value?.id ?? value;
         if (normalized === undefined)
             return undefined;
+        if (column?.logicalType === 'decimal' && normalized !== null)
+            return this.driver.encode((0, decimal_1.decimal)(normalized), column);
         return this.driver.encode(normalized, column);
     }
     decodeRow(entity, row, aggregateNames = []) {
@@ -242,15 +245,27 @@ class AbstractSQLTeaQLClient {
                 result[field] = Number(value);
             if (column.decode === 'string')
                 result[field] = String(value);
+            if (column.decode === 'decimal') {
+                if (typeof value !== 'string')
+                    throw new TypeError(`Inexact Decimal readback for ${field}`);
+                result[field] = (0, decimal_1.decimal)(value);
+            }
             if (column.decode === 'date' && value instanceof Date) {
                 result[field] = value.toISOString();
             }
             if (column.logicalType === 'boolean')
                 result[field] = Boolean(value);
         }
-        for (const name of aggregateNames) {
-            if (result[name] !== null && result[name] !== undefined) {
-                result[name] = Number(result[name]);
+        for (const aggregate of aggregateNames) {
+            const value = result[aggregate.name];
+            if (value !== null && value !== undefined) {
+                if (aggregate.exactDecimal) {
+                    if (typeof value !== 'string')
+                        throw new TypeError(`Inexact Decimal aggregate ${aggregate.name}`);
+                    result[aggregate.name] = (0, decimal_1.decimal)(value);
+                }
+                else
+                    result[aggregate.name] = Number(value);
             }
         }
         return result;
@@ -878,12 +893,27 @@ class AbstractSQLTeaQLClient {
                 result[field] = Number(value);
             if (column.decode === 'string')
                 result[field] = String(value);
+            if (column.decode === 'decimal') {
+                if (typeof value !== 'string')
+                    throw new TypeError(`Inexact Decimal readback for ${field}`);
+                result[field] = (0, decimal_1.decimal)(value);
+            }
             if (column.decode === 'date' && value instanceof Date)
                 result[field] = value.toISOString();
             if (column.logicalType === 'boolean')
                 result[field] = Boolean(value);
         }
         return result;
+    }
+    comparisonSql(column, columnSql, operator, operandSql) {
+        if (column.logicalType !== 'decimal')
+            return `${columnSql} ${operator} ${operandSql}`;
+        if (this.driver.decimalComparison)
+            return this.driver.decimalComparison(columnSql, operator, operandSql);
+        if (column.decode === 'decimal' && this.driver.databaseKind === 'sqlite') {
+            throw new Error('EXACT_DECIMAL_UNSUPPORTED: this SQLite provider has no exact comparison');
+        }
+        return `${columnSql} ${operator} ${operandSql}`;
     }
     compileExpression(expression, schema, values) {
         if (Array.isArray(expression?.$and)) {
@@ -901,14 +931,14 @@ class AbstractSQLTeaQLClient {
                 if (value === null)
                     return `${quotedField} IS NULL`;
                 this.bindValue(values, this.encode(value, column), logPolicy);
-                return `${quotedField} = ${this.driver.placeholder(values.length)}`;
+                return this.comparisonSql(column, quotedField, '=', this.driver.placeholder(values.length));
             }
             if (predicate?.$ne !== undefined) {
                 const value = predicate.$ne?.id ?? predicate.$ne;
                 if (value === null)
                     return `${quotedField} IS NOT NULL`;
                 this.bindValue(values, this.encode(value, column), logPolicy);
-                return `${quotedField} <> ${this.driver.placeholder(values.length)}`;
+                return this.comparisonSql(column, quotedField, '<>', this.driver.placeholder(values.length));
             }
             if (predicate?.$soundLike !== undefined) {
                 this.bindValue(values, String(predicate.$soundLike), logPolicy);
@@ -944,6 +974,8 @@ class AbstractSQLTeaQLClient {
                     this.bindValue(values, this.encode(value?.id ?? value, column), logPolicy);
                     return this.driver.placeholder(values.length);
                 });
+                if (column.logicalType === 'decimal')
+                    return `(${placeholders.map((value) => this.comparisonSql(column, quotedField, '=', value)).join(' OR ')})`;
                 return `${quotedField} IN (${placeholders.join(', ')})`;
             }
             if (Array.isArray(predicate?.$notIn)) {
@@ -953,6 +985,8 @@ class AbstractSQLTeaQLClient {
                     this.bindValue(values, this.encode(value?.id ?? value, column), logPolicy);
                     return this.driver.placeholder(values.length);
                 });
+                if (column.logicalType === 'decimal')
+                    return `(${placeholders.map((value) => this.comparisonSql(column, quotedField, '<>', value)).join(' AND ')})`;
                 return `${quotedField} NOT IN (${placeholders.join(', ')})`;
             }
             for (const [operator, negative] of [
@@ -961,6 +995,10 @@ class AbstractSQLTeaQLClient {
             ]) {
                 const subquery = predicate?.[operator];
                 if (subquery !== undefined) {
+                    if (column.logicalType === 'decimal' && column.decode === 'decimal'
+                        && this.driver.databaseKind === 'sqlite') {
+                        throw new Error('EXACT_DECIMAL_UNSUPPORTED: decimal subquery membership needs an exact join');
+                    }
                     const childQuery = subquery.query;
                     const childSchema = this.schema(childQuery?.entity);
                     const projectedField = String(subquery.field);
@@ -992,6 +1030,9 @@ class AbstractSQLTeaQLClient {
                 const lower = this.driver.placeholder(values.length);
                 this.bindValue(values, this.encode(predicate.$between[1], column), logPolicy);
                 const upper = this.driver.placeholder(values.length);
+                if (column.logicalType === 'decimal')
+                    return `(${this.comparisonSql(column, quotedField, '>=', lower)} AND ` +
+                        `${this.comparisonSql(column, quotedField, '<=', upper)})`;
                 return `${quotedField} BETWEEN ${lower} AND ${upper}`;
             }
             if (predicate?.$isNull === true)
@@ -1000,19 +1041,19 @@ class AbstractSQLTeaQLClient {
                 return `${quotedField} IS NOT NULL`;
             if (predicate?.$gte !== undefined) {
                 this.bindValue(values, this.encode(predicate.$gte, column), logPolicy);
-                return `${quotedField} >= ${this.driver.placeholder(values.length)}`;
+                return this.comparisonSql(column, quotedField, '>=', this.driver.placeholder(values.length));
             }
             if (predicate?.$lte !== undefined) {
                 this.bindValue(values, this.encode(predicate.$lte, column), logPolicy);
-                return `${quotedField} <= ${this.driver.placeholder(values.length)}`;
+                return this.comparisonSql(column, quotedField, '<=', this.driver.placeholder(values.length));
             }
             if (predicate?.$gt !== undefined) {
                 this.bindValue(values, this.encode(predicate.$gt, column), logPolicy);
-                return `${quotedField} > ${this.driver.placeholder(values.length)}`;
+                return this.comparisonSql(column, quotedField, '>', this.driver.placeholder(values.length));
             }
             if (predicate?.$lt !== undefined) {
                 this.bindValue(values, this.encode(predicate.$lt, column), logPolicy);
-                return `${quotedField} < ${this.driver.placeholder(values.length)}`;
+                return this.comparisonSql(column, quotedField, '<', this.driver.placeholder(values.length));
             }
             throw new Error(`Unsupported query predicate for ${field}: ${JSON.stringify(predicate)}`);
         });
@@ -1056,7 +1097,14 @@ class AbstractSQLTeaQLClient {
         const groupFields = groupProperties.map(field => {
             if (!schema.columns[field])
                 throw new Error(`Unknown group field: ${field}`);
-            return this.driver.identifier(schema.columns[field].columnName);
+            const column = schema.columns[field];
+            const sql = this.driver.identifier(column.columnName);
+            if (column.logicalType === 'decimal' && column.decode === 'decimal' && this.driver.databaseKind === 'sqlite') {
+                if (!this.driver.decimalOrderExpression)
+                    throw new Error('EXACT_DECIMAL_UNSUPPORTED: decimal grouping');
+                return this.driver.decimalOrderExpression(sql);
+            }
+            return sql;
         });
         const groupProjection = groupProperties.map(field => `${this.driver.identifier(schema.columns[field].columnName)} AS ` +
             this.driver.identifier(field));
@@ -1094,8 +1142,16 @@ class AbstractSQLTeaQLClient {
                 if (!schema.columns[aggregate.field]) {
                     throw new Error(`Unknown aggregate field: ${aggregate.field}`);
                 }
-                aggregateNames.push(aggregate.retName);
-                return `${this.driver.aggregateFunction(aggregate.func)}(` +
+                const column = schema.columns[aggregate.field];
+                const isExactDecimal = column.logicalType === 'decimal' && column.decode === 'decimal'
+                    && String(aggregate.func).toLowerCase() !== 'count';
+                aggregateNames.push({ name: aggregate.retName, exactDecimal: isExactDecimal });
+                const functionName = isExactDecimal && this.driver.databaseKind === 'sqlite'
+                    ? this.driver.decimalAggregateFunction?.(aggregate.func)
+                    : this.driver.aggregateFunction(aggregate.func);
+                if (!functionName)
+                    throw new Error('EXACT_DECIMAL_UNSUPPORTED: decimal aggregation');
+                return `${functionName}(` +
                     `${this.driver.identifier(schema.columns[aggregate.field].columnName)}) AS ` +
                     this.driver.identifier(aggregate.retName);
             });
@@ -1110,7 +1166,14 @@ class AbstractSQLTeaQLClient {
             const direction = String(order.direction).toLowerCase() === 'desc'
                 ? 'DESC'
                 : 'ASC';
-            return `${this.driver.identifier(schema.columns[order.field].columnName)} ${direction}`;
+            const column = schema.columns[order.field];
+            let sql = this.driver.identifier(column.columnName);
+            if (column.logicalType === 'decimal' && column.decode === 'decimal' && this.driver.databaseKind === 'sqlite') {
+                if (!this.driver.decimalOrderExpression)
+                    throw new Error('EXACT_DECIMAL_UNSUPPORTED: decimal ordering');
+                sql = this.driver.decimalOrderExpression(sql);
+            }
+            return `${sql} ${direction}`;
         });
         if (partitionBy) {
             const partitionColumn = schema.columns[partitionBy];

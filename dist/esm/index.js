@@ -27,9 +27,13 @@ import {
   SortDirection,
   UnsupportedLocaleError,
   UserContext,
+  addDecimals,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
+  compareDecimals,
+  decimal,
+  decimalOrderKey,
   executeRelationFacets,
   locales,
   mergeRuntimeBootstrap,
@@ -37,7 +41,7 @@ import {
   parseLocale,
   queryOperationComment,
   queryTraceSource
-} from "./chunks/chunk-XOHMK4P5.js";
+} from "./chunks/chunk-K6MAGURX.js";
 import {
   MAX_OBJECT_PUT_SIZE,
   ObjectContent,
@@ -66,7 +70,7 @@ var Values = {
   I64: (value) => ({ type: "I64", value }),
   U64: (value) => ({ type: "U64", value }),
   F64: (value) => ({ type: "F64", value }),
-  Decimal: (value) => ({ type: "Decimal", value }),
+  Decimal: (value) => ({ type: "Decimal", value: decimal(value) }),
   Text: (value) => ({ type: "Text", value }),
   Json: (value) => ({ type: "Json", value }),
   Date: (value) => ({ type: "Date", value }),
@@ -377,6 +381,15 @@ function escapeJsonPointer2(value) {
 }
 
 // src/core/dynamic-search.ts
+function isExactDecimalSearchValue(value) {
+  if (typeof value !== "string") return false;
+  try {
+    decimal(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function mergeGeneratedScalarSearch(base, source, models, warn) {
   const field = (path) => {
     if (path.includes(".")) throw new Error("Dynamic search requires a trusted relation binding");
@@ -455,7 +468,7 @@ function normalizeDynamicSearch(source, entity, models, warn = (warning) => cons
   }
   function scalar(value, type) {
     if (value === null) return;
-    const valid = type === "date" ? typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !value.startsWith("0000-") && Number.isFinite(Date.parse(value + "T00:00:00Z")) && (/* @__PURE__ */ new Date(value + "T00:00:00Z")).toISOString().slice(0, 10) === value : type === "decimal" ? typeof value === "string" && /^[+-]?\d+(?:\.\d+)?$/.test(value) || typeof value === "number" && Number.isFinite(value) : type === "integer" || type === "timestamp" ? typeof value === "number" && Number.isSafeInteger(value) : type === "number" ? typeof value === "number" && Number.isFinite(value) : typeof value === type;
+    const valid = type === "date" ? typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !value.startsWith("0000-") && Number.isFinite(Date.parse(value + "T00:00:00Z")) && (/* @__PURE__ */ new Date(value + "T00:00:00Z")).toISOString().slice(0, 10) === value : type === "decimal" ? isExactDecimalSearchValue(value) : type === "integer" || type === "timestamp" ? typeof value === "number" && Number.isSafeInteger(value) : type === "number" ? typeof value === "number" && Number.isFinite(value) : typeof value === type;
     if (!valid) throw new Error("Invalid value for known search field");
   }
   for (const [path, predicate] of filters) {
@@ -2300,10 +2313,14 @@ export {
   UserContext,
   Values,
   WireInputError,
+  addDecimals,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
+  compareDecimals,
   createWireEntityMetadata,
+  decimal,
+  decimalOrderKey,
   encodeWireOutput,
   executeRelationFacets,
   injectRuntimeContext,
