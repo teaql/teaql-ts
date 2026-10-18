@@ -795,6 +795,39 @@ function rejectRemoteHardLimit(value, path = "$") {
     rejectRemoteHardLimit(child, `${path}.${key}`);
   }
 }
+function rejectUnsafeWireScalars(value, path = "$", active = /* @__PURE__ */ new WeakSet()) {
+  if (typeof value === "bigint") {
+    throw new Error(`TFP_UNSAFE_SCALAR: ${path} is bigint; use an exact string-backed Long`);
+  }
+  if (typeof value === "number" && (!Number.isFinite(value) || Number.isInteger(value) && !Number.isSafeInteger(value))) {
+    throw new Error(`TFP_UNSAFE_SCALAR: ${path} is not a finite JSON-safe number`);
+  }
+  if (value instanceof Date && !Number.isFinite(value.getTime())) {
+    throw new Error(`TFP_UNSAFE_SCALAR: ${path} is an invalid Date`);
+  }
+  if (!value || typeof value !== "object") return;
+  if (active.has(value)) throw new Error(`TFP_INVALID_REQUEST: ${path} is cyclic`);
+  active.add(value);
+  try {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => rejectUnsafeWireScalars(item, `${path}[${index}]`, active));
+    } else {
+      for (const [key, child] of Object.entries(value)) {
+        rejectUnsafeWireScalars(child, `${path}.${key}`, active);
+      }
+    }
+  } finally {
+    active.delete(value);
+  }
+}
+function stringifyWirePayload(payload) {
+  return JSON.stringify(payload, (_key, value) => {
+    if (typeof value === "bigint" || typeof value === "number" && (!Number.isFinite(value) || Number.isInteger(value) && !Number.isSafeInteger(value))) {
+      throw new Error("TFP_UNSAFE_SCALAR: serialized payload contains an unsafe numeric value");
+    }
+    return value;
+  });
+}
 function serializeQuery(query, nestedFacet = false, intent) {
   const request = new QueryRequest(query, intent);
   query = request.query;
@@ -804,6 +837,7 @@ function serializeQuery(query, nestedFacet = false, intent) {
   if (query.limitValue && (!Number.isSafeInteger(query.limitValue) || query.limitValue < 1)) {
     throw new Error("TFP_INVALID_REQUEST: limit must be a positive safe integer");
   }
+  rejectUnsafeWireScalars(query);
   rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
   if (query.relations.length || query.joins.length) {
     throw new Error("TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1");
@@ -872,7 +906,7 @@ var TeaQLClient = class {
         const response = await this.fetchImpl(url, {
           method: "POST",
           headers,
-          body: JSON.stringify(payload)
+          body: stringifyWirePayload(payload)
         });
         if (!response.ok) {
           const errText = await response.text();
@@ -905,6 +939,7 @@ var TeaQLClient = class {
       expectedVersion: query.expectedVersion,
       comment: query.comment
     };
+    rejectUnsafeWireScalars(payload);
     rejectRemoteHardLimit(payload);
     const mutationGovernance = this.userContext.enterMutationPolicy(payload);
     this.mutationGovernanceEvents.push(mutationGovernance);
@@ -919,7 +954,7 @@ var TeaQLClient = class {
         const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, "")}/mutate`, {
           method: "POST",
           headers,
-          body: JSON.stringify(payload)
+          body: stringifyWirePayload(payload)
         });
         if (!response.ok) {
           const errorText = await response.text();
