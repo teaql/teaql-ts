@@ -12,6 +12,8 @@ export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     aggregateFunction(name: string): string;
     decimalComparison(columnSql: string, operator: string, placeholder: string): string;
     decimalOrderExpression(columnSql: string): string;
+    longComparison(columnSql: string, operator: string, placeholder: string): string;
+    longOrderExpression(columnSql: string): string;
     decimalAggregateFunction(name: string): string;
     private sqlType;
     ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;

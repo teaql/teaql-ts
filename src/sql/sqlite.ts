@@ -1,5 +1,7 @@
 import Database from 'better-sqlite3';
 import { addDecimals, compareDecimals, decimal, decimalOrderKey, Decimal } from '../core/decimal';
+import { compareLongs, long, longOrderKey } from '../core/long';
+import { localTime } from '../core/local-time';
 import { startStandardNodeTelemetry } from '../telemetry/standard-node';
 import {
   AbstractSQLTeaQLClient,
@@ -53,6 +55,14 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
       left === null || right === null ? null : compareDecimals(exactText(left), exactText(right)));
     this.database.function('teaql_decimal_order_key', { deterministic: true }, (value: unknown) =>
       value === null ? null : decimalOrderKey(exactText(value)));
+    const exactLong = (value: unknown) => {
+      if (typeof value !== 'string') throw new TypeError('Inexact SQLite Long value');
+      return long(value);
+    };
+    this.database.function('teaql_long_cmp', { deterministic: true }, (left: unknown, right: unknown) =>
+      left === null || right === null ? null : compareLongs(exactLong(left), exactLong(right)));
+    this.database.function('teaql_long_order_key', { deterministic: true }, (value: unknown) =>
+      value === null ? null : longOrderKey(exactLong(value)));
     this.database.aggregate('teaql_decimal_sum', {
       start: () => ({ value: null as Decimal | null }),
       step: (state, next: unknown) => {
@@ -85,6 +95,8 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   encode(value: any, column?: ColumnSchema): any {
     if (value === null || value === undefined) return value;
     if (column?.logicalType === 'decimal') return decimal(value);
+    if (column?.logicalType === 'long') return long(value);
+    if (column?.logicalType === 'time') return localTime(value);
     if (column?.logicalType === 'json' && typeof value !== 'string') {
       return JSON.stringify(value);
     }
@@ -118,6 +130,14 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     return `teaql_decimal_order_key(${columnSql})`;
   }
 
+  longComparison(columnSql: string, operator: string, placeholder: string): string {
+    return `teaql_long_cmp(${columnSql}, ${placeholder}) ${operator} 0`;
+  }
+
+  longOrderExpression(columnSql: string): string {
+    return `teaql_long_order_key(${columnSql})`;
+  }
+
   decimalAggregateFunction(name: string): string {
     const functions: Record<string, string> = {
       sum: 'teaql_decimal_sum', min: 'teaql_decimal_min', max: 'teaql_decimal_max',
@@ -132,6 +152,8 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
       boolean: 'INTEGER',
       double: 'REAL',
       decimal: 'TEXT',
+      long: 'TEXT',
+      time: 'TEXT',
       date: 'TEXT',
       datetime: 'INTEGER',
       json: 'TEXT',
@@ -155,10 +177,10 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
       const columns = await this.query(`PRAGMA table_info(${table})`);
       const existing = new Set(columns.rows.map(row => String(row.name)));
       for (const [field, column] of Object.entries(schema.columns)) {
-        if (column.logicalType === 'decimal') {
+        if (column.logicalType === 'decimal' || column.logicalType === 'long') {
           const installed = columns.rows.find(row => String(row.name) === column.columnName);
           if (installed && String(installed.type).toUpperCase() !== 'TEXT') {
-            throw new Error(`EXACT_DECIMAL_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
+            throw new Error(`EXACT_${column.logicalType.toUpperCase()}_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
           }
         }
         if (field === 'id' || field === 'version' ||

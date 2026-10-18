@@ -24,6 +24,8 @@ import { executeRelationFacets } from '../core/facet';
 import type { FacetAggregate } from '../core/facet';
 import { SmartList } from '../core/smart-list';
 import { decimal } from '../core/decimal';
+import { long } from '../core/long';
+import { localTime } from '../core/local-time';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -33,13 +35,15 @@ export type LogicalColumnType =
   | 'datetime'
   | 'json'
   | 'integer'
+  | 'long'
+  | 'time'
   | 'text';
 
 export type ColumnSchema = {
   columnName: string;
   modelName?: string;
   logicalType: LogicalColumnType;
-  decode: 'string' | 'number' | 'decimal' | 'date' | 'native';
+  decode: 'string' | 'number' | 'decimal' | 'long' | 'time' | 'date' | 'native';
   nullable?: boolean;
   /** Trusted model/application log policy, never taken from a query payload. */
   logPolicy?: SQLParameterLogPolicy;
@@ -121,10 +125,12 @@ export interface TeaQLSqlDriver extends SqlSession {
   encode(value: any, column?: ColumnSchema): any;
   contains(columnSql: string, placeholder: string): string;
   aggregateFunction(name: string): string;
-  /** Exact decimal operations for providers whose native SQL numeric type is inexact. */
+  /** Exact text-backed numeric operations for SQLite Decimal and Long. */
   decimalComparison?(columnSql: string, operator: string, placeholder: string): string;
   decimalOrderExpression?(columnSql: string): string;
   decimalAggregateFunction?(name: string): string;
+  longComparison?(columnSql: string, operator: string, placeholder: string): string;
+  longOrderExpression?(columnSql: string): string;
   ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;
   transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T>;
   nextId(session: SqlSession, entity: string): Promise<string>;
@@ -433,6 +439,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const normalized = value?.id ?? value;
     if (normalized === undefined) return undefined;
     if (column?.logicalType === 'decimal' && normalized !== null) return this.driver.encode(decimal(normalized), column);
+    if (column?.logicalType === 'long' && normalized !== null) return this.driver.encode(long(normalized), column);
+    if (column?.logicalType === 'time' && normalized !== null) return this.driver.encode(localTime(normalized), column);
     return this.driver.encode(normalized, column);
   }
 
@@ -448,8 +456,19 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         if (typeof value !== 'string') throw new TypeError(`Inexact Decimal readback for ${field}`);
         result[field] = decimal(value);
       }
-      if (column.decode === 'date' && value instanceof Date) {
-        result[field] = value.toISOString();
+      if (column.decode === 'long') {
+        if (typeof value !== 'string' && typeof value !== 'bigint') {
+          throw new TypeError(`Inexact Long readback for ${field}`);
+        }
+        result[field] = long(value);
+      }
+      if (column.decode === 'time') result[field] = localTime(value);
+      if (column.decode === 'date') {
+        if (value instanceof Date) result[field] = column.logicalType === 'date'
+          ? value.toISOString().slice(0, 10) : value.toISOString();
+        else if (column.logicalType === 'datetime' && typeof value === 'number') {
+          result[field] = new Date(value).toISOString();
+        }
       }
       if (column.logicalType === 'boolean') result[field] = Boolean(value);
     }
@@ -1088,17 +1107,34 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         if (typeof value !== 'string') throw new TypeError(`Inexact Decimal readback for ${field}`);
         result[field] = decimal(value);
       }
-      if (column.decode === 'date' && value instanceof Date) result[field] = value.toISOString();
+      if (column.decode === 'long') {
+        if (typeof value !== 'string' && typeof value !== 'bigint') {
+          throw new TypeError(`Inexact Long readback for ${field}`);
+        }
+        result[field] = long(value);
+      }
+      if (column.decode === 'time') result[field] = localTime(value);
+      if (column.decode === 'date') {
+        if (value instanceof Date) result[field] = column.logicalType === 'date'
+          ? value.toISOString().slice(0, 10) : value.toISOString();
+        else if (column.logicalType === 'datetime' && typeof value === 'number') {
+          result[field] = new Date(value).toISOString();
+        }
+      }
       if (column.logicalType === 'boolean') result[field] = Boolean(value);
     }
     return result;
   }
 
   private comparisonSql(column: ColumnSchema, columnSql: string, operator: string, operandSql: string): string {
-    if (column.logicalType !== 'decimal') return `${columnSql} ${operator} ${operandSql}`;
-    if (this.driver.decimalComparison) return this.driver.decimalComparison(columnSql, operator, operandSql);
-    if (column.decode === 'decimal' && this.driver.databaseKind === 'sqlite') {
-      throw new Error('EXACT_DECIMAL_UNSUPPORTED: this SQLite provider has no exact comparison');
+    if (column.logicalType !== 'decimal' && column.logicalType !== 'long') {
+      return `${columnSql} ${operator} ${operandSql}`;
+    }
+    const exactComparison = column.logicalType === 'long'
+      ? this.driver.longComparison : this.driver.decimalComparison;
+    if (exactComparison) return exactComparison.call(this.driver, columnSql, operator, operandSql);
+    if (this.driver.databaseKind === 'sqlite') {
+      throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: this SQLite provider has no exact comparison`);
     }
     return `${columnSql} ${operator} ${operandSql}`;
   }
@@ -1168,7 +1204,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             this.bindValue(values, this.encode(value?.id ?? value, column), logPolicy);
             return this.driver.placeholder(values.length);
           });
-          if (column.logicalType === 'decimal') return `(${placeholders.map((value: string) =>
+          if (column.logicalType === 'decimal' || column.logicalType === 'long') return `(${placeholders.map((value: string) =>
             this.comparisonSql(column, quotedField, '=', value)).join(' OR ')})`;
           return `${quotedField} IN (${placeholders.join(', ')})`;
         }
@@ -1178,7 +1214,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
             this.bindValue(values, this.encode(value?.id ?? value, column), logPolicy);
             return this.driver.placeholder(values.length);
           });
-          if (column.logicalType === 'decimal') return `(${placeholders.map((value: string) =>
+          if (column.logicalType === 'decimal' || column.logicalType === 'long') return `(${placeholders.map((value: string) =>
             this.comparisonSql(column, quotedField, '<>', value)).join(' AND ')})`;
           return `${quotedField} NOT IN (${placeholders.join(', ')})`;
         }
@@ -1188,9 +1224,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         ] as const) {
           const subquery = predicate?.[operator];
           if (subquery !== undefined) {
-            if (column.logicalType === 'decimal' && column.decode === 'decimal'
+            if ((column.logicalType === 'decimal' || column.logicalType === 'long')
               && this.driver.databaseKind === 'sqlite') {
-              throw new Error('EXACT_DECIMAL_UNSUPPORTED: decimal subquery membership needs an exact join');
+              throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: subquery membership needs an exact join`);
             }
             const childQuery = subquery.query;
             const childSchema = this.schema(childQuery?.entity);
@@ -1231,7 +1267,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           const lower = this.driver.placeholder(values.length);
           this.bindValue(values, this.encode(predicate.$between[1], column), logPolicy);
           const upper = this.driver.placeholder(values.length);
-          if (column.logicalType === 'decimal') return `(${this.comparisonSql(column, quotedField, '>=', lower)} AND ` +
+          if (column.logicalType === 'decimal' || column.logicalType === 'long') return `(${this.comparisonSql(column, quotedField, '>=', lower)} AND ` +
             `${this.comparisonSql(column, quotedField, '<=', upper)})`;
           return `${quotedField} BETWEEN ${lower} AND ${upper}`;
         }
@@ -1304,9 +1340,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (!schema.columns[field]) throw new Error(`Unknown group field: ${field}`);
       const column = schema.columns[field];
       const sql = this.driver.identifier(column.columnName);
-      if (column.logicalType === 'decimal' && column.decode === 'decimal' && this.driver.databaseKind === 'sqlite') {
-        if (!this.driver.decimalOrderExpression) throw new Error('EXACT_DECIMAL_UNSUPPORTED: decimal grouping');
-        return this.driver.decimalOrderExpression(sql);
+      if ((column.logicalType === 'decimal' || column.logicalType === 'long')
+        && this.driver.databaseKind === 'sqlite') {
+        const exactOrder = column.logicalType === 'long'
+          ? this.driver.longOrderExpression : this.driver.decimalOrderExpression;
+        if (!exactOrder) throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: grouping`);
+        return exactOrder.call(this.driver, sql);
       }
       return sql;
     });
@@ -1344,6 +1383,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           throw new Error(`Unknown aggregate field: ${aggregate.field}`);
         }
         const column = schema.columns[aggregate.field];
+        if (column.logicalType === 'long' && String(aggregate.func).toLowerCase() !== 'count') {
+          throw new Error('EXACT_LONG_AGGREGATION_UNSUPPORTED: define overflow and result type first');
+        }
         const isExactDecimal = column.logicalType === 'decimal' && column.decode === 'decimal'
           && String(aggregate.func).toLowerCase() !== 'count';
         aggregateNames.push({ name: aggregate.retName, exactDecimal: isExactDecimal });
@@ -1369,9 +1411,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         : 'ASC';
       const column = schema.columns[order.field];
       let sql = this.driver.identifier(column.columnName);
-      if (column.logicalType === 'decimal' && column.decode === 'decimal' && this.driver.databaseKind === 'sqlite') {
-        if (!this.driver.decimalOrderExpression) throw new Error('EXACT_DECIMAL_UNSUPPORTED: decimal ordering');
-        sql = this.driver.decimalOrderExpression(sql);
+      if ((column.logicalType === 'decimal' || column.logicalType === 'long')
+        && this.driver.databaseKind === 'sqlite') {
+        const exactOrder = column.logicalType === 'long'
+          ? this.driver.longOrderExpression : this.driver.decimalOrderExpression;
+        if (!exactOrder) throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: ordering`);
+        sql = exactOrder.call(this.driver, sql);
       }
       return `${sql} ${direction}`;
     });

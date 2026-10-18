@@ -60,6 +60,8 @@ class PostgreSQLDriver {
             datetime: 'TIMESTAMPTZ',
             json: 'JSONB',
             integer: 'BIGINT',
+            long: 'BIGINT',
+            time: 'TIME(6)',
             text: 'TEXT',
         };
         return types[type];

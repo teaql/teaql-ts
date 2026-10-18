@@ -4,11 +4,13 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-CARZAUC4.js";
+} from "../chunks/chunk-ZVGVZRRB.js";
 import "../chunks/chunk-LGSUBUWZ.js";
 import {
-  decimal
-} from "../chunks/chunk-K6MAGURX.js";
+  decimal,
+  localTime,
+  long
+} from "../chunks/chunk-NKFKN5TB.js";
 import "../chunks/chunk-MJFGQZSQ.js";
 import "../chunks/chunk-WEYNFMW2.js";
 import "../chunks/chunk-AQT573VW.js";
@@ -44,6 +46,8 @@ var ExpoSQLiteDriver = class {
   encode(value, column) {
     if (value === null || value === void 0) return value;
     if (column?.logicalType === "decimal") return decimal(value);
+    if (column?.logicalType === "long") return long(value);
+    if (column?.logicalType === "time") return localTime(value);
     if (column?.logicalType === "json" && typeof value !== "string") {
       return JSON.stringify(value);
     }
@@ -62,6 +66,8 @@ var ExpoSQLiteDriver = class {
       boolean: "INTEGER",
       double: "REAL",
       decimal: "TEXT",
+      long: "TEXT",
+      time: "TEXT",
       date: "TEXT",
       datetime: "TEXT",
       json: "TEXT",
@@ -88,10 +94,10 @@ var ExpoSQLiteDriver = class {
       const columns = await this.query(`PRAGMA table_info(${table})`);
       const existing = new Set(columns.rows.map((row) => String(row.name)));
       for (const [field, column] of Object.entries(schema.columns)) {
-        if (column.logicalType === "decimal") {
+        if (column.logicalType === "decimal" || column.logicalType === "long") {
           const installed = columns.rows.find((row) => String(row.name) === column.columnName);
           if (installed && String(installed.type).toUpperCase() !== "TEXT") {
-            throw new Error(`EXACT_DECIMAL_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
+            throw new Error(`EXACT_${column.logicalType.toUpperCase()}_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
           }
         }
         if (field === "id" || field === "version" || existing.has(column.columnName)) continue;

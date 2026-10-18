@@ -7,12 +7,12 @@ import type { QueryOperation } from '../core/request-intent';
 import { TraceNode } from '../core/trace-chain';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 import type { FacetAggregate } from '../core/facet';
-export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'text';
+export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'long' | 'time' | 'text';
 export type ColumnSchema = {
     columnName: string;
     modelName?: string;
     logicalType: LogicalColumnType;
-    decode: 'string' | 'number' | 'decimal' | 'date' | 'native';
+    decode: 'string' | 'number' | 'decimal' | 'long' | 'time' | 'date' | 'native';
     nullable?: boolean;
     /** Trusted model/application log policy, never taken from a query payload. */
     logPolicy?: SQLParameterLogPolicy;
@@ -62,10 +62,12 @@ export interface TeaQLSqlDriver extends SqlSession {
     encode(value: any, column?: ColumnSchema): any;
     contains(columnSql: string, placeholder: string): string;
     aggregateFunction(name: string): string;
-    /** Exact decimal operations for providers whose native SQL numeric type is inexact. */
+    /** Exact text-backed numeric operations for SQLite Decimal and Long. */
     decimalComparison?(columnSql: string, operator: string, placeholder: string): string;
     decimalOrderExpression?(columnSql: string): string;
     decimalAggregateFunction?(name: string): string;
+    longComparison?(columnSql: string, operator: string, placeholder: string): string;
+    longOrderExpression?(columnSql: string): string;
     ensureSchema(schemas: Record<string, EntitySchema>): Promise<void>;
     transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T>;
     nextId(session: SqlSession, entity: string): Promise<string>;

@@ -7,9 +7,9 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-CARZAUC4.js";
+} from "../chunks/chunk-ZVGVZRRB.js";
 import "../chunks/chunk-LGSUBUWZ.js";
-import "../chunks/chunk-K6MAGURX.js";
+import "../chunks/chunk-NKFKN5TB.js";
 import "../chunks/chunk-MJFGQZSQ.js";
 import "../chunks/chunk-WEYNFMW2.js";
 import "../chunks/chunk-AQT573VW.js";
@@ -68,6 +68,8 @@ var PostgreSQLDriver = class {
       datetime: "TIMESTAMPTZ",
       json: "JSONB",
       integer: "BIGINT",
+      long: "BIGINT",
+      time: "TIME(6)",
       text: "TEXT"
     };
     return types[type];

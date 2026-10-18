@@ -59,6 +59,41 @@ function addDecimals(left, right) {
   return decimal(`${negative}${digits.slice(0, -scale)}.${digits.slice(-scale)}`);
 }
 
+// src/core/long.ts
+var LONG_TEXT = /^-?(?:0|[1-9][0-9]*)$/;
+var MIN_LONG = -(1n << 63n);
+var MAX_LONG = (1n << 63n) - 1n;
+function long(value) {
+  if (typeof value !== "string" && typeof value !== "bigint") {
+    throw new TypeError("Long requires a signed 64-bit integer string or bigint");
+  }
+  const text = String(value);
+  if (!LONG_TEXT.test(text)) throw new TypeError("Long requires a canonical integer string");
+  const exact = BigInt(text);
+  if (exact < MIN_LONG || exact > MAX_LONG) throw new RangeError("Long is outside signed 64-bit range");
+  return exact.toString();
+}
+function compareLongs(left, right) {
+  const a = BigInt(long(left));
+  const b = BigInt(long(right));
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function longOrderKey(value) {
+  return decimalOrderKey(long(value));
+}
+
+// src/core/local-time.ts
+var LOCAL_TIME_TEXT = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]{1,6})?$/;
+function localTime(value) {
+  if (typeof value !== "string" || !LOCAL_TIME_TEXT.test(value)) {
+    throw new TypeError("LocalTime requires HH:mm:ss with optional 1-6 fractional digits");
+  }
+  const dot = value.indexOf(".");
+  if (dot < 0) return value;
+  const fraction = value.slice(dot + 1).padEnd(6, "0");
+  return fraction === "000000" ? value.slice(0, dot) : `${value.slice(0, dot)}.${fraction}`;
+}
+
 // src/core/builtin-messages-v1.json
 var builtin_messages_v1_default = {
   schema: "teaql.i18n/v1",
@@ -2234,6 +2269,10 @@ export {
   compareDecimals,
   decimalOrderKey,
   addDecimals,
+  long,
+  compareLongs,
+  longOrderKey,
+  localTime,
   locales,
   UnsupportedLocaleError,
   parseLocale,
@@ -2282,4 +2321,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-K6MAGURX.js.map
+//# sourceMappingURL=chunk-NKFKN5TB.js.map

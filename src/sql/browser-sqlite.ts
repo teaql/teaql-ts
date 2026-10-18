@@ -1,5 +1,7 @@
 import { UserContext } from '../core/context';
 import { decimal } from '../core/decimal';
+import { long } from '../core/long';
+import { localTime } from '../core/local-time';
 import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
@@ -131,6 +133,8 @@ export class BrowserSQLiteDriver implements TeaQLSqlDriver {
   encode(value: any, column?: ColumnSchema): any {
     if (value === null || value === undefined) return value;
     if (column?.logicalType === 'decimal') return decimal(value);
+    if (column?.logicalType === 'long') return long(value);
+    if (column?.logicalType === 'time') return localTime(value);
     if (column?.logicalType === 'json' && typeof value !== 'string') return JSON.stringify(value);
     if (column?.logicalType === 'boolean') return value ? 1 : 0;
     if (value instanceof Date) return value.toISOString();
@@ -181,10 +185,10 @@ export class BrowserSQLiteDriver implements TeaQLSqlDriver {
       const columns = await this.query(`PRAGMA table_info(${table})`);
       const existing = new Set(columns.rows.map(row => String(row.name)));
       for (const [field, column] of Object.entries(schema.columns)) {
-        if (column.logicalType === 'decimal') {
+        if (column.logicalType === 'decimal' || column.logicalType === 'long') {
           const installed = columns.rows.find(row => String(row.name) === column.columnName);
           if (installed && String(installed.type).toUpperCase() !== 'TEXT') {
-            throw new Error(`EXACT_DECIMAL_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
+            throw new Error(`EXACT_${column.logicalType.toUpperCase()}_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
           }
         }
         if (field === 'id' || field === 'version' || existing.has(column.columnName)) continue;
@@ -283,7 +287,7 @@ export class BrowserSQLiteTeaQLClient extends AbstractSQLTeaQLClient {
 
 function sqliteType(type: LogicalColumnType): string {
   const types: Record<LogicalColumnType, string> = {
-    boolean: 'INTEGER', double: 'REAL', decimal: 'TEXT', date: 'TEXT',
+    boolean: 'INTEGER', double: 'REAL', decimal: 'TEXT', long: 'TEXT', time: 'TEXT', date: 'TEXT',
     datetime: 'TEXT', json: 'TEXT', integer: 'INTEGER', text: 'TEXT',
   };
   return types[type];
