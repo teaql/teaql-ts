@@ -31,7 +31,8 @@ export class MySQLDriver implements TeaQLSqlDriver {
 
   constructor(connectionString: string) {
     if (!connectionString) throw new Error('connectionString is required');
-    this.callbackPool = createCallbackPool({ uri: connectionString, timezone: 'Z' });
+    this.callbackPool = createCallbackPool({ uri: connectionString, timezone: 'Z',
+      supportBigNumbers: true, bigNumberStrings: true });
     this.pool = this.callbackPool.promise();
   }
 
@@ -79,6 +80,8 @@ export class MySQLDriver implements TeaQLSqlDriver {
       datetime: 'DATETIME(6)',
       json: 'JSON',
       integer: 'BIGINT',
+      long: 'BIGINT',
+      time: 'TIME(6)',
       text: 'TEXT',
     };
     return types[type];

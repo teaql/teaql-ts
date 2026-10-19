@@ -1,4 +1,9 @@
 import { UserContext } from '../src/core/context';
+import { decimal } from '../src/core/decimal';
+import { long } from '../src/core/long';
+import { localTime } from '../src/core/local-time';
+import { OrderBy, SelectQuery } from '../src/core/ast';
+import Database from 'better-sqlite3';
 import {
   DelegatingMutationPolicyRegistry,
   MutationPolicyError,
@@ -12,6 +17,7 @@ import {
   BrowserSQLiteRequest,
   BrowserSQLiteResponse,
 } from '../src/sql/browser-sqlite-protocol';
+import { EntitySchema } from '../src/sql/core';
 
 class FakeWorker implements BrowserSQLiteWorkerLike {
   readonly requests: BrowserSQLiteRequest[] = [];
@@ -19,18 +25,38 @@ class FakeWorker implements BrowserSQLiteWorkerLike {
   private readonly messageListeners = new Set<(event: MessageEvent<BrowserSQLiteResponse>) => void>();
   private readonly errorListeners = new Set<(event: ErrorEvent) => void>();
 
+  constructor(private readonly database?: Database.Database) {}
+
   postMessage(message: BrowserSQLiteRequest): void {
     this.requests.push(message);
     queueMicrotask(() => {
       let result: unknown;
-      if (message.operation === 'query') {
-        const sql = String(message.payload?.sql ?? '');
-        result = sql.startsWith('SELECT')
-          ? { rows: [{ id: 1, name: 'Local' }], rowCount: 1 }
-          : { rows: [], rowCount: 0 };
+      let error: BrowserSQLiteResponse['error'];
+      try {
+        if (message.operation === 'query') {
+          const sql = String(message.payload?.sql ?? '');
+          if (this.database) {
+            const statement = this.database.prepare(sql);
+            const values = (message.payload?.values ?? []) as unknown[];
+            if (statement.reader) {
+              const rows = statement.all(...values);
+              result = { rows, rowCount: rows.length };
+            } else {
+              const changes = statement.run(...values).changes;
+              result = { rows: [], rowCount: changes };
+            }
+          } else {
+            result = sql.startsWith('SELECT')
+              ? { rows: [{ id: 1, name: 'Local' }], rowCount: 1 }
+              : { rows: [], rowCount: 0 };
+          }
+        }
+        if (message.operation === 'close') this.database?.close();
+      } catch (cause) {
+        error = { name: 'SQLiteTestWorkerError', message: String(cause) };
       }
       const event = { data: {
-        type: 'teaql-browser-sqlite-response', requestId: message.requestId, result,
+        type: 'teaql-browser-sqlite-response', requestId: message.requestId, result, error,
       } } as MessageEvent<BrowserSQLiteResponse>;
       for (const listener of this.messageListeners) listener(event);
     });
@@ -50,6 +76,97 @@ class FakeWorker implements BrowserSQLiteWorkerLike {
 }
 
 describe('BrowserSQLiteDriver', () => {
+  test('uses exact signed-i64 SQL predicates through the worker boundary', async () => {
+    const worker = new FakeWorker(new Database(':memory:'));
+    const schemas: Record<string, EntitySchema> = { Probe: { table: 'scalar_probe', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      quantity: { columnName: 'quantity', logicalType: 'long', decode: 'long' },
+      startsAt: { columnName: 'starts_at', logicalType: 'time', decode: 'time' },
+    } } };
+    const client = await BrowserSQLiteTeaQLClient.open(worker, schemas);
+    try {
+      await new UserContext().insertResource('dataService', client).ensureSchema();
+      for (const [quantity, startsAt] of [
+        ['-9223372036854775808', '00:00:00'],
+        ['2', '12:30:00.1'],
+        ['9007199254740993', '23:59:59.123456'],
+        ['9223372036854775807', '01:02:03'],
+      ]) {
+        await client.executeMutation({ entity: 'Probe', action: 'Create',
+          payload: { quantity: long(quantity), startsAt: localTime(startsAt) },
+          comment: 'create exact browser scalar' });
+      }
+      const ordered = await client.executeQuery<any>(new SelectQuery('Probe')
+        .order(OrderBy.asc('quantity')).limit(10)
+        .comment('order browser scalar').purpose('verify exact Long order'));
+      expect(ordered.map(row => row.quantity)).toEqual([
+        '-9223372036854775808', '2', '9007199254740993', '9223372036854775807',
+      ]);
+      const matched = await client.executeQuery<any>(new SelectQuery('Probe')
+        .filter({ quantity: { $gt: long('9007199254740992') },
+          startsAt: { $eq: localTime('23:59:59.123456') } })
+        .comment('filter browser scalar').purpose('verify exact Long and Time'));
+      expect(matched.map(row => row.quantity)).toEqual(['9007199254740993']);
+      expect(ordered.find(row => row.quantity === '2')?.startsAt).toBe('12:30:00.100000');
+      expect(worker.requests.some(request => String(request.payload?.sql)
+        .includes('CAST("quantity" AS INTEGER)'))).toBe(true);
+    } finally { await client.close(); }
+  });
+
+  test('declares exact Decimal as TEXT and rejects JS number binding', async () => {
+    const worker = new FakeWorker();
+    const driver = await BrowserSQLiteDriver.open(worker);
+    const amount = { columnName: 'amount', logicalType: 'decimal' as const, decode: 'decimal' as const };
+    await driver.ensureSchema({ Payment: { table: 'payments', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      amount,
+    } } });
+    expect(worker.requests.some(request =>
+      String(request.payload?.sql).includes('ADD COLUMN "amount" TEXT'))).toBe(true);
+    expect(driver.encode(decimal('123456789012.3456789'), amount)).toBe('123456789012.3456789');
+    expect(() => driver.encode(3.5, amount)).toThrow(/Decimal requires/);
+    await driver.close();
+  });
+
+  test('legacy numeric Decimal can still order and filter, while exact Decimal fails closed', async () => {
+    const worker = new FakeWorker(new Database(':memory:'));
+    const schemas: Record<string, EntitySchema> = { Probe: { table: 'decimal_probe', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      amount: { columnName: 'amount', logicalType: 'decimal', decode: 'number' },
+    } } };
+    const client = await BrowserSQLiteTeaQLClient.open(worker, schemas);
+    try {
+      await new UserContext().insertResource('dataService', client).ensureSchema();
+      expect(worker.requests.some(request => String(request.payload?.sql)
+        .includes('ADD COLUMN "amount" NUMERIC'))).toBe(true);
+      for (const amount of [20, 3.5, 129.95]) {
+        await client.executeMutation({ entity: 'Probe', action: 'Create',
+          payload: { amount }, comment: 'seed legacy browser amount' });
+      }
+      const rows = await client.executeQuery<any>(new SelectQuery('Probe')
+        .filter({ amount: { $gte: 3.5 } }).order(OrderBy.asc('amount')).limit(10)
+        .comment('order legacy amounts').purpose('preserve old browser example'));
+      expect(rows.map(row => row.amount)).toEqual([3.5, 20, 129.95]);
+      expect(worker.requests.some(request => String(request.payload?.sql)
+        .includes('"amount" >= ?'))).toBe(true);
+    } finally { await client.close(); }
+
+    const exactClient = await BrowserSQLiteTeaQLClient.open(new FakeWorker(), {
+      Probe: { ...schemas.Probe, columns: { ...schemas.Probe.columns,
+        amount: { columnName: 'amount', logicalType: 'decimal', decode: 'decimal' },
+      } },
+    });
+    try {
+      await expect(exactClient.executeQuery(new SelectQuery('Probe')
+        .order(OrderBy.asc('amount')).limit(10)
+        .comment('order exact browser amount').purpose('require an exact comparison')))
+        .rejects.toThrow('EXACT_DECIMAL_UNSUPPORTED');
+    } finally { await exactClient.close(); }
+  });
+
   test('defaults to a deterministic in-memory database', async () => {
     const worker = new FakeWorker();
     const driver = await BrowserSQLiteDriver.open(worker);

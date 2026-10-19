@@ -27,17 +27,25 @@ import {
   SortDirection,
   UnsupportedLocaleError,
   UserContext,
+  addDecimals,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
+  compareDecimals,
+  compareLongs,
+  decimal,
+  decimalOrderKey,
   executeRelationFacets,
+  localTime,
   locales,
+  long,
+  longOrderKey,
   mergeRuntimeBootstrap,
   mutationScopeForEntity,
   parseLocale,
   queryOperationComment,
   queryTraceSource
-} from "./chunks/chunk-XOHMK4P5.js";
+} from "./chunks/chunk-NKFKN5TB.js";
 import {
   MAX_OBJECT_PUT_SIZE,
   ObjectContent,
@@ -66,7 +74,7 @@ var Values = {
   I64: (value) => ({ type: "I64", value }),
   U64: (value) => ({ type: "U64", value }),
   F64: (value) => ({ type: "F64", value }),
-  Decimal: (value) => ({ type: "Decimal", value }),
+  Decimal: (value) => ({ type: "Decimal", value: decimal(value) }),
   Text: (value) => ({ type: "Text", value }),
   Json: (value) => ({ type: "Json", value }),
   Date: (value) => ({ type: "Date", value }),
@@ -377,6 +385,15 @@ function escapeJsonPointer2(value) {
 }
 
 // src/core/dynamic-search.ts
+function isExactDecimalSearchValue(value) {
+  if (typeof value !== "string") return false;
+  try {
+    decimal(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function mergeGeneratedScalarSearch(base, source, models, warn) {
   const field = (path) => {
     if (path.includes(".")) throw new Error("Dynamic search requires a trusted relation binding");
@@ -455,7 +472,7 @@ function normalizeDynamicSearch(source, entity, models, warn = (warning) => cons
   }
   function scalar(value, type) {
     if (value === null) return;
-    const valid = type === "date" ? typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !value.startsWith("0000-") && Number.isFinite(Date.parse(value + "T00:00:00Z")) && (/* @__PURE__ */ new Date(value + "T00:00:00Z")).toISOString().slice(0, 10) === value : type === "decimal" ? typeof value === "string" && /^[+-]?\d+(?:\.\d+)?$/.test(value) || typeof value === "number" && Number.isFinite(value) : type === "integer" || type === "timestamp" ? typeof value === "number" && Number.isSafeInteger(value) : type === "number" ? typeof value === "number" && Number.isFinite(value) : typeof value === type;
+    const valid = type === "date" ? typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !value.startsWith("0000-") && Number.isFinite(Date.parse(value + "T00:00:00Z")) && (/* @__PURE__ */ new Date(value + "T00:00:00Z")).toISOString().slice(0, 10) === value : type === "decimal" ? isExactDecimalSearchValue(value) : type === "integer" || type === "timestamp" ? typeof value === "number" && Number.isSafeInteger(value) : type === "number" ? typeof value === "number" && Number.isFinite(value) : typeof value === type;
     if (!valid) throw new Error("Invalid value for known search field");
   }
   for (const [path, predicate] of filters) {
@@ -778,6 +795,39 @@ function rejectRemoteHardLimit(value, path = "$") {
     rejectRemoteHardLimit(child, `${path}.${key}`);
   }
 }
+function rejectUnsafeWireScalars(value, path = "$", active = /* @__PURE__ */ new WeakSet()) {
+  if (typeof value === "bigint") {
+    throw new Error(`TFP_UNSAFE_SCALAR: ${path} is bigint; use an exact string-backed Long`);
+  }
+  if (typeof value === "number" && (!Number.isFinite(value) || Number.isInteger(value) && !Number.isSafeInteger(value))) {
+    throw new Error(`TFP_UNSAFE_SCALAR: ${path} is not a finite JSON-safe number`);
+  }
+  if (value instanceof Date && !Number.isFinite(value.getTime())) {
+    throw new Error(`TFP_UNSAFE_SCALAR: ${path} is an invalid Date`);
+  }
+  if (!value || typeof value !== "object") return;
+  if (active.has(value)) throw new Error(`TFP_INVALID_REQUEST: ${path} is cyclic`);
+  active.add(value);
+  try {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => rejectUnsafeWireScalars(item, `${path}[${index}]`, active));
+    } else {
+      for (const [key, child] of Object.entries(value)) {
+        rejectUnsafeWireScalars(child, `${path}.${key}`, active);
+      }
+    }
+  } finally {
+    active.delete(value);
+  }
+}
+function stringifyWirePayload(payload) {
+  return JSON.stringify(payload, (_key, value) => {
+    if (typeof value === "bigint" || typeof value === "number" && (!Number.isFinite(value) || Number.isInteger(value) && !Number.isSafeInteger(value))) {
+      throw new Error("TFP_UNSAFE_SCALAR: serialized payload contains an unsafe numeric value");
+    }
+    return value;
+  });
+}
 function serializeQuery(query, nestedFacet = false, intent) {
   const request = new QueryRequest(query, intent);
   query = request.query;
@@ -787,6 +837,7 @@ function serializeQuery(query, nestedFacet = false, intent) {
   if (query.limitValue && (!Number.isSafeInteger(query.limitValue) || query.limitValue < 1)) {
     throw new Error("TFP_INVALID_REQUEST: limit must be a positive safe integer");
   }
+  rejectUnsafeWireScalars(query);
   rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
   if (query.relations.length || query.joins.length) {
     throw new Error("TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1");
@@ -855,7 +906,7 @@ var TeaQLClient = class {
         const response = await this.fetchImpl(url, {
           method: "POST",
           headers,
-          body: JSON.stringify(payload)
+          body: stringifyWirePayload(payload)
         });
         if (!response.ok) {
           const errText = await response.text();
@@ -888,6 +939,7 @@ var TeaQLClient = class {
       expectedVersion: query.expectedVersion,
       comment: query.comment
     };
+    rejectUnsafeWireScalars(payload);
     rejectRemoteHardLimit(payload);
     const mutationGovernance = this.userContext.enterMutationPolicy(payload);
     this.mutationGovernanceEvents.push(mutationGovernance);
@@ -902,7 +954,7 @@ var TeaQLClient = class {
         const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, "")}/mutate`, {
           method: "POST",
           headers,
-          body: JSON.stringify(payload)
+          body: stringifyWirePayload(payload)
         });
         if (!response.ok) {
           const errorText = await response.text();
@@ -2300,15 +2352,23 @@ export {
   UserContext,
   Values,
   WireInputError,
+  addDecimals,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
+  compareDecimals,
+  compareLongs,
   createWireEntityMetadata,
+  decimal,
+  decimalOrderKey,
   encodeWireOutput,
   executeRelationFacets,
   injectRuntimeContext,
   localCache,
+  localTime,
   locales,
+  long,
+  longOrderKey,
   mergeDynamicSearch,
   mergeGeneratedScalarSearch,
   mergeRuntimeBootstrap,

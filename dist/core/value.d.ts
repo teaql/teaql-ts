@@ -1,3 +1,4 @@
+import { Decimal } from './decimal';
 export type Value = {
     type: 'Null';
 } | {
@@ -14,7 +15,7 @@ export type Value = {
     value: number;
 } | {
     type: 'Decimal';
-    value: number | string;
+    value: Decimal;
 } | {
     type: 'Text';
     value: string;
@@ -43,7 +44,7 @@ export declare const Values: {
     I64: (value: number) => Value;
     U64: (value: number) => Value;
     F64: (value: number) => Value;
-    Decimal: (value: number | string) => Value;
+    Decimal: (value: Decimal) => Value;
     Text: (value: string) => Value;
     Json: (value: any) => Value;
     Date: (value: string | Date) => Value;

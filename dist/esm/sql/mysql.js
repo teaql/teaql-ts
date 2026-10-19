@@ -7,9 +7,9 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-2WIK333Y.js";
+} from "../chunks/chunk-E2Z2R4YB.js";
 import "../chunks/chunk-LGSUBUWZ.js";
-import "../chunks/chunk-XOHMK4P5.js";
+import "../chunks/chunk-NKFKN5TB.js";
 import "../chunks/chunk-MJFGQZSQ.js";
 import "../chunks/chunk-WEYNFMW2.js";
 import "../chunks/chunk-AQT573VW.js";
@@ -30,7 +30,12 @@ var MySQLDriver = class {
   constructor(connectionString) {
     this.databaseKind = "mysql";
     if (!connectionString) throw new Error("connectionString is required");
-    this.callbackPool = createCallbackPool({ uri: connectionString, timezone: "Z" });
+    this.callbackPool = createCallbackPool({
+      uri: connectionString,
+      timezone: "Z",
+      supportBigNumbers: true,
+      bigNumberStrings: true
+    });
     this.pool = this.callbackPool.promise();
   }
   identifier(value) {
@@ -71,6 +76,8 @@ var MySQLDriver = class {
       datetime: "DATETIME(6)",
       json: "JSON",
       integer: "BIGINT",
+      long: "BIGINT",
+      time: "TIME(6)",
       text: "TEXT"
     };
     return types[type];

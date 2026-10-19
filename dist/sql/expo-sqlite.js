@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExpoSQLiteTeaQLClient = exports.ExpoSQLiteDriver = void 0;
 const core_1 = require("./core");
+const decimal_1 = require("../core/decimal");
+const long_1 = require("../core/long");
+const local_time_1 = require("../core/local-time");
 class ExpoSQLiteSession {
     constructor(database) {
         this.database = database;
@@ -41,6 +44,12 @@ class ExpoSQLiteDriver {
     encode(value, column) {
         if (value === null || value === undefined)
             return value;
+        if (column?.logicalType === 'decimal' && column.decode === 'decimal')
+            return (0, decimal_1.decimal)(value);
+        if (column?.logicalType === 'long')
+            return (0, long_1.long)(value);
+        if (column?.logicalType === 'time')
+            return (0, local_time_1.localTime)(value);
         if (column?.logicalType === 'json' && typeof value !== 'string') {
             return JSON.stringify(value);
         }
@@ -56,11 +65,19 @@ class ExpoSQLiteDriver {
     aggregateFunction(name) {
         return (0, core_1.standardAggregateFunction)(name);
     }
-    sqlType(type) {
+    longComparison(columnSql, operator, placeholder) {
+        return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;
+    }
+    longOrderExpression(columnSql) {
+        return `CAST(${columnSql} AS INTEGER)`;
+    }
+    sqlType(type, decode) {
         const types = {
             boolean: 'INTEGER',
             double: 'REAL',
-            decimal: 'NUMERIC',
+            decimal: decode === 'decimal' ? 'TEXT' : 'NUMERIC',
+            long: 'TEXT',
+            time: 'TEXT',
             date: 'TEXT',
             datetime: 'TEXT',
             json: 'TEXT',
@@ -84,11 +101,17 @@ class ExpoSQLiteDriver {
             const columns = await this.query(`PRAGMA table_info(${table})`);
             const existing = new Set(columns.rows.map(row => String(row.name)));
             for (const [field, column] of Object.entries(schema.columns)) {
+                if ((column.logicalType === 'decimal' && column.decode === 'decimal') || column.logicalType === 'long') {
+                    const installed = columns.rows.find(row => String(row.name) === column.columnName);
+                    if (installed && String(installed.type).toUpperCase() !== 'TEXT') {
+                        throw new Error(`EXACT_${column.logicalType.toUpperCase()}_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
+                    }
+                }
                 if (field === 'id' || field === 'version' ||
                     existing.has(column.columnName))
                     continue;
                 await this.query(`ALTER TABLE ${table} ADD COLUMN ` +
-                    `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}` +
+                    `${this.identifier(column.columnName)} ${this.sqlType(column.logicalType, column.decode)}` +
                     `${column.nullable === false ? ' NOT NULL' : ''}`);
             }
         }
