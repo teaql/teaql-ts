@@ -74,4 +74,36 @@ describe('SQLite exact Decimal execution', () => {
       await driver.close();
     }
   });
+
+  test('legacy numeric schemas remain runnable without weakening exact Decimal input', async () => {
+    const legacySchemas: Record<string, EntitySchema> = {
+      Probe: {
+        ...schemas.Probe,
+        columns: {
+          ...schemas.Probe.columns,
+          amount: { columnName: 'amount', logicalType: 'decimal', decode: 'number' },
+        },
+      },
+    };
+    const legacy = new SQLiteTeaQLClient(':memory:', legacySchemas);
+    const exact = new SQLiteTeaQLClient(':memory:', schemas);
+    try {
+      await new UserContext().insertResource('dataService', legacy).ensureSchema();
+      await new UserContext().insertResource('dataService', exact).ensureSchema();
+      await legacy.executeMutation({ entity: 'Probe', action: 'Create', id: '1',
+        payload: { amount: 129.95 }, comment: 'legacy generated amount' });
+      const rows = await legacy.executeQuery<any>(new SelectQuery('Probe').limit(1)
+        .comment('load legacy amount').purpose('verify old generated schema'));
+      expect(rows[0].amount).toBe(129.95);
+      await expect(legacy.executeMutation({ entity: 'Probe', action: 'Create', id: '2',
+        payload: { amount: Number.MAX_SAFE_INTEGER + 1 }, comment: 'reject unsafe legacy amount' }))
+        .rejects.toThrow('Legacy Decimal requires a finite JSON-safe number');
+      await expect(exact.executeMutation({ entity: 'Probe', action: 'Create', id: '1',
+        payload: { amount: 129.95 }, comment: 'reject inexact amount' }))
+        .rejects.toThrow('Decimal requires a finite base-10 string');
+    } finally {
+      await legacy.close();
+      await exact.close();
+    }
+  });
 });

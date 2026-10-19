@@ -284,7 +284,15 @@ var AbstractSQLTeaQLClient = class {
   encode(value, column) {
     const normalized = value?.id ?? value;
     if (normalized === void 0) return void 0;
-    if (column?.logicalType === "decimal" && normalized !== null) return this.driver.encode(decimal(normalized), column);
+    if (column?.logicalType === "decimal" && normalized !== null) {
+      if (column.decode !== "decimal" && typeof normalized === "number") {
+        if (!Number.isFinite(normalized) || Number.isInteger(normalized) && !Number.isSafeInteger(normalized)) {
+          throw new TypeError("Legacy Decimal requires a finite JSON-safe number");
+        }
+        return this.driver.encode(decimal(String(normalized)), column);
+      }
+      return this.driver.encode(decimal(normalized), column);
+    }
     if (column?.logicalType === "long" && normalized !== null) return this.driver.encode(long(normalized), column);
     if (column?.logicalType === "time" && normalized !== null) return this.driver.encode(localTime(normalized), column);
     return this.driver.encode(normalized, column);
@@ -1987,4 +1995,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-ZVGVZRRB.js.map
+//# sourceMappingURL=chunk-ZSNHAHPT.js.map

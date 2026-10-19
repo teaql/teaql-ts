@@ -438,7 +438,18 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private encode(value: any, column?: ColumnSchema): any {
     const normalized = value?.id ?? value;
     if (normalized === undefined) return undefined;
-    if (column?.logicalType === 'decimal' && normalized !== null) return this.driver.encode(decimal(normalized), column);
+    if (column?.logicalType === 'decimal' && normalized !== null) {
+      // Older generated schemas decode Decimal as number and still pass numeric
+      // values. Keep that explicitly inexact profile runnable; newly generated
+      // decode:decimal schemas require exact text and never accept a JS number.
+      if (column.decode !== 'decimal' && typeof normalized === 'number') {
+        if (!Number.isFinite(normalized) || (Number.isInteger(normalized) && !Number.isSafeInteger(normalized))) {
+          throw new TypeError('Legacy Decimal requires a finite JSON-safe number');
+        }
+        return this.driver.encode(decimal(String(normalized)), column);
+      }
+      return this.driver.encode(decimal(normalized), column);
+    }
     if (column?.logicalType === 'long' && normalized !== null) return this.driver.encode(long(normalized), column);
     if (column?.logicalType === 'time' && normalized !== null) return this.driver.encode(localTime(normalized), column);
     return this.driver.encode(normalized, column);

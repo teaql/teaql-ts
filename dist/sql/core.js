@@ -232,8 +232,18 @@ class AbstractSQLTeaQLClient {
         const normalized = value?.id ?? value;
         if (normalized === undefined)
             return undefined;
-        if (column?.logicalType === 'decimal' && normalized !== null)
+        if (column?.logicalType === 'decimal' && normalized !== null) {
+            // Older generated schemas decode Decimal as number and still pass numeric
+            // values. Keep that explicitly inexact profile runnable; newly generated
+            // decode:decimal schemas require exact text and never accept a JS number.
+            if (column.decode !== 'decimal' && typeof normalized === 'number') {
+                if (!Number.isFinite(normalized) || (Number.isInteger(normalized) && !Number.isSafeInteger(normalized))) {
+                    throw new TypeError('Legacy Decimal requires a finite JSON-safe number');
+                }
+                return this.driver.encode((0, decimal_1.decimal)(String(normalized)), column);
+            }
             return this.driver.encode((0, decimal_1.decimal)(normalized), column);
+        }
         if (column?.logicalType === 'long' && normalized !== null)
             return this.driver.encode((0, long_1.long)(normalized), column);
         if (column?.logicalType === 'time' && normalized !== null)
