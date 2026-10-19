@@ -285,11 +285,11 @@ var AbstractSQLTeaQLClient = class {
     const normalized = value?.id ?? value;
     if (normalized === void 0) return void 0;
     if (column?.logicalType === "decimal" && normalized !== null) {
-      if (column.decode !== "decimal" && typeof normalized === "number") {
-        if (!Number.isFinite(normalized) || Number.isInteger(normalized) && !Number.isSafeInteger(normalized)) {
+      if (column.decode !== "decimal") {
+        if (typeof normalized === "number" && (!Number.isFinite(normalized) || Number.isInteger(normalized) && !Number.isSafeInteger(normalized))) {
           throw new TypeError("Legacy Decimal requires a finite JSON-safe number");
         }
-        return this.driver.encode(decimal(String(normalized)), column);
+        return this.driver.encode(normalized, column);
       }
       return this.driver.encode(decimal(normalized), column);
     }
@@ -1009,6 +1009,9 @@ var AbstractSQLTeaQLClient = class {
     if (column.logicalType !== "decimal" && column.logicalType !== "long") {
       return `${columnSql} ${operator} ${operandSql}`;
     }
+    if (column.logicalType === "decimal" && column.decode !== "decimal") {
+      return `${columnSql} ${operator} ${operandSql}`;
+    }
     const exactComparison = column.logicalType === "long" ? this.driver.longComparison : this.driver.decimalComparison;
     if (exactComparison) return exactComparison.call(this.driver, columnSql, operator, operandSql);
     if (this.driver.databaseKind === "sqlite") {
@@ -1093,7 +1096,7 @@ var AbstractSQLTeaQLClient = class {
         ]) {
           const subquery = predicate?.[operator];
           if (subquery !== void 0) {
-            if ((column.logicalType === "decimal" || column.logicalType === "long") && this.driver.databaseKind === "sqlite") {
+            if ((column.logicalType === "decimal" && column.decode === "decimal" || column.logicalType === "long") && this.driver.databaseKind === "sqlite") {
               throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: subquery membership needs an exact join`);
             }
             const childQuery = subquery.query;
@@ -1190,10 +1193,11 @@ var AbstractSQLTeaQLClient = class {
       if (!schema.columns[field]) throw new Error(`Unknown group field: ${field}`);
       const column = schema.columns[field];
       const sql2 = this.driver.identifier(column.columnName);
+      if (column.logicalType === "decimal" && column.decode !== "decimal") return sql2;
       if ((column.logicalType === "decimal" || column.logicalType === "long") && this.driver.databaseKind === "sqlite") {
         const exactOrder = column.logicalType === "long" ? this.driver.longOrderExpression : this.driver.decimalOrderExpression;
-        if (!exactOrder) throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: grouping`);
-        return exactOrder.call(this.driver, sql2);
+        if (exactOrder) return exactOrder.call(this.driver, sql2);
+        throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: grouping`);
       }
       return sql2;
     });
@@ -1248,10 +1252,11 @@ var AbstractSQLTeaQLClient = class {
       const direction = String(order.direction).toLowerCase() === "desc" ? "DESC" : "ASC";
       const column = schema.columns[order.field];
       let sql2 = this.driver.identifier(column.columnName);
+      if (column.logicalType === "decimal" && column.decode !== "decimal") return `${sql2} ${direction}`;
       if ((column.logicalType === "decimal" || column.logicalType === "long") && this.driver.databaseKind === "sqlite") {
         const exactOrder = column.logicalType === "long" ? this.driver.longOrderExpression : this.driver.decimalOrderExpression;
-        if (!exactOrder) throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: ordering`);
-        sql2 = exactOrder.call(this.driver, sql2);
+        if (exactOrder) sql2 = exactOrder.call(this.driver, sql2);
+        else throw new Error(`EXACT_${column.logicalType.toUpperCase()}_UNSUPPORTED: ordering`);
       }
       return `${sql2} ${direction}`;
     });
@@ -1995,4 +2000,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-ZSNHAHPT.js.map
+//# sourceMappingURL=chunk-E2Z2R4YB.js.map

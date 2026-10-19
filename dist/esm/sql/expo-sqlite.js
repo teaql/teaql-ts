@@ -4,7 +4,7 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-ZSNHAHPT.js";
+} from "../chunks/chunk-E2Z2R4YB.js";
 import "../chunks/chunk-LGSUBUWZ.js";
 import {
   decimal,
@@ -45,7 +45,7 @@ var ExpoSQLiteDriver = class {
   }
   encode(value, column) {
     if (value === null || value === void 0) return value;
-    if (column?.logicalType === "decimal") return decimal(value);
+    if (column?.logicalType === "decimal" && column.decode === "decimal") return decimal(value);
     if (column?.logicalType === "long") return long(value);
     if (column?.logicalType === "time") return localTime(value);
     if (column?.logicalType === "json" && typeof value !== "string") {
@@ -67,11 +67,11 @@ var ExpoSQLiteDriver = class {
   longOrderExpression(columnSql) {
     return `CAST(${columnSql} AS INTEGER)`;
   }
-  sqlType(type) {
+  sqlType(type, decode) {
     const types = {
       boolean: "INTEGER",
       double: "REAL",
-      decimal: "TEXT",
+      decimal: decode === "decimal" ? "TEXT" : "NUMERIC",
       long: "TEXT",
       time: "TEXT",
       date: "TEXT",
@@ -100,7 +100,7 @@ var ExpoSQLiteDriver = class {
       const columns = await this.query(`PRAGMA table_info(${table})`);
       const existing = new Set(columns.rows.map((row) => String(row.name)));
       for (const [field, column] of Object.entries(schema.columns)) {
-        if (column.logicalType === "decimal" || column.logicalType === "long") {
+        if (column.logicalType === "decimal" && column.decode === "decimal" || column.logicalType === "long") {
           const installed = columns.rows.find((row) => String(row.name) === column.columnName);
           if (installed && String(installed.type).toUpperCase() !== "TEXT") {
             throw new Error(`EXACT_${column.logicalType.toUpperCase()}_SCHEMA_MISMATCH: ${schema.table}.${column.columnName} requires TEXT; migrate the existing column explicitly`);
@@ -108,7 +108,7 @@ var ExpoSQLiteDriver = class {
         }
         if (field === "id" || field === "version" || existing.has(column.columnName)) continue;
         await this.query(
-          `ALTER TABLE ${table} ADD COLUMN ${this.identifier(column.columnName)} ${this.sqlType(column.logicalType)}${column.nullable === false ? " NOT NULL" : ""}`
+          `ALTER TABLE ${table} ADD COLUMN ${this.identifier(column.columnName)} ${this.sqlType(column.logicalType, column.decode)}${column.nullable === false ? " NOT NULL" : ""}`
         );
       }
     }

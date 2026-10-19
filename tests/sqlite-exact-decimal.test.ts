@@ -87,7 +87,12 @@ describe('SQLite exact Decimal execution', () => {
     };
     const legacy = new SQLiteTeaQLClient(':memory:', legacySchemas);
     const exact = new SQLiteTeaQLClient(':memory:', schemas);
+    const existing = new SQLiteDriver(':memory:');
     try {
+      await existing.query('CREATE TABLE probe_data (id INTEGER PRIMARY KEY, version INTEGER NOT NULL, amount NUMERIC)');
+      await expect(existing.ensureSchema(legacySchemas)).resolves.toBeUndefined();
+      const existingColumns = await existing.query('PRAGMA table_info("probe_data")');
+      expect(existingColumns.rows.find(row => row.name === 'amount')?.type).toBe('NUMERIC');
       await new UserContext().insertResource('dataService', legacy).ensureSchema();
       await new UserContext().insertResource('dataService', exact).ensureSchema();
       await legacy.executeMutation({ entity: 'Probe', action: 'Create', id: '1',
@@ -104,6 +109,7 @@ describe('SQLite exact Decimal execution', () => {
     } finally {
       await legacy.close();
       await exact.close();
+      await existing.close();
     }
   });
 });

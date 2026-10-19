@@ -130,6 +130,43 @@ describe('BrowserSQLiteDriver', () => {
     await driver.close();
   });
 
+  test('legacy numeric Decimal can still order and filter, while exact Decimal fails closed', async () => {
+    const worker = new FakeWorker(new Database(':memory:'));
+    const schemas: Record<string, EntitySchema> = { Probe: { table: 'decimal_probe', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      amount: { columnName: 'amount', logicalType: 'decimal', decode: 'number' },
+    } } };
+    const client = await BrowserSQLiteTeaQLClient.open(worker, schemas);
+    try {
+      await new UserContext().insertResource('dataService', client).ensureSchema();
+      expect(worker.requests.some(request => String(request.payload?.sql)
+        .includes('ADD COLUMN "amount" NUMERIC'))).toBe(true);
+      for (const amount of [20, 3.5, 129.95]) {
+        await client.executeMutation({ entity: 'Probe', action: 'Create',
+          payload: { amount }, comment: 'seed legacy browser amount' });
+      }
+      const rows = await client.executeQuery<any>(new SelectQuery('Probe')
+        .filter({ amount: { $gte: 3.5 } }).order(OrderBy.asc('amount')).limit(10)
+        .comment('order legacy amounts').purpose('preserve old browser example'));
+      expect(rows.map(row => row.amount)).toEqual([3.5, 20, 129.95]);
+      expect(worker.requests.some(request => String(request.payload?.sql)
+        .includes('"amount" >= ?'))).toBe(true);
+    } finally { await client.close(); }
+
+    const exactClient = await BrowserSQLiteTeaQLClient.open(new FakeWorker(), {
+      Probe: { ...schemas.Probe, columns: { ...schemas.Probe.columns,
+        amount: { columnName: 'amount', logicalType: 'decimal', decode: 'decimal' },
+      } },
+    });
+    try {
+      await expect(exactClient.executeQuery(new SelectQuery('Probe')
+        .order(OrderBy.asc('amount')).limit(10)
+        .comment('order exact browser amount').purpose('require an exact comparison')))
+        .rejects.toThrow('EXACT_DECIMAL_UNSUPPORTED');
+    } finally { await exactClient.close(); }
+  });
+
   test('defaults to a deterministic in-memory database', async () => {
     const worker = new FakeWorker();
     const driver = await BrowserSQLiteDriver.open(worker);
