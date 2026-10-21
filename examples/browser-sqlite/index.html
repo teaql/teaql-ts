@@ -48,6 +48,51 @@
           </div>
         </section>
 
+        <section class="runtime-language-panel" aria-labelledby="runtime-language-title">
+          <div class="runtime-language-copy">
+            <p class="section-index" data-i18n="runtimeCoverage">RUNTIME COVERAGE</p>
+            <h2 id="runtime-language-title" data-i18n="runtimeTitle">This demo runs TypeScript in your browser.</h2>
+            <p data-i18n="runtimeIntro">The same model-driven Q and TraceChain contract is supported by seven TeaQL runtimes. Select a language to inspect its runtime source.</p>
+          </div>
+          <nav class="runtime-language-selector" aria-label="TeaQL runtimes">
+            <a class="runtime-language active" href="https://github.com/teaql/teaql-ts" target="_blank" rel="noreferrer" aria-current="true">
+              <span class="runtime-language-icon" aria-hidden="true">📘</span>
+              <strong>TypeScript</strong>
+              <small data-i18n="currentBrowserRuntime">Current browser runtime</small>
+            </a>
+            <a class="runtime-language" href="https://github.com/teaql/teaql-java" target="_blank" rel="noreferrer">
+              <span class="runtime-language-icon" aria-hidden="true">☕</span>
+              <strong>Java</strong>
+              <small data-i18n="supportedRuntime">Supported runtime</small>
+            </a>
+            <a class="runtime-language" href="https://github.com/teaql/teaql-rs" target="_blank" rel="noreferrer">
+              <span class="runtime-language-icon" aria-hidden="true">🦀</span>
+              <strong>Rust</strong>
+              <small data-i18n="supportedRuntime">Supported runtime</small>
+            </a>
+            <a class="runtime-language" href="https://github.com/teaql/teaql-golang" target="_blank" rel="noreferrer">
+              <span class="runtime-language-icon" aria-hidden="true">🐹</span>
+              <strong>Go</strong>
+              <small data-i18n="supportedRuntime">Supported runtime</small>
+            </a>
+            <a class="runtime-language" href="https://github.com/teaql/teaql-python" target="_blank" rel="noreferrer">
+              <span class="runtime-language-icon" aria-hidden="true">🐍</span>
+              <strong>Python</strong>
+              <small data-i18n="supportedRuntime">Supported runtime</small>
+            </a>
+            <a class="runtime-language" href="https://github.com/teaql/teaql-dotnet" target="_blank" rel="noreferrer">
+              <span class="runtime-language-icon" aria-hidden="true">🎯</span>
+              <strong>.NET / C#</strong>
+              <small data-i18n="supportedRuntime">Supported runtime</small>
+            </a>
+            <a class="runtime-language" href="https://github.com/teaql/teaql-swift" target="_blank" rel="noreferrer">
+              <span class="runtime-language-icon" aria-hidden="true">🐦</span>
+              <strong>Swift</strong>
+              <small data-i18n="supportedRuntime">Supported runtime</small>
+            </a>
+          </nav>
+        </section>
+
         <section class="runtime-bar" aria-label="Runtime settings">
           <p id="status" role="status">Starting SQLite/WASM…</p>
           <div class="controls">

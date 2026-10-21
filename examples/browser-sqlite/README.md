@@ -6,6 +6,12 @@ dedicated browser worker. It includes deterministic, internally consistent demo
 data and thirteen runnable examples organized as basic, aggregate, filtered,
 and dynamic queries.
 
+This page executes the TeaQL TypeScript runtime and SQLite/WASM directly in the
+browser. The model-driven Q and TraceChain contract is also implemented by the
+Java, Rust, Go, Python, .NET and Swift runtimes. The seven-language strip links
+to each runtime source and marks TypeScript as the current browser runtime; it
+does not imply that selecting another link swaps the page's execution engine.
+
 `OrderStatus` is a seventh, constant model object rather than a string field.
 Its five fixed values are reconciled through `RuntimeModule` bootstrap, orders
 store the status object ID, and generated Q expressions select, filter, and

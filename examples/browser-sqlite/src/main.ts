@@ -65,6 +65,11 @@ type LocalizedCopy = Readonly<{ en: string; zh: string }>;
 const UI_COPY: Readonly<Record<string, LocalizedCopy>> = {
   heroTitle: { en: 'Understand TeaQL queries through a familiar order model.', zh: '用一个熟悉的订单模型，看懂 TeaQL 查询。' },
   heroIntro: { en: 'Platform, customer, order, item, payment, and shipment data all run in the browser. Order status is backed by a constant model. Choose a query below to inspect real SQLite/WASM results.', zh: '平台、用户、订单、明细、支付和物流数据都在浏览器中运行；订单状态由常数模型提供。选择下面的查询，查看真实的 SQLite/WASM 结果。' },
+  runtimeCoverage: { en: 'RUNTIME COVERAGE', zh: 'RUNTIME 覆盖' },
+  runtimeTitle: { en: 'This demo runs TypeScript in your browser.', zh: '这个演示在浏览器中运行 TypeScript。' },
+  runtimeIntro: { en: 'The same model-driven Q and TraceChain contract is supported by seven TeaQL runtimes. Select a language to inspect its runtime source.', zh: '同一套模型驱动的 Q 与 TraceChain 契约支持七种 TeaQL runtime。选择一种语言，可以查看对应的 runtime 源码。' },
+  currentBrowserRuntime: { en: 'Current browser runtime', zh: '当前浏览器 runtime' },
+  supportedRuntime: { en: 'Supported runtime', zh: '已支持 runtime' },
   platform: { en: 'Platform', zh: '平台' }, customer: { en: 'Customer', zh: '用户' },
   order: { en: 'Order', zh: '订单' }, item: { en: 'Item', zh: '明细' },
   payment: { en: 'Payment', zh: '支付' }, shipment: { en: 'Shipment', zh: '物流' },
@@ -1127,6 +1132,7 @@ function applyLocale(): void {
   document.querySelector<HTMLElement>('.language-switch')?.setAttribute('aria-label', locale === 'en' ? 'Language' : '语言');
   document.querySelector<HTMLElement>('.brand')?.setAttribute('aria-label', locale === 'en' ? 'TeaQL Playground home' : 'TeaQL 演练场首页');
   document.querySelector<HTMLElement>('.model-map')?.setAttribute('aria-label', locale === 'en' ? 'Order domain model' : '订单领域模型');
+  document.querySelector<HTMLElement>('.runtime-language-selector')?.setAttribute('aria-label', locale === 'en' ? 'TeaQL runtimes' : 'TeaQL 运行时');
   document.querySelector<HTMLElement>('.runtime-bar')?.setAttribute('aria-label', locale === 'en' ? 'Runtime settings' : '运行时设置');
   queryCatalog.setAttribute('aria-label', locale === 'en' ? 'Example queries' : '示例查询');
   document.querySelector<HTMLElement>('.result-view-switch')?.setAttribute('aria-label', locale === 'en' ? 'Result views' : '结果视图');

@@ -65,6 +65,20 @@ try {
   if (defaultLocale.lang !== 'en' || defaultLocale.title !== 'Choose a query' || !defaultLocale.englishActive) {
     throw new Error(`English was not the default locale: ${JSON.stringify(defaultLocale)}`);
   }
+  const runtimeLanguages = await page.evaluate(() => ({
+    title: document.querySelector('#runtime-language-title')?.textContent || '',
+    links: [...document.querySelectorAll('.runtime-language')].map(element => ({
+      name: element.querySelector('strong')?.textContent || '',
+      href: element.getAttribute('href') || '',
+      active: element.classList.contains('active'),
+    })),
+  }));
+  if (runtimeLanguages.title !== 'This demo runs TypeScript in your browser.'
+    || runtimeLanguages.links.length !== 7
+    || runtimeLanguages.links.filter(language => language.active).map(language => language.name).join() !== 'TypeScript'
+    || runtimeLanguages.links.some(language => !language.href.startsWith('https://github.com/teaql/'))) {
+    throw new Error(`Seven-runtime selector is incomplete: ${JSON.stringify(runtimeLanguages)}`);
+  }
   if (!firstStatus.includes('policy installed')) {
     throw new Error(`Browser runtime did not install Mutation Policy: ${firstStatus}`);
   }
@@ -327,12 +341,16 @@ try {
     && document.querySelector('#result-title')?.textContent === '动态：字段白名单');
   const chineseLocale = await page.evaluate(() => ({
     title: document.querySelector('#query-browser-title')?.textContent || '',
+    runtimeTitle: document.querySelector('#runtime-language-title')?.textContent || '',
+    currentRuntime: document.querySelector('.runtime-language.active small')?.textContent || '',
     evidenceTitle: document.querySelector('.sql-card-heading .query-card-label')?.textContent || '',
     evidenceColumns: [...document.querySelectorAll('.execution-evidence th')].map(element => element.textContent || ''),
     executionId: document.querySelector('.evidence-time')?.dataset.executedAt || '',
     rows: [...document.querySelectorAll('#sql-output .evidence-row')].map(element => element.textContent || ''),
   }));
   if (chineseLocale.title !== '选择一个查询'
+    || chineseLocale.runtimeTitle !== '这个演示在浏览器中运行 TypeScript。'
+    || chineseLocale.currentRuntime !== '当前浏览器 runtime'
     || chineseLocale.evidenceTitle !== '执行证据'
     || chineseLocale.evidenceColumns.join('|') !== '时间|身份|追踪链|SQL'
     || chineseLocale.executionId !== beforeLocaleSwitch.executionId
