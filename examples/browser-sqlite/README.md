@@ -44,6 +44,12 @@ selection, and pagination. Those interactions only replace `searchParams`,
 number, `OrderStatus.code`, and item product-name paths without changing the
 page query.
 
+The final page section retains an unmodified OpenObserve capture of the same
+Order-query lineage rendered as a business TraceChain. It connects the page
+purpose and nested request comments to the eight SQL executions captured by
+the observability backend; the screenshot is evidence, not a client-side
+reconstruction.
+
 The order-center projection intentionally contains only the four visible table
 columns: order number, order date, the `OrderStatus` object, and item preview.
 It does not load Platform or Customer. The Q chain follows the page vertically:

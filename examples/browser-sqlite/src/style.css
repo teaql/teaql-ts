@@ -440,6 +440,35 @@ h1 {
 .pagination button.active { color: white; border-color: var(--blue); background: var(--blue); }
 .pagination button:disabled { opacity: .4; cursor: default; }
 
+.observability-proof { padding: 88px 0 52px; }
+.observability-proof-heading {
+  margin-bottom: 26px;
+  display: grid;
+  grid-template-columns: minmax(260px, .72fr) minmax(0, 1.28fr);
+  align-items: end;
+  gap: 34px;
+}
+.observability-proof-heading h2 {
+  margin: 8px 0 0;
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: clamp(30px, 4vw, 48px);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -.04em;
+}
+.observability-proof-heading > p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.7; }
+.observability-proof-figure { margin: 0; }
+.observability-proof-figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid #d7ddd5;
+  border-radius: 18px;
+  background: #f4f5fb;
+  box-shadow: 0 22px 54px rgba(28, 45, 34, .1);
+}
+.observability-proof-figure figcaption { margin-top: 12px; color: var(--muted); font-size: 11px; }
+
 footer {
   min-height: 86px;
   display: flex;
@@ -457,6 +486,7 @@ footer {
   .runtime-language-selector { grid-template-columns: repeat(4, minmax(100px, 1fr)); }
   .result-panel { margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
   .result-grid { grid-template-columns: 1fr; }
+  .observability-proof-heading { grid-template-columns: 1fr; align-items: start; gap: 14px; }
 }
 
 @media (max-width: 680px) {
@@ -487,4 +517,6 @@ footer {
   .result-view-switch button, .tree-actions button { flex: 1; }
   .tree-leaf { grid-template-columns: minmax(90px, 120px) 1fr; padding-left: 15px; }
   .json-tree { padding-left: 12px; padding-right: 12px; }
+  .observability-proof { padding: 64px 0 34px; }
+  .observability-proof-figure img { border-radius: 12px; }
 }

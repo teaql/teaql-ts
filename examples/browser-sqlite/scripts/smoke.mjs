@@ -79,6 +79,23 @@ try {
     || runtimeLanguages.links.some(language => !language.href.startsWith('https://github.com/teaql/'))) {
     throw new Error(`Seven-runtime selector is incomplete: ${JSON.stringify(runtimeLanguages)}`);
   }
+  const observabilityProof = await page.evaluate(() => {
+    const image = document.querySelector('.observability-proof img');
+    return {
+      title: document.querySelector('#observability-proof-title')?.textContent || '',
+      src: image?.getAttribute('src') || '',
+      complete: image instanceof HTMLImageElement && image.complete,
+      naturalWidth: image instanceof HTMLImageElement ? image.naturalWidth : 0,
+      naturalHeight: image instanceof HTMLImageElement ? image.naturalHeight : 0,
+    };
+  });
+  if (observabilityProof.title !== 'TraceChain in OpenObserve'
+    || observabilityProof.src !== '/tracechain-openobserve.png'
+    || !observabilityProof.complete
+    || observabilityProof.naturalWidth !== 1600
+    || observabilityProof.naturalHeight !== 1000) {
+    throw new Error(`OpenObserve TraceChain proof is incomplete: ${JSON.stringify(observabilityProof)}`);
+  }
   if (!firstStatus.includes('policy installed')) {
     throw new Error(`Browser runtime did not install Mutation Policy: ${firstStatus}`);
   }
@@ -343,6 +360,8 @@ try {
     title: document.querySelector('#query-browser-title')?.textContent || '',
     runtimeTitle: document.querySelector('#runtime-language-title')?.textContent || '',
     currentRuntime: document.querySelector('.runtime-language.active small')?.textContent || '',
+    observabilityTitle: document.querySelector('#observability-proof-title')?.textContent || '',
+    observabilityCaption: document.querySelector('.observability-proof figcaption')?.textContent || '',
     evidenceTitle: document.querySelector('.sql-card-heading .query-card-label')?.textContent || '',
     evidenceColumns: [...document.querySelectorAll('.execution-evidence th')].map(element => element.textContent || ''),
     executionId: document.querySelector('.evidence-time')?.dataset.executedAt || '',
@@ -351,6 +370,8 @@ try {
   if (chineseLocale.title !== '选择一个查询'
     || chineseLocale.runtimeTitle !== '这个演示在浏览器中运行 TypeScript。'
     || chineseLocale.currentRuntime !== '当前浏览器 runtime'
+    || chineseLocale.observabilityTitle !== 'OpenObserve 中的 TraceChain'
+    || chineseLocale.observabilityCaption !== 'OpenObserve 仪表盘展示一条已验证的 trace，以及它实际执行的八条 SQL。'
     || chineseLocale.evidenceTitle !== '执行证据'
     || chineseLocale.evidenceColumns.join('|') !== '时间|身份|追踪链|SQL'
     || chineseLocale.executionId !== beforeLocaleSwitch.executionId
