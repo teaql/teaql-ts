@@ -548,7 +548,7 @@ async function openRuntime(storage: BrowserSQLiteStorage): Promise<Runtime> {
   const worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' });
   const client = await BrowserSQLiteTeaQLClient.open(worker, { ...ORDER_SCHEMAS }, {
     storage,
-    databaseName: 'teaql-order-playground-v3.sqlite3',
+    databaseName: 'teaql-order-playground-v4.sqlite3',
   });
   const evidence = new SQLExecutionEvidenceStore().enableSelect();
   client.install(new RuntimeModule(ORDER_SCHEMAS, {}, {
@@ -558,7 +558,7 @@ async function openRuntime(storage: BrowserSQLiteStorage): Promise<Runtime> {
   const policyIdentity = Object.freeze({
     policyId: 'browser-order-demo-seed',
     version: '1',
-    fingerprint: 'sha256:browser-order-demo-seed-v1',
+    fingerprint: 'sha256:browser-order-demo-seed-v2',
   });
   const context = new UserContext()
     .insertResource('dataService', client)
@@ -886,8 +886,8 @@ function renderDashboard(data: DashboardData, active: Runtime, query: QueryExamp
   const tableHeader = document.createElement('div');
   tableHeader.className = 'order-row order-row-head';
   const columnLabels = locale === 'en'
-    ? ['Order number', 'Order date', 'Status', 'Product details']
-    : ['订单号', '订单日期', '状态', '商品明细'];
+    ? ['Order number', 'Order date', 'Status', 'Line Items']
+    : ['订单号', '订单日期', '状态', '订单明细'];
   for (const label of columnLabels) {
     const cell = document.createElement('span');
     cell.textContent = label;
@@ -1000,11 +1000,15 @@ function renderOrderRow(order: Record<string, unknown>): HTMLElement {
     thumb.title = `${String(item.productName ?? '')} × ${String(item.quantity ?? 1)}`;
     products.append(thumb);
   });
-  const remaining = Number(order.itemCount ?? items.length) - items.length;
-  if (remaining > 0) {
-    const more = document.createElement('small');
-    more.textContent = `+${remaining}`;
-    products.append(more);
+  const totalItems = Number(order.itemCount ?? items.length);
+  if (totalItems > items.length) {
+    const count = document.createElement('small');
+    count.className = 'line-item-count';
+    count.textContent = locale === 'en' ? `${totalItems} items` : `共 ${totalItems} 项`;
+    count.title = locale === 'en'
+      ? `Showing ${items.length} of ${totalItems} line items`
+      : `显示 ${items.length} 项，共 ${totalItems} 项订单明细`;
+    products.append(count);
   }
   row.append(products);
   return row;

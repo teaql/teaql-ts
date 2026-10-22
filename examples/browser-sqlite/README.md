@@ -38,6 +38,10 @@ per statement. Each trace is plain text with arrows between its original path
 steps; no JSON metadata or decorative visualization is added, and no
 application tracing code is required.
 
+The order list labels its fourth column `Line Items`. Two seeded orders contain
+five internally consistent line items; the query still loads only three bounded
+previews and uses the separately queried item count to display `5 items`.
+
 The order-center Q expression is stable across free-text search, status-card
 selection, and pagination. Those interactions only replace `searchParams`,
 `pageOffset`, and `pageSize`; generated dynamic-search bindings compile order

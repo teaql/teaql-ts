@@ -136,8 +136,16 @@ try {
   const metricCount = await page.$$('#result .metric-card');
   const dashboardRows = await page.$$('#result .order-row:not(.order-row-head)');
   const dashboardColumns = await page.$$('#result .order-row-head > span');
+  const dashboardColumnLabels = await page.$$eval('#result .order-row-head > span', elements =>
+    elements.map(element => element.textContent || ''));
   const productTitles = await page.$$eval('#result .product-thumb', elements =>
     elements.map(element => element.getAttribute('title') || ''));
+  const lineItemPreviews = await page.$$eval('#result .order-row:not(.order-row-head)', rows =>
+    rows.map(row => ({
+      orderNumber: row.children[0]?.textContent || '',
+      previews: row.querySelectorAll('.product-thumb').length,
+      count: row.querySelector('.line-item-count')?.textContent || '',
+    })));
   const selectedColors = await page.$$eval('#result .metric-card:not(.metric-total)', elements =>
     elements.map(element => element.style.getPropertyValue('--metric-color')));
   const facetCards = await page.$$eval('#result .metric-card:not(.metric-total)', elements =>
@@ -155,7 +163,12 @@ try {
     elements.map(element => element.style.color));
   if (!dashboard.includes('Order Management Center') || metricCount.length !== 6
     || dashboardRows.length !== 4 || dashboardColumns.length !== 4
+    || dashboardColumnLabels.join('|') !== 'Order number|Order date|Status|Line Items'
     || !productTitles.some(title => title.includes('TeaQL Portable Keyboard'))
+    || JSON.stringify(lineItemPreviews.filter(row => row.count)) !== JSON.stringify([
+      { orderNumber: 'TQL-2026-1008', previews: 3, count: '5 items' },
+      { orderNumber: 'TQL-2026-1006', previews: 3, count: '5 items' },
+    ])
     || !cancelledMetric.text.includes('Cancelled') || !cancelledMetric.text.includes('1')
     || cancelledMetric.color !== '#9F1239'
     || JSON.stringify(facetCards) !== JSON.stringify([
