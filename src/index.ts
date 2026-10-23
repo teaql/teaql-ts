@@ -1,5 +1,6 @@
 export * from './core/value';
 export * from './core/context';
+export * from './core/business-clock';
 export * from './core/object-storage';
 export * from './core/request-intent';
 export * from './core/trace-chain';
@@ -23,3 +24,4 @@ export type { FacetAggregate, FacetQueryService } from './core/facet';
 export * from './meta/descriptors';
 export * from './tfp/client';
 export * from './parser/dsl';
+export * from './core/expression-path';

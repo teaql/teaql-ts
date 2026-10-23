@@ -1,4 +1,4 @@
-import { CheckException, CheckResult, EntityChecker, EntityRoot, MutationIntent, ObjectLocation, RuntimeModule, UserContext } from '../src';
+import { CheckException, CheckResult, EntityChecker, EntityRoot, FixedBusinessClock, MutationIntent, ObjectLocation, RuntimeModule, UserContext } from '../src';
 import { AbstractSQLTeaQLClient, TeaQLSqlDriver } from '../src/sql/core';
 
 class Driver implements TeaQLSqlDriver {
@@ -105,7 +105,8 @@ test('update checker can add fixes to an immutable mutation ledger snapshot', as
 
 test('one graph captures one fix clock and clears it after commit', async () => {
   const driver = new Driver();
-  const context = new UserContext();
+  const expected = new Date('2032-02-29T10:15:30.000Z');
+  const context = new UserContext().withBusinessClock(new FixedBusinessClock(expected));
   const observed: Date[] = [];
   const checker: EntityChecker = {
     checkAndFix(ctx, mutation) {
@@ -129,6 +130,7 @@ test('one graph captures one fix clock and clears it after commit', async () => 
   });
 
   expect(observed).toHaveLength(2);
+  expect(observed[0].getTime()).toBe(expected.getTime());
   expect(observed[0]).toBe(observed[1]);
   expect(driver.transactions).toBe(1);
   expect(context.getResource('fixTime')).toBeUndefined();
@@ -160,4 +162,22 @@ test('independent concurrent graph saves are serialized instead of joining', asy
   await Promise.all([first, second]);
   expect(events).toEqual(['first:start', 'first:end', 'second:start', 'second:end']);
   expect(driver.transactions).toBe(2);
+});
+
+test('failed graph releases its captured business time and the next graph captures anew', async () => {
+  const start = Date.parse('2032-02-29T10:15:30.000Z');
+  let ticks = start;
+  const context = new UserContext().withBusinessClock({ now: () => new Date(ticks++) });
+  const client = new Client(new Driver()).setUserContext(context);
+  await expect(client.executeGraphSave(new MutationIntent('failed graph'), async () => {
+    expect(context.requireResource<Date>('fixTime').getTime()).toBe(start);
+    expect(context.requireResource<Date>('fixTime').getTime()).toBe(start);
+    throw new Error('injected failure');
+  })).rejects.toThrow('injected failure');
+  expect(context.getResource('fixTime')).toBeUndefined();
+  await client.executeGraphSave(new MutationIntent('next graph'), async () => {
+    expect(context.requireResource<Date>('fixTime').getTime()).toBe(start + 1);
+  });
+  expect(ticks).toBe(start + 2);
+  expect(context.getResource('fixTime')).toBeUndefined();
 });

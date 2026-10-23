@@ -1,4 +1,5 @@
 import { SelectQuery } from './ast';
+import { BusinessClock, SystemBusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
 import {
@@ -52,6 +53,20 @@ export class ContextRootError extends Error {
 }
 
 export class UserContext {
+  private businessClock: BusinessClock = new SystemBusinessClock();
+  withBusinessClock(clock: BusinessClock): this {
+    if (!clock || typeof clock.now !== 'function') throw new TypeError('Business clock must provide now()');
+    this.businessClock = clock;
+    return this;
+  }
+  businessTime(): Date {
+    const value = this.businessClock.now();
+    if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw new TypeError('Business clock returned an invalid Date');
+    return new Date(value.getTime());
+  }
+  /** UTC calendar date derived from the same business-clock provider. */
+  businessDate(): string { return this.businessTime().toISOString().slice(0, 10); }
+
   withObjectStorage(provider: ObjectStorageProvider): this { return this.insertResource('objectStorageProvider', provider); }
   withObjectStorageObserver(observer: ObjectStorageObserver): this { return this.insertResource('objectStorageObserver', observer); }
   objectStorage(comment: string): ObjectStorage { return new ObjectStorage(this, comment); }

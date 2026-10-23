@@ -714,7 +714,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
-      this.userContext.insertResource('fixTime', new Date());
+      this.userContext.insertResource('fixTime', this.userContext.businessTime());
       this.userContext.beginFixEvidence();
       fixEvidenceStarted = true;
       this.userContext.beginMutationPolicyGraph();
@@ -816,7 +816,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (!checker) return mutation;
     const results: import('../core/i18n').CheckResult[] = [];
     const ownsFixTime = this.userContext.getResource<Date>('fixTime') === undefined;
-    if (ownsFixTime) this.userContext.insertResource('fixTime', new Date()).beginFixEvidence();
+    if (ownsFixTime) this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
     try {
       checker.checkAndFix(this.userContext, mutation, results);
       if (mutation.ledgerKey && mutation.ledgerRoot) {
