@@ -4,6 +4,7 @@ import { EntitySchema } from '../src/sql/core';
 import { SQLiteDriver, SQLiteTeaQLClient } from '../src/sql/sqlite';
 import { executeRelationFacets } from '../src/core/facet';
 import { RuntimeOperation, RuntimeTelemetry } from '../src/core/telemetry';
+import { decimal } from '../src/core/decimal';
 
 const schemas: Record<string, EntitySchema> = {
   Order: {
@@ -249,7 +250,7 @@ describe('SQLite relation loading', () => {
       await client.executeMutation({ entity: 'Order', action: 'Create', id, payload: {}, comment: 'seed order facet' });
     }
     for (const [id, orderId, name, amount] of [
-      ['101', '11', 'Riverside one', 120], ['102', '11', 'Riverside two', 80], ['103', '12', 'Other', 50],
+      ['101', '11', 'Riverside one', decimal('120')], ['102', '11', 'Riverside two', decimal('80')], ['103', '12', 'Other', decimal('50')],
     ]) {
       await client.executeMutation({
         entity: 'OrderLine', action: 'Create', id, payload: { orderId, name, amount }, comment: 'seed line facet',
@@ -267,7 +268,7 @@ describe('SQLite relation loading', () => {
 
     const facets = await executeRelationFacets(client, query => query, outer, outer.facets);
     expect(facets.orders.map(row => [row.id, row.lineCount, row.totalAmount])).toEqual([
-      ['11', 2, 200], ['12', 0, 0], ['13', 0, 0],
+      ['11', 2, 200], ['12', 0, null], ['13', 0, null],
     ]);
     expect(client.sqlTrace.some(sql => sql.includes('GROUP BY')
       && sql.includes('COUNT(') && sql.includes('SUM('))).toBe(true);

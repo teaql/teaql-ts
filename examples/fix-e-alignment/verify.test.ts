@@ -3,6 +3,8 @@ import { E } from 'generated/generated/E';
 import { Q } from 'generated/generated/Q';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';
 import { RuntimeOperation, RuntimeOperationCompletion } from '../../src/core/telemetry';
+import { verifyLoading } from './loading-probe';
+import { verifyOwnership } from './ownership-probe';
 
 test('unmodified generated Q/E and audited SQLite saves consume the local Business Clock', async () => {
   const first = new Date('2032-02-29T10:15:30.000Z');
@@ -81,6 +83,8 @@ test('unmodified generated Q/E and audited SQLite saves consume the local Busine
     expect(statements.length).toBeGreaterThan(0);
     for (const statement of statements) expect(statement.operation.attributes?.['teaql.provider.execution']).toBe('statement');
     process.stdout.write('GENERATED_QUERY_METADATA_PASS language=typescript requestRows=1 providerExecution=statement\n');
+    await verifyLoading(context, saved.id!);
+    await verifyOwnership(context);
     process.stdout.write('FIX_E_EXAMPLE=' + JSON.stringify({ language: 'typescript', passed: true,
       normalGeneratedSave: true, createTimePreserved: true, updateTimeAdvanced: true,
       declaredContextRootInjected: true, diagnostics, humanMessages }) + '\n');

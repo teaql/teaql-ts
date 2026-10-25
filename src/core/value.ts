@@ -1,10 +1,12 @@
+import { Decimal, decimal } from './decimal';
+
 export type Value = 
   | { type: 'Null' }
   | { type: 'Bool', value: boolean }
   | { type: 'I64', value: number }
   | { type: 'U64', value: number }
   | { type: 'F64', value: number }
-  | { type: 'Decimal', value: number | string }
+  | { type: 'Decimal', value: Decimal }
   | { type: 'Text', value: string }
   | { type: 'Json', value: any }
   | { type: 'Date', value: string | Date }
@@ -19,7 +21,7 @@ export const Values = {
   I64: (value: number): Value => ({ type: 'I64', value }),
   U64: (value: number): Value => ({ type: 'U64', value }),
   F64: (value: number): Value => ({ type: 'F64', value }),
-  Decimal: (value: number | string): Value => ({ type: 'Decimal', value }),
+  Decimal: (value: Decimal): Value => ({ type: 'Decimal', value: decimal(value) }),
   Text: (value: string): Value => ({ type: 'Text', value }),
   Json: (value: any): Value => ({ type: 'Json', value }),
   Date: (value: string | Date): Value => ({ type: 'Date', value }),

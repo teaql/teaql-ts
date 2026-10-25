@@ -8,6 +8,9 @@ import {
   MutationPolicyError,
 } from '../src/core/mutation-policy';
 import { UserContext } from '../src/core/context';
+import { long } from '../src/core/long';
+import { localTime } from '../src/core/local-time';
+import { decimal } from '../src/core/decimal';
 
 class TfpRecordingTelemetry implements RuntimeTelemetry {
   readonly events: Array<{ operation: RuntimeOperation; outcome?: string; cardinality?: number }> = [];
@@ -73,6 +76,57 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.orderItems[0].direction).toBe(SortDirection.Desc);
   });
 
+  it('keeps exact Long, Decimal and LocalTime values as strings across the TFP query boundary', async () => {
+    const maximum = long('9223372036854775807');
+    const amount = decimal('123456789012.3456789');
+    const time = localTime('23:59:59.123456');
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, json: async () => ({ data: [{ quantity: maximum, amount, startsAt: time }] }),
+    });
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+
+    const result = await client.executeQuery(federalQuery('Probe').filter({
+      quantity: { $eq: maximum }, amount: { $eq: amount }, startsAt: { $eq: time },
+    }));
+
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.filterCondition).toEqual({
+      quantity: { $eq: '9223372036854775807' },
+      amount: { $eq: '123456789012.3456789' },
+      startsAt: { $eq: '23:59:59.123456' },
+    });
+    expect(Array.from(result)).toEqual([{ quantity: maximum, amount, startsAt: time }]);
+  });
+
+  it.each([
+    ['unsafe integer', 9007199254740992],
+    ['non-finite number', Number.POSITIVE_INFINITY],
+    ['bigint', 9223372036854775807n],
+    ['invalid Date', new Date(Number.NaN)],
+  ])('rejects a %s query scalar before TFP transport', async (_case, value) => {
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    await expect(client.executeQuery(federalQuery('Probe').filter({ quantity: { $eq: value } })))
+      .rejects.toThrow(/TFP_UNSAFE_SCALAR: \$\.filterCondition\.quantity\.\$eq/);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cyclic query value without recursing indefinitely', async () => {
+    const value: Record<string, unknown> = {};
+    value.self = value;
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    await expect(client.executeQuery(federalQuery('Probe').filter({ value })))
+      .rejects.toThrow('TFP_INVALID_REQUEST: $.filterCondition.value.self is cyclic');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unsafe number synthesized by toJSON before sending a query', async () => {
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    await expect(client.executeQuery(federalQuery('Probe').filter({
+      quantity: { $eq: { toJSON: () => 9007199254740992 } },
+    }))).rejects.toThrow('TFP_UNSAFE_SCALAR: serialized payload contains an unsafe numeric value');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('serializes canonical facets and restores SmartList facet metadata', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
@@ -120,6 +174,50 @@ describe('TeaQLClient Backend/Node.js Tests', () => {
     expect(body.action).toBe("Create");
     expect(body.payload.name).toBe("Created");
     expect(body.comment).toBe("create task");
+  });
+
+  it('keeps exact Long, Decimal and LocalTime values as strings across the TFP mutation boundary', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, json: async () => ({ success: true }),
+    });
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    const mutation = new MutationQuery('Probe', 'Create', {
+      quantity: long('-9223372036854775808'),
+      amount: decimal('123456789012.3456789'),
+      startsAt: localTime('00:00:00.000001'),
+    }, undefined, 'create exact scalar probe');
+
+    await client.executeMutation(mutation);
+
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.payload).toEqual({
+      quantity: '-9223372036854775808', amount: '123456789012.3456789',
+      startsAt: '00:00:00.000001',
+    });
+  });
+
+  it.each([
+    ['unsafe integer', 9007199254740992],
+    ['non-finite number', Number.NaN],
+    ['bigint', 9223372036854775807n],
+    ['invalid Date', new Date(Number.NaN)],
+  ])('rejects a %s mutation scalar before policy or TFP transport', async (_case, value) => {
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    await expect(client.executeMutation(new MutationQuery('Probe', 'Create', {
+      quantity: value,
+    }, undefined, 'create exact scalar probe')))
+      .rejects.toThrow(/TFP_UNSAFE_SCALAR: \$\.payload\.quantity/);
+    expect(client.mutationGovernanceTrace).toHaveLength(0);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unsafe number synthesized by toJSON before sending a mutation', async () => {
+    const client = new TeaQLClient({ baseUrl: 'http://localhost:8080/api' });
+    await expect(client.executeMutation(new MutationQuery('Probe', 'Create', {
+      quantity: { toJSON: () => 9007199254740992 },
+    }, undefined, 'create exact scalar probe')))
+      .rejects.toThrow('TFP_UNSAFE_SCALAR: serialized payload contains an unsafe numeric value');
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('applies client-profile Mutation Policy before issuing a TFP mutation', async () => {

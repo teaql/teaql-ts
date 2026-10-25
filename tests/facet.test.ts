@@ -63,7 +63,7 @@ describe('relation facets', () => {
 
     const facets = await executeRelationFacets(service(), query => query, outer, outer.facets);
     expect(facets.types.map(row => [row.code, row.schoolCount, row.totalBudget])).toEqual([
-      ['PRIMARY', 2, 200], ['SECONDARY', 1, 50], ['VOCATIONAL', 0, 0],
+      ['PRIMARY', 2, 200], ['SECONDARY', 1, 50], ['VOCATIONAL', 0, null],
     ]);
   });
 });

@@ -1,4 +1,7 @@
 import { UserContext } from '../src/core/context';
+import { decimal } from '../src/core/decimal';
+import { long } from '../src/core/long';
+import { localTime } from '../src/core/local-time';
 import Database from 'better-sqlite3';
 import { MutationQuery, OrderBy, SelectQuery } from '../src/core/ast';
 import {
@@ -95,6 +98,66 @@ const schemas: Record<string, EntitySchema> = {
 };
 
 describe('Expo SQLite TeaQL driver', () => {
+  it('compares, orders and reloads exact signed-64-bit Long and wall-clock Time', async () => {
+    const database = new TestExpoDatabase();
+    const client = new ExpoSQLiteTeaQLClient(database, { Probe: { table: 'scalar_probe', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      quantity: { columnName: 'quantity', logicalType: 'long', decode: 'long' },
+      startsAt: { columnName: 'starts_at', logicalType: 'time', decode: 'time' },
+    } } });
+    try {
+      await new UserContext().insertResource('dataService', client).ensureSchema();
+      for (const [quantity, startsAt] of [
+        ['-9223372036854775808', '00:00:00'],
+        ['2', '12:30:00.1'],
+        ['9007199254740993', '23:59:59.123456'],
+        ['9223372036854775807', '01:02:03'],
+      ]) {
+        await client.executeMutation(new MutationQuery('Probe', 'Create',
+          { quantity: long(quantity), startsAt: localTime(startsAt) }, undefined,
+          'create exact Expo scalar'));
+      }
+      const ordered = await client.executeQuery<any>(new SelectQuery('Probe')
+        .order(OrderBy.asc('quantity')).limit(10)
+        .comment('order Expo scalar').purpose('verify exact Long order'));
+      expect(ordered.map(row => row.quantity)).toEqual([
+        '-9223372036854775808', '2', '9007199254740993', '9223372036854775807',
+      ]);
+      expect(ordered.find(row => row.quantity === '2')?.startsAt).toBe('12:30:00.100000');
+      const matched = await client.executeQuery<any>(new SelectQuery('Probe')
+        .filter({ quantity: { $between: [long('9007199254740993'), long('9223372036854775807')] },
+          startsAt: { $eq: localTime('23:59:59.123456') } })
+        .comment('filter Expo scalar').purpose('verify exact Long and Time'));
+      expect(matched.map(row => row.quantity)).toEqual(['9007199254740993']);
+    } finally { await client.close(); }
+  });
+
+  it('stores and reloads exact Decimal text without coercing through REAL', async () => {
+    const database = new TestExpoDatabase();
+    const amount = { columnName: 'amount', logicalType: 'decimal' as const, decode: 'decimal' as const };
+    const client = new ExpoSQLiteTeaQLClient(database, { Payment: { table: 'payments', columns: {
+      id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+      version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+      amount,
+    } } });
+    await new UserContext().insertResource('dataService', client).ensureSchema();
+    const schemaStatement = await database.prepareAsync('PRAGMA table_info(payments)');
+    const schemaRows = await (await schemaStatement.executeAsync<any>([])).getAllAsync();
+    expect(schemaRows.find(row => row.name === 'amount')?.type).toBe('TEXT');
+    await schemaStatement.finalizeAsync();
+    await client.executeMutation(new MutationQuery('Payment', 'Create',
+      { amount: decimal('123456789012.3456789') }, undefined, 'create exact payment'));
+    const rows = await client.executeQuery<any>(new SelectQuery('Payment')
+      .comment('read exact payment values').purpose('verify Decimal storage'));
+    expect(rows[0].amount).toBe('123456789012.3456789');
+    await expect(client.executeQuery<any>(new SelectQuery('Payment')
+      .filter({ amount: { $gt: decimal('1') } })
+      .comment('filter exact payment values').purpose('verify fail-closed predicates')))
+      .rejects.toThrow(/EXACT_DECIMAL_UNSUPPORTED/);
+    await client.close();
+  });
+
   it('ensures schema, persists governed mutations, and queries real SQLite', async () => {
     const database = new TestExpoDatabase();
     const client = new ExpoSQLiteTeaQLClient(database, schemas);

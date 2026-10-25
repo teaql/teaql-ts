@@ -1,0 +1,1 @@
+{"version":3,"file":"local-time.d.ts","sourceRoot":"","sources":["../../src/core/local-time.ts"],"names":[],"mappings":"AAAA,oFAAoF;AACpF,OAAO,CAAC,MAAM,cAAc,EAAE,OAAO,MAAM,CAAC;AAC5C,MAAM,MAAM,SAAS,GAAG,MAAM,GAAG;IAAE,QAAQ,CAAC,CAAC,cAAc,CAAC,EAAE,iBAAiB,CAAA;CAAE,CAAC;AAIlF,wBAAgB,SAAS,CAAC,KAAK,EAAE,MAAM,GAAG,SAAS,CAQlD"}

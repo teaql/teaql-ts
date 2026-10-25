@@ -1,6 +1,13 @@
 /** Local UI-search normalization. This is deliberately not a federation decoder. */
 import { OrderBy, SelectQuery } from './ast';
+import { decimal } from './decimal';
 export type SearchValueType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'timestamp' | 'decimal' | 'unsupported';
+
+function isExactDecimalSearchValue(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  try { decimal(value); return true; }
+  catch { return false; }
+}
 export interface SearchModel {
   fields: Readonly<Record<string, SearchValueType>>;
   relations: Readonly<Record<string, string>>;
@@ -141,8 +148,7 @@ export function normalizeDynamicSearch(
         && Number.isFinite(Date.parse(value + 'T00:00:00Z'))
         && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value
       : type === 'decimal'
-      ? (typeof value === 'string' && /^[+-]?\d+(?:\.\d+)?$/.test(value))
-        || (typeof value === 'number' && Number.isFinite(value))
+      ? isExactDecimalSearchValue(value)
       : type === 'integer' || type === 'timestamp' ? typeof value === 'number' && Number.isSafeInteger(value)
       : type === 'number' ? typeof value === 'number' && Number.isFinite(value)
       : typeof value === type;

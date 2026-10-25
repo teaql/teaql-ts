@@ -22,6 +22,48 @@ function rejectRemoteHardLimit(value, path = '$') {
         rejectRemoteHardLimit(child, `${path}.${key}`);
     }
 }
+/** JSON must not silently round integral values or turn non-finite values into null. */
+function rejectUnsafeWireScalars(value, path = '$', active = new WeakSet()) {
+    if (typeof value === 'bigint') {
+        throw new Error(`TFP_UNSAFE_SCALAR: ${path} is bigint; use an exact string-backed Long`);
+    }
+    if (typeof value === 'number' && (!Number.isFinite(value)
+        || (Number.isInteger(value) && !Number.isSafeInteger(value)))) {
+        throw new Error(`TFP_UNSAFE_SCALAR: ${path} is not a finite JSON-safe number`);
+    }
+    if (value instanceof Date && !Number.isFinite(value.getTime())) {
+        throw new Error(`TFP_UNSAFE_SCALAR: ${path} is an invalid Date`);
+    }
+    if (!value || typeof value !== 'object')
+        return;
+    if (active.has(value))
+        throw new Error(`TFP_INVALID_REQUEST: ${path} is cyclic`);
+    active.add(value);
+    try {
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => rejectUnsafeWireScalars(item, `${path}[${index}]`, active));
+        }
+        else {
+            for (const [key, child] of Object.entries(value)) {
+                rejectUnsafeWireScalars(child, `${path}.${key}`, active);
+            }
+        }
+    }
+    finally {
+        active.delete(value);
+    }
+}
+/** Recheck the actual JSON result: a custom toJSON can create a new unsafe number. */
+function stringifyWirePayload(payload) {
+    return JSON.stringify(payload, (_key, value) => {
+        if (typeof value === 'bigint'
+            || (typeof value === 'number' && (!Number.isFinite(value)
+                || (Number.isInteger(value) && !Number.isSafeInteger(value))))) {
+            throw new Error('TFP_UNSAFE_SCALAR: serialized payload contains an unsafe numeric value');
+        }
+        return value;
+    });
+}
 function serializeQuery(query, nestedFacet = false, intent) {
     const request = new request_intent_1.QueryRequest(query, intent);
     query = request.query;
@@ -31,6 +73,7 @@ function serializeQuery(query, nestedFacet = false, intent) {
     if (query.limitValue && (!Number.isSafeInteger(query.limitValue) || query.limitValue < 1)) {
         throw new Error('TFP_INVALID_REQUEST: limit must be a positive safe integer');
     }
+    rejectUnsafeWireScalars(query);
     rejectRemoteHardLimit(JSON.parse(JSON.stringify(query)));
     if (query.relations.length || query.joins.length) {
         throw new Error('TFP_INVALID_REQUEST: relations and joins are not part of canonical TFP v1');
@@ -95,7 +138,7 @@ class TeaQLClient {
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.query', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
             const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
             const response = await this.fetchImpl(url, {
-                method: 'POST', headers, body: JSON.stringify(payload),
+                method: 'POST', headers, body: stringifyWirePayload(payload),
             });
             if (!response.ok) {
                 const errText = await response.text();
@@ -120,6 +163,7 @@ class TeaQLClient {
             entity: query.entity, action: query.action, payload: query.payload,
             id: query.id, expectedVersion: query.expectedVersion, comment: query.comment,
         };
+        rejectUnsafeWireScalars(payload);
         rejectRemoteHardLimit(payload);
         // Client policy is defense in depth for browser/Node applications. The
         // receiving TeaQL server remains authoritative and evaluates its own policy.
@@ -128,7 +172,7 @@ class TeaQLClient {
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'tfp', name: 'client.mutation', attributes: { 'teaql.tfp.role': 'client' } }, async () => {
             const headers = (0, telemetry_1.injectRuntimeContext)(this.runtimeTelemetry, await this.requestHeaders());
             const response = await this.fetchImpl(`${this.config.baseUrl.replace(/\/$/, '')}/mutate`, {
-                method: 'POST', headers, body: JSON.stringify(payload),
+                method: 'POST', headers, body: stringifyWirePayload(payload),
             });
             if (!response.ok) {
                 const errorText = await response.text();

@@ -3,6 +3,7 @@ import { mergeGeneratedScalarSearch, GeneratedSearchModel } from '../src/core/dy
 import { RuntimeModule } from '../src/core/runtime-module';
 import { UserContext } from '../src/core/context';
 import { SQLiteTeaQLClient } from '../src/sql/sqlite';
+import { decimal } from '../src/core/decimal';
 
 const models: Record<string, GeneratedSearchModel> = {
   Invoice: {
@@ -25,7 +26,7 @@ test('generated scalar search applies every valid sibling and preserves scope, o
   const client = new SQLiteTeaQLClient(':memory:', {}).install(new RuntimeModule({Invoice: {table: 'invoice_data', columns}})) as SQLiteTeaQLClient;
   try {
     await new UserContext().insertResource('dataService', client).ensureSchema();
-    for (const [tenant, referenceCode, totalAmount, active] of [[1, 'KEEP-1', 100, true], [1, 'KEEP-2', 20, true], [2, 'KEEP-3', 100, true]]) {
+    for (const [tenant, referenceCode, totalAmount, active] of [[1, 'KEEP-1', decimal('100'), true], [1, 'KEEP-2', decimal('20'), true], [2, 'KEEP-3', decimal('100'), true]]) {
       await client.executeMutation({entity: 'Invoice', action: 'Create', payload: {tenant, referenceCode, totalAmount, active}, comment: 'seed scalar search'});
     }
     const base = new SelectQuery('Invoice').filter({tenant: {$eq: 1}}).select(['id', 'referenceCode']).limit(4)
@@ -57,6 +58,7 @@ test('known relation paths require trusted bindings and fail atomically instead 
 });
 
 test.each([{filter: {active: 'true'}}, {filter: {totalAmount: {$contains: '1'}}},
+  {filter: {totalAmount: {$gte: 50}}},
   {filter: {referenceCode: {$rawSQL: 'true'}}}, {filter: {}, context: {actor: 'admin'}},
   {filter: {payload: null}}, {orderBy: [{field: 'payload', direction: 'asc'}]},
   {filter: {referenceCode: {$contains: null}}}, {filter: {totalAmount: {$gt: null}}}])(

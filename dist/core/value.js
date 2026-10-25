@@ -1,13 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Values = void 0;
+const decimal_1 = require("./decimal");
 exports.Values = {
     Null: () => ({ type: 'Null' }),
     Bool: (value) => ({ type: 'Bool', value }),
     I64: (value) => ({ type: 'I64', value }),
     U64: (value) => ({ type: 'U64', value }),
     F64: (value) => ({ type: 'F64', value }),
-    Decimal: (value) => ({ type: 'Decimal', value }),
+    Decimal: (value) => ({ type: 'Decimal', value: (0, decimal_1.decimal)(value) }),
     Text: (value) => ({ type: 'Text', value }),
     Json: (value) => ({ type: 'Json', value }),
     Date: (value) => ({ type: 'Date', value }),

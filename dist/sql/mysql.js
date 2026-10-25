@@ -19,7 +19,8 @@ class MySQLDriver {
         this.databaseKind = 'mysql';
         if (!connectionString)
             throw new Error('connectionString is required');
-        this.callbackPool = (0, mysql2_1.createPool)({ uri: connectionString, timezone: 'Z' });
+        this.callbackPool = (0, mysql2_1.createPool)({ uri: connectionString, timezone: 'Z',
+            supportBigNumbers: true, bigNumberStrings: true });
         this.pool = this.callbackPool.promise();
     }
     identifier(value) {
@@ -63,6 +64,8 @@ class MySQLDriver {
             datetime: 'DATETIME(6)',
             json: 'JSON',
             integer: 'BIGINT',
+            long: 'BIGINT',
+            time: 'TIME(6)',
             text: 'TEXT',
         };
         return types[type];

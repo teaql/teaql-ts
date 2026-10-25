@@ -475,7 +475,7 @@ const QUERY_GROUPS: readonly QueryGroup[] = [
         code: `const input = {
   "filter": {
     "currency": "CNY",
-    "totalAmount": { "$gte": 250 },
+    "totalAmount": { "$gte": "250" },
     "status": { "$in": ["PAID", "SHIPPED"] }
   },
   "orderBy": [{ "field": "totalAmount", "direction": "desc" }]
@@ -489,7 +489,7 @@ const data = await Q.customerOrders()
         run: active => dynamicOrderQuery(active, {
           filter: {
             currency: 'CNY',
-            totalAmount: { $gte: 250 },
+            totalAmount: { $gte: '250' },
             status: { $in: ['PAID', 'SHIPPED'] },
           },
           orderBy: [{ field: 'totalAmount', direction: 'desc' }],

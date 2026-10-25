@@ -3,6 +3,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeDynamicSearch = exports.mergeDynamicSearch = exports.mergeGeneratedScalarSearch = void 0;
 /** Local UI-search normalization. This is deliberately not a federation decoder. */
 const ast_1 = require("./ast");
+const decimal_1 = require("./decimal");
+function isExactDecimalSearchValue(value) {
+    if (typeof value !== 'string')
+        return false;
+    try {
+        (0, decimal_1.decimal)(value);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 /**
  * Default generated binding for scalar fields. Known relation paths require a
  * trusted application binding via mergeDynamicSearch, which owns authorization.
@@ -114,8 +126,7 @@ function normalizeDynamicSearch(source, entity, models, warn = warning => consol
                 && Number.isFinite(Date.parse(value + 'T00:00:00Z'))
                 && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value
             : type === 'decimal'
-                ? (typeof value === 'string' && /^[+-]?\d+(?:\.\d+)?$/.test(value))
-                    || (typeof value === 'number' && Number.isFinite(value))
+                ? isExactDecimalSearchValue(value)
                 : type === 'integer' || type === 'timestamp' ? typeof value === 'number' && Number.isSafeInteger(value)
                     : type === 'number' ? typeof value === 'number' && Number.isFinite(value)
                         : typeof value === type;

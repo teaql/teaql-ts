@@ -44,7 +44,9 @@ function relationId(row: SmartListRecord, relationName: string): unknown {
 
 function emptyAggregateValue(aggregate: FacetAggregate): unknown {
   const fn = aggregate.function.toLowerCase();
-  return fn === 'count' || fn === 'sum' ? 0 : null;
+  // #236: absence of contributions is not an arithmetic zero. Keep a present
+  // null for SUM (including an all-null bucket); only COUNT defaults to zero.
+  return fn === 'count' ? 0 : null;
 }
 
 function compareAggregateValues(left: unknown, right: unknown): number {
