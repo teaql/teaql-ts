@@ -438,6 +438,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private encode(value: any, column?: ColumnSchema): any {
     const normalized = value?.id ?? value;
     if (normalized === undefined) return undefined;
+    this.requireFiniteFloatingPoint(normalized, column);
     if (column?.logicalType === 'decimal' && normalized !== null) {
       // Older generated schemas decode Decimal as number and still pass numeric
       // values into NUMERIC columns. Newly generated decode:decimal schemas
@@ -456,6 +457,25 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this.driver.encode(normalized, column);
   }
 
+  private requireFiniteFloatingPoint(value: unknown, column?: ColumnSchema): void {
+    if (column?.logicalType !== 'double' || value === null || value === undefined) return;
+    // Float/Double use native JS numbers. JSON has no NaN/Infinity value;
+    // accepting one would silently turn a persisted value into wire null.
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new TypeError(`Invalid numeric field ${column.modelName ?? column.columnName}: expected a finite Float/Double number`);
+    }
+  }
+
+  private validateFloatingMutation(mutation: any): void {
+    // Unknown-entity reporting retains its existing position after the
+    // customer's Mutation Policy. There is no typed scalar to validate until
+    // model metadata exists; the later schema() guard still rejects it.
+    const schema = this.schemas[mutation.entity];
+    if (!schema) return;
+    const record = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+    for (const [field, value] of Object.entries(record)) this.requireFiniteFloatingPoint(value, schema.columns[field]);
+  }
+
   private decodeRow(entity: string, row: any, aggregateNames: Array<{ name: string; exactDecimal: boolean }> = []): any {
     const schema = this.schema(entity);
     const result = { ...row };
@@ -463,6 +483,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const value = result[field];
       if (value === null || value === undefined) continue;
       if (column.decode === 'number') result[field] = Number(value);
+      this.requireFiniteFloatingPoint(result[field], column);
       if (column.decode === 'string') result[field] = String(value);
       if (column.decode === 'decimal') {
         if (typeof value !== 'string') throw new TypeError(`Inexact Decimal readback for ${field}`);
@@ -866,7 +887,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
     Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
     const checker = this.checkers[String(mutation.entity)];
-    if (!checker) return mutation;
+    if (!checker) { this.validateFloatingMutation(mutation); return mutation; }
     const results: import('../core/i18n').CheckResult[] = [];
     const ownsFixTime = this.userContext.getResource<Date>('fixTime') === undefined;
     if (ownsFixTime) this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
@@ -879,6 +900,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       }
       this.userContext.translateCheckResults(results);
       if (results.length) throw new CheckException(results);
+      // This same path runs in generated graph preparation, before transaction,
+      // ID allocation or provider calls. Encoding alone would reject too late.
+      this.validateFloatingMutation(mutation);
       return mutation;
     } finally {
       if (ownsFixTime) this.userContext.removeResource('fixTime').finishFixEvidence();
@@ -1126,6 +1150,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const value = result[field];
       if (value === null || value === undefined) continue;
       if (column.decode === 'number') result[field] = Number(value);
+      this.requireFiniteFloatingPoint(result[field], column);
       if (column.decode === 'string') result[field] = String(value);
       if (column.decode === 'decimal') {
         if (typeof value !== 'string') throw new TypeError(`Inexact Decimal readback for ${field}`);
