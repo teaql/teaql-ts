@@ -27,6 +27,8 @@ if (requested) { assert(path.isAbsolute(requested) && !fs.existsSync(evidence));
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "teaql-ts-fix-e-build-"));
 const report = {schema: "teaql.typescript-fix-e-example/v1", passed: false, rounds: [], sameDatabase: true,
   runtimeSource: path.join(repo, "src"), databaseRetained: true};
+const {createOwnedRunner, ownedBytes} = require('./owned-command.cjs'), runner = createOwnedRunner();
+async function main() {
 try {
   const manifest = fingerprint(); report.modelSha256 = manifest.modelSha256;
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
@@ -44,10 +46,11 @@ try {
       "--runInBand", "--cacheDirectory", path.join(scratch, "jest")];
     const log = path.join(evidence, "round-" + round + ".log"), fd = fs.openSync(log, "w");
     let result;
-    try { result = cp.spawnSync(process.execPath, command, {cwd: repo, timeout: 120000,
+    try { result = await runner.run([process.execPath, ...command], {cwd: repo, timeout: 120000,
       env: {...process.env, TEAQL_FIX_E_DB: path.join(evidence, "fixture.sqlite")}, stdio: ["ignore", fd, fd]}); }
     finally { fs.closeSync(fd); }
     report.rounds.push({command, exitCode: result.status, signal: result.signal, logSha256: sha(fs.readFileSync(log))});
+    if (result.status !== 0) process.exitCode = result.status || 1;
     assert.equal(result.status, 0, fs.readFileSync(log, "utf8").slice(-12000));
     const lines = fs.readFileSync(log, "utf8").split(/\r?\n/);
     for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING="]) {
@@ -59,11 +62,15 @@ try {
   report.databaseSha256 = sha(fs.readFileSync(path.join(evidence, "fixture.sqlite")));
   report.passed = true;
   console.log("PASS TypeScript retained Fix/E/loading/ownership example twice on one database");
-} catch (error) { console.error(error.stack); process.exitCode = 1; }
+} catch (error) { console.error(error.stack); process.exitCode ||= 1; }
 finally {
   // spawnSync has reaped the only owned child before cache/config cleanup.
-  fs.rmSync(scratch, {recursive: true});
-  report.scratchRemoved = !fs.existsSync(scratch);
+  report.disposedOwnedBytes = runner.safeToClean ? ownedBytes(scratch) : 0;
+  if (runner.safeToClean) fs.rmSync(scratch, {recursive: true});
+  else report.unsafeBuildRetention = {path: scratch, processGroup: runner.unsafeGroup};
+  report.scratchRemoved = !fs.existsSync(scratch); runner.dispose();
   fs.writeFileSync(path.join(evidence, "receipt.json"), JSON.stringify(report, null, 2) + "\n");
   console.log("Retained compact example evidence: " + evidence);
 }
+}
+main().catch(error => { console.error(error.stack); process.exitCode ||= 1; });
