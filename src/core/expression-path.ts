@@ -66,7 +66,10 @@ export class TeaQLNotLoadedError extends Error {
   readonly details: NotLoadedDiagnostic;
   constructor(readonly path: ExpressionPath, readonly breakPoint: string) {
     const details = path.diagnostic(breakPoint);
-    super(JSON.stringify(details));
+    const location = details.location.reduce((current, segment) => segment.kind === 'index'
+      ? current.index(segment.index) : current.property(segment.name), ObjectLocation.root());
+    super(`TeaQLNotLoadedError: access_path=${location.nativePath()} break_point=${details.breakPoint}` +
+      ` — select the missing field or relation expression=${details.expressionWithBrokenPoint}`);
     this.name = 'TeaQLNotLoadedError';
     this.details = details;
   }

@@ -70,8 +70,11 @@ test('out-of-order SQL completion retains its own span and does not replace glob
   try {
     await new UserContext().insertResource('dataService', client).ensureSchema();
     driver.concurrent = true;
-    await Promise.all([1, 2].map(limit => client.executeQuery(new SelectQuery('School').limit(limit)
-      .comment(`concurrent ${limit}`).purpose('verify isolated SQL identity'))));
+    await Promise.all([1, 2].map(limit => {
+      const query = new SelectQuery('School').limit(limit)
+        .comment(`concurrent ${limit}`).purpose('verify isolated SQL identity');
+      return client.withQueryRequest(query, () => client.executeQuery(query));
+    }));
     await Promise.all([tracerProvider.forceFlush(), loggerProvider.forceFlush()]);
     const logs = logExporter.getFinishedLogRecords().filter(log => log.body === 'TeaQL SQL execution');
     const spans = spanExporter.getFinishedSpans();
@@ -80,10 +83,14 @@ test('out-of-order SQL completion retains its own span and does not replace glob
     for (const log of logs) {
       const provider = spans.find(span => span.spanContext().spanId === log.spanContext?.spanId);
       expect(provider?.attributes['teaql.operation.family']).toBe('provider');
+      expect(provider?.attributes['teaql.provider.execution']).toBe('statement');
       const query = spans.find(span => span.spanContext().spanId === provider?.parentSpanContext?.spanId);
       expect(query?.attributes['teaql.operation.family']).toBe('query');
       expect(provider?.spanContext().traceId).toBe(log.spanContext?.traceId);
     }
+    const roots = spans.filter(span => span.attributes['teaql.operation.name'] === 'School.request');
+    expect(roots).toHaveLength(2);
+    for (const root of roots) expect(root.attributes['teaql.result.cardinality']).toBe(0);
     expect(new Set(logs.map(log => log.spanContext?.traceId)).size).toBe(2);
     expect(trace.getTracerProvider()).toBe(beforeProvider);
     expect(context.active()).toBe(beforeContext);

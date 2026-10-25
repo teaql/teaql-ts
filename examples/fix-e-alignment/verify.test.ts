@@ -2,14 +2,21 @@ import { FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../src'
 import { E } from 'generated/generated/E';
 import { Q } from 'generated/generated/Q';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';
+import { RuntimeOperation, RuntimeOperationCompletion } from '../../src/core/telemetry';
 
 test('unmodified generated Q/E and audited SQLite saves consume the local Business Clock', async () => {
   const first = new Date('2032-02-29T10:15:30.000Z');
   const second = new Date('2032-03-01T11:16:31.000Z');
   const context = new UserContext().withBusinessClock(new FixedBusinessClock(first));
   const client = new SQLiteTeaQLClient(':memory:').setUserContext(context);
+  const telemetry: Array<{operation: RuntimeOperation; completion?: RuntimeOperationCompletion}> = [];
+  client.setRuntimeTelemetry({start: operation => ({
+    success: completion => { telemetry.push({operation, completion}); },
+    failure: () => undefined,
+  })});
   context.insertResource('dataService', client);
   const diagnostics: ReturnType<TeaQLNotLoadedError['toWire']>[] = [];
+  const humanMessages: string[] = [];
   const missing = (read: () => unknown, location: string, attempted: string, expression: string) => {
     try { read(); }
     catch (error) {
@@ -22,6 +29,7 @@ test('unmodified generated Q/E and audited SQLite saves consume the local Busine
       expect(wire.expressionWithBrokenPoint.match(/<broken>/g)).toHaveLength(1);
       expect(error.message).not.toContain('PRIVATE-FALLBACK');
       diagnostics.push(wire);
+      humanMessages.push(error.message);
       return;
     }
     throw new Error('NotLoaded must not be treated as null or fallback');
@@ -66,8 +74,15 @@ test('unmodified generated Q/E and audited SQLite saves consume the local Busine
     expect(new Date(E.purchaseOrder(persisted).updateTime().eval()!).getTime()).toBe(second.getTime());
     expect(E.purchaseOrder(persisted).contactPhone().eval()).toBe('5550101');
     expect(context.getResource('fixTime')).toBeUndefined();
+    const requests = telemetry.filter(event => event.operation.name === 'PurchaseOrder.request');
+    expect(requests.length).toBeGreaterThanOrEqual(3);
+    for (const request of requests) expect(request.completion?.attributes?.['teaql.result.cardinality']).toBe(1);
+    const statements = telemetry.filter(event => /\.(select|readback)$/.test(event.operation.name));
+    expect(statements.length).toBeGreaterThan(0);
+    for (const statement of statements) expect(statement.operation.attributes?.['teaql.provider.execution']).toBe('statement');
+    process.stdout.write('GENERATED_QUERY_METADATA_PASS language=typescript requestRows=1 providerExecution=statement\n');
     process.stdout.write('FIX_E_EXAMPLE=' + JSON.stringify({ language: 'typescript', passed: true,
       normalGeneratedSave: true, createTimePreserved: true, updateTimeAdvanced: true,
-      declaredContextRootInjected: true, diagnostics }) + '\n');
+      declaredContextRootInjected: true, diagnostics, humanMessages }) + '\n');
   } finally { client.close(); }
 });

@@ -11,6 +11,8 @@ test('early repeated relation failure retains the full native chain and exactly 
   });
   expect(error.details.expressionWithBrokenPoint.match(/<broken>/g)).toHaveLength(1);
   expect(error.details.suggestedFix).toEqual({ action: 'preload', location: error.details.location });
+  expect(error.message).toBe('TeaQLNotLoadedError: access_path=parent break_point=parent' +
+    ' — select the missing field or relation expression=' + error.details.expressionWithBrokenPoint);
 });
 
 test('canonical keys, wire profiles, first, real indices and size remain distinct', () => {

@@ -508,7 +508,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     new QueryRequest(query); // Reject invalid intent before starting execution.
     await this.telemetryStartup;
     return observeRuntimeOperation(this.runtimeTelemetry, { family: 'query',
-      name: `${String(query.entity)}.request`, attributes: { 'teaql.entity.type': String(query.entity) } }, work);
+      name: `${String(query.entity)}.request`, attributes: { 'teaql.entity.type': String(query.entity) } }, work,
+      result => Array.isArray(result) ? { attributes: { 'teaql.result.cardinality': result.length } } : {});
   }
 
   private recordSQL(
@@ -581,6 +582,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const scope = startRuntimeOperation(this.runtimeTelemetry, { family: 'provider',
       name: `${this.driver.databaseKind}.${operation}`,
       attributes: { 'teaql.provider.kind': this.driver.databaseKind,
+        'teaql.provider.execution': 'statement',
         'teaql.provider.operation': operation === 'select' ? 'query' : operation } });
     const correlation = scope.correlation?.();
     const startedAt = Date.now();
@@ -1030,6 +1032,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
     const scope = startRuntimeOperation(this.runtimeTelemetry, { family: 'provider',
       name: `${this.driver.databaseKind}.readback`, attributes: {
+        'teaql.provider.execution': 'statement',
         'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query' } });
     const startedAt = Date.now();
     let result: SqlQueryResult | undefined;
@@ -1729,6 +1732,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     let providerScope!: RuntimeTelemetryScope;
     const startProvider = async () => { providerScope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'provider', name: `${this.driver.databaseKind}.stream`, attributes: {
+        'teaql.provider.execution': 'statement',
         'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query' } }); };
     await (queryScope.run ? queryScope.run(startProvider) : startProvider());
     const correlation = providerScope.correlation?.();
