@@ -1,4 +1,5 @@
 import { SelectQuery } from './ast';
+import { BusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
 import { MutationGovernanceSink, MutationGovernanceSnapshot, MutationPlan, MutationPolicyApprovalProvider, MutationPolicyRegistry } from './mutation-policy';
@@ -34,6 +35,11 @@ export declare class ContextRootError extends Error {
     }> | undefined);
 }
 export declare class UserContext {
+    private businessClock;
+    withBusinessClock(clock: BusinessClock): this;
+    businessTime(): Date;
+    /** UTC calendar date derived from the same business-clock provider. */
+    businessDate(): string;
     withObjectStorage(provider: ObjectStorageProvider): this;
     withObjectStorageObserver(observer: ObjectStorageObserver): this;
     objectStorage(comment: string): ObjectStorage;

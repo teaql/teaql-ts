@@ -29,7 +29,7 @@ import {
   queryTraceSource,
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-NKFKN5TB.js";
+} from "./chunk-6LOIUUTO.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -388,11 +388,16 @@ var AbstractSQLTeaQLClient = class {
   async withQueryRequest(query, work) {
     new QueryRequest(query);
     await this.telemetryStartup;
-    return observeRuntimeOperation(this.runtimeTelemetry, {
-      family: "query",
-      name: `${String(query.entity)}.request`,
-      attributes: { "teaql.entity.type": String(query.entity) }
-    }, work);
+    return observeRuntimeOperation(
+      this.runtimeTelemetry,
+      {
+        family: "query",
+        name: `${String(query.entity)}.request`,
+        attributes: { "teaql.entity.type": String(query.entity) }
+      },
+      work,
+      (result) => Array.isArray(result) ? { attributes: { "teaql.result.cardinality": result.length } } : {}
+    );
   }
   recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows, intent = {}, executionOutcome = "success", inherited, correlation) {
     const isSelect = operation === "select";
@@ -464,6 +469,7 @@ var AbstractSQLTeaQLClient = class {
       name: `${this.driver.databaseKind}.${operation}`,
       attributes: {
         "teaql.provider.kind": this.driver.databaseKind,
+        "teaql.provider.execution": "statement",
         "teaql.provider.operation": operation === "select" ? "query" : operation
       }
     });
@@ -594,7 +600,7 @@ var AbstractSQLTeaQLClient = class {
       payload: { ...this.decodeRowForSchema(schema, row), ...record.values }
     };
   }
-  async executeGraphSave(intent, work) {
+  async executeGraphSave(intent, work, prepare) {
     const graph = new GraphMutationSession(intent);
     await this.telemetryStartup;
     const save = async () => {
@@ -611,11 +617,17 @@ var AbstractSQLTeaQLClient = class {
         this.graphCommitActions = [];
         this.graphRollbackActions = [];
         this.graphAuditActions = [];
-        this.userContext.insertResource("fixTime", /* @__PURE__ */ new Date());
+        this.userContext.insertResource("fixTime", this.userContext.businessTime());
         this.userContext.beginFixEvidence();
         fixEvidenceStarted = true;
         this.userContext.beginMutationPolicyGraph();
         mutationPolicyGraphStarted = true;
+        this.activeGraph = graph;
+        try {
+          await prepare?.(graph);
+        } finally {
+          this.activeGraph = void 0;
+        }
         const result = await this.driver.transaction(async (session) => {
           this.graphMutationSession = session;
           this.activeGraph = graph;
@@ -718,7 +730,7 @@ var AbstractSQLTeaQLClient = class {
     if (!checker) return mutation;
     const results = [];
     const ownsFixTime = this.userContext.getResource("fixTime") === void 0;
-    if (ownsFixTime) this.userContext.insertResource("fixTime", /* @__PURE__ */ new Date()).beginFixEvidence();
+    if (ownsFixTime) this.userContext.insertResource("fixTime", this.userContext.businessTime()).beginFixEvidence();
     try {
       checker.checkAndFix(this.userContext, mutation, results);
       if (mutation.ledgerKey && mutation.ledgerRoot) {
@@ -737,6 +749,9 @@ var AbstractSQLTeaQLClient = class {
     await this.telemetryStartup;
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
+    if (this.activeGraph && !this.graphMutationSession) {
+      throw new Error("Graph preparation cannot execute mutations before its transaction");
+    }
     mutation = request.mutation;
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: "mutation",
@@ -933,6 +948,7 @@ var AbstractSQLTeaQLClient = class {
       family: "provider",
       name: `${this.driver.databaseKind}.readback`,
       attributes: {
+        "teaql.provider.execution": "statement",
         "teaql.provider.kind": this.driver.databaseKind,
         "teaql.provider.operation": "query"
       }
@@ -1675,6 +1691,7 @@ var AbstractSQLTeaQLClient = class {
         family: "provider",
         name: `${this.driver.databaseKind}.stream`,
         attributes: {
+          "teaql.provider.execution": "statement",
           "teaql.provider.kind": this.driver.databaseKind,
           "teaql.provider.operation": "query"
         }
@@ -2000,4 +2017,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-E2Z2R4YB.js.map
+//# sourceMappingURL=chunk-LQXL6EAD.js.map

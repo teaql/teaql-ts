@@ -11,6 +11,9 @@ import {
   MutationPolicyError,
   MutationPolicyIdentity,
   MutationIntent,
+  CheckException,
+  ObjectLocation,
+  RuntimeModule,
   UserContext,
 } from '../src';
 import {
@@ -39,10 +42,13 @@ class RecordingDriver implements TeaQLSqlDriver, SqlSession {
   transactions = 0;
   commits = 0;
   rollbacks = 0;
+  queries = 0;
+  idAllocations = 0;
   private next = 0;
   private pendingMutations = 0;
 
   async query(sql: string): Promise<any> {
+    this.queries++;
     if (/^\s*(?:INSERT|UPDATE|DELETE)/i.test(sql)) {
       this.providerMutations++;
       this.pendingMutations++;
@@ -74,7 +80,7 @@ class RecordingDriver implements TeaQLSqlDriver, SqlSession {
       throw error;
     }
   }
-  async nextId(): Promise<string> { this.next++; return String(this.next); }
+  async nextId(): Promise<string> { this.idAllocations++; this.next++; return String(this.next); }
   async ensureIdFloor(): Promise<void> {}
   async close(): Promise<void> {}
 }
@@ -266,6 +272,61 @@ test('failed graph lifecycle initialization releases the save queue', async () =
   await expect(client.executeGraphSave(new MutationIntent('lifecycle'), async () => undefined)).resolves.toBeUndefined();
   expect(driver.transactions).toBe(1);
   expect(driver.commits).toBe(1);
+});
+
+test.each(['Create', 'Update'])('generated %s preparation rejects before all provider work and releases its scope', async action => {
+  let clockCalls = 0;
+  const context = new UserContext().withBusinessClock({ now() {
+    clockCalls++;
+    return new Date('2032-02-29T10:15:30.000Z');
+  } });
+  const driver = new RecordingDriver();
+  const client = new Client(driver).setUserContext(context).install(new RuntimeModule({}, {
+    Order: { checkAndFix(_context, mutation, results) {
+      if (mutation.payload.name == null) results.push({
+        ruleId: 'required', location: ObjectLocation.property('name'),
+      });
+    } },
+  }));
+  const mutation = { entity: 'Order', action, id: action === 'Update' ? '1' : undefined,
+    version: action === 'Update' ? 1 : undefined, payload: { name: null }, comment: 'reject incomplete order' };
+  await expect(client.executeGraphSave(new MutationIntent(mutation.comment), async graph => {
+    await client.executeMutation(graph.request(mutation));
+  }, graph => { client.preflightMutation(graph.request(mutation)); })).rejects.toBeInstanceOf(CheckException);
+  expect(driver.transactions).toBe(0);
+  expect(driver.queries).toBe(0);
+  expect(driver.idAllocations).toBe(0);
+  expect(client.auditTrace).toHaveLength(0);
+  expect(clockCalls).toBe(1);
+  expect(context.getResource('fixTime')).toBeUndefined();
+
+  // The failed preparation must release both graph-policy state and the queue.
+  const seenTimes: number[] = [];
+  client.install(new RuntimeModule({}, { Order: { checkAndFix(ctx) {
+    seenTimes.push(ctx.requireResource<Date>('fixTime').getTime());
+  } } }));
+  const valid = { ...mutation, action: 'Create', id: undefined, payload: { name: 'retry' } };
+  await client.executeGraphSave(new MutationIntent('retry corrected order'), async graph => {
+    await client.executeMutation(graph.request(valid));
+  }, graph => { client.preflightMutation(graph.request(valid)); });
+  expect(driver.transactions).toBe(1);
+  expect(driver.commits).toBe(1);
+  expect(driver.idAllocations).toBe(1);
+  expect(seenTimes).toHaveLength(2);
+  expect(new Set(seenTimes).size).toBe(1);
+  expect(clockCalls).toBe(2);
+});
+
+test('preparation cannot use its graph capability to execute a mutation', async () => {
+  const driver = new RecordingDriver();
+  const client = new Client(driver);
+  await expect(client.executeGraphSave(new MutationIntent('prepare only'), async () => undefined, async graph => {
+    await client.executeMutation(graph.request({ entity: 'Order', action: 'Create',
+      payload: { name: 'premature write' }, comment: 'prepare only' }));
+  })).rejects.toThrow(/preparation cannot execute mutations/);
+  expect(driver.transactions).toBe(0);
+  expect(driver.queries).toBe(0);
+  expect(driver.idAllocations).toBe(0);
 });
 
 test('stable ledger identity tolerates parent ids assigned during graph execution', async () => {

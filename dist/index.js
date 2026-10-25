@@ -20,6 +20,7 @@ __exportStar(require("./core/decimal"), exports);
 __exportStar(require("./core/long"), exports);
 __exportStar(require("./core/local-time"), exports);
 __exportStar(require("./core/context"), exports);
+__exportStar(require("./core/business-clock"), exports);
 __exportStar(require("./core/object-storage"), exports);
 __exportStar(require("./core/request-intent"), exports);
 __exportStar(require("./core/trace-chain"), exports);
@@ -47,4 +48,5 @@ Object.defineProperty(exports, "executeRelationFacets", { enumerable: true, get:
 __exportStar(require("./meta/descriptors"), exports);
 __exportStar(require("./tfp/client"), exports);
 __exportStar(require("./parser/dsl"), exports);
+__exportStar(require("./core/expression-path"), exports);
 //# sourceMappingURL=index.js.map

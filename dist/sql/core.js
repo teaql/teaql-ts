@@ -354,7 +354,7 @@ class AbstractSQLTeaQLClient {
         new request_intent_1.QueryRequest(query); // Reject invalid intent before starting execution.
         await this.telemetryStartup;
         return (0, telemetry_1.observeRuntimeOperation)(this.runtimeTelemetry, { family: 'query',
-            name: `${String(query.entity)}.request`, attributes: { 'teaql.entity.type': String(query.entity) } }, work);
+            name: `${String(query.entity)}.request`, attributes: { 'teaql.entity.type': String(query.entity) } }, work, result => Array.isArray(result) ? { attributes: { 'teaql.result.cardinality': result.length } } : {});
     }
     recordSQL(operation, parameterizedSQL, parameters, startedAt, resultCount, affectedRows, intent = {}, executionOutcome = 'success', inherited, correlation) {
         const isSelect = operation === 'select';
@@ -421,6 +421,7 @@ class AbstractSQLTeaQLClient {
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, { family: 'provider',
             name: `${this.driver.databaseKind}.${operation}`,
             attributes: { 'teaql.provider.kind': this.driver.databaseKind,
+                'teaql.provider.execution': 'statement',
                 'teaql.provider.operation': operation === 'select' ? 'query' : operation } });
         const correlation = scope.correlation?.();
         const startedAt = Date.now();
@@ -544,7 +545,7 @@ class AbstractSQLTeaQLClient {
             version: Number(row[schema.columns.version?.columnName ?? 'version']),
             payload: { ...this.decodeRowForSchema(schema, row), ...record.values } };
     }
-    async executeGraphSave(intent, work) {
+    async executeGraphSave(intent, work, prepare) {
         // Root intent is mandatory before lifecycle initialization or provider work.
         const graph = new request_intent_1.GraphMutationSession(intent);
         await this.telemetryStartup;
@@ -564,11 +565,21 @@ class AbstractSQLTeaQLClient {
                 this.graphCommitActions = [];
                 this.graphRollbackActions = [];
                 this.graphAuditActions = [];
-                this.userContext.insertResource('fixTime', new Date());
+                this.userContext.insertResource('fixTime', this.userContext.businessTime());
                 this.userContext.beginFixEvidence();
                 fixEvidenceStarted = true;
                 this.userContext.beginMutationPolicyGraph();
                 mutationPolicyGraphStarted = true;
+                // Generated Checker/Fix is a preparation phase, not provider work. Keep
+                // the same graph capability and captured clock for the transaction, but
+                // reject invalid required values before opening it or allocating IDs.
+                this.activeGraph = graph;
+                try {
+                    await prepare?.(graph);
+                }
+                finally {
+                    this.activeGraph = undefined;
+                }
                 const result = await this.driver.transaction(async (session) => {
                     this.graphMutationSession = session;
                     this.activeGraph = graph;
@@ -681,7 +692,7 @@ class AbstractSQLTeaQLClient {
         const results = [];
         const ownsFixTime = this.userContext.getResource('fixTime') === undefined;
         if (ownsFixTime)
-            this.userContext.insertResource('fixTime', new Date()).beginFixEvidence();
+            this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
         try {
             checker.checkAndFix(this.userContext, mutation, results);
             if (mutation.ledgerKey && mutation.ledgerRoot) {
@@ -704,6 +715,9 @@ class AbstractSQLTeaQLClient {
         // Validate before Checker, policy, telemetry and transaction/provider work.
         const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
         this.requireGraphOwnership(request);
+        if (this.activeGraph && !this.graphMutationSession) {
+            throw new Error('Graph preparation cannot execute mutations before its transaction');
+        }
         mutation = request.mutation;
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
             family: 'mutation',
@@ -873,6 +887,7 @@ class AbstractSQLTeaQLClient {
         this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
         const scope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, { family: 'provider',
             name: `${this.driver.databaseKind}.readback`, attributes: {
+                'teaql.provider.execution': 'statement',
                 'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query'
             } });
         const startedAt = Date.now();
@@ -1680,6 +1695,7 @@ class AbstractSQLTeaQLClient {
         const startProvider = async () => {
             providerScope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, {
                 family: 'provider', name: `${this.driver.databaseKind}.stream`, attributes: {
+                    'teaql.provider.execution': 'statement',
                     'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query'
                 }
             });

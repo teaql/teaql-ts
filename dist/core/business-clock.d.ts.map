@@ -1,0 +1,1 @@
+{"version":3,"file":"business-clock.d.ts","sourceRoot":"","sources":["../../src/core/business-clock.ts"],"names":[],"mappings":"AAAA,sFAAsF;AACtF,MAAM,WAAW,aAAa;IAAG,GAAG,IAAI,IAAI,CAAC;CAAE;AAE/C,qBAAa,mBAAoB,YAAW,aAAa;IACvD,GAAG,IAAI,IAAI;CACZ;AAED,qBAAa,kBAAmB,YAAW,aAAa;IACtD,OAAO,CAAC,QAAQ,CAAC,YAAY,CAAS;gBAC1B,KAAK,EAAE,IAAI;IAIvB,GAAG,IAAI,IAAI;CACZ"}

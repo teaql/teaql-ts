@@ -194,7 +194,7 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 
 export interface TeaQLDataService {
   withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
-  executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
+  executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T>;
   preflightMutation(mutation: any): any;
   afterGraphCommit(work: () => void): void;
   afterGraphRollback(work: () => void): void;
@@ -741,7 +741,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       payload: { ...this.decodeRowForSchema(schema, row), ...record.values } };
   }
 
-  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T> {
+  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T> {
     // Root intent is mandatory before lifecycle initialization or provider work.
     const graph = new GraphMutationSession(intent);
     await this.telemetryStartup;
@@ -766,6 +766,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       fixEvidenceStarted = true;
       this.userContext.beginMutationPolicyGraph();
       mutationPolicyGraphStarted = true;
+      // Generated Checker/Fix is a preparation phase, not provider work. Keep
+      // the same graph capability and captured clock for the transaction, but
+      // reject invalid required values before opening it or allocating IDs.
+      this.activeGraph = graph;
+      try { await prepare?.(graph); }
+      finally { this.activeGraph = undefined; }
       const result = await this.driver.transaction(async session => {
         this.graphMutationSession = session;
         this.activeGraph = graph;
@@ -884,6 +890,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // Validate before Checker, policy, telemetry and transaction/provider work.
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
+    if (this.activeGraph && !this.graphMutationSession) {
+      throw new Error('Graph preparation cannot execute mutations before its transaction');
+    }
     mutation = request.mutation;
     const scope = startRuntimeOperation(this.runtimeTelemetry, {
       family: 'mutation',

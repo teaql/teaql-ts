@@ -94,6 +94,22 @@ function localTime(value) {
   return fraction === "000000" ? value.slice(0, dot) : `${value.slice(0, dot)}.${fraction}`;
 }
 
+// src/core/business-clock.ts
+var SystemBusinessClock = class {
+  now() {
+    return /* @__PURE__ */ new Date();
+  }
+};
+var FixedBusinessClock = class {
+  constructor(value) {
+    if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw new TypeError("Business clock requires a valid Date");
+    this.milliseconds = value.getTime();
+  }
+  now() {
+    return new Date(this.milliseconds);
+  }
+};
+
 // src/core/builtin-messages-v1.json
 var builtin_messages_v1_default = {
   schema: "teaql.i18n/v1",
@@ -1488,6 +1504,7 @@ var ContextRootError = class extends Error {
 };
 var UserContext = class {
   constructor() {
+    this.businessClock = new SystemBusinessClock();
     this.mutationPolicy = new MutationPolicyRuntimeState();
     this.resources = /* @__PURE__ */ new Map();
     this.continuousPageCursors = /* @__PURE__ */ new Map();
@@ -1520,6 +1537,20 @@ var UserContext = class {
     this.idSetPaginationCountAccuracy = "UNKNOWN";
     this.locale = "en";
     this.i18nCatalog = I18nCatalog.builtin;
+  }
+  withBusinessClock(clock) {
+    if (!clock || typeof clock.now !== "function") throw new TypeError("Business clock must provide now()");
+    this.businessClock = clock;
+    return this;
+  }
+  businessTime() {
+    const value = this.businessClock.now();
+    if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw new TypeError("Business clock returned an invalid Date");
+    return new Date(value.getTime());
+  }
+  /** UTC calendar date derived from the same business-clock provider. */
+  businessDate() {
+    return this.businessTime().toISOString().slice(0, 10);
   }
   withObjectStorage(provider) {
     return this.insertResource("objectStorageProvider", provider);
@@ -2089,7 +2120,7 @@ function relationId(row, relationName) {
 }
 function emptyAggregateValue(aggregate) {
   const fn = aggregate.function.toLowerCase();
-  return fn === "count" || fn === "sum" ? 0 : null;
+  return fn === "count" ? 0 : null;
 }
 function compareAggregateValues(left, right) {
   if (typeof left === "number" && typeof right === "number") return left - right;
@@ -2273,6 +2304,8 @@ export {
   compareLongs,
   longOrderKey,
   localTime,
+  SystemBusinessClock,
+  FixedBusinessClock,
   locales,
   UnsupportedLocaleError,
   parseLocale,
@@ -2321,4 +2354,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-NKFKN5TB.js.map
+//# sourceMappingURL=chunk-6LOIUUTO.js.map

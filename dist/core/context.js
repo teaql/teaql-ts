@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserContext = exports.ContextRootError = void 0;
+const business_clock_1 = require("./business-clock");
 const object_storage_1 = require("./object-storage");
 const i18n_1 = require("./i18n");
 const schema_capability_1 = require("./schema-capability");
@@ -30,6 +31,7 @@ class ContextRootError extends Error {
 exports.ContextRootError = ContextRootError;
 class UserContext {
     constructor() {
+        this.businessClock = new business_clock_1.SystemBusinessClock();
         this.mutationPolicy = new mutation_policy_1.MutationPolicyRuntimeState();
         this.resources = new Map();
         this.continuousPageCursors = new Map();
@@ -62,6 +64,20 @@ class UserContext {
         this.locale = 'en';
         this.i18nCatalog = i18n_1.I18nCatalog.builtin;
     }
+    withBusinessClock(clock) {
+        if (!clock || typeof clock.now !== 'function')
+            throw new TypeError('Business clock must provide now()');
+        this.businessClock = clock;
+        return this;
+    }
+    businessTime() {
+        const value = this.businessClock.now();
+        if (!(value instanceof Date) || !Number.isFinite(value.getTime()))
+            throw new TypeError('Business clock returned an invalid Date');
+        return new Date(value.getTime());
+    }
+    /** UTC calendar date derived from the same business-clock provider. */
+    businessDate() { return this.businessTime().toISOString().slice(0, 10); }
     withObjectStorage(provider) { return this.insertResource('objectStorageProvider', provider); }
     withObjectStorageObserver(observer) { return this.insertResource('objectStorageObserver', observer); }
     objectStorage(comment) { return new object_storage_1.ObjectStorage(this, comment); }

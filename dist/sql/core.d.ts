@@ -77,7 +77,7 @@ export interface TeaQLSqlDriver extends SqlSession {
 export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder: (index: number) => string, entity: string, floor: string): Promise<void>;
 export interface TeaQLDataService {
     withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
-    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -213,7 +213,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     protected invalidateSchemaState(): void;
     private ensureBootstrapData;
     private planBootstrapMutation;
-    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T>;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
     private requireGraphOwnership;

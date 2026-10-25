@@ -5,6 +5,7 @@ import {
   DelegatingMutationGovernanceSink,
   DelegatingMutationPolicyApprovalProvider,
   DelegatingMutationPolicyRegistry,
+  FixedBusinessClock,
   GraphCommittedError,
   GraphMutationSession,
   I18nCatalog,
@@ -25,6 +26,7 @@ import {
   SelectQuery,
   SmartList,
   SortDirection,
+  SystemBusinessClock,
   UnsupportedLocaleError,
   UserContext,
   addDecimals,
@@ -45,7 +47,7 @@ import {
   parseLocale,
   queryOperationComment,
   queryTraceSource
-} from "./chunks/chunk-NKFKN5TB.js";
+} from "./chunks/chunk-6LOIUUTO.js";
 import {
   MAX_OBJECT_PUT_SIZE,
   ObjectContent,
@@ -2296,6 +2298,89 @@ var QueryParser = class {
     return executeCallChain(ast, entryPoint);
   }
 };
+
+// src/core/expression-path.ts
+var ExpressionPath = class _ExpressionPath {
+  constructor(rootExpression, profile, location, steps, missing) {
+    this.rootExpression = rootExpression;
+    this.profile = profile;
+    this.location = location;
+    this.steps = steps;
+    this.missing = missing;
+  }
+  static root(expression, profile = "camelCase") {
+    return new _ExpressionPath(expression, profile, ObjectLocation.root(), []);
+  }
+  member(name, method) {
+    return this.append(`${method}()`, this.location.property(name), true);
+  }
+  index(index, first = false) {
+    return this.append(first ? "first()" : `get(${index})`, this.location.index(index), true);
+  }
+  operation(call) {
+    return this.append(call, this.location, false);
+  }
+  append(call, location, traverses) {
+    return new _ExpressionPath(
+      this.rootExpression,
+      this.profile,
+      location,
+      [...this.steps, { call, location, traverses }],
+      this.missing
+    );
+  }
+  markMissing() {
+    return new _ExpressionPath(
+      this.rootExpression,
+      this.profile,
+      this.location,
+      this.steps,
+      this.missing ?? this.steps.length - 1
+    );
+  }
+  withFailureFrom(failed) {
+    return new _ExpressionPath(this.rootExpression, this.profile, this.location, this.steps, failed.missing);
+  }
+  render(broken = false) {
+    return this.rootExpression + this.steps.map((step, index) => `.${step.call}${broken && index === this.missing ? "<broken>" : ""}`).join("");
+  }
+  diagnostic(fallback) {
+    const failure = this.missing === void 0 ? this.location : this.steps[this.missing].location;
+    const last = failure.segments[failure.segments.length - 1];
+    return {
+      code: "NOT_LOADED",
+      location: failure.segments,
+      instancePath: failure.instancePath(this.profile),
+      breakPoint: last?.kind === "property" ? last.name : fallback,
+      attemptedLocation: this.location.segments,
+      attemptedInstancePath: this.location.instancePath(this.profile),
+      breakPointIndex: Math.max(0, failure.segments.length - 1),
+      originalExpression: this.render(),
+      expressionWithBrokenPoint: this.render(true),
+      suggestedFix: { action: "preload", location: failure.segments }
+    };
+  }
+};
+var TeaQLNotLoadedError = class _TeaQLNotLoadedError extends Error {
+  constructor(path, breakPoint) {
+    const details = path.diagnostic(breakPoint);
+    const location = details.location.reduce((current, segment) => segment.kind === "index" ? current.index(segment.index) : current.property(segment.name), ObjectLocation.root());
+    super(`TeaQLNotLoadedError: access_path=${location.nativePath()} break_point=${details.breakPoint} \u2014 select the missing field or relation expression=${details.expressionWithBrokenPoint}`);
+    this.path = path;
+    this.breakPoint = breakPoint;
+    this.name = "TeaQLNotLoadedError";
+    this.details = details;
+  }
+  withPath(path) {
+    return new _TeaQLNotLoadedError(path.withFailureFrom(this.path), this.breakPoint);
+  }
+  terminal(call) {
+    return new _TeaQLNotLoadedError(this.path.operation(call), this.breakPoint);
+  }
+  toWire() {
+    return this.details;
+  }
+};
 export {
   AggregationCacheOptions,
   CheckException,
@@ -2308,7 +2393,9 @@ export {
   DelegatingMutationPolicyRegistry,
   EntityDescriptor,
   EntityRoot,
+  ExpressionPath,
   FetchHttpToolProvider,
+  FixedBusinessClock,
   GraphCommittedError,
   GraphMutationSession,
   HTTP_TOOL,
@@ -2345,7 +2432,9 @@ export {
   SmartList,
   SortDirection,
   StorageError,
+  SystemBusinessClock,
   TeaQLClient,
+  TeaQLNotLoadedError,
   ToolPolicy,
   ToolPolicyBuilder,
   UnsupportedLocaleError,
