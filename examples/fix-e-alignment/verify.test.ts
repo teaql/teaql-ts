@@ -10,7 +10,7 @@ test('unmodified generated Q/E and audited SQLite saves consume the local Busine
   const first = new Date('2032-02-29T10:15:30.000Z');
   const second = new Date('2032-03-01T11:16:31.000Z');
   const context = new UserContext().withBusinessClock(new FixedBusinessClock(first));
-  const client = new SQLiteTeaQLClient(':memory:').setUserContext(context);
+  const client = new SQLiteTeaQLClient(process.env.TEAQL_FIX_E_DB || ':memory:').setUserContext(context);
   const telemetry: Array<{operation: RuntimeOperation; completion?: RuntimeOperationCompletion}> = [];
   client.setRuntimeTelemetry({start: operation => ({
     success: completion => { telemetry.push({operation, completion}); },
@@ -88,5 +88,5 @@ test('unmodified generated Q/E and audited SQLite saves consume the local Busine
     process.stdout.write('FIX_E_EXAMPLE=' + JSON.stringify({ language: 'typescript', passed: true,
       normalGeneratedSave: true, createTimePreserved: true, updateTimeAdvanced: true,
       declaredContextRootInjected: true, diagnostics, humanMessages }) + '\n');
-  } finally { client.close(); }
+  } finally { await client.close(); }
 });

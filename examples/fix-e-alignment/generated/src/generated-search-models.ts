@@ -1,0 +1,90 @@
+import type { GeneratedSearchModel } from "teaql-ts";
+
+/** Generated trusted naming/type metadata. No query execution or authorization lives here. */
+export const GENERATED_SEARCH_MODELS: Readonly<Record<string, GeneratedSearchModel>> = Object.freeze({
+  "Tenant": Object.freeze({
+    fields: Object.freeze({
+     "id": "integer" as const,
+     "name": "string" as const,
+     "version": "integer" as const,
+    }),
+    queryFields: Object.freeze({
+     "id": "id",
+     "name": "name",
+     "version": "version",
+    }),
+    relations: Object.freeze({
+      "purchaseOrderList": "PurchaseOrder",
+      "orderItemList": "OrderItem",
+    }),
+  }),
+  "PurchaseOrder": Object.freeze({
+    fields: Object.freeze({
+     "id": "integer" as const,
+     "tenant": "integer" as const,
+     "contact_phone": "string" as const,
+     "contactPhone": "string" as const,
+     "internal_note": "string" as const,
+     "internalNote": "string" as const,
+     "create_time": "timestamp" as const,
+     "createTime": "timestamp" as const,
+     "update_time": "timestamp" as const,
+     "updateTime": "timestamp" as const,
+     "version": "integer" as const,
+    }),
+    queryFields: Object.freeze({
+     "id": "id",
+     "tenant": "tenant",
+     "contact_phone": "contactPhone",
+     "contactPhone": "contactPhone",
+     "internal_note": "internalNote",
+     "internalNote": "internalNote",
+     "create_time": "createTime",
+     "createTime": "createTime",
+     "update_time": "updateTime",
+     "updateTime": "updateTime",
+     "version": "version",
+    }),
+    relations: Object.freeze({
+     "tenant": "Tenant",
+      "orderItemList": "OrderItem",
+    }),
+  }),
+  "OrderItem": Object.freeze({
+    fields: Object.freeze({
+     "id": "integer" as const,
+     "purchase_order": "integer" as const,
+     "purchaseOrder": "integer" as const,
+     "tenant": "integer" as const,
+     "product_name": "string" as const,
+     "productName": "string" as const,
+     "unit_price": "decimal" as const,
+     "unitPrice": "decimal" as const,
+     "create_time": "timestamp" as const,
+     "createTime": "timestamp" as const,
+     "update_time": "timestamp" as const,
+     "updateTime": "timestamp" as const,
+     "version": "integer" as const,
+    }),
+    queryFields: Object.freeze({
+     "id": "id",
+     "purchase_order": "purchaseOrder",
+     "purchaseOrder": "purchaseOrder",
+     "tenant": "tenant",
+     "product_name": "productName",
+     "productName": "productName",
+     "unit_price": "unitPrice",
+     "unitPrice": "unitPrice",
+     "create_time": "createTime",
+     "createTime": "createTime",
+     "update_time": "updateTime",
+     "updateTime": "updateTime",
+     "version": "version",
+    }),
+    relations: Object.freeze({
+     "purchase_order": "PurchaseOrder",
+     "purchaseOrder": "PurchaseOrder",
+     "tenant": "Tenant",
+    }),
+  }),
+});

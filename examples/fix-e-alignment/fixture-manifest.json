@@ -1,0 +1,35 @@
+{
+  "schema": "teaql.generated-example-fixture/v1",
+  "language": "typescript",
+  "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7",
+  "generatedManifestSha256": "081388d2161626c267428c473a3d61ab448e1acf161a7b8b164234556ee399ba",
+  "producerReceiptSha256": "d96c2ac416faaf65064f24c5a50900a30e6788dae1c58636b3d1e28d38b4dc7b",
+  "producerSource": {
+    "commit": "e8924609aa88e88a1ca2af91289de025659205cd",
+    "diff": "966e5e6af31d096935302fc14fab18a5472d33bacdf3ef3247bc766a446cbb3c",
+    "status": "ac3d44d1d8bb7fb1aec308f4a03e418be8ca527822ec188020771b96e2234502",
+    "sourceContentsSha256": "ced56ce22cfc75928b56b3eb890a2ab470c74ab2f065ce79d07f9c6012574e0d"
+  },
+  "evaluatedScope": "typescript-lib-core",
+  "evaluationErrors": 0,
+  "evaluationWarnings": 4,
+  "files": {
+    "teaql-i18n.json": "c8229ce36ed92393409dd95a5e6a6bd72c9818c95520d5d2e3656ac6f7c0f014",
+    "src/generated/requests/TenantRequest.ts": "320b641ab4660c345e1c44b734856cb4f8a0ada89ae32f65b6eb1a43c16a11d1",
+    "src/generated/requests/PurchaseOrderRequest.ts": "3826bc65d654475f77b1e5c257a3acdd966034447d132bbc9c6263a0748f0d2a",
+    "src/generated/requests/OrderItemRequest.ts": "6c24a7521bbc990171a32d29d87833eebda9e3a87afe975c578e3cb34baefdc5",
+    "package.json": "ecffe1548961c73221820aa426ea156897c61aac9c66af14cba31b99622f5fad",
+    "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
+    "src/teaql-ts.ts": "840c61603f6c3d7c65404ba7461dea594d5f2a1dabf85f3242f36a3c654adf4a",
+    "src/generated-search-models.ts": "f7be71e619617cb1ff0011791d82f0bcd6ef9e3f94ce6f8159f283d3d160aef6",
+    "src/teaql-node-sql.ts": "dabe21ab06bc85ee8ae2ca76440ef7fe7f8c3212fa2cd82ebdb838d549a276a3",
+    "src/runtime-module.ts": "8bd95330739f5e9e750c9dd5e5ae8c61d74a248cedd04c9649c3444ec9554239",
+    "src/generated-bootstrap.ts": "f16c9576076922c99fab0b88ab36c7c21b1560dce451d99d44b281bbedc5c237",
+    "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
+    "src/generated/E.ts": "fb34d9d3356c57503bdddaf1b709cc2f1e285de392693299f52bbd3cc9d7d521",
+    "src/generated/Q.ts": "05ce50d75c5cfb3603168bc18d8d915de16b76781d706447b7f766b20a73ed87",
+    "src/generated/models/Tenant.ts": "b12d219ca86d738fd2108055169f82ac1b2c4f7b8dda5f98bba86994f6d484ef",
+    "src/generated/models/PurchaseOrder.ts": "4771f15cbb9f902c3e47d95f6853fea182acbec380cbb8eadae2aa0e3d6120b9",
+    "src/generated/models/OrderItem.ts": "64e4d4f0ee46bfa71d8f3150ad40b8af352bd58b9ccf730132ad2a1592f58392"
+  }
+}
