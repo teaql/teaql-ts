@@ -37,7 +37,7 @@ import {
   parseLocale,
   queryOperationComment,
   queryTraceSource
-} from "./chunks/chunk-XOHMK4P5.js";
+} from "./chunks/chunk-JJ4HMFU3.js";
 import {
   MAX_OBJECT_PUT_SIZE,
   ObjectContent,
