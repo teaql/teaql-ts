@@ -26,7 +26,7 @@ import {
   queryTraceSource,
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-XOHMK4P5.js";
+} from "./chunk-JJ4HMFU3.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -1477,7 +1477,7 @@ var AbstractSQLTeaQLClient = class {
     });
     const rows = await this.executeQuery(countRequest.query);
     const value = rows[0]?.[alias];
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (rows.length !== 1 || typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
       throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
     }
     return value;
@@ -1909,4 +1909,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-2WIK333Y.js.map
+//# sourceMappingURL=chunk-YW5SDSKW.js.map

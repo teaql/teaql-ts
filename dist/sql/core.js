@@ -1442,7 +1442,7 @@ class AbstractSQLTeaQLClient {
         });
         const rows = await this.executeQuery(countRequest.query);
         const value = rows[0]?.[alias];
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
+        if (rows.length !== 1 || typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
             throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
         }
         return value;
