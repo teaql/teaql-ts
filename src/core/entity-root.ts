@@ -22,7 +22,7 @@ export class EntityRoot {
   set(key: EntityKey, field: string, value: unknown): void {
     if (!field.trim()) throw new TypeError('field is required');
     const id = identity(key);
-    const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: {} };
+    const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: Object.create(null) };
     entry.values[field] = value;
     this.changes.set(id, entry);
   }
@@ -36,6 +36,16 @@ export class EntityRoot {
 
   change(key: EntityKey): Readonly<Record<string, unknown>> {
     return Object.freeze({ ...(this.changes.get(identity(key))?.values ?? {}) });
+  }
+
+  /** @internal Remove only the exact intents observed during baseline comparison. */
+  discardFields(key: EntityKey, observed: Readonly<Record<string, unknown>>): void {
+    const id = identity(key), entry = this.changes.get(id);
+    if (!entry) return;
+    for (const [field, value] of Object.entries(observed)) {
+      if (Object.prototype.hasOwnProperty.call(entry.values, field) && Object.is(entry.values[field], value)) delete entry.values[field];
+    }
+    if (!Object.keys(entry.values).length) this.changes.delete(id);
   }
 
   mergeFrom(other: EntityRoot): void {

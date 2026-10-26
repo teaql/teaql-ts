@@ -590,7 +590,13 @@ async function seedDemoData(active: Runtime): Promise<void> {
       entity: record.entity,
       action: 'Create',
       id: record.id,
-      payload: record.payload,
+      // The fixture uses native JS member names; the mutation boundary uses
+      // model names from trusted metadata, never a guessed casing conversion.
+      payload: Object.fromEntries(Object.entries(record.payload).map(([field, value]) => {
+        const column = ORDER_SCHEMAS[record.entity]?.columns[field];
+        if (!column) throw new Error(`Unknown fixture field ${record.entity}.${field}`);
+        return [column.modelName ?? field, value];
+      })),
     }));
     for (const request of requests) active.client.preflightMutation(request);
     for (const request of requests) await active.client.executeMutation(request);

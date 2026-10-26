@@ -6,6 +6,7 @@ import {
   startRuntimeOperation,
 } from '../core/telemetry';
 import { CheckException, EntityChecker } from '../core/checker';
+import { MutationFieldLayout } from '../core/mutation-field-layout';
 import { UserContext } from '../core/context';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
@@ -733,9 +734,15 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (!column) throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
       return {
         column: column.columnName,
+        model: column.modelName ?? field,
+        original: value,
         value: this.driver.encode(value, column),
       };
     });
+    // Legacy bootstrap declarations use schema-member keys. Their trusted
+    // metadata is adapted here; ordinary mutation requests still admit only
+    // canonical model keys and never receive this alias conversion.
+    const canonicalValues = Object.fromEntries(entries.map(entry => [entry.model, entry.original]));
     const query = new SelectQuery(record.entity).filter({ id: { $eq: record.id } }).limit(1)
       .comment('inspect model bootstrap record').purpose('ensure model-defined root and constants');
     query.prepareForList();
@@ -751,7 +758,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       () => session.query(sql, values));
     if (!current.rowCount) {
       return { entity: record.entity, action: 'Create', id: record.id, version: 0,
-        payload: { ...record.values } };
+        payload: canonicalValues };
     }
     const row = current.rows[0];
     const changed = entries.filter(entry => !sameBootstrapValue(row[entry.column], entry.value));
@@ -759,7 +766,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // Checker sees the fully loaded object, not a partial update projection.
     return { entity: record.entity, action: 'Update', id: record.id,
       version: Number(row[schema.columns.version?.columnName ?? 'version']),
-      payload: { ...this.decodeRowForSchema(schema, row), ...record.values } };
+      payload: { ...Object.fromEntries(Object.entries(this.decodeRowForSchema(schema, row))
+        .map(([field, value]) => [schema.columns[field]?.modelName ?? field, value])), ...canonicalValues } };
   }
 
   async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T> {
@@ -793,6 +801,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.activeGraph = graph;
       try { await prepare?.(graph); }
       finally { this.activeGraph = undefined; }
+      if (graph.isPreparedEmpty) {
+        this.activeGraph = graph;
+        try { return await work(graph); }
+        finally { this.activeGraph = undefined; }
+      }
       const result = await this.driver.transaction(async session => {
         this.graphMutationSession = session;
         this.activeGraph = graph;
@@ -859,6 +872,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   preflightMutation(mutation: any): any {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
+    request.graphSession?.recordPreparedMutation();
     mutation = this.checkAndFixMutation(request);
     if (request.graphSession) {
       const schema = this.schema(mutation.entity);
@@ -882,6 +896,17 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
     mutation = request.mutation;
+    const schema = this.schemas[String(mutation.entity)];
+    // A schema-less denied operation must still reach the existing policy
+    // boundary. Do not invent model vocabulary or move its rejection priority.
+    if (schema) {
+      const fields = new MutationFieldLayout(String(mutation.entity), Object.entries(schema.columns).map(([name, column]) => column.modelName ?? name));
+      fields.validate(mutation.payload ?? {}, mutation.action === 'Update');
+      if (mutation.ledgerKey && mutation.ledgerRoot) {
+        if (mutation.ledgerKey.entity !== mutation.entity) throw new Error('MUTATION_LAYOUT_OWNER_MISMATCH');
+        fields.validate(mutation.ledgerRoot.change(mutation.ledgerKey), mutation.action === 'Update');
+      }
+    }
     // The ledger exposes immutable snapshots. Fixers receive a mutable working
     // payload and every derived value is copied back into the graph ledger.
     mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
@@ -914,6 +939,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // Validate before Checker, policy, telemetry and transaction/provider work.
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
+    request.graphSession?.requireMutationAllowed();
     if (this.activeGraph && !this.graphMutationSession) {
       throw new Error('Graph preparation cannot execute mutations before its transaction');
     }

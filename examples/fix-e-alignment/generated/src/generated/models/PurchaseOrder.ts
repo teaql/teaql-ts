@@ -1,9 +1,11 @@
-import { CheckException, Decimal, decimal, Long, long, LocalTime, localTime, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, Decimal, decimal, Long, long, LocalTime, localTime, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Tenant } from './Tenant';
 import { OrderItem } from './OrderItem';
 
 export class PurchaseOrder {
     private static teaqlTemporaryId = 0;
+    private static readonly teaqlMutationFields = new MutationFieldLayout("PurchaseOrder",
+        ["id", "tenant", "contact_phone", "internal_note", "create_time", "update_time", "version"]);
         id?: string;
         tenant?: Tenant | string;
         contactPhone?: string;
@@ -44,22 +46,22 @@ export class PurchaseOrder {
         const key = this.teaqlEntityKey();
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, Number((this as any).version));
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload());
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "PurchaseOrder", id: (this as any)._ledgerId }; }
-    private teaqlAttachRoot(root: EntityRoot): this {
+    private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
         if ((this as any)._root !== root) {
             root.mergeEntityFrom((this as any)._root, this.teaqlEntityKey());
             (this as any)._root = root;
         }
-        for (const child of (this as any)._orderItemList) child.teaqlAttachRoot(root);
+        for (const child of (this as any)._orderItemList) child.teaqlAttachRoot(root, hydration);
         return this;
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): PurchaseOrder {
         const entity = new PurchaseOrder(record as Partial<PurchaseOrder>);
-        return root ? entity.teaqlAttachRoot(root) : entity;
+        return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
     isLoaded(field: string): boolean {
@@ -93,22 +95,27 @@ export class PurchaseOrder {
     }
 
     auditAs(comment: string): this {
-        new MutationIntent(comment);
-        (this as any)._comment = comment;
+        (this as any)._comment = new MutationIntent(comment).comment;
         return this;
     }
 
     async save(context: UserContext): Promise<PurchaseOrder> {
+        const intent = new MutationIntent((this as any)._comment);
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             return this.teaqlSaveWithinGraph(context, service, graph);
-        }, (graph) => this.teaqlPreflightGraph(context, service, graph));
+        }, (graph) => {
+            this.teaqlPreflightGraph(context, service, graph);
+            graph.sealPreparedGraph();
+        });
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
         if (!parent) new MutationIntent((this as any)._comment);
         const action = (this as any)._action;
+        graph.discardRestoredFields(PurchaseOrder.teaqlMutationFields,
+            (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
             const notLoaded = [{ member: "id", canonical: "id" }, { member: "tenant", canonical: "tenant" }, { member: "contactPhone", canonical: "contact_phone" }, { member: "internalNote", canonical: "internal_note" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]
@@ -126,7 +133,8 @@ export class PurchaseOrder {
             payload: action === "Update"
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
-            id: (this as any).id, version: (this as any).version,
+            id: (this as any).id,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
@@ -158,7 +166,7 @@ export class PurchaseOrder {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any).version,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
@@ -200,10 +208,11 @@ export class PurchaseOrder {
         };
         const oldKey = this.teaqlEntityKey();
         Object.assign(this, result.persistedRecord);
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload());
         (this as any)._ledgerId = (this as any).id ?? (this as any)._ledgerId;
         const newKey = this.teaqlEntityKey();
         (this as any)._root.rekey(oldKey, newKey);
+        const committedSnapshot = this.teaqlScalarSnapshot();
+        const activeScope = request.scopeFor(newKey);
         service.afterGraphRollback(() => {
             Object.assign(this, rollbackState.payload);
             (this as any)._ledgerId = rollbackState.ledgerId;
@@ -232,6 +241,7 @@ export class PurchaseOrder {
             }
         }
         service.afterGraphCommit(() => {
+            LoadedScalarSnapshot.restoreFor(this, committedSnapshot);
             (this as any)._root.clearEntity(newKey);
             if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
         });
@@ -248,6 +258,10 @@ export class PurchaseOrder {
             "update_time": this.updateTime,
             "version": this.version
         };
+    }
+
+    private teaqlScalarSnapshot(): LoadedScalarSnapshot {
+        return new LoadedScalarSnapshot(this.teaqlMutationPayload(), this.teaqlEntityKey(), (this as any).version);
     }
 
     updateId(value: string): this {

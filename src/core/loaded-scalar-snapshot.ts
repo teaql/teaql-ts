@@ -1,13 +1,16 @@
 import { snapshotQuery } from './query-snapshot';
+import type { EntityKey, EntityRoot } from './entity-root';
 
 const loadedSnapshots = new WeakMap<object, LoadedScalarSnapshot>();
 
 /** @internal Loaded scalar provenance. No relations, ownership, SQL or Context. */
 export class LoadedScalarSnapshot {
   readonly #values: Readonly<Record<string, unknown>>;
+  readonly #owner?: Readonly<{key: EntityKey; version: number}>;
 
-  constructor(values: Record<string, unknown> = {}) {
+  constructor(values: Record<string, unknown> = {}, key?: EntityKey, version?: number) {
     this.#values = snapshotQuery(values);
+    if (key && Number.isSafeInteger(version) && version !== 0) this.#owner = Object.freeze({key: Object.freeze({...key}), version: version!});
     Object.freeze(this);
   }
 
@@ -15,8 +18,8 @@ export class LoadedScalarSnapshot {
   values(): Readonly<Record<string, unknown>> { return snapshotQuery(this.#values); }
 
   /** @internal Generated hydration stores provenance outside entity/JSON state. */
-  static captureFor(entity: object, values: Record<string, unknown>): LoadedScalarSnapshot {
-    const snapshot = new LoadedScalarSnapshot(values);
+  static captureFor(entity: object, values: Record<string, unknown>, key?: EntityKey, version?: number): LoadedScalarSnapshot {
+    const snapshot = new LoadedScalarSnapshot(values, key, version);
     loadedSnapshots.set(entity, snapshot);
     return snapshot;
   }
@@ -29,4 +32,38 @@ export class LoadedScalarSnapshot {
     if (snapshot) loadedSnapshots.set(entity, snapshot);
     else loadedSnapshots.delete(entity);
   }
+
+  /** @internal Called only after model-field admission, before completeness and Fix. */
+  discardRestoredFields(root: EntityRoot, key: EntityKey): void {
+    const owner = this.#owner;
+    if (!owner || owner.key.entity !== key.entity || !Object.is(owner.key.id, key.id)
+      || root.originalVersion(key) !== owner.version || root.isNew(key) || root.isDeleted(key)) return;
+    const restored: Record<string, unknown> = Object.create(null);
+    for (const [field, value] of Object.entries(root.change(key))) {
+      // Undefined is an unknown original, not a loaded null.
+      const original = Object.getOwnPropertyDescriptor(this.#values, field);
+      if (field !== 'id' && field !== 'version' && original && 'value' in original && original.value !== undefined
+        && sameValue(original.value, value)) restored[field] = value;
+    }
+    root.discardFields(key, restored);
+  }
+}
+
+/** Exact, bounded scalar/JSON comparison. No numeric or string coercion. */
+function sameValue(a: unknown, b: unknown, budget = {nodes: 4096}, depth = 0): boolean {
+  if (--budget.nodes < 0 || depth > 64 || typeof a !== typeof b) return false;
+  if (typeof a === 'number') return Number.isFinite(a) && Number.isFinite(b) && Object.is(a, b);
+  if (a === null || b === null || typeof a !== 'object') return Object.is(a, b);
+  if (a instanceof Date || b instanceof Date) return a instanceof Date && b instanceof Date && Number.isFinite(a.getTime()) && a.getTime() === b.getTime();
+  if (a instanceof Uint8Array || b instanceof Uint8Array) return a instanceof Uint8Array && b instanceof Uint8Array
+    && a.length === b.length && a.every((value, index) => value === b[index]);
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (!Array.isArray(a) && (Object.getPrototypeOf(a) !== Object.prototype && Object.getPrototypeOf(a) !== null
+    || Object.getPrototypeOf(b) !== Object.prototype && Object.getPrototypeOf(b) !== null)) return false;
+  if (Array.isArray(a) && a.length !== (b as unknown[]).length) return false;
+  const left = Object.getOwnPropertyDescriptors(a), right = Object.getOwnPropertyDescriptors(b);
+  const keys = Object.keys(left).filter(key => left[key].enumerable);
+  if (keys.length !== Object.keys(right).filter(key => right[key].enumerable).length) return false;
+  return keys.every(key => Object.prototype.hasOwnProperty.call(right, key) && right[key].enumerable
+    && 'value' in left[key] && 'value' in right[key] && sameValue(left[key].value, right[key].value, budget, depth + 1));
 }

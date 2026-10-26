@@ -5,6 +5,7 @@ import { inheritSQLLogBindings, logValueStrings, privateLogValueStrings, scrubLo
 import type { SQLLogBindingSource } from './log-privacy';
 import { snapshotQuery, queryExecutionOwner, retainQueryExecutionOwner } from './query-snapshot';
 import { LoadedScalarSnapshot } from './loaded-scalar-snapshot';
+import { MutationFieldLayout } from './mutation-field-layout';
 
 const mutationSnapshots = new WeakMap<object, LoadedScalarSnapshot>();
 
@@ -309,12 +310,34 @@ export class MutationRequest<T extends object = MutationQuery> {
 export class GraphMutationSession {
   readonly #intent: MutationIntent;
   #bindings?: SQLLogBindingSource;
+  #preparedCount = 0;
+  #sealed = false;
 
   constructor(intent: MutationIntent) {
     this.#intent = new MutationIntent(intent?.comment);
     Object.freeze(this);
   }
   get intent(): MutationIntent { return this.#intent; }
+
+  /** @internal Only generated complete traversal may seal a prepared plan. */
+  sealPreparedGraph(): void { this.#sealed = true; }
+  get isPreparedEmpty(): boolean { return this.#sealed && this.#preparedCount === 0; }
+  /** @internal Manual unsealed graphs retain their existing transaction behavior. */
+  recordPreparedMutation(): void {
+    if (this.#sealed) throw new Error('GRAPH_PREPARATION_SEALED: cannot add mutations after complete preparation');
+    this.#preparedCount++;
+  }
+  /** @internal A sealed empty plan must never admit an unplanned write. */
+  requireMutationAllowed(): void {
+    if (this.isPreparedEmpty) throw new Error('GRAPH_PREPARATION_EMPTY: complete graph has no admitted mutations');
+  }
+  /** @internal Admission always precedes cancellation, including unknown baselines. */
+  discardRestoredFields(layout: MutationFieldLayout, root: EntityRoot, key: EntityKey,
+    snapshot: LoadedScalarSnapshot | undefined): void {
+    if (layout.entity !== key.entity) throw new Error('MUTATION_LAYOUT_OWNER_MISMATCH');
+    layout.validate(root.change(key), !root.isNew(key));
+    snapshot?.discardRestoredFields(root, key);
+  }
 
   request<T extends object>(mutation: T, parent?: MutationTraceScope,
     localComment?: string): MutationRequest<T> {
