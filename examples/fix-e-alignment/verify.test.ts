@@ -136,6 +136,16 @@ test('a generated persisted field restored to its baseline has no provider, poli
       expect(effects).toMatchObject({transactions: 0, providerQueries: 0, policyReviews: 0, auditEvents: 0});
     };
     const reset = () => { transaction.mockClear(); query.mockClear(); policy.mockClear(); return client.auditTrace.length; };
+    const rawKey = {entity: 'PurchaseOrder', id: (row as any)._ledgerId};
+    (row as any)._root.set(rawKey, 'contact_phone', '5550799');
+    (row as any)._root.set(rawKey, 'contact_phone', '5550700');
+    const rawAudits = reset();
+    await row.auditAs('Save an admitted raw canonical field restored to baseline').save(context);
+    const rawResult = {transactions: transaction.mock.calls.length, providerQueries: query.mock.calls.length,
+      policyReviews: policy.mock.calls.length, auditEvents: client.auditTrace.length - rawAudits,
+      version: row.version, projectionUnchanged: JSON.stringify(row) === json};
+    expect(rawResult).toEqual({transactions: 0, providerQueries: 0, policyReviews: 0, auditEvents: 0, version: 1, projectionUnchanged: true});
+    process.stdout.write('CORE_BASELINE_RESTORATION_RAW=' + JSON.stringify(rawResult) + '\n');
     const nullBefore = JSON.stringify(row);
     expect(E.purchaseOrder(row).internalNote().eval()).toBeNull();
     row.updateInternalNote('intermediate note').updateInternalNote(null);
@@ -195,6 +205,17 @@ test('a generated persisted field restored to its baseline has no provider, poli
       expect(childOracle.prepare('SELECT purchase_order, product_name, version FROM order_item_data WHERE id = ?').get(child.id))
         .toEqual({purchase_order: Number(entity.id), product_name: 'Widget', version: 1});
     } finally { childOracle.close(); }
+    row.updateContactPhone('5550799').updateContactPhone('5550700').markForDeletion();
+    auditStart = reset(); await row.auditAs('Keep pending deletion after a restored scalar edit').save(context);
+    expect(row.version).toBe(-3); expect(transaction).toHaveBeenCalledTimes(1); expect(policy).toHaveBeenCalledTimes(1);
+    expect(client.auditTrace.length - auditStart).toBe(1);
+    const deletionOracle = new Database(filename, {readonly: true, fileMustExist: true});
+    let deleted;
+    try {deleted = deletionOracle.prepare(`SELECT contact_phone, version FROM "${schema.table}" WHERE id = ?`).get(row.id);}
+    finally {deletionOracle.close();}
+    expect(deleted).toEqual({contact_phone: '5550700', version: -3});
+    process.stdout.write('CORE_BASELINE_RESTORATION_DELETE=' + JSON.stringify({version: row.version, transactions: transaction.mock.calls.length,
+      policyReviews: policy.mock.calls.length, auditEvents: client.auditTrace.length - auditStart, physical: deleted}) + '\n');
     process.stdout.write('CORE_BASELINE_RESTORATION_COMPLETE=' + JSON.stringify({language: 'typescript', passed: true,
       knownValue: true, knownNull: true, sparseGeometry: true, unknownOriginal: true, rawAdmission: true,
       genuineEdit: true, cleanParentDirtyChild: true, independentReadOnlyOracle: true}) + '\n');

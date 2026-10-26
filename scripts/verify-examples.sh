@@ -8,13 +8,14 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bash "$repo/examples/object-storage/verify.sh"
 (cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
 mkdir -p "$repo/.local"
-expected=(browser-sqlite conformance ensure-schema-bootstrap facet-trace fix-e-alignment object-storage order-management school-management task-board trace-chain)
+expected=(browser-sqlite conformance ensure-schema-bootstrap facet-trace fix-e-alignment object-storage order-management scalar-type-probe school-management task-board trace-chain)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2
   exit 1
 fi
 node "$repo/examples/fix-e-alignment/verify-local.cjs"
+node "$repo/examples/scalar-type-probe/verify-local.cjs"
 if rg -n --glob '*.ts' --glob '!**/node_modules/**' --glob '!**/dist/**' \
     '\b(executeForPage|ExecuteForPage|execute_for_page)\b' "$repo/examples"; then
   echo 'FAIL: an example still exposes or calls a retired page terminal; regenerate its library' >&2

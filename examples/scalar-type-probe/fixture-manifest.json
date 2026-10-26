@@ -1,0 +1,33 @@
+{
+  "schema": "teaql.generated-example-fixture/v1",
+  "language": "typescript",
+  "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762",
+  "generatedManifestSha256": "fb220cf042daca9d8a0dd6348239840bbb22dead7eb50027710d5519011f55a2",
+  "producerReceiptSha256": "90ee061d8863a3fd9cbc657b5ed96b784e870e59ff224f3f6cfe97546b0d531a",
+  "producerSource": {
+    "commit": "1f34f552f49db5067d80766879e4b294483c867b",
+    "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sourceContentsSha256": "7c00cc93d2a286466ad6ed029f82107566e915ff6d34ccd6d2f62042479506a7"
+  },
+  "evaluatedScope": "typescript-node-lib-core",
+  "evaluationErrors": 0,
+  "evaluationWarnings": 0,
+  "files": {
+    "src/generated/models/TypePlatform.ts": "674e12ec1eb9bb373c2bf28cd383ce6400c1f0e67e2f8c97597b61b90ec2a644",
+    "src/generated/models/ScalarTypeProbe.ts": "0bdb3a616f49aaf114b6fe1672ebfa285c4d89074122ba2852022a4f42de247f",
+    "package.json": "c857608f78461bfe1a63095fd2e0d04ead1669c415de8e7a1f8fb4c216c73558",
+    "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
+    "src/teaql-ts.ts": "8ecb31b00492c3b35930fb480b7e4876168b6df04297975780054f1dd09f3664",
+    "src/generated-search-models.ts": "25be59abce5f53f0434f3cb781ff29930118e08d851e2c7f8930a447e6b34956",
+    "src/teaql-node-sql.ts": "79a0b0e5120f598d3581f239ae1661221d154661ffba09b66ccc8b9f29e9a6a4",
+    "src/runtime-module.ts": "b8898eecf41ea135ba72efe960cfda1eede40ec5cc1afba5a077ba4c6b8dfcf5",
+    "src/generated-bootstrap.ts": "92184f41b0a04ce3661a14deab06b2ee99a1bf644641dfe280b89dad416ed63e",
+    "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
+    "src/generated/E.ts": "7617de850db599923c43f6ed8a46bb49d71cea7c0850bf32d034fafe2dc87470",
+    "teaql-i18n.json": "a2b6c40ece22b6c1c4b0231036e6859c294494c3ed6db8d24d57f08448457163",
+    "src/generated/Q.ts": "e9c654d67ae27c4fdb1fbb38cfdb99a4a89b88fdeeac3de2ae862358bae3b143",
+    "src/generated/requests/TypePlatformRequest.ts": "7a538511c50070207631a39b185f9266ad03c4324850d28d1c11be8bd9652b35",
+    "src/generated/requests/ScalarTypeProbeRequest.ts": "2944644b702d157b8aaefdd3238f1e12845df8782589073dd11842acfede1562"
+  }
+}
