@@ -39,6 +39,21 @@
       "import": "./dist/esm/blob-reference/upload-service.js",
       "require": "./dist/blob-reference/upload-service.js"
     },
+    "./blob-reference/module": {
+      "types": "./dist/blob-reference/module.d.ts",
+      "import": "./dist/esm/blob-reference/module.js",
+      "require": "./dist/blob-reference/module.js"
+    },
+    "./secure-document-reference/round-trip-reference": {
+      "types": "./dist/secure-document-reference/round-trip-reference.d.ts",
+      "import": "./dist/esm/secure-document-reference/round-trip-reference.js",
+      "require": "./dist/secure-document-reference/round-trip-reference.js"
+    },
+    "./secure-document-reference/document-round-trip": {
+      "types": "./dist/secure-document-reference/document-round-trip.d.ts",
+      "import": "./dist/esm/secure-document-reference/document-round-trip.js",
+      "require": "./dist/secure-document-reference/document-round-trip.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
@@ -108,6 +123,9 @@
       "blob-reference/mutation-participant": ["dist/blob-reference/mutation-participant.d.ts"],
       "blob-reference/read-service": ["dist/blob-reference/read-service.d.ts"],
       "blob-reference/upload-service": ["dist/blob-reference/upload-service.d.ts"],
+      "blob-reference/module": ["dist/blob-reference/module.d.ts"],
+      "secure-document-reference/round-trip-reference": ["dist/secure-document-reference/round-trip-reference.d.ts"],
+      "secure-document-reference/document-round-trip": ["dist/secure-document-reference/document-round-trip.d.ts"],
       "sql/core": [
         "dist/sql/core.d.ts"
       ],

@@ -159,7 +159,7 @@ class ViewPreparationService {
             const safeCodes = new Set(['VIEW_OPTIONS_INVALID', 'VIEW_AUTHORIZER_MISSING',
                 'VIEW_GRAPH_INVALID', 'DOCUMENT_CONFIGURATION', 'BLOB_CAPABILITY_MISSING',
                 'BLOB_SIGN_FAILED', 'BLOB_READ_DENIED', 'BLOB_REFERENCE_EXPIRED',
-                'BLOB_SCHEMA_MISSING', 'BLOB_CATALOG_FAILED']);
+                'BLOB_SCHEMA_MISSING', 'BLOB_CATALOG_FAILED', 'DOCUMENT_PROJECTION_VIOLATION']);
             const code = error instanceof Error && safeCodes.has(error.message)
                 ? error.message : 'VIEW_PREPARATION_FAILED';
             throw new ViewPreparationError(code, options?.businessOutcome === 'committed'

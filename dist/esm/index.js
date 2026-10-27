@@ -31,15 +31,17 @@ import {
   checkResultToWire,
   cloneTraceNodes,
   executeRelationFacets,
-  installRuntimeCapability,
   locales,
   mergeRuntimeBootstrap,
   mutationScopeForEntity,
   parseLocale,
   queryOperationComment,
-  queryTraceSource,
+  queryTraceSource
+} from "./chunks/chunk-OMZYOMS2.js";
+import {
+  installRuntimeCapability,
   requireRuntimeCapabilities
-} from "./chunks/chunk-5RP5ZUBS.js";
+} from "./chunks/chunk-HDIMWNEB.js";
 import {
   BlobFieldSpec,
   BlobRef
@@ -771,7 +773,8 @@ var ViewPreparationService = class {
         "BLOB_READ_DENIED",
         "BLOB_REFERENCE_EXPIRED",
         "BLOB_SCHEMA_MISSING",
-        "BLOB_CATALOG_FAILED"
+        "BLOB_CATALOG_FAILED",
+        "DOCUMENT_PROJECTION_VIOLATION"
       ]);
       const code = error instanceof Error && safeCodes.has(error.message) ? error.message : "VIEW_PREPARATION_FAILED";
       throw new ViewPreparationError(code, options?.businessOutcome === "committed" ? "committed" : "read_only");

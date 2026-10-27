@@ -24,10 +24,12 @@ import {
   projectSafeSQLLog,
   queryDiagnosticOrigin,
   queryTraceSource,
-  requireRuntimeCapabilities,
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-5RP5ZUBS.js";
+} from "./chunk-OMZYOMS2.js";
+import {
+  requireRuntimeCapabilities
+} from "./chunk-HDIMWNEB.js";
 import {
   BlobFieldSpec,
   BlobRef
@@ -2043,4 +2045,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-OST3263T.js.map
+//# sourceMappingURL=chunk-RWTRNE3E.js.map
