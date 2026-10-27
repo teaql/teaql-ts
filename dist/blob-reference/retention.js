@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BlobRetention = void 0;
+exports.BlobRetention = exports.BlobRetentionPolicy = void 0;
 const MAX_EPOCH_MS = 8640000000000000;
 function instant(value) {
     if (value === undefined || !Number.isSafeInteger(value) || value < 0 || value > MAX_EPOCH_MS)
@@ -13,6 +13,22 @@ function retention(seconds) {
         throw new Error('BLOB_POLICY_INVALID');
     return seconds;
 }
+/** Immutable server-selected policy facts. Direct uploads need a separate
+ * quiescence proof before any lifecycle collection. */
+class BlobRetentionPolicy {
+    constructor(profile, uploadMode, unboundRetentionSeconds, unreferencedRetentionSeconds) {
+        if (typeof profile !== 'string' || !profile.trim() || profile !== profile.trim() ||
+            Buffer.byteLength(profile) > 256 || /[\x00-\x1f\x7f-\x9f]/.test(profile) ||
+            !['server_stream', 'direct'].includes(uploadMode))
+            throw new Error('BLOB_POLICY_INVALID');
+        this.profile = profile;
+        this.uploadMode = uploadMode;
+        this.unboundRetentionSeconds = retention(unboundRetentionSeconds);
+        this.unreferencedRetentionSeconds = retention(unreferencedRetentionSeconds);
+        Object.freeze(this);
+    }
+}
+exports.BlobRetentionPolicy = BlobRetentionPolicy;
 function deadline(base, seconds) {
     const result = instant(base) + retention(seconds) * 1000;
     if (!Number.isSafeInteger(result) || result > MAX_EPOCH_MS)

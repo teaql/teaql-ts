@@ -1,4 +1,7 @@
 import {
+  BlobRetentionPolicy
+} from "./chunk-FUEEXNNP.js";
+import {
   BlobFieldSpec,
   BlobRef
 } from "./chunk-VJE6OLEA.js";
@@ -66,7 +69,9 @@ var SqliteBlobUploadService = class {
     } catch {
       throw new Error("BLOB_UPLOAD_DENIED");
     }
-    return this.checkCurrent(current.scope, current.field, current.allowed, target, input, expectedScope);
+    this.checkCurrent(current.scope, current.field, current.allowed, target, input, expectedScope);
+    if (current.policy !== void 0 && (!(current.policy instanceof BlobRetentionPolicy) || current.policy.profile !== current.field.policyProfile || current.policy.uploadMode !== "server_stream")) throw new Error("BLOB_POLICY_INVALID");
+    return current;
   }
   checkCurrent(scope, field, allowed, target, input, expectedScope) {
     if (!name(scope) || Buffer.byteLength(scope) > 256 || expectedScope !== void 0 && scope !== expectedScope || !(field instanceof BlobFieldSpec) || field.entity !== target.entity || field.field !== target.field || !allowed) throw new Error("BLOB_UPLOAD_DENIED");
@@ -123,10 +128,24 @@ var SqliteBlobUploadService = class {
       const uploadId = `bu_${token()}`;
       const objectKey = `blob/${token()}`;
       const expiresAt = this.now() + this.leaseSeconds * 1e3;
-      await this.currentOnLease(context, sql, target, "Begin", normalized, scope);
+      const current = await this.currentOnLease(context, sql, target, "Begin", normalized, scope);
       await sql.query(`INSERT INTO teaql_blob_catalog
-        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status)
-        VALUES (?,?,?,?,?,?,?,?)`, [reference.key, scope, objectKey, "", normalized.fileName, "", 0, "initiated"]);
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status,
+         policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [
+        reference.key,
+        scope,
+        objectKey,
+        "",
+        normalized.fileName,
+        "",
+        0,
+        "initiated",
+        current.policy?.profile ?? null,
+        current.policy?.uploadMode ?? null,
+        current.policy?.unboundRetentionSeconds ?? null,
+        current.policy?.unreferencedRetentionSeconds ?? null
+      ]);
       await sql.query(
         `INSERT INTO teaql_blob_upload
         (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
@@ -507,4 +526,4 @@ var SqliteBlobUploadService = class {
 export {
   SqliteBlobUploadService
 };
-//# sourceMappingURL=chunk-K3MOHVTM.js.map
+//# sourceMappingURL=chunk-7JT6S4FR.js.map

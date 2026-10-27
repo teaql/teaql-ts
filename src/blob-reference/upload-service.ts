@@ -5,6 +5,7 @@ import { MAX_OBJECT_PUT_SIZE, ObjectByteStream, ObjectKey, ObjectMetadata,
   ObjectPutOptions, ObjectStorage, StorageError } from '../core/object-storage';
 import type { SqlSession } from '../sql/core';
 import { SqlBlobCatalog } from './sql-catalog';
+import { BlobRetentionPolicy } from './retention';
 
 export type BlobUploadTarget = Readonly<{ entity: string; entityId: string | null; field: string }>;
 export type BlobUploadInput = Readonly<{ fileName: string; declaredSize: number; declaredContentType?: string }>;
@@ -20,6 +21,7 @@ export interface BlobUploadAuthorization {
   currentOnLease(context: UserContext, lease: SqlSession, target: BlobUploadTarget,
     action: 'Begin' | 'Write' | 'Confirm', input: BlobUploadInput): Promise<{
       scope: string; field: BlobFieldSpec; allowed: boolean;
+      policy?: BlobRetentionPolicy;
     }>;
 }
 
@@ -89,14 +91,22 @@ export class SqliteBlobUploadService {
 
   private async currentOnLease(context: UserContext, lease: SqlSession, target: BlobUploadTarget,
                                action: 'Begin' | 'Write' | 'Confirm', input: BlobUploadInput,
-                               expectedScope?: string): Promise<string> {
+                               expectedScope?: string): Promise<{
+                                 scope: string; field: BlobFieldSpec; allowed: boolean;
+                                 policy?: BlobRetentionPolicy;
+                               }> {
     if (!target || !name(target.entity) || !name(target.field) || !entityId(target.entityId)) {
       throw new Error('BLOB_REFERENCE_INVALID');
     }
     let current;
     try { current = await this.authorization.currentOnLease(context, lease, target, action, input); }
     catch { throw new Error('BLOB_UPLOAD_DENIED'); }
-    return this.checkCurrent(current.scope, current.field, current.allowed, target, input, expectedScope);
+    this.checkCurrent(current.scope, current.field, current.allowed, target, input, expectedScope);
+    if (current.policy !== undefined &&
+        (!(current.policy instanceof BlobRetentionPolicy) ||
+          current.policy.profile !== current.field.policyProfile ||
+          current.policy.uploadMode !== 'server_stream')) throw new Error('BLOB_POLICY_INVALID');
+    return current;
   }
 
   private checkCurrent(scope: string, field: BlobFieldSpec, allowed: boolean,
@@ -155,10 +165,14 @@ export class SqliteBlobUploadService {
       const uploadId = `bu_${token()}`;
       const objectKey = `blob/${token()}`;
       const expiresAt = this.now() + this.leaseSeconds * 1000;
-      await this.currentOnLease(context, sql, target, 'Begin', normalized, scope);
+      const current = await this.currentOnLease(context, sql, target, 'Begin', normalized, scope);
       await sql.query(`INSERT INTO teaql_blob_catalog
-        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status)
-        VALUES (?,?,?,?,?,?,?,?)`, [reference.key, scope, objectKey, '', normalized.fileName, '', 0, 'initiated']);
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status,
+         policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [reference.key, scope, objectKey, '', normalized.fileName,
+          '', 0, 'initiated', current.policy?.profile ?? null,
+          current.policy?.uploadMode ?? null, current.policy?.unboundRetentionSeconds ?? null,
+          current.policy?.unreferencedRetentionSeconds ?? null]);
       await sql.query(`INSERT INTO teaql_blob_upload
         (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
          extension,declared_size,expires_at,state)

@@ -7,6 +7,7 @@ import { UserContext } from '../src/core/context';
 import { ObjectByteStream, ObjectKey, ObjectPutOptions } from '../src/core/object-storage';
 import { FileObjectStorage } from '../src/object-storage/file';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
+import { BlobRetentionPolicy } from '../src/blob-reference/retention';
 import {
   BlobContentVerifier, BlobUploadAuthorization, SqliteBlobUploadService,
 } from '../src/blob-reference/upload-service';
@@ -43,6 +44,7 @@ test('SQLite upload records a real File write and permits binding only after ful
   const target = { entity: 'Asset', entityId: null, field: 'document' };
   let permitted = true;
   let scope = 'tenant-a';
+  let policy = new BlobRetentionPolicy('default', 'server_stream', 86400, 604800);
   const authorization: BlobUploadAuthorization = {
     scope: () => scope,
     field: () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
@@ -51,6 +53,7 @@ test('SQLite upload records a real File write and permits binding only after ful
       ['Begin', 'Write', 'Confirm'].includes(action),
     currentOnLease: async (_context, _lease, actual, action) => ({
       scope, field: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
+      policy,
       allowed: permitted && actual.entity === 'Asset' && actual.field === 'document' &&
         ['Begin', 'Write', 'Confirm'].includes(action),
     }),
@@ -63,7 +66,16 @@ test('SQLite upload records a real File write and permits binding only after ful
     const info = { fileName: 'upload/path/report.pdf', declaredSize: bytes.length,
       declaredContentType: 'application/pdf' };
     const session = await service.begin(context, target, info, 'request-1');
+    expect((await driver.query(`SELECT policy_profile,upload_mode,unbound_retention_seconds,
+      effective_unref_seconds FROM teaql_blob_catalog WHERE key = ?`, [session.reference.key])).rows[0])
+      .toMatchObject({ policy_profile: 'default', upload_mode: 'server_stream',
+        unbound_retention_seconds: 86400, effective_unref_seconds: 604800 });
+    policy = new BlobRetentionPolicy('default', 'server_stream', 3600, 3600);
     expect((await service.begin(context, target, info, 'request-1')).uploadId).toBe(session.uploadId);
+    expect((await driver.query(`SELECT unbound_retention_seconds,effective_unref_seconds
+      FROM teaql_blob_catalog WHERE key = ?`, [session.reference.key])).rows[0])
+      .toMatchObject({ unbound_retention_seconds: 86400, effective_unref_seconds: 604800 });
+    policy = new BlobRetentionPolicy('default', 'server_stream', 86400, 604800);
     await expect(service.begin(context, target, { ...info, fileName: 'other.pdf' }, 'request-1'))
       .rejects.toThrow('BLOB_IDEMPOTENCY_CONFLICT');
     await expect(service.complete(context, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_INCOMPLETE');
@@ -164,10 +176,15 @@ test('additive catalog migration leaves historical completion time unknown', asy
     await catalog.ensureSchema();
     await catalog.ensureSchema();
     await catalog.validateSchema();
-    const row = await driver.query('SELECT completed_at_ms, last_unbound_at_ms, status FROM teaql_blob_catalog WHERE key = ?',
+    const row = await driver.query(`SELECT completed_at_ms, last_unbound_at_ms, policy_profile,
+      upload_mode, unbound_retention_seconds, effective_unref_seconds,
+      retention_floor_until_ms, status FROM teaql_blob_catalog WHERE key = ?`,
       ['blob_legacy']);
     expect(row.rows).toMatchObject([{
-      completed_at_ms: null, last_unbound_at_ms: null, status: 'uploaded_unbound',
+      completed_at_ms: null, last_unbound_at_ms: null, policy_profile: null,
+      upload_mode: null, unbound_retention_seconds: null,
+      effective_unref_seconds: null, retention_floor_until_ms: null,
+      status: 'uploaded_unbound',
     }]);
   } finally {
     await driver.close();

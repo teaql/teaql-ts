@@ -1,5 +1,5 @@
 import cases from './fixtures/blob-policy-cases.json';
-import { BlobRetention } from '../src/blob-reference/retention';
+import { BlobRetention, BlobRetentionPolicy } from '../src/blob-reference/retention';
 
 function vector(id: string) {
   const found = cases.cases.find(entry => entry.id === id);
@@ -52,5 +52,15 @@ test('collectability needs an explicit, safe deadline and ignores read URL expir
   expect(BlobRetention.collectable('initiated', 0, 1000, 1000)).toBe(true);
   expect(() => BlobRetention.collectable('uploaded_unbound', 0, 1000)).toThrow('BLOB_REFERENCE_INVALID');
   expect(() => BlobRetention.unreferencedEligibleAt(8_640_000_000_000_000, 1))
+    .toThrow('BLOB_POLICY_INVALID');
+});
+
+test('trusted policy snapshots reject direct collection and invalid duration facts', () => {
+  const policy = new BlobRetentionPolicy('default', 'server_stream', 86400, 604800);
+  expect(policy.unboundRetentionSeconds).toBe(86400);
+  expect(Object.isFrozen(policy)).toBe(true);
+  expect(() => new BlobRetentionPolicy('default', 'direct', -1, 604800))
+    .toThrow('BLOB_POLICY_INVALID');
+  expect(() => new BlobRetentionPolicy(' default', 'server_stream', 1, 1))
     .toThrow('BLOB_POLICY_INVALID');
 });

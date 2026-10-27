@@ -4,6 +4,7 @@ exports.SqliteBlobUploadService = void 0;
 const node_crypto_1 = require("node:crypto");
 const blob_ref_1 = require("../core/blob-ref");
 const object_storage_1 = require("../core/object-storage");
+const retention_1 = require("./retention");
 const MIME = Object.freeze({
     jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', mp4: 'video/mp4',
     mp3: 'audio/mpeg', doc: 'application/msword',
@@ -63,7 +64,13 @@ class SqliteBlobUploadService {
         catch {
             throw new Error('BLOB_UPLOAD_DENIED');
         }
-        return this.checkCurrent(current.scope, current.field, current.allowed, target, input, expectedScope);
+        this.checkCurrent(current.scope, current.field, current.allowed, target, input, expectedScope);
+        if (current.policy !== undefined &&
+            (!(current.policy instanceof retention_1.BlobRetentionPolicy) ||
+                current.policy.profile !== current.field.policyProfile ||
+                current.policy.uploadMode !== 'server_stream'))
+            throw new Error('BLOB_POLICY_INVALID');
+        return current;
     }
     checkCurrent(scope, field, allowed, target, input, expectedScope) {
         if (!name(scope) || Buffer.byteLength(scope) > 256 || expectedScope !== undefined && scope !== expectedScope ||
@@ -122,10 +129,14 @@ class SqliteBlobUploadService {
             const uploadId = `bu_${token()}`;
             const objectKey = `blob/${token()}`;
             const expiresAt = this.now() + this.leaseSeconds * 1000;
-            await this.currentOnLease(context, sql, target, 'Begin', normalized, scope);
+            const current = await this.currentOnLease(context, sql, target, 'Begin', normalized, scope);
             await sql.query(`INSERT INTO teaql_blob_catalog
-        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status)
-        VALUES (?,?,?,?,?,?,?,?)`, [reference.key, scope, objectKey, '', normalized.fileName, '', 0, 'initiated']);
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status,
+         policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [reference.key, scope, objectKey, '', normalized.fileName,
+                '', 0, 'initiated', current.policy?.profile ?? null,
+                current.policy?.uploadMode ?? null, current.policy?.unboundRetentionSeconds ?? null,
+                current.policy?.unreferencedRetentionSeconds ?? null]);
             await sql.query(`INSERT INTO teaql_blob_upload
         (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
          extension,declared_size,expires_at,state)

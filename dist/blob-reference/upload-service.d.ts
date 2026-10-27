@@ -3,6 +3,7 @@ import type { UserContext } from '../core/context';
 import { ObjectByteStream } from '../core/object-storage';
 import type { SqlSession } from '../sql/core';
 import { SqlBlobCatalog } from './sql-catalog';
+import { BlobRetentionPolicy } from './retention';
 export type BlobUploadTarget = Readonly<{
     entity: string;
     entityId: string | null;
@@ -28,6 +29,7 @@ export interface BlobUploadAuthorization {
         scope: string;
         field: BlobFieldSpec;
         allowed: boolean;
+        policy?: BlobRetentionPolicy;
     }>;
 }
 /** A mandatory trusted byte parser. Client MIME and object metadata cannot implement this SPI. */

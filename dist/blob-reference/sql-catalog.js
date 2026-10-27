@@ -17,16 +17,23 @@ class SqlBlobCatalog {
         content_version TEXT NOT NULL, file_name TEXT NOT NULL,
         content_type TEXT NOT NULL, size_bytes BIGINT NOT NULL,
         completed_at_ms BIGINT, last_unbound_at_ms BIGINT,
+        policy_profile TEXT, upload_mode TEXT, unbound_retention_seconds BIGINT,
+        effective_unref_seconds BIGINT, retention_floor_until_ms BIGINT,
         status TEXT NOT NULL CHECK (status IN
           ('initiated','uploaded_unbound','available','deleting','deleted'))
       )`);
             if (this.driver.databaseKind === 'sqlite') {
-                for (const column of ['completed_at_ms', 'last_unbound_at_ms']) {
+                for (const [column, type] of [
+                    ['completed_at_ms', 'BIGINT'], ['last_unbound_at_ms', 'BIGINT'],
+                    ['policy_profile', 'TEXT'], ['upload_mode', 'TEXT'],
+                    ['unbound_retention_seconds', 'BIGINT'], ['effective_unref_seconds', 'BIGINT'],
+                    ['retention_floor_until_ms', 'BIGINT'],
+                ]) {
                     const columns = await this.driver.query('PRAGMA table_info(teaql_blob_catalog)');
                     if (columns.rows.some(row => row.name === column))
                         continue;
                     try {
-                        await this.driver.query(`ALTER TABLE teaql_blob_catalog ADD COLUMN ${column} BIGINT`);
+                        await this.driver.query(`ALTER TABLE teaql_blob_catalog ADD COLUMN ${column} ${type}`);
                     }
                     catch {
                         // Another process may have completed the same additive migration.
@@ -292,7 +299,8 @@ class SqlBlobCatalog {
     async validateSchema() {
         try {
             await this.driver.query('SELECT key, scope, object_key, content_version, file_name, ' +
-                'content_type, size_bytes, completed_at_ms, last_unbound_at_ms, status ' +
+                'content_type, size_bytes, completed_at_ms, last_unbound_at_ms, policy_profile, ' +
+                'upload_mode, unbound_retention_seconds, effective_unref_seconds, retention_floor_until_ms, status ' +
                 'FROM teaql_blob_catalog WHERE 1 = 0');
             await this.driver.query('SELECT scope, entity, entity_id, field, key, version ' +
                 'FROM teaql_blob_binding WHERE 1 = 0');

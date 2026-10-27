@@ -16,6 +16,27 @@ function retention(seconds: number): number {
   return seconds;
 }
 
+/** Immutable server-selected policy facts. Direct uploads need a separate
+ * quiescence proof before any lifecycle collection. */
+export class BlobRetentionPolicy {
+  readonly profile: string;
+  readonly uploadMode: 'server_stream' | 'direct';
+  readonly unboundRetentionSeconds: number;
+  readonly unreferencedRetentionSeconds: number;
+
+  constructor(profile: string, uploadMode: 'server_stream' | 'direct',
+              unboundRetentionSeconds: number, unreferencedRetentionSeconds: number) {
+    if (typeof profile !== 'string' || !profile.trim() || profile !== profile.trim() ||
+        Buffer.byteLength(profile) > 256 || /[\x00-\x1f\x7f-\x9f]/.test(profile) ||
+        !['server_stream', 'direct'].includes(uploadMode)) throw new Error('BLOB_POLICY_INVALID');
+    this.profile = profile;
+    this.uploadMode = uploadMode;
+    this.unboundRetentionSeconds = retention(unboundRetentionSeconds);
+    this.unreferencedRetentionSeconds = retention(unreferencedRetentionSeconds);
+    Object.freeze(this);
+  }
+}
+
 function deadline(base: number | undefined, seconds: number): number {
   const result = instant(base) + retention(seconds) * 1000;
   if (!Number.isSafeInteger(result) || result > MAX_EPOCH_MS) throw new Error('BLOB_POLICY_INVALID');
