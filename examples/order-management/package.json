@@ -5,6 +5,9 @@
     "typescript-node-lib-core",
     "typescript-app-console"
   ],
+  "overrides": {
+    "better-sqlite3": "^12.10.0"
+  },
   "scripts": {
     "build": "npm run build --workspace order-management-example",
     "start": "npm start --workspace order-management-example"

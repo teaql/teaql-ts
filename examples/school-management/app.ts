@@ -2,10 +2,10 @@ import { Q } from "./src/generated/Q";
 import { E } from "./src/generated/E";
 import { Platform } from "./src/generated/models/Platform";
 import { SchoolType } from "./src/generated/models/SchoolType";
-import { UserContext } from "./src/teaql-ts";
+import { UserContext, nextEntityVersion, decimal } from "./src/teaql-ts";
 import { normalizeDynamicSearch, SearchModel } from "teaql-ts";
 import { GENERATED_RUNTIME_MODULE } from "./src/runtime-module";
-import { SQLiteDriver, SQLiteTeaQLClient } from "./src/teaql-node-sqlite";
+import { SQLiteTeaQLClient } from "./src/teaql-node-sqlite";
 import { mkdirSync } from "node:fs";
 import { verifyRequestIntent } from './request-intent';
 import { SQLiteTeaQLClient as ReconciledSQLiteTeaQLClient } from './src/reconciled/teaql-node-sqlite';
@@ -13,12 +13,6 @@ import { SQLiteTeaQLClient as ReconciledSQLiteTeaQLClient } from './src/reconcil
 async function main(): Promise<void> {
     mkdirSync(".local", { recursive: true });
     const database = ".local/school.sqlite";
-    const cleanup = new SQLiteDriver(database);
-    for (const table of ["school_data", "school_type_data", "platform_data", "teaql_id_space"]) {
-        await cleanup.query(`DROP TABLE IF EXISTS ${table}`);
-    }
-    await cleanup.close();
-
     const client = new SQLiteTeaQLClient(database);
     client.install(GENERATED_RUNTIME_MODULE);
     const context = new UserContext().insertResource("dataService", client);
@@ -31,7 +25,7 @@ async function main(): Promise<void> {
     const types = await Q.schoolTypes().comment("Read repeated constant seeds")
         .purpose("Verify School bootstrap idempotency").executeForList(context);
     if (roots.length !== 1 || roots[0].id !== "1") throw new Error("Platform(1) bootstrap is not idempotent");
-    if (types.length !== 2 || !types.some(value => value.id === "1001") || !types.some(value => value.id === "1002")) {
+    if (types.filter(value => value.id === "1001" || value.id === "1002").length !== 2) {
         throw new Error("SchoolType bootstrap is not idempotent");
     }
     // Retained second generated library changes only Primary's presentation name.
@@ -44,14 +38,15 @@ async function main(): Promise<void> {
         .comment("Read reconciled Primary constant")
         .purpose("Verify versioned constant reconciliation")
         .executeForOne(changedContext);
-    if (changedPrimary?.name !== "Primary School" || changedPrimary.version !== 2) {
+    const originalPrimary = types.find(value => value.id === "1001");
+    if (changedPrimary?.name !== "Primary School" || changedPrimary.version !== nextEntityVersion('Update', originalPrimary!.version!)) {
         throw new Error("Changed SchoolType constant was not reconciled exactly once");
     }
     await changedClient.close();
     const extraType = Q.schoolTypes().comment("Create a post-bootstrap school type")
         .purpose("Verify bootstrap ID floor").newEntity(context);
     extraType.updatePlatform(Platform.refer("1"));
-    extraType.updateName("Other").updateCode("OTHER").updateDisplayOrder(3);
+    extraType.updateName("Other").updateCode("OTHER").updateDisplayOrder(decimal('3'));
     await extraType.auditAs("Verify SchoolType ID floor").save(context);
     if (Number(extraType.id) <= 1002) throw new Error("SchoolType ID floor did not advance beyond 1002");
 
@@ -67,7 +62,7 @@ async function main(): Promise<void> {
     await school.auditAs("Create Riverside Primary School").save(context);
 
     await verifyDynamicSearch(context);
-    const primarySchools = await Q.schools().withSchoolTypeIsPrimary()
+    const primarySchools = await Q.schools().withSchoolTypeIsPrimary().withIdIs(school.id!)
         .comment("Read schools linked through the PRIMARY helper")
         .purpose("Verify constant helper mutation-ledger semantics")
         .executeForList(context);
@@ -87,7 +82,7 @@ async function main(): Promise<void> {
     if (platform.name !== "Campus Learning Platform") {
         throw new Error("Platform forward relation was not hydrated");
     }
-    if (schoolType.code !== "PRIMARY" || schoolType.displayOrder !== 1) {
+    if (schoolType.code !== "PRIMARY" || schoolType.displayOrder !== decimal('1')) {
         throw new Error("SchoolType forward relation was not hydrated");
     }
 
@@ -112,12 +107,12 @@ async function main(): Promise<void> {
         ["constant relation", Q.schools().withSchoolTypeIsPrimary(), 1],
     ];
     for (const [label, request, expected] of queryCases) {
-        const result = await request.comment(`Query parity: ${label}`)
+        const result = await request.withIdIs(school.id!).comment(`Query parity: ${label}`)
             .purpose("Execute the shared School Query conformance case")
             .executeForList(context);
         if (result.length !== expected) throw new Error(`${label}: expected ${expected}, got ${result.length}`);
     }
-    const projected = await Q.schools().selectName().orderByIdDescending()
+    const projected = await Q.schools().withIdIs(school.id!).selectName().orderByIdDescending()
         .comment("Query parity: projection and ordering")
         .purpose("Execute the shared School Query conformance case")
         .executeForList(context);
@@ -128,7 +123,7 @@ async function main(): Promise<void> {
     if (previousVersion === undefined) throw new Error("Loaded school has no version");
     loaded.updateName("Riverside Primary School — verified");
     await loaded.auditAs("Verify TypeScript update fixes").save(context);
-    if (loaded.version !== previousVersion + 1) throw new Error("Update did not advance version");
+    if (loaded.version !== nextEntityVersion('Update', previousVersion)) throw new Error("Update did not advance version");
     const updated = await Q.schools().withIdIs(loaded.id)
         .comment("Reload the updated school")
         .purpose("Verify update_time fix and persisted mutation").executeForOne(context);

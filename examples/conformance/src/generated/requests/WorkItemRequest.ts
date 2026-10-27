@@ -1,6 +1,7 @@
 import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { WorkItem } from '../models/WorkItem';
 import { mergeGeneratedScalarSearch, DynamicSearchWarning, QueryIntent } from 'teaql-ts';
+import type { Decimal, Long, LocalTime } from 'teaql-ts';
 import { GENERATED_SEARCH_MODELS } from '../../generated-search-models';
 
 
@@ -99,12 +100,14 @@ export class WorkItemRequest {
     }
 
     withDeletedRows(): this {
+        this.query.withDeletedRows();
         this.filters = this.filters.filter(filter => !("version" in filter));
         return this;
     }
 
     deletedRowsOnly(): this {
         this.withDeletedRows();
+        this.query.deletedRowsOnly();
         this.filters.push({ version: { "$lte": -1 } });
         return this;
     }

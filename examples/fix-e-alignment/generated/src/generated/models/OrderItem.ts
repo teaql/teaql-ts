@@ -1,11 +1,11 @@
-import { CheckException, Decimal, decimal, Long, long, LocalTime, localTime, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { PurchaseOrder } from './PurchaseOrder';
 import { Tenant } from './Tenant';
 
 export class OrderItem {
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("OrderItem",
-        ["id", "purchase_order", "tenant", "product_name", "unit_price", "create_time", "update_time", "version"]);
+        ["id", "purchase_order", "tenant", "product_name", "unit_price", "create_time", "update_time", "version"], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         purchaseOrder?: PurchaseOrder | string;
         tenant?: Tenant | string;
@@ -13,7 +13,7 @@ export class OrderItem {
         unitPrice?: Decimal;
         createTime?: string;
         updateTime?: string;
-        version?: number;
+        version?: EntityVersion;
 
     constructor(init?: Partial<OrderItem>) {
         Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
@@ -39,8 +39,9 @@ export class OrderItem {
             }
         }
         const key = this.teaqlEntityKey();
+        if ((this as any).version !== undefined) (this as any).version = entityVersion((this as any).version);
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
-        else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, Number((this as any).version));
+        else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, (this as any).version);
         LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
     }
 
@@ -100,8 +101,57 @@ export class OrderItem {
             return this.teaqlSaveWithinGraph(context, service, graph);
         }, (graph) => {
             this.teaqlPreflightGraph(context, service, graph);
+            this.teaqlValidateLoadedIdentities();
+            this.teaqlAdmitGraph();
             graph.sealPreparedGraph();
+        }, (graph) => {
+            this.teaqlValidateLoadedIdentities();
+            this.teaqlNormalizeGraph(graph);
+            return this.teaqlAdmitGraph();
         });
+    }
+
+    /** @internal Read-only first pass: no ledger attachment, FK edits or no-op shortcut. */
+    private teaqlValidateLoadedIdentities(seen = new Set<object>()): void {
+        if (seen.has(this)) return;
+        seen.add(this);
+        LoadedScalarSnapshot.forEntity(this)?.validateNativeIdentity(this.teaqlEntityKey(), this.id, this.version);
+    }
+
+    /** @internal Model-key admission precedes restoration; only intended edits may normalize FKs. */
+    private teaqlNormalizeGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (seen.has(this)) return;
+        seen.add(this);
+        graph.discardRestoredFields(OrderItem.teaqlMutationFields,
+            (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
+        graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
+            "purchase_order": "PurchaseOrder",
+            "tenant": "Tenant"
+        }, () => ({ ...this.teaqlMutationPayload(),
+            __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
+            __teaql_comment: (this as any)._comment,
+            __teaql_load: {fullyLoaded: (this as any)._fullyLoaded, fields: [...(this as any)._loadedFields].sort()},
+        }));
+    }
+
+    /** @internal Whole-input version/completeness pass; does not use Context or Fix. */
+    private teaqlAdmitGraph(seen = new Set<object>()): boolean {
+        if (seen.has(this)) return false;
+        seen.add(this);
+        const action = (this as any)._action;
+        const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        LoadedScalarSnapshot.forEntity(this)?.validateMutationVersion((this as any)._root, this.teaqlEntityKey());
+        OrderItem.teaqlMutationFields.validate((this as any)._root.change(this.teaqlEntityKey()), action === "Update");
+        if (pending) {
+            nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
+            if (action === "Update") {
+                const notLoaded = [{ member: "id", canonical: "id" }, { member: "purchaseOrder", canonical: "purchase_order" }, { member: "tenant", canonical: "tenant" }, { member: "productName", canonical: "product_name" }, { member: "unitPrice", canonical: "unit_price" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                if (notLoaded) throw new CheckException([{ruleId: "invalid_type", location: ObjectLocation.property(notLoaded.canonical),
+                    message: "Mutation requires a fully loaded entity"}]);
+            }
+        }
+        let graphPending = pending;
+        return graphPending;
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
@@ -158,9 +208,7 @@ export class OrderItem {
             return this;
         }
         const result = await service.executeMutation(request);
-        for (const [field, value] of Object.entries(mutation.payload as Record<string, unknown>)) {
-            if (field !== "id" && field !== "version") (this as any)._root.set(this.teaqlEntityKey(), field, value);
-        }
+        graph.validatePreparedSources();
         if (!result.persistedRecord) {
             throw new Error("Mutation did not return the authoritative persisted record");
         }
@@ -191,11 +239,14 @@ export class OrderItem {
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
         if (mutation.action !== "Delete") (this as any)._action = "Update";
+        graph.acceptPreparedResult((this as any)._root, oldKey, newKey);
         const scope = request.scopeFor(newKey);
         service.afterGraphCommit(() => {
+            graph.validatePreparedSources();
             LoadedScalarSnapshot.restoreFor(this, committedSnapshot);
             (this as any)._root.clearEntity(newKey);
-            if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, Number((this as any).version));
+            if ((this as any).version !== undefined) (this as any)._root.acceptCommittedVersion(newKey, (this as any).version);
+            graph.finishPreparedCommit((this as any)._root, newKey);
         });
         return this;
     }
@@ -253,7 +304,7 @@ export class OrderItem {
         return this;
     }
 
-    updateVersion(value: number): this {
+    updateVersion(value: EntityVersion): this {
         this.version = value;
         this.markLoaded("version");
         (this as any)._root.set(this.teaqlEntityKey(), "version", value);

@@ -1,3 +1,4 @@
+import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
 import { ObjectLocation, RuntimeModule } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";

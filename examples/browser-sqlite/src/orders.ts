@@ -1,5 +1,5 @@
 import { BrowserSQLiteTeaQLClient, type BrowserSQLiteStorage } from 'teaql-ts/sql/browser-sqlite';
-import { DelegatingMutationPolicyApprovalProvider, DelegatingMutationPolicyRegistry, UserContext } from 'teaql-ts';
+import { DelegatingMutationPolicyApprovalProvider, DelegatingMutationPolicyRegistry, UserContext, decimal } from 'teaql-ts';
 import { SQLExecutionEvidenceStore, type SQLExecutionMetadata } from 'teaql-ts/sql/core';
 import { Q } from '../orders-lib/src/generated/Q';
 import { E } from '../orders-lib/src/generated/E';
@@ -56,12 +56,12 @@ async function seed({context}: Runtime): Promise<void> {
   for (let index = 1; index <= 4; index++) {
     const order = Q.customerOrders().comment('initialize demo order').purpose('prepare order demo').newEntity(context);
     order.updateCustomer(customer.id).updateOrderNumber(index < 4 ? `KEEP-00${index}` : 'DROP-004')
-      .updateOrderDate(`2026-10-0${index}`).updateTotalAmount(index < 4 ? index * 100 : 900);
+      .updateOrderDate(`2026-10-0${index}`).updateTotalAmount(decimal(String(index < 4 ? index * 100 : 900)));
     if (index === 1) order.updateStatusToNew(); else order.updateStatusToPaid();
     await order.auditAs('seed browser order').save(context);
     for (let item = 1; item <= 5; item++) {
       const line = Q.orderItems().comment('initialize demo item').purpose('prepare item previews').newEntity(context);
-      line.updateCustomerOrder(order.id).updateProductName(`Box ${item}`).updateQuantity(item).updateUnitPrice(20);
+      line.updateCustomerOrder(order.id).updateProductName(`Box ${item}`).updateQuantity(item).updateUnitPrice(decimal('20'));
       await line.auditAs('seed browser order item').save(context);
     }
   }

@@ -18,6 +18,7 @@ import {
   BrowserSQLiteResponse,
 } from '../src/sql/browser-sqlite-protocol';
 import { EntitySchema } from '../src/sql/core';
+import {installWasmDecimalFunctions} from '../src/sql/sqlite-wasm-scalars';
 
 class FakeWorker implements BrowserSQLiteWorkerLike {
   readonly requests: BrowserSQLiteRequest[] = [];
@@ -25,7 +26,15 @@ class FakeWorker implements BrowserSQLiteWorkerLike {
   private readonly messageListeners = new Set<(event: MessageEvent<BrowserSQLiteResponse>) => void>();
   private readonly errorListeners = new Set<(event: ErrorEvent) => void>();
 
-  constructor(private readonly database?: Database.Database) {}
+  constructor(private readonly database?: Database.Database) {
+    if (!database) return;
+    let sequence=0;const allocated=new Set<number>();
+    installWasmDecimalFunctions({createFunction(fn) {
+      if(fn.xFunc) database.function(fn.name,{deterministic:true,varargs:true},(...values)=>fn.xFunc!(0,...values) as any);
+      else database.aggregate(fn.name,{start:()=>++sequence,step:(ctx:number,value:unknown)=>{fn.xStep!(ctx,value);return ctx;},
+        result:(ctx:number)=>{try{return fn.xFinal!(ctx) as any;}finally{allocated.delete(ctx);}}});
+    }},{sqlite3_js_aggregate_context(ctx,bytes){if(bytes)allocated.add(ctx);return allocated.has(ctx)?ctx:0;}});
+  }
 
   postMessage(message: BrowserSQLiteRequest): void {
     this.requests.push(message);
@@ -130,7 +139,7 @@ describe('BrowserSQLiteDriver', () => {
     await driver.close();
   });
 
-  test('legacy numeric Decimal can still order and filter, while exact Decimal fails closed', async () => {
+  test('legacy numeric Decimal and exact TEXT Decimal retain their separate order/filter contracts', async () => {
     const worker = new FakeWorker(new Database(':memory:'));
     const schemas: Record<string, EntitySchema> = { Probe: { table: 'decimal_probe', columns: {
       id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
@@ -154,16 +163,22 @@ describe('BrowserSQLiteDriver', () => {
         .includes('"amount" >= ?'))).toBe(true);
     } finally { await client.close(); }
 
-    const exactClient = await BrowserSQLiteTeaQLClient.open(new FakeWorker(), {
+    const exactClient = await BrowserSQLiteTeaQLClient.open(new FakeWorker(new Database(':memory:')), {
       Probe: { ...schemas.Probe, columns: { ...schemas.Probe.columns,
         amount: { columnName: 'amount', logicalType: 'decimal', decode: 'decimal' },
       } },
     });
     try {
-      await expect(exactClient.executeQuery(new SelectQuery('Probe')
+      await new UserContext().insertResource('dataService',exactClient).ensureSchema();
+      for(const amount of ['9007199254740993.01','2.50','10.00']) await exactClient.executeMutation({entity:'Probe',action:'Create',payload:{amount:decimal(amount)},comment:'seed exact browser amount'});
+      const rows=await exactClient.executeQuery<any>(new SelectQuery('Probe')
         .order(OrderBy.asc('amount')).limit(10)
-        .comment('order exact browser amount').purpose('require an exact comparison')))
-        .rejects.toThrow('EXACT_DECIMAL_UNSUPPORTED');
+        .comment('order exact browser amount').purpose('require an exact comparison'));
+      expect(rows.map(row=>row.amount)).toEqual(['2.50','10.00','9007199254740993.01']);
+      const filtered=await exactClient.executeQuery<any>(new SelectQuery('Probe').filter({amount:{$gt:decimal('10.01')}}).limit(10)
+        .comment('filter exact browser amount').purpose('do not round to a JS number'));
+      expect(filtered.map(row=>row.amount)).toEqual(['9007199254740993.01']);
+      expect(()=> (exactClient as any).driver.decimalAggregateFunction('avg')).toThrow('EXACT_DECIMAL_UNSUPPORTED');
     } finally { await exactClient.close(); }
   });
 

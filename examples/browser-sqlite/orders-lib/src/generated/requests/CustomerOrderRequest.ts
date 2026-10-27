@@ -1,6 +1,7 @@
 import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { CustomerOrder } from '../models/CustomerOrder';
 import { mergeGeneratedScalarSearch, DynamicSearchWarning, QueryIntent } from 'teaql-ts';
+import type { Decimal, Long, LocalTime } from 'teaql-ts';
 import { GENERATED_SEARCH_MODELS } from '../../generated-search-models';
 
 
@@ -99,12 +100,14 @@ export class CustomerOrderRequest {
     }
 
     withDeletedRows(): this {
+        this.query.withDeletedRows();
         this.filters = this.filters.filter(filter => !("version" in filter));
         return this;
     }
 
     deletedRowsOnly(): this {
         this.withDeletedRows();
+        this.query.deletedRowsOnly();
         this.filters.push({ version: { "$lte": -1 } });
         return this;
     }
@@ -730,47 +733,47 @@ export class CustomerOrderRequest {
             return this;
         }
 
-        withTotalAmountIs(val: any): this {
+        withTotalAmountIs(val: Decimal): this {
             this.filters.push({ "totalAmount": { "$eq": val } });
             return this;
         }
 
-        withTotalAmountIsNot(val: any): this {
+        withTotalAmountIsNot(val: Decimal): this {
             this.filters.push({ "totalAmount": { "$ne": val } });
             return this;
         }
 
-        withTotalAmountIn(...vals: any[]): this {
+        withTotalAmountIn(...vals: Decimal[]): this {
             this.filters.push({ "totalAmount": { "$in": vals } });
             return this;
         }
 
-        withTotalAmountNotIn(...vals: any[]): this {
+        withTotalAmountNotIn(...vals: Decimal[]): this {
             this.filters.push({ "totalAmount": { "$notIn": vals } });
             return this;
         }
 
-        withTotalAmountGreaterThan(val: any): this {
+        withTotalAmountGreaterThan(val: Decimal): this {
             this.filters.push({ "totalAmount": { "$gt": val } });
             return this;
         }
 
-        withTotalAmountGreaterThanOrEqualTo(val: any): this {
+        withTotalAmountGreaterThanOrEqualTo(val: Decimal): this {
             this.filters.push({ "totalAmount": { "$gte": val } });
             return this;
         }
 
-        withTotalAmountLessThan(val: any): this {
+        withTotalAmountLessThan(val: Decimal): this {
             this.filters.push({ "totalAmount": { "$lt": val } });
             return this;
         }
 
-        withTotalAmountLessThanOrEqualTo(val: any): this {
+        withTotalAmountLessThanOrEqualTo(val: Decimal): this {
             this.filters.push({ "totalAmount": { "$lte": val } });
             return this;
         }
 
-        withTotalAmountBetween(lower: any, upper: any): this {
+        withTotalAmountBetween(lower: Decimal, upper: Decimal): this {
             this.filters.push({ "totalAmount": { "$between": [lower, upper] } });
             return this;
         }

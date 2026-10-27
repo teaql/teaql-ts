@@ -1,6 +1,7 @@
 import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { OrderItem } from '../models/OrderItem';
 import { mergeGeneratedScalarSearch, DynamicSearchWarning, QueryIntent } from 'teaql-ts';
+import type { Decimal, Long, LocalTime } from 'teaql-ts';
 import { GENERATED_SEARCH_MODELS } from '../../generated-search-models';
 
 
@@ -99,12 +100,14 @@ export class OrderItemRequest {
     }
 
     withDeletedRows(): this {
+        this.query.withDeletedRows();
         this.filters = this.filters.filter(filter => !("version" in filter));
         return this;
     }
 
     deletedRowsOnly(): this {
         this.withDeletedRows();
+        this.query.deletedRowsOnly();
         this.filters.push({ version: { "$lte": -1 } });
         return this;
     }
@@ -389,47 +392,47 @@ export class OrderItemRequest {
             return this;
         }
 
-        withUnitPriceIs(val: any): this {
+        withUnitPriceIs(val: Decimal): this {
             this.filters.push({ "unitPrice": { "$eq": val } });
             return this;
         }
 
-        withUnitPriceIsNot(val: any): this {
+        withUnitPriceIsNot(val: Decimal): this {
             this.filters.push({ "unitPrice": { "$ne": val } });
             return this;
         }
 
-        withUnitPriceIn(...vals: any[]): this {
+        withUnitPriceIn(...vals: Decimal[]): this {
             this.filters.push({ "unitPrice": { "$in": vals } });
             return this;
         }
 
-        withUnitPriceNotIn(...vals: any[]): this {
+        withUnitPriceNotIn(...vals: Decimal[]): this {
             this.filters.push({ "unitPrice": { "$notIn": vals } });
             return this;
         }
 
-        withUnitPriceGreaterThan(val: any): this {
+        withUnitPriceGreaterThan(val: Decimal): this {
             this.filters.push({ "unitPrice": { "$gt": val } });
             return this;
         }
 
-        withUnitPriceGreaterThanOrEqualTo(val: any): this {
+        withUnitPriceGreaterThanOrEqualTo(val: Decimal): this {
             this.filters.push({ "unitPrice": { "$gte": val } });
             return this;
         }
 
-        withUnitPriceLessThan(val: any): this {
+        withUnitPriceLessThan(val: Decimal): this {
             this.filters.push({ "unitPrice": { "$lt": val } });
             return this;
         }
 
-        withUnitPriceLessThanOrEqualTo(val: any): this {
+        withUnitPriceLessThanOrEqualTo(val: Decimal): this {
             this.filters.push({ "unitPrice": { "$lte": val } });
             return this;
         }
 
-        withUnitPriceBetween(lower: any, upper: any): this {
+        withUnitPriceBetween(lower: Decimal, upper: Decimal): this {
             this.filters.push({ "unitPrice": { "$between": [lower, upper] } });
             return this;
         }

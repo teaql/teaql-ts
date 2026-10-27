@@ -1,3 +1,4 @@
+import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
 import { ObjectLocation, RuntimeModule } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
@@ -144,7 +145,7 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 }, { ...{
   defaultDomainRoot: { entity: "Platform", id: "1", values: { "name": "Campus Learning Platform", "baseUrl": "https://campus.example.com", "createTime": "createTime()", "updateTime": "updateTime()" } },
   constants: [
-    { entity: "SchoolType", id: "1001", values: { "platform": "1", "name": "Primary", "code": "PRIMARY", "displayOrder": 1 } },
-    { entity: "SchoolType", id: "1002", values: { "platform": "1", "name": "Secondary", "code": "SECONDARY", "displayOrder": 2 } }
+    { entity: "SchoolType", id: "1001", values: { "platform": "1", "name": "Primary", "code": "PRIMARY", "displayOrder": decimal("1") } },
+    { entity: "SchoolType", id: "1002", values: { "platform": "1", "name": "Secondary", "code": "SECONDARY", "displayOrder": decimal("2") } }
   ]
 }, ensure: ensureGeneratedBootstrap });

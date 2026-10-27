@@ -1,4 +1,4 @@
-import type { Decimal, Long, LocalTime } from 'teaql-ts';
+import type { Decimal, Long, LocalTime, EntityVersion } from 'teaql-ts';
 import { TypePlatform } from './models/TypePlatform';
 import { ScalarTypeProbe } from './models/ScalarTypeProbe';
 import { ExpressionPath, TeaQLNotLoadedError } from '../teaql-ts';
@@ -73,16 +73,16 @@ export class TypePlatformExpression {
         return new ValueExpression<string>(this.value.name);
     }
 
-    version(): ValueExpression<number> {
+    version(): ValueExpression<EntityVersion> {
         const path = this.path.member('version', 'version');
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(path));
-        if (!this.value) return ValueExpression.missing<number>();
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
+            return ValueExpression.notLoaded<EntityVersion>(
                 new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
 
@@ -404,16 +404,16 @@ export class ScalarTypeProbeExpression {
         return new ValueExpression<string>(this.value.updateTime);
     }
 
-    version(): ValueExpression<number> {
+    version(): ValueExpression<EntityVersion> {
         const path = this.path.member('version', 'version');
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(path));
-        if (!this.value) return ValueExpression.missing<number>();
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
+            return ValueExpression.notLoaded<EntityVersion>(
                 new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
     typePlatformId(): ValueExpression<string | number> {

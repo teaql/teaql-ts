@@ -2,6 +2,7 @@ import {
     CheckException, EntityChecker, RuntimeModule,
     SelectQuery as RuntimeSelectQuery, UserContext,
     GraphCommittedError, executeRelationFacets, QueryRequest, MutationIntent, MutationRequest, GraphMutationSession, MutationFieldLayout,
+    EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, compareLongs,
 } from "teaql-ts";
 
 export { CheckException, EntityRoot, ObjectLocation, SmartList, UserContext, executeRelationFacets, MutationIntent } from "teaql-ts";
@@ -9,6 +10,8 @@ export { decimal, compareDecimals } from "teaql-ts";
 export type { Decimal } from "teaql-ts";
 export { long, compareLongs, localTime } from "teaql-ts";
 export type { Long, LocalTime } from "teaql-ts";
+export { entityVersion, nextEntityVersion } from "teaql-ts";
+export type { EntityVersion } from "teaql-ts";
 export { GraphCommittedError, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationTraceScope, QueryIntent, QueryRequest, RequestIntentError } from "teaql-ts";
 export { ExpressionPath, TeaQLNotLoadedError } from "teaql-ts";
 export type { EntityKey } from "teaql-ts";
@@ -47,7 +50,7 @@ export class SelectQuery extends RuntimeSelectQuery {
 }
 
 export interface TeaQLDataService {
-    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -110,6 +113,39 @@ export class TeaQLClient implements TeaQLDataService {
         return values;
     }
 
+    /** Physical/model keys stay canonical; generated entities use native TS members. */
+    private runtimeRecord(entity: string, record: Record<string, any>): Record<string, any> {
+        const columns = this.schemas[entity]?.columns;
+        if (!columns) return { ...record };
+        const result: Record<string, any> = {};
+        for (const [name, column] of Object.entries(columns)) {
+            const key = column.modelName ?? name;
+            result[name] = Object.prototype.hasOwnProperty.call(record, key) ? record[key]
+                : Object.prototype.hasOwnProperty.call(record, name) ? record[name] : null;
+        }
+        if (result.version != null) result.version = entityVersion(result.version);
+        return result;
+    }
+
+    private checkedMutationVersion(mutation: any): EntityVersion | undefined {
+        if (mutation.action === "Create") return undefined;
+        if (!["Update", "Delete", "Recover"].includes(mutation.action)) return undefined;
+        const version = entityVersion(mutation.version !== undefined ? mutation.version : mutation.expectedVersion);
+        if (mutation.version !== undefined && mutation.expectedVersion !== undefined
+            && version !== entityVersion(mutation.expectedVersion)) throw new MutationVersionError("invalid_type");
+        nextEntityVersion(mutation.action, version);
+        return version;
+    }
+
+    private sealMutationVersion(mutation: any, original: EntityVersion | undefined): any {
+        Object.defineProperties(mutation, {
+            version: { value: original, enumerable: true, writable: false, configurable: false },
+            expectedVersion: { value: original, enumerable: mutation.expectedVersion !== undefined, writable: false, configurable: false },
+            action: { value: mutation.action, enumerable: true, writable: false, configurable: false },
+        });
+        return mutation;
+    }
+
     setUserContext(context: UserContext): this {
         this.userContext = context;
         return this;
@@ -135,8 +171,15 @@ export class TeaQLClient implements TeaQLDataService {
         fs.renameSync(temporaryPath, this.storagePath);
     }
 
-    async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T> {
+    async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T> {
         const graph = new GraphMutationSession(intent);
+        const executionContext = this.userContext;
+        graph.bindExecutionReference(() => this.userContext);
+        graph.bindExecutionMetadata(() => ({schemas: this.schemas, checkerNames: Object.keys(this.checkers).sort()}));
+        for (const name of Object.keys(this.checkers)) {
+            graph.bindExecutionReference(() => this.checkers[name]);
+            graph.bindExecutionReference(() => this.checkers[name]?.checkAndFix);
+        }
         const predecessor = this.graphSaveTail;
         let release!: () => void;
         this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
@@ -147,19 +190,28 @@ export class TeaQLClient implements TeaQLDataService {
         let mutationPolicyGraphStarted = false;
         let committed = false;
         try {
+            graph.validatePreparedSources();
             this.graphSaveActive = true;
             this.activeGraph = graph;
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
             this.graphAuditActions = [];
-            this.userContext.insertResource("fixTime", this.userContext.businessTime());
-            this.userContext.beginFixEvidence();
+            const pending = admit?.(graph);
+            if (admit && typeof pending !== "boolean") throw new Error("GRAPH_ADMISSION_RESULT_REQUIRED");
+            graph.captureInputSources();
+            if (pending === false) { graph.sealPreparedGraph(); return await work(graph); }
+            executionContext.insertResource("fixTime", executionContext.businessTime());
+            executionContext.beginFixEvidence();
             fixEvidenceStarted = true;
-            this.userContext.beginMutationPolicyGraph();
+            executionContext.beginMutationPolicyGraph();
             mutationPolicyGraphStarted = true;
             await prepare?.(graph);
+            if (prepare && !graph.isPreparedSealed) graph.sealPreparedGraph();
+            executionContext.prepareMutationPolicyGraph(graph.preparedRootEntity);
+            graph.validatePreparedSources();
             const result = await work(graph);
-            this.userContext.ensureMutationPolicyGraphComplete();
+            graph.requirePreparedComplete();
+            executionContext.ensureMutationPolicyGraphComplete();
             if (!graph.isPreparedEmpty) this.persist();
             committed = true;
             let failure: unknown;
@@ -184,9 +236,8 @@ export class TeaQLClient implements TeaQLDataService {
             this.graphCommitActions = [];
             this.graphRollbackActions = [];
             this.graphAuditActions = [];
-            if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
-            this.userContext.removeResource("fixTime");
-            if (fixEvidenceStarted) this.userContext.finishFixEvidence();
+            if (mutationPolicyGraphStarted) executionContext.endMutationPolicyGraph();
+            if (fixEvidenceStarted) executionContext.removeResource("fixTime").finishFixEvidence();
             release();
         }
     }
@@ -210,7 +261,11 @@ export class TeaQLClient implements TeaQLDataService {
             request.graphSession.captureLogBindings({ parameterizedSQL: "", sqlOrigin: "generated",
                 parameters: values, parameterLogPolicies: values.map(() => "unknown" as const) });
         }
-        this.userContext.recordMutationPolicyPreflight(mutation);
+        const schema = this.schemas[mutation.entity];
+        const references = Object.fromEntries(Object.values(schema?.relations ?? {}).filter(relation => !relation.many)
+            .map(relation => [schema.columns[relation.localKey]?.modelName ?? relation.localKey, relation.targetEntity]));
+        const policyMutation = request.graphSession ? request.graphSession.capturePreparedMutation(request, mutation, references) : mutation;
+        this.userContext.recordMutationPolicyPreflight(policyMutation);
         return mutation;
     }
 
@@ -219,6 +274,8 @@ export class TeaQLClient implements TeaQLDataService {
         if (request.graphSession !== this.activeGraph || (this.graphSaveActive && !request.graphSession)) {
             throw new Error("GRAPH_MUTATION_SESSION_REQUIRED: use the explicit active graph request capability");
         }
+        const prepared = request.graphSession?.replayPreparedMutation(request);
+        if (prepared) return prepared;
         mutation = request.mutation;
         const schema = this.schemas[String(mutation.entity)];
         if (schema) {
@@ -229,19 +286,22 @@ export class TeaQLClient implements TeaQLDataService {
                 fields.validate(mutation.ledgerRoot.change(mutation.ledgerKey), mutation.action === "Update");
             }
         }
+        const originalVersion = this.checkedMutationVersion(mutation);
         mutation = { ...mutation, payload: { ...(mutation?.payload || {}) } };
         Object.defineProperty(mutation, "comment", { value: request.comment, enumerable: true });
         const checker = this.checkers[String(mutation.entity)];
-        if (!checker) return mutation;
+        if (!checker) return this.sealMutationVersion(mutation, originalVersion);
         const results: any[] = [];
         const ownsFixTime = this.userContext.getResource("fixTime") === undefined;
         if (ownsFixTime) this.userContext.insertResource("fixTime", this.userContext.businessTime()).beginFixEvidence();
         try {
             checker.checkAndFix(this.userContext, mutation, results);
+            if (mutation.action !== request.mutation.action || this.checkedMutationVersion(mutation) !== originalVersion)
+                throw new MutationVersionError("invalid_type");
             if (mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
             this.userContext.translateCheckResults(results);
             if (results.length) throw new CheckException(results);
-            return mutation;
+            return this.sealMutationVersion(mutation, originalVersion);
         } finally { if (ownsFixTime) this.userContext.removeResource("fixTime").finishFixEvidence(); }
     }
 
@@ -249,50 +309,39 @@ export class TeaQLClient implements TeaQLDataService {
         const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
         request.graphSession?.requireMutationAllowed();
         mutation = this.checkAndFixMutation(request);
+        const nextVersion = nextEntityVersion(mutation.action, mutation.version);
         const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
         const table = this.data[mutation.entity] ||= {};
         const payload = this.storagePayload(mutation.entity, mutation.payload);
         if (mutation.action === "Create") {
             const id = mutation.id ?? String(this.nextIds[mutation.entity] || 1);
+            if (table[String(id)]) throw new Error(`${mutation.entity}(${id}) already exists`);
             this.nextIds[mutation.entity] = Number(id) + 1;
-            const record = { ...payload, id: String(id), version: Number(mutation.version || 0) + 1 };
+            const record = { ...payload, id: String(id), version: nextVersion };
             table[String(id)] = record;
             if (!this.graphSaveActive) this.persist();
             return this.finishMutation(request, mutation, mutationGovernance,
                 { success: true, id: String(id), version: record.version, persistedRecord: { ...record } });
         }
-        if (mutation.action === "Update") {
+        if (["Update", "Delete", "Recover"].includes(mutation.action)) {
             const id = String(mutation.id);
             if (!table[id]) throw new Error(`${mutation.entity}(${id}) does not exist`);
-            const expectedVersion = Number(mutation.version);
-            const currentVersion = Number(table[id].version || 0);
-            if (!Number.isFinite(expectedVersion) || expectedVersion !== currentVersion) {
+            const expectedVersion = entityVersion(mutation.version);
+            const currentVersion = entityVersion(table[id].version);
+            if (expectedVersion !== currentVersion) {
                 throw new Error(
                     `Optimistic lock conflict for ${mutation.entity}(${id}): expected ${expectedVersion}, current ${currentVersion}`);
             }
-            table[id] = { ...table[id], ...payload, id, version: Number(table[id].version || 0) + 1 };
+            table[id] = { ...table[id], ...(mutation.action === "Update" ? payload : {}), id, version: nextVersion };
             if (!this.graphSaveActive) this.persist();
             return this.finishMutation(request, mutation, mutationGovernance,
-                { success: true, id, version: table[id].version, persistedRecord: { ...table[id] } });
-        }
-        if (mutation.action === "Delete") {
-            const id = String(mutation.id);
-            if (!table[id]) throw new Error(`${mutation.entity}(${id}) does not exist`);
-            const expectedVersion = Number(mutation.version);
-            const currentVersion = Number(table[id].version || 0);
-            if (!Number.isFinite(expectedVersion) || expectedVersion !== currentVersion) {
-                throw new Error(
-                    `Optimistic lock conflict for ${mutation.entity}(${id}): expected ${expectedVersion}, current ${currentVersion}`);
-            }
-            table[id] = { ...table[id], id, version: -(currentVersion + 1) };
-            if (!this.graphSaveActive) this.persist();
-            return this.finishMutation(request, mutation, mutationGovernance,
-                { success: true, id, version: table[id].version, deleted: true, persistedRecord: { ...table[id] } });
+                { success: true, id, version: table[id].version, deleted: mutation.action === "Delete", persistedRecord: { ...table[id] } });
         }
         throw new Error(`Unsupported mutation action: ${mutation.action}`);
     }
     private async finishMutation(request: MutationRequest<any>, mutation: any,
         mutationGovernance: unknown, result: any): Promise<any> {
+        request.graphSession?.recordPreparedResult(request, result);
         const event = Object.freeze({ entity: mutation.entity, action: mutation.action,
             id: result.id, version: result.version,
             ...request.auditProjection({ entity: mutation.entity, id: result.id }, mutation.payload),
@@ -305,7 +354,7 @@ export class TeaQLClient implements TeaQLDataService {
         };
         if (request.graphSession) this.graphAuditActions.push(publish);
         else { try { await publish(); } catch (error) { throw new GraphCommittedError(error); } }
-        return result;
+        return { ...result, persistedRecord: this.runtimeRecord(mutation.entity, result.persistedRecord) };
     }
     async query(context: any, req: any): Promise<any> {
         return { rows: [] };
@@ -317,12 +366,20 @@ export class TeaQLClient implements TeaQLDataService {
             throw new Error("TeaQL list execution requires the formal runtime SelectQuery");
         }
         query.prepareForList();
-        let rows = Object.values(this.data[query.entity] || {}).map((row: any) => ({ ...row }));
+        const visibility = query.deletionVisibility ?? "live";
+        if (!["live", "all", "deleted"].includes(visibility)) throw new Error("QUERY_INVALID_DELETION_VISIBILITY");
+        let rows = Object.values(this.data[query.entity] || {}).map((row: any) => this.runtimeRecord(query.entity, row));
+        if (this.schemas[query.entity]?.columns.version && visibility !== "all") rows = rows.filter(row =>
+            compareLongs(String(row.version), "0") === (visibility === "deleted" ? -1 : 1));
         const matches = (row: any, expression: any): boolean => {
             if (expression?.$and) return expression.$and.every((item: any) => matches(row, item));
             return Object.entries(expression || {}).every(([field, predicate]: [string, any]) => {
-                if (predicate?.$eq !== undefined) return row[field] === (predicate.$eq?.id ?? predicate.$eq);
-                if (predicate?.$ne !== undefined) return row[field] !== (predicate.$ne?.id ?? predicate.$ne);
+                const compare = (value: any): number => field === "version" && value != null && row[field] != null
+                    ? compareLongs(String(entityVersion(row[field])), String(entityVersion(value)))
+                    : row[field] === (value?.id ?? value) ? 0 : row[field] > (value?.id ?? value) ? 1 : -1;
+                const equal = (value: any): boolean => field === "version" ? compare(value) === 0 : row[field] === (value?.id ?? value);
+                if (predicate?.$eq !== undefined) return equal(predicate.$eq);
+                if (predicate?.$ne !== undefined) return !equal(predicate.$ne);
                 if (predicate?.$contains !== undefined) return String(row[field] ?? "").includes(String(predicate.$contains));
                 if (predicate?.$notContains !== undefined) return !String(row[field] ?? "").includes(String(predicate.$notContains));
                 if (predicate?.$startsWith !== undefined) return String(row[field] ?? "").startsWith(String(predicate.$startsWith));
@@ -330,15 +387,17 @@ export class TeaQLClient implements TeaQLDataService {
                 if (predicate?.$endsWith !== undefined) return String(row[field] ?? "").endsWith(String(predicate.$endsWith));
                 if (predicate?.$notEndsWith !== undefined) return !String(row[field] ?? "").endsWith(String(predicate.$notEndsWith));
                 if (predicate?.$soundLike !== undefined) return soundex(row[field]) === soundex(predicate.$soundLike);
-                if (predicate?.$in !== undefined) return predicate.$in.some((value: any) => row[field] === (value?.id ?? value));
-                if (predicate?.$notIn !== undefined) return !predicate.$notIn.some((value: any) => row[field] === (value?.id ?? value));
-                if (predicate?.$between !== undefined) return row[field] >= predicate.$between[0] && row[field] <= predicate.$between[1];
+                if (predicate?.$in !== undefined) return predicate.$in.some((value: any) => equal(value));
+                if (predicate?.$notIn !== undefined) return !predicate.$notIn.some((value: any) => equal(value));
+                if (predicate?.$between !== undefined) return field === "version"
+                    ? compare(predicate.$between[0]) >= 0 && compare(predicate.$between[1]) <= 0
+                    : row[field] >= predicate.$between[0] && row[field] <= predicate.$between[1];
                 if (predicate?.$isNull === true) return row[field] === null || row[field] === undefined;
                 if (predicate?.$isNull === false) return row[field] !== null && row[field] !== undefined;
-                if (predicate?.$gt !== undefined) return row[field] > predicate.$gt;
-                if (predicate?.$gte !== undefined) return row[field] >= predicate.$gte;
-                if (predicate?.$lt !== undefined) return row[field] < predicate.$lt;
-                if (predicate?.$lte !== undefined) return row[field] <= predicate.$lte;
+                if (predicate?.$gt !== undefined) return field === "version" ? compare(predicate.$gt) > 0 : row[field] > predicate.$gt;
+                if (predicate?.$gte !== undefined) return field === "version" ? compare(predicate.$gte) >= 0 : row[field] >= predicate.$gte;
+                if (predicate?.$lt !== undefined) return field === "version" ? compare(predicate.$lt) < 0 : row[field] < predicate.$lt;
+                if (predicate?.$lte !== undefined) return field === "version" ? compare(predicate.$lte) <= 0 : row[field] <= predicate.$lte;
                 return true;
             });
         };
@@ -352,17 +411,19 @@ export class TeaQLClient implements TeaQLDataService {
             }))];
         }
         for (const order of [...query.orderItems].reverse()) {
-            rows.sort((a, b) => (a[order.field] === b[order.field] ? 0 : a[order.field] > b[order.field] ? 1 : -1) * (String(order.direction).toLowerCase() === "desc" ? -1 : 1));
+            rows.sort((a, b) => (order.field === "version" ? compareLongs(String(a.version), String(b.version))
+                : a[order.field] === b[order.field] ? 0 : a[order.field] > b[order.field] ? 1 : -1) * (String(order.direction).toLowerCase() === "desc" ? -1 : 1));
         }
         const start = query.offsetValue || 0;
         rows = rows.slice(start, start + query.limitValue);
         for (const relation of (query.relations || []) as any[]) {
-            const localValues = new Set(rows.map((row: any) => row[relation.localKey || "id"]));
-            const relatedRows = (await this.executeQuery(request.derive(relation.query, relation.name))).filter(
-                (row: any) => localValues.has(row[relation.foreignKey || "id"]));
             for (const row of rows) {
-                const matches = relatedRows.filter(
-                    (related: any) => related[relation.foreignKey || "id"] === row[relation.localKey || "id"]);
+                // Scope before ordering/offset/limit. A nested bound belongs to
+                // each parent, not to unrelated children from earlier saves.
+                const childQuery = relation.query.clone();
+                childQuery.filter({$and: [childQuery.filterCondition ?? {},
+                    {[relation.foreignKey || "id"]: {$eq: row[relation.localKey || "id"]}}]});
+                const matches = await this.executeQuery(request.derive(childQuery, relation.name));
                 row[relation.name] = relation.many === false ? matches[0] : matches;
             }
         }

@@ -1,4 +1,5 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
+import {installWasmDecimalFunctions, WasmAggregateAPI, WasmFunctionDatabase} from './sqlite-wasm-scalars';
 import {
   BrowserSQLiteOpenOptions,
   BrowserSQLiteRequest,
@@ -16,7 +17,7 @@ export type BrowserSQLiteWorkerOptions = Readonly<{
   wasmUrl?: string;
 }>;
 
-type SQLiteDatabase = {
+type SQLiteDatabase = WasmFunctionDatabase & {
   exec(options: Record<string, unknown>): unknown;
   exec(sql: string): unknown;
   changes(total?: boolean): number;
@@ -24,6 +25,7 @@ type SQLiteDatabase = {
 };
 
 type SQLiteModule = {
+  capi: WasmAggregateAPI;
   oo1: {
     DB: new (filename?: string, flags?: string) => SQLiteDatabase;
     OpfsDb?: new (filename: string, flags?: string) => SQLiteDatabase;
@@ -38,6 +40,7 @@ export function startBrowserSQLiteWorker(options: BrowserSQLiteWorkerOptions = {
   const scope = options.scope ?? globalThis as unknown as WorkerScope;
   let sqlitePromise: Promise<SQLiteModule> | undefined;
   let database: SQLiteDatabase | undefined;
+  let clearAggregateState: (() => void) | undefined;
   let openOptions: Required<BrowserSQLiteOpenOptions> | undefined;
   let tail: Promise<void> = Promise.resolve();
 
@@ -54,7 +57,7 @@ export function startBrowserSQLiteWorker(options: BrowserSQLiteWorkerOptions = {
   };
 
   const open = async (options: BrowserSQLiteOpenOptions = {}): Promise<void> => {
-    database?.close();
+    closeDatabase();
     const storage = options.storage ?? 'memory';
     const databaseName = options.databaseName ?? 'teaql-browser.sqlite3';
     const module = await sqlite();
@@ -68,10 +71,19 @@ export function startBrowserSQLiteWorker(options: BrowserSQLiteWorkerOptions = {
       }
       database = new module.oo1.OpfsDb(`/${databaseName}`, 'c');
     } else {
-      database = new module.oo1.DB(':memory:', 'ct');
+      // SQLite's 't' flag logs expanded SQL directly to the worker console,
+      // bypassing TeaQL's masking and diagnostics policy. Use TeaQL's logger.
+      database = new module.oo1.DB(':memory:', 'c');
     }
     openOptions = { storage, databaseName };
+    try {clearAggregateState = installWasmDecimalFunctions(database, module.capi);}
+    catch (error) {closeDatabase(); throw error;}
     database.exec('PRAGMA foreign_keys = ON');
+  };
+
+  const closeDatabase = (): void => {
+    try {database?.close();}
+    finally {database = undefined; clearAggregateState?.(); clearAggregateState = undefined;}
   };
 
   const requireDatabase = (): SQLiteDatabase => {
@@ -83,12 +95,14 @@ export function startBrowserSQLiteWorker(options: BrowserSQLiteWorkerOptions = {
     if (typeof sql !== 'string' || !sql.trim()) throw new TypeError('SQL is required');
     if (!Array.isArray(values)) throw new TypeError('SQL bind values must be an array');
     const db = requireDatabase();
-    const rows = db.exec({
+    let rows: unknown[];
+    try {rows = db.exec({
       sql,
       bind: values,
       rowMode: 'object',
       returnValue: 'resultRows',
-    }) as unknown[];
+    }) as unknown[];}
+    finally {clearAggregateState?.();}
     const mutation = /^\s*(?:insert|update|delete|replace)\b/i.test(sql);
     return { rows, rowCount: rows.length || (mutation ? Number(db.changes()) : 0) };
   };
@@ -119,7 +133,7 @@ export function startBrowserSQLiteWorker(options: BrowserSQLiteWorkerOptions = {
         else if (request.operation === 'query') {
           result = query(String(request.payload?.sql ?? ''), (request.payload?.values ?? []) as unknown[]);
         } else if (request.operation === 'reset') result = await reset();
-        else if (request.operation === 'close') { database?.close(); database = undefined; }
+        else if (request.operation === 'close') closeDatabase();
         else throw new Error(`Unsupported Browser SQLite operation: ${String(request.operation)}`);
         scope.postMessage({
           type: 'teaql-browser-sqlite-response', requestId: request.requestId, result,

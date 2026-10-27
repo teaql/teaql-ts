@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { CheckException, EntityRoot, UserContext } from "./teaql-ts";
+import { CheckException, EntityRoot, UserContext, nextEntityVersion } from "./teaql-ts";
 import { E, TeaQLNotLoadedError } from "./generated/E";
 import { Q } from "./generated/Q";
 import { WorkItem } from "./generated/models/WorkItem";
@@ -23,7 +23,6 @@ async function main(): Promise<void> {
 
   const database = path.resolve(__dirname, "../.local/conformance.sqlite");
   fs.mkdirSync(path.dirname(database), { recursive: true });
-  fs.rmSync(database, { force: true });
   const client = new SQLiteTeaQLClient(database);
   const context = new UserContext().insertResource("dataService", client);
   client.setUserContext(context);
@@ -70,7 +69,7 @@ async function main(): Promise<void> {
   const previousVersion = queried.version!;
   await queried.updateTitle("Verified TypeScript runtime")
     .auditAs("Update conformance work item").save(context);
-  assert.equal(queried.version, previousVersion + 1);
+  assert.equal(queried.version, nextEntityVersion('Update', previousVersion));
   console.log(`PASS Update (version ${previousVersion} -> ${queried.version})`);
 
   await queried.markForDeletion().auditAs("Delete conformance work item").save(context);

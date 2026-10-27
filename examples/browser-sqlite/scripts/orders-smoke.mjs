@@ -29,9 +29,14 @@ try {
       ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
       : '/usr/bin/google-chrome'),
     args: ['--no-sandbox', '--disable-dev-shm-usage'], headless: true});
-  const page = await browser.newPage(), errors = [];
+  const page = await browser.newPage(), errors = [], rawMutationConsole = [];
   page.on('pageerror', error => errors.push(error.message));
-  page.on('console', event => { if (event.type() === 'error') errors.push(event.text()); });
+  page.on('console', event => {
+    if (event.type() === 'error') errors.push(event.text());
+    // Mutation diagnostics are disabled above. A second SDK write tracer must
+    // not bypass TeaQL's policy-aware diagnostic channel.
+    if (/\b(?:INSERT INTO|UPDATE\s+.+\s+SET|DELETE FROM)\b/i.test(event.text())) rawMutationConsole.push(event.text());
+  });
   page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
   page.on('requestfailed', request => errors.push(`${request.failure()?.errorText} ${request.url()}`));
   async function waitReady(storage) {
@@ -55,7 +60,7 @@ try {
     assert.deepEqual(order.items.map(item => [item.productName, item.quantity]), [['Box 1', 1], ['Box 2', 2], ['Box 3', 3]]);
     assert.equal(order.itemCount, 5);
     assert.deepEqual(response.facets.statusCounts.map(row => [String(row.id), row.orderCount, row.orderTotalAmount]),
-      [['1001', 1, 100], ['1002', 2, 500], ['1003', 0, null]]);
+      [['1001', 1, '100'], ['1002', 2, '500'], ['1003', 0, null]]);
     const evidence = JSON.parse(await page.$eval('#sql', element => element.textContent));
     assert.equal(evidence.length, 8);
     const comments = evidence.map(entry => entry.traceChain.filter(node => node.kind === 'comment').map(node => node.detail));
@@ -109,6 +114,9 @@ try {
   assert.deepEqual(await inspect('opfs-reset', 8), baseline);
   assert.deepEqual(errors, []); checkLibrary();
   if (process.env.TEAQL_BROWSER_ORDER_EVIDENCE) writeFileSync(process.env.TEAQL_BROWSER_ORDER_EVIDENCE,
-    JSON.stringify({receipts, generatedLibraryUnchanged: true, browserErrors: errors}, null, 2) + '\n', {flag: 'wx'});
+    JSON.stringify({receipts, generatedLibraryUnchanged: true, browserErrors: errors,
+      rawMutationConsoleCount: rawMutationConsole.length}, null, 2) + '\n', {flag: 'wx'});
+  console.log('BROWSER_RAW_SQL_OBSERVATION=' + JSON.stringify({rawMutationConsoleCount: rawMutationConsole.length}));
+  assert.equal(rawMutationConsole.length, 0, 'An ungoverned SQLite write tracer bypassed the runtime diagnostic policy');
   console.log('PASS browser generated order TraceChain: memory/OPFS, refresh/reset, logging on/off, exact facets/counts/previews, actual SQL=8, unchanged generated library');
 } finally { await browser?.close(); server.kill('SIGTERM'); }

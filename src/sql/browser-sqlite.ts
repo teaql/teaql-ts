@@ -130,6 +130,17 @@ export class BrowserSQLiteDriver implements TeaQLSqlDriver {
   }
   aggregateFunction(name: string): string { return standardAggregateFunction(name); }
 
+  decimalComparison(columnSql: string, operator: string, placeholder: string): string {
+    return `teaql_decimal_cmp(${columnSql}, ${placeholder}) ${operator} 0`;
+  }
+  decimalOrderExpression(columnSql: string): string {return `teaql_decimal_order_key(${columnSql})`;}
+  decimalAggregateFunction(name: string): string {
+    const functions: Record<string, string> = {sum: 'teaql_decimal_sum', min: 'teaql_decimal_min', max: 'teaql_decimal_max'};
+    const result = functions[name.toLowerCase()];
+    if (!result) throw new Error(`EXACT_DECIMAL_UNSUPPORTED: ${name} requires an explicit exact rounding policy`);
+    return result;
+  }
+
   longComparison(columnSql: string, operator: string, placeholder: string): string {
     return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;
   }

@@ -1,4 +1,4 @@
-import type { Decimal, Long, LocalTime } from 'teaql-ts';
+import type { Decimal, Long, LocalTime, EntityVersion } from 'teaql-ts';
 import { Tenant } from './models/Tenant';
 import { PurchaseOrder } from './models/PurchaseOrder';
 import { OrderItem } from './models/OrderItem';
@@ -74,16 +74,16 @@ export class TenantExpression {
         return new ValueExpression<string>(this.value.name);
     }
 
-    version(): ValueExpression<number> {
+    version(): ValueExpression<EntityVersion> {
         const path = this.path.member('version', 'version');
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(path));
-        if (!this.value) return ValueExpression.missing<number>();
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
+            return ValueExpression.notLoaded<EntityVersion>(
                 new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
 
@@ -192,16 +192,16 @@ export class PurchaseOrderExpression {
         return new ValueExpression<string>(this.value.updateTime);
     }
 
-    version(): ValueExpression<number> {
+    version(): ValueExpression<EntityVersion> {
         const path = this.path.member('version', 'version');
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(path));
-        if (!this.value) return ValueExpression.missing<number>();
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
+            return ValueExpression.notLoaded<EntityVersion>(
                 new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
     tenantId(): ValueExpression<string | number> {
@@ -330,16 +330,16 @@ export class OrderItemExpression {
         return new ValueExpression<string>(this.value.updateTime);
     }
 
-    version(): ValueExpression<number> {
+    version(): ValueExpression<EntityVersion> {
         const path = this.path.member('version', 'version');
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(path));
-        if (!this.value) return ValueExpression.missing<number>();
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
+            return ValueExpression.notLoaded<EntityVersion>(
                 new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
     purchaseOrderId(): ValueExpression<string | number> {

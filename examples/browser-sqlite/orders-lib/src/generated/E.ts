@@ -1,37 +1,11 @@
+import type { Decimal, Long, LocalTime, EntityVersion } from 'teaql-ts';
 import { Platform } from './models/Platform';
 import { OrderStatus } from './models/OrderStatus';
 import { Customer } from './models/Customer';
 import { CustomerOrder } from './models/CustomerOrder';
 import { OrderItem } from './models/OrderItem';
-
-export class TeaQLNotLoadedError extends Error {
-    readonly details: Record<string, unknown>;
-
-    constructor(
-        readonly root: string,
-        readonly accessPath: string,
-        readonly breakPoint: string,
-    ) {
-        const suggestedFix = `select${breakPoint.charAt(0).toUpperCase()}${breakPoint.slice(1)}(...)`;
-        const details = {
-            error: 'TeaQLNotLoadedError',
-            root,
-            accessPath: accessPath.split('.'),
-            breakPoint,
-            missingPreload: [breakPoint],
-            suggestedFix,
-            severity: 'error',
-            humanMessage: `访问 ${root}.${accessPath} 时缺少预加载。请在查询中加入 ${suggestedFix}`,
-        };
-        super(JSON.stringify(details));
-        this.name = 'TeaQLNotLoadedError';
-        this.details = details;
-    }
-}
-
-function expressionPath(prefix: string, field: string): string {
-    return prefix ? `${prefix}.${field}` : field;
-}
+import { ExpressionPath, TeaQLNotLoadedError } from '../teaql-ts';
+export { TeaQLNotLoadedError } from '../teaql-ts';
 
 export class ValueExpression<T> {
     constructor(
@@ -49,17 +23,18 @@ export class ValueExpression<T> {
     }
 
     eval(): T | null | undefined {
-        if (this.notLoaded) throw this.notLoaded;
+        if (this.notLoaded) throw this.notLoaded.terminal('eval()');
         return this.present ? this.value : undefined;
     }
 
     isPresent(): boolean {
-        if (this.notLoaded) throw this.notLoaded;
+        if (this.notLoaded) throw this.notLoaded.terminal('isPresent()');
         return this.present;
     }
 
     orElse(fallback: T): T {
-        const value = this.eval();
+        if (this.notLoaded) throw this.notLoaded.terminal('orElse(<fallback>)');
+        const value = this.value;
         return this.present && value != null ? value : fallback;
     }
 }
@@ -68,62 +43,62 @@ export class PlatformExpression {
     constructor(
         private readonly value: Platform | null | undefined,
         private readonly root = 'Platform(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.platform(<root>)', 'camelCase'),
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
     eval(): Platform | null | undefined {
-        if (this.notLoaded) throw this.notLoaded;
+        if (this.notLoaded) throw this.notLoaded.terminal('eval()');
         return this.value;
     }
 
     id(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('id', 'id');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'id');
         if (!this.value.isLoaded('id')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'id'),
+                new TeaQLNotLoadedError(path.markMissing(), 'id'),
             );
         }
         return new ValueExpression<string>(this.value.id);
     }
 
     name(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('name', 'name');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'name');
         if (!this.value.isLoaded('name')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'name'),
+                new TeaQLNotLoadedError(path.markMissing(), 'name'),
             );
         }
         return new ValueExpression<string>(this.value.name);
     }
 
-    version(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'version');
+    version(): ValueExpression<EntityVersion> {
+        const path = this.path.member('version', 'version');
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'version'),
+            return ValueExpression.notLoaded<EntityVersion>(
+                new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
 
 
     orderStatusList(): OrderStatusListExpression {
-        const path = expressionPath(this.path, 'orderStatusList');
+        const path = this.path.member('order_status_list', 'orderStatusList');
         if (this.notLoaded) {
-            return new OrderStatusListExpression([], this.root, path, false, this.notLoaded);
+            return new OrderStatusListExpression([], this.root, path, false, this.notLoaded.withPath(path));
         }
         if (!this.value) return OrderStatusListExpression.missing(this.root, path);
         if (!this.value.isLoaded('orderStatusList')) {
             return new OrderStatusListExpression([], this.root, path, false,
-                new TeaQLNotLoadedError(this.root, path, 'orderStatusList'));
+                new TeaQLNotLoadedError(path.markMissing(), 'order_status_list'));
         }
         return new OrderStatusListExpression(
             this.value.orderStatusList(), this.root, path,
@@ -131,14 +106,14 @@ export class PlatformExpression {
     }
 
     customerList(): CustomerListExpression {
-        const path = expressionPath(this.path, 'customerList');
+        const path = this.path.member('customer_list', 'customerList');
         if (this.notLoaded) {
-            return new CustomerListExpression([], this.root, path, false, this.notLoaded);
+            return new CustomerListExpression([], this.root, path, false, this.notLoaded.withPath(path));
         }
         if (!this.value) return CustomerListExpression.missing(this.root, path);
         if (!this.value.isLoaded('customerList')) {
             return new CustomerListExpression([], this.root, path, false,
-                new TeaQLNotLoadedError(this.root, path, 'customerList'));
+                new TeaQLNotLoadedError(path.markMissing(), 'customer_list'));
         }
         return new CustomerListExpression(
             this.value.customerList(), this.root, path,
@@ -150,94 +125,94 @@ export class OrderStatusExpression {
     constructor(
         private readonly value: OrderStatus | null | undefined,
         private readonly root = 'OrderStatus(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.orderStatus(<root>)', 'camelCase'),
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
     eval(): OrderStatus | null | undefined {
-        if (this.notLoaded) throw this.notLoaded;
+        if (this.notLoaded) throw this.notLoaded.terminal('eval()');
         return this.value;
     }
 
     id(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('id', 'id');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'id');
         if (!this.value.isLoaded('id')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'id'),
+                new TeaQLNotLoadedError(path.markMissing(), 'id'),
             );
         }
         return new ValueExpression<string>(this.value.id);
     }
 
     name(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('name', 'name');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'name');
         if (!this.value.isLoaded('name')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'name'),
+                new TeaQLNotLoadedError(path.markMissing(), 'name'),
             );
         }
         return new ValueExpression<string>(this.value.name);
     }
 
     code(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('code', 'code');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'code');
         if (!this.value.isLoaded('code')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'code'),
+                new TeaQLNotLoadedError(path.markMissing(), 'code'),
             );
         }
         return new ValueExpression<string>(this.value.code);
     }
 
     color(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('color', 'color');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'color');
         if (!this.value.isLoaded('color')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'color'),
+                new TeaQLNotLoadedError(path.markMissing(), 'color'),
             );
         }
         return new ValueExpression<string>(this.value.color);
     }
 
     displayOrder(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        const path = this.path.member('display_order', 'displayOrder');
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'displayOrder');
         if (!this.value.isLoaded('displayOrder')) {
             return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'displayOrder'),
+                new TeaQLNotLoadedError(path.markMissing(), 'display_order'),
             );
         }
         return new ValueExpression<number>(this.value.displayOrder);
     }
 
-    version(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'version');
+    version(): ValueExpression<EntityVersion> {
+        const path = this.path.member('version', 'version');
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'version'),
+            return ValueExpression.notLoaded<EntityVersion>(
+                new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
     platformId(): ValueExpression<string | number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded);
+        const path = this.path.member('platform', 'platformId');
+        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string | number>();
-        const path = expressionPath(this.path, 'platform');
         if (!this.value.isLoaded('platform')) {
             return ValueExpression.notLoaded<string | number>(
-                new TeaQLNotLoadedError(this.root, path, 'platform'),
+                new TeaQLNotLoadedError(path.markMissing(), 'platform'),
             );
         }
         const reference = this.value.platform;
@@ -248,33 +223,35 @@ export class OrderStatusExpression {
     }
 
     platform(): PlatformExpression {
-        const path = expressionPath(this.path, 'platform');
+        const path = this.path.member('platform', 'platform');
         if (this.notLoaded) {
-            return new PlatformExpression(undefined, this.root, path, this.notLoaded);
+            return new PlatformExpression(undefined, this.root, path, this.notLoaded.withPath(path));
         }
         if (!this.value) return new PlatformExpression(undefined, this.root, path);
         if (!this.value.isLoaded('platform')) {
             return new PlatformExpression(undefined, this.root, path,
-                new TeaQLNotLoadedError(this.root, path, 'platform'));
+                new TeaQLNotLoadedError(path.markMissing(), 'platform'));
         }
         const relation = this.value.platform;
-        const target = relation == null
-            ? undefined
-            : relation instanceof Platform
-                ? relation
-                : Platform.fromRecord({ id: relation });
+        // An available FK is not an eagerly loaded relation. Keep the FK
+        // readable through the Id accessor, without fabricating a child object.
+        if (relation != null && !(relation instanceof Platform)) {
+            return new PlatformExpression(undefined, this.root, path,
+                new TeaQLNotLoadedError(path.markMissing(), 'platform'));
+        }
+        const target = relation instanceof Platform ? relation : undefined;
         return new PlatformExpression(target, this.root, path);
     }
 
     customerOrderList(): CustomerOrderListExpression {
-        const path = expressionPath(this.path, 'customerOrderList');
+        const path = this.path.member('customer_order_list', 'customerOrderList');
         if (this.notLoaded) {
-            return new CustomerOrderListExpression([], this.root, path, false, this.notLoaded);
+            return new CustomerOrderListExpression([], this.root, path, false, this.notLoaded.withPath(path));
         }
         if (!this.value) return CustomerOrderListExpression.missing(this.root, path);
         if (!this.value.isLoaded('customerOrderList')) {
             return new CustomerOrderListExpression([], this.root, path, false,
-                new TeaQLNotLoadedError(this.root, path, 'customerOrderList'));
+                new TeaQLNotLoadedError(path.markMissing(), 'customer_order_list'));
         }
         return new CustomerOrderListExpression(
             this.value.customerOrderList(), this.root, path,
@@ -286,58 +263,58 @@ export class CustomerExpression {
     constructor(
         private readonly value: Customer | null | undefined,
         private readonly root = 'Customer(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.customer(<root>)', 'camelCase'),
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
     eval(): Customer | null | undefined {
-        if (this.notLoaded) throw this.notLoaded;
+        if (this.notLoaded) throw this.notLoaded.terminal('eval()');
         return this.value;
     }
 
     id(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('id', 'id');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'id');
         if (!this.value.isLoaded('id')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'id'),
+                new TeaQLNotLoadedError(path.markMissing(), 'id'),
             );
         }
         return new ValueExpression<string>(this.value.id);
     }
 
     name(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('name', 'name');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'name');
         if (!this.value.isLoaded('name')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'name'),
+                new TeaQLNotLoadedError(path.markMissing(), 'name'),
             );
         }
         return new ValueExpression<string>(this.value.name);
     }
 
-    version(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'version');
+    version(): ValueExpression<EntityVersion> {
+        const path = this.path.member('version', 'version');
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'version'),
+            return ValueExpression.notLoaded<EntityVersion>(
+                new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
     platformId(): ValueExpression<string | number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded);
+        const path = this.path.member('platform', 'platformId');
+        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string | number>();
-        const path = expressionPath(this.path, 'platform');
         if (!this.value.isLoaded('platform')) {
             return ValueExpression.notLoaded<string | number>(
-                new TeaQLNotLoadedError(this.root, path, 'platform'),
+                new TeaQLNotLoadedError(path.markMissing(), 'platform'),
             );
         }
         const reference = this.value.platform;
@@ -348,33 +325,35 @@ export class CustomerExpression {
     }
 
     platform(): PlatformExpression {
-        const path = expressionPath(this.path, 'platform');
+        const path = this.path.member('platform', 'platform');
         if (this.notLoaded) {
-            return new PlatformExpression(undefined, this.root, path, this.notLoaded);
+            return new PlatformExpression(undefined, this.root, path, this.notLoaded.withPath(path));
         }
         if (!this.value) return new PlatformExpression(undefined, this.root, path);
         if (!this.value.isLoaded('platform')) {
             return new PlatformExpression(undefined, this.root, path,
-                new TeaQLNotLoadedError(this.root, path, 'platform'));
+                new TeaQLNotLoadedError(path.markMissing(), 'platform'));
         }
         const relation = this.value.platform;
-        const target = relation == null
-            ? undefined
-            : relation instanceof Platform
-                ? relation
-                : Platform.fromRecord({ id: relation });
+        // An available FK is not an eagerly loaded relation. Keep the FK
+        // readable through the Id accessor, without fabricating a child object.
+        if (relation != null && !(relation instanceof Platform)) {
+            return new PlatformExpression(undefined, this.root, path,
+                new TeaQLNotLoadedError(path.markMissing(), 'platform'));
+        }
+        const target = relation instanceof Platform ? relation : undefined;
         return new PlatformExpression(target, this.root, path);
     }
 
     customerOrderList(): CustomerOrderListExpression {
-        const path = expressionPath(this.path, 'customerOrderList');
+        const path = this.path.member('customer_order_list', 'customerOrderList');
         if (this.notLoaded) {
-            return new CustomerOrderListExpression([], this.root, path, false, this.notLoaded);
+            return new CustomerOrderListExpression([], this.root, path, false, this.notLoaded.withPath(path));
         }
         if (!this.value) return CustomerOrderListExpression.missing(this.root, path);
         if (!this.value.isLoaded('customerOrderList')) {
             return new CustomerOrderListExpression([], this.root, path, false,
-                new TeaQLNotLoadedError(this.root, path, 'customerOrderList'));
+                new TeaQLNotLoadedError(path.markMissing(), 'customer_order_list'));
         }
         return new CustomerOrderListExpression(
             this.value.customerOrderList(), this.root, path,
@@ -386,82 +365,82 @@ export class CustomerOrderExpression {
     constructor(
         private readonly value: CustomerOrder | null | undefined,
         private readonly root = 'CustomerOrder(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.customerOrder(<root>)', 'camelCase'),
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
     eval(): CustomerOrder | null | undefined {
-        if (this.notLoaded) throw this.notLoaded;
+        if (this.notLoaded) throw this.notLoaded.terminal('eval()');
         return this.value;
     }
 
     id(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('id', 'id');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'id');
         if (!this.value.isLoaded('id')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'id'),
+                new TeaQLNotLoadedError(path.markMissing(), 'id'),
             );
         }
         return new ValueExpression<string>(this.value.id);
     }
 
     orderNumber(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('order_number', 'orderNumber');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'orderNumber');
         if (!this.value.isLoaded('orderNumber')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'orderNumber'),
+                new TeaQLNotLoadedError(path.markMissing(), 'order_number'),
             );
         }
         return new ValueExpression<string>(this.value.orderNumber);
     }
 
     orderDate(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('order_date', 'orderDate');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'orderDate');
         if (!this.value.isLoaded('orderDate')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'orderDate'),
+                new TeaQLNotLoadedError(path.markMissing(), 'order_date'),
             );
         }
         return new ValueExpression<string>(this.value.orderDate);
     }
 
-    totalAmount(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'totalAmount');
+    totalAmount(): ValueExpression<Decimal> {
+        const path = this.path.member('total_amount', 'totalAmount');
+        if (this.notLoaded) return ValueExpression.notLoaded<Decimal>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<Decimal>();
         if (!this.value.isLoaded('totalAmount')) {
-            return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'totalAmount'),
+            return ValueExpression.notLoaded<Decimal>(
+                new TeaQLNotLoadedError(path.markMissing(), 'total_amount'),
             );
         }
-        return new ValueExpression<number>(this.value.totalAmount);
+        return new ValueExpression<Decimal>(this.value.totalAmount);
     }
 
-    version(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'version');
+    version(): ValueExpression<EntityVersion> {
+        const path = this.path.member('version', 'version');
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'version'),
+            return ValueExpression.notLoaded<EntityVersion>(
+                new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
     customerId(): ValueExpression<string | number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded);
+        const path = this.path.member('customer', 'customerId');
+        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string | number>();
-        const path = expressionPath(this.path, 'customer');
         if (!this.value.isLoaded('customer')) {
             return ValueExpression.notLoaded<string | number>(
-                new TeaQLNotLoadedError(this.root, path, 'customer'),
+                new TeaQLNotLoadedError(path.markMissing(), 'customer'),
             );
         }
         const reference = this.value.customer;
@@ -472,12 +451,12 @@ export class CustomerOrderExpression {
     }
 
     statusId(): ValueExpression<string | number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded);
+        const path = this.path.member('status', 'statusId');
+        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string | number>();
-        const path = expressionPath(this.path, 'status');
         if (!this.value.isLoaded('status')) {
             return ValueExpression.notLoaded<string | number>(
-                new TeaQLNotLoadedError(this.root, path, 'status'),
+                new TeaQLNotLoadedError(path.markMissing(), 'status'),
             );
         }
         const reference = this.value.status;
@@ -488,52 +467,56 @@ export class CustomerOrderExpression {
     }
 
     customer(): CustomerExpression {
-        const path = expressionPath(this.path, 'customer');
+        const path = this.path.member('customer', 'customer');
         if (this.notLoaded) {
-            return new CustomerExpression(undefined, this.root, path, this.notLoaded);
+            return new CustomerExpression(undefined, this.root, path, this.notLoaded.withPath(path));
         }
         if (!this.value) return new CustomerExpression(undefined, this.root, path);
         if (!this.value.isLoaded('customer')) {
             return new CustomerExpression(undefined, this.root, path,
-                new TeaQLNotLoadedError(this.root, path, 'customer'));
+                new TeaQLNotLoadedError(path.markMissing(), 'customer'));
         }
         const relation = this.value.customer;
-        const target = relation == null
-            ? undefined
-            : relation instanceof Customer
-                ? relation
-                : Customer.fromRecord({ id: relation });
+        // An available FK is not an eagerly loaded relation. Keep the FK
+        // readable through the Id accessor, without fabricating a child object.
+        if (relation != null && !(relation instanceof Customer)) {
+            return new CustomerExpression(undefined, this.root, path,
+                new TeaQLNotLoadedError(path.markMissing(), 'customer'));
+        }
+        const target = relation instanceof Customer ? relation : undefined;
         return new CustomerExpression(target, this.root, path);
     }
 
     status(): OrderStatusExpression {
-        const path = expressionPath(this.path, 'status');
+        const path = this.path.member('status', 'status');
         if (this.notLoaded) {
-            return new OrderStatusExpression(undefined, this.root, path, this.notLoaded);
+            return new OrderStatusExpression(undefined, this.root, path, this.notLoaded.withPath(path));
         }
         if (!this.value) return new OrderStatusExpression(undefined, this.root, path);
         if (!this.value.isLoaded('status')) {
             return new OrderStatusExpression(undefined, this.root, path,
-                new TeaQLNotLoadedError(this.root, path, 'status'));
+                new TeaQLNotLoadedError(path.markMissing(), 'status'));
         }
         const relation = this.value.status;
-        const target = relation == null
-            ? undefined
-            : relation instanceof OrderStatus
-                ? relation
-                : OrderStatus.fromRecord({ id: relation });
+        // An available FK is not an eagerly loaded relation. Keep the FK
+        // readable through the Id accessor, without fabricating a child object.
+        if (relation != null && !(relation instanceof OrderStatus)) {
+            return new OrderStatusExpression(undefined, this.root, path,
+                new TeaQLNotLoadedError(path.markMissing(), 'status'));
+        }
+        const target = relation instanceof OrderStatus ? relation : undefined;
         return new OrderStatusExpression(target, this.root, path);
     }
 
     orderItemList(): OrderItemListExpression {
-        const path = expressionPath(this.path, 'orderItemList');
+        const path = this.path.member('order_item_list', 'orderItemList');
         if (this.notLoaded) {
-            return new OrderItemListExpression([], this.root, path, false, this.notLoaded);
+            return new OrderItemListExpression([], this.root, path, false, this.notLoaded.withPath(path));
         }
         if (!this.value) return OrderItemListExpression.missing(this.root, path);
         if (!this.value.isLoaded('orderItemList')) {
             return new OrderItemListExpression([], this.root, path, false,
-                new TeaQLNotLoadedError(this.root, path, 'orderItemList'));
+                new TeaQLNotLoadedError(path.markMissing(), 'order_item_list'));
         }
         return new OrderItemListExpression(
             this.value.orderItemList(), this.root, path,
@@ -545,82 +528,82 @@ export class OrderItemExpression {
     constructor(
         private readonly value: OrderItem | null | undefined,
         private readonly root = 'OrderItem(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.orderItem(<root>)', 'camelCase'),
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
     eval(): OrderItem | null | undefined {
-        if (this.notLoaded) throw this.notLoaded;
+        if (this.notLoaded) throw this.notLoaded.terminal('eval()');
         return this.value;
     }
 
     id(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('id', 'id');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'id');
         if (!this.value.isLoaded('id')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'id'),
+                new TeaQLNotLoadedError(path.markMissing(), 'id'),
             );
         }
         return new ValueExpression<string>(this.value.id);
     }
 
     productName(): ValueExpression<string> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded);
+        const path = this.path.member('product_name', 'productName');
+        if (this.notLoaded) return ValueExpression.notLoaded<string>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string>();
-        const path = expressionPath(this.path, 'productName');
         if (!this.value.isLoaded('productName')) {
             return ValueExpression.notLoaded<string>(
-                new TeaQLNotLoadedError(this.root, path, 'productName'),
+                new TeaQLNotLoadedError(path.markMissing(), 'product_name'),
             );
         }
         return new ValueExpression<string>(this.value.productName);
     }
 
     quantity(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        const path = this.path.member('quantity', 'quantity');
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'quantity');
         if (!this.value.isLoaded('quantity')) {
             return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'quantity'),
+                new TeaQLNotLoadedError(path.markMissing(), 'quantity'),
             );
         }
         return new ValueExpression<number>(this.value.quantity);
     }
 
-    unitPrice(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'unitPrice');
+    unitPrice(): ValueExpression<Decimal> {
+        const path = this.path.member('unit_price', 'unitPrice');
+        if (this.notLoaded) return ValueExpression.notLoaded<Decimal>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<Decimal>();
         if (!this.value.isLoaded('unitPrice')) {
-            return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'unitPrice'),
+            return ValueExpression.notLoaded<Decimal>(
+                new TeaQLNotLoadedError(path.markMissing(), 'unit_price'),
             );
         }
-        return new ValueExpression<number>(this.value.unitPrice);
+        return new ValueExpression<Decimal>(this.value.unitPrice);
     }
 
-    version(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
-        if (!this.value) return ValueExpression.missing<number>();
-        const path = expressionPath(this.path, 'version');
+    version(): ValueExpression<EntityVersion> {
+        const path = this.path.member('version', 'version');
+        if (this.notLoaded) return ValueExpression.notLoaded<EntityVersion>(this.notLoaded.withPath(path));
+        if (!this.value) return ValueExpression.missing<EntityVersion>();
         if (!this.value.isLoaded('version')) {
-            return ValueExpression.notLoaded<number>(
-                new TeaQLNotLoadedError(this.root, path, 'version'),
+            return ValueExpression.notLoaded<EntityVersion>(
+                new TeaQLNotLoadedError(path.markMissing(), 'version'),
             );
         }
-        return new ValueExpression<number>(this.value.version);
+        return new ValueExpression<EntityVersion>(this.value.version);
     }
 
     customerOrderId(): ValueExpression<string | number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded);
+        const path = this.path.member('customer_order', 'customerOrderId');
+        if (this.notLoaded) return ValueExpression.notLoaded<string | number>(this.notLoaded.withPath(path));
         if (!this.value) return ValueExpression.missing<string | number>();
-        const path = expressionPath(this.path, 'customerOrder');
         if (!this.value.isLoaded('customerOrder')) {
             return ValueExpression.notLoaded<string | number>(
-                new TeaQLNotLoadedError(this.root, path, 'customerOrder'),
+                new TeaQLNotLoadedError(path.markMissing(), 'customer_order'),
             );
         }
         const reference = this.value.customerOrder;
@@ -631,21 +614,23 @@ export class OrderItemExpression {
     }
 
     customerOrder(): CustomerOrderExpression {
-        const path = expressionPath(this.path, 'customerOrder');
+        const path = this.path.member('customer_order', 'customerOrder');
         if (this.notLoaded) {
-            return new CustomerOrderExpression(undefined, this.root, path, this.notLoaded);
+            return new CustomerOrderExpression(undefined, this.root, path, this.notLoaded.withPath(path));
         }
         if (!this.value) return new CustomerOrderExpression(undefined, this.root, path);
         if (!this.value.isLoaded('customerOrder')) {
             return new CustomerOrderExpression(undefined, this.root, path,
-                new TeaQLNotLoadedError(this.root, path, 'customerOrder'));
+                new TeaQLNotLoadedError(path.markMissing(), 'customer_order'));
         }
         const relation = this.value.customerOrder;
-        const target = relation == null
-            ? undefined
-            : relation instanceof CustomerOrder
-                ? relation
-                : CustomerOrder.fromRecord({ id: relation });
+        // An available FK is not an eagerly loaded relation. Keep the FK
+        // readable through the Id accessor, without fabricating a child object.
+        if (relation != null && !(relation instanceof CustomerOrder)) {
+            return new CustomerOrderExpression(undefined, this.root, path,
+                new TeaQLNotLoadedError(path.markMissing(), 'customer_order'));
+        }
+        const target = relation instanceof CustomerOrder ? relation : undefined;
         return new CustomerOrderExpression(target, this.root, path);
     }
 
@@ -655,30 +640,34 @@ export class PlatformListExpression {
     constructor(
         private readonly items: readonly Platform[],
         private readonly root = 'Platform(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.entity(<root>)', 'camelCase'),
         private readonly present = true,
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
-    static missing(root?: string, path = ''): PlatformListExpression {
+    static missing(root?: string, path = ExpressionPath.root('E.entity(<root>)', 'camelCase')): PlatformListExpression {
         return new PlatformListExpression([], root, path, false);
     }
 
     size(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(this.path.operation('size()')));
         return this.present
             ? new ValueExpression<number>(this.items.length)
             : ValueExpression.missing<number>();
     }
 
     first(): PlatformExpression {
-        return this.get(0);
+        return this.item(0, true);
     }
 
     get(index: number): PlatformExpression {
-        const itemPath = expressionPath(this.path, `get(${index})`);
+        return this.item(index, false);
+    }
+
+    private item(index: number, first: boolean): PlatformExpression {
+        const itemPath = this.path.index(index, first);
         if (this.notLoaded) {
-            return new PlatformExpression(undefined, this.root, itemPath, this.notLoaded);
+            return new PlatformExpression(undefined, this.root, itemPath, this.notLoaded.withPath(itemPath));
         }
         return !this.present || index < 0 || index >= this.items.length
             ? new PlatformExpression(undefined, this.root, itemPath)
@@ -690,30 +679,34 @@ export class OrderStatusListExpression {
     constructor(
         private readonly items: readonly OrderStatus[],
         private readonly root = 'OrderStatus(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.entity(<root>)', 'camelCase'),
         private readonly present = true,
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
-    static missing(root?: string, path = ''): OrderStatusListExpression {
+    static missing(root?: string, path = ExpressionPath.root('E.entity(<root>)', 'camelCase')): OrderStatusListExpression {
         return new OrderStatusListExpression([], root, path, false);
     }
 
     size(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(this.path.operation('size()')));
         return this.present
             ? new ValueExpression<number>(this.items.length)
             : ValueExpression.missing<number>();
     }
 
     first(): OrderStatusExpression {
-        return this.get(0);
+        return this.item(0, true);
     }
 
     get(index: number): OrderStatusExpression {
-        const itemPath = expressionPath(this.path, `get(${index})`);
+        return this.item(index, false);
+    }
+
+    private item(index: number, first: boolean): OrderStatusExpression {
+        const itemPath = this.path.index(index, first);
         if (this.notLoaded) {
-            return new OrderStatusExpression(undefined, this.root, itemPath, this.notLoaded);
+            return new OrderStatusExpression(undefined, this.root, itemPath, this.notLoaded.withPath(itemPath));
         }
         return !this.present || index < 0 || index >= this.items.length
             ? new OrderStatusExpression(undefined, this.root, itemPath)
@@ -725,30 +718,34 @@ export class CustomerListExpression {
     constructor(
         private readonly items: readonly Customer[],
         private readonly root = 'Customer(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.entity(<root>)', 'camelCase'),
         private readonly present = true,
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
-    static missing(root?: string, path = ''): CustomerListExpression {
+    static missing(root?: string, path = ExpressionPath.root('E.entity(<root>)', 'camelCase')): CustomerListExpression {
         return new CustomerListExpression([], root, path, false);
     }
 
     size(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(this.path.operation('size()')));
         return this.present
             ? new ValueExpression<number>(this.items.length)
             : ValueExpression.missing<number>();
     }
 
     first(): CustomerExpression {
-        return this.get(0);
+        return this.item(0, true);
     }
 
     get(index: number): CustomerExpression {
-        const itemPath = expressionPath(this.path, `get(${index})`);
+        return this.item(index, false);
+    }
+
+    private item(index: number, first: boolean): CustomerExpression {
+        const itemPath = this.path.index(index, first);
         if (this.notLoaded) {
-            return new CustomerExpression(undefined, this.root, itemPath, this.notLoaded);
+            return new CustomerExpression(undefined, this.root, itemPath, this.notLoaded.withPath(itemPath));
         }
         return !this.present || index < 0 || index >= this.items.length
             ? new CustomerExpression(undefined, this.root, itemPath)
@@ -760,30 +757,34 @@ export class CustomerOrderListExpression {
     constructor(
         private readonly items: readonly CustomerOrder[],
         private readonly root = 'CustomerOrder(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.entity(<root>)', 'camelCase'),
         private readonly present = true,
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
-    static missing(root?: string, path = ''): CustomerOrderListExpression {
+    static missing(root?: string, path = ExpressionPath.root('E.entity(<root>)', 'camelCase')): CustomerOrderListExpression {
         return new CustomerOrderListExpression([], root, path, false);
     }
 
     size(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(this.path.operation('size()')));
         return this.present
             ? new ValueExpression<number>(this.items.length)
             : ValueExpression.missing<number>();
     }
 
     first(): CustomerOrderExpression {
-        return this.get(0);
+        return this.item(0, true);
     }
 
     get(index: number): CustomerOrderExpression {
-        const itemPath = expressionPath(this.path, `get(${index})`);
+        return this.item(index, false);
+    }
+
+    private item(index: number, first: boolean): CustomerOrderExpression {
+        const itemPath = this.path.index(index, first);
         if (this.notLoaded) {
-            return new CustomerOrderExpression(undefined, this.root, itemPath, this.notLoaded);
+            return new CustomerOrderExpression(undefined, this.root, itemPath, this.notLoaded.withPath(itemPath));
         }
         return !this.present || index < 0 || index >= this.items.length
             ? new CustomerOrderExpression(undefined, this.root, itemPath)
@@ -795,30 +796,34 @@ export class OrderItemListExpression {
     constructor(
         private readonly items: readonly OrderItem[],
         private readonly root = 'OrderItem(null)',
-        private readonly path = '',
+        private readonly path = ExpressionPath.root('E.entity(<root>)', 'camelCase'),
         private readonly present = true,
         private readonly notLoaded?: TeaQLNotLoadedError,
     ) {}
 
-    static missing(root?: string, path = ''): OrderItemListExpression {
+    static missing(root?: string, path = ExpressionPath.root('E.entity(<root>)', 'camelCase')): OrderItemListExpression {
         return new OrderItemListExpression([], root, path, false);
     }
 
     size(): ValueExpression<number> {
-        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded);
+        if (this.notLoaded) return ValueExpression.notLoaded<number>(this.notLoaded.withPath(this.path.operation('size()')));
         return this.present
             ? new ValueExpression<number>(this.items.length)
             : ValueExpression.missing<number>();
     }
 
     first(): OrderItemExpression {
-        return this.get(0);
+        return this.item(0, true);
     }
 
     get(index: number): OrderItemExpression {
-        const itemPath = expressionPath(this.path, `get(${index})`);
+        return this.item(index, false);
+    }
+
+    private item(index: number, first: boolean): OrderItemExpression {
+        const itemPath = this.path.index(index, first);
         if (this.notLoaded) {
-            return new OrderItemExpression(undefined, this.root, itemPath, this.notLoaded);
+            return new OrderItemExpression(undefined, this.root, itemPath, this.notLoaded.withPath(itemPath));
         }
         return !this.present || index < 0 || index >= this.items.length
             ? new OrderItemExpression(undefined, this.root, itemPath)
@@ -831,7 +836,7 @@ export class E {
         value: Platform | null | undefined,
     ): PlatformExpression {
         return new PlatformExpression(
-            value, `Platform(id=${value?.id ?? 'null'})`,
+            value, 'Platform', ExpressionPath.root('E.platform(<root>)', 'camelCase'),
         );
     }
 
@@ -839,7 +844,7 @@ export class E {
         value: OrderStatus | null | undefined,
     ): OrderStatusExpression {
         return new OrderStatusExpression(
-            value, `OrderStatus(id=${value?.id ?? 'null'})`,
+            value, 'OrderStatus', ExpressionPath.root('E.orderStatus(<root>)', 'camelCase'),
         );
     }
 
@@ -847,7 +852,7 @@ export class E {
         value: Customer | null | undefined,
     ): CustomerExpression {
         return new CustomerExpression(
-            value, `Customer(id=${value?.id ?? 'null'})`,
+            value, 'Customer', ExpressionPath.root('E.customer(<root>)', 'camelCase'),
         );
     }
 
@@ -855,7 +860,7 @@ export class E {
         value: CustomerOrder | null | undefined,
     ): CustomerOrderExpression {
         return new CustomerOrderExpression(
-            value, `CustomerOrder(id=${value?.id ?? 'null'})`,
+            value, 'CustomerOrder', ExpressionPath.root('E.customerOrder(<root>)', 'camelCase'),
         );
     }
 
@@ -863,7 +868,7 @@ export class E {
         value: OrderItem | null | undefined,
     ): OrderItemExpression {
         return new OrderItemExpression(
-            value, `OrderItem(id=${value?.id ?? 'null'})`,
+            value, 'OrderItem', ExpressionPath.root('E.orderItem(<root>)', 'camelCase'),
         );
     }
 }

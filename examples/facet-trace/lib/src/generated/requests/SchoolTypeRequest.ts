@@ -1,6 +1,7 @@
 import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, UserContext, executeRelationFacets } from '../../teaql-ts';
 import { SchoolType } from '../models/SchoolType';
 import { mergeGeneratedScalarSearch, DynamicSearchWarning, QueryIntent } from 'teaql-ts';
+import type { Decimal, Long, LocalTime } from 'teaql-ts';
 import { GENERATED_SEARCH_MODELS } from '../../generated-search-models';
 
 
@@ -99,12 +100,14 @@ export class SchoolTypeRequest {
     }
 
     withDeletedRows(): this {
+        this.query.withDeletedRows();
         this.filters = this.filters.filter(filter => !("version" in filter));
         return this;
     }
 
     deletedRowsOnly(): this {
         this.withDeletedRows();
+        this.query.deletedRowsOnly();
         this.filters.push({ version: { "$lte": -1 } });
         return this;
     }
@@ -594,47 +597,47 @@ export class SchoolTypeRequest {
             return this;
         }
 
-        withDisplayOrderIs(val: any): this {
+        withDisplayOrderIs(val: Decimal): this {
             this.filters.push({ "displayOrder": { "$eq": val } });
             return this;
         }
 
-        withDisplayOrderIsNot(val: any): this {
+        withDisplayOrderIsNot(val: Decimal): this {
             this.filters.push({ "displayOrder": { "$ne": val } });
             return this;
         }
 
-        withDisplayOrderIn(...vals: any[]): this {
+        withDisplayOrderIn(...vals: Decimal[]): this {
             this.filters.push({ "displayOrder": { "$in": vals } });
             return this;
         }
 
-        withDisplayOrderNotIn(...vals: any[]): this {
+        withDisplayOrderNotIn(...vals: Decimal[]): this {
             this.filters.push({ "displayOrder": { "$notIn": vals } });
             return this;
         }
 
-        withDisplayOrderGreaterThan(val: any): this {
+        withDisplayOrderGreaterThan(val: Decimal): this {
             this.filters.push({ "displayOrder": { "$gt": val } });
             return this;
         }
 
-        withDisplayOrderGreaterThanOrEqualTo(val: any): this {
+        withDisplayOrderGreaterThanOrEqualTo(val: Decimal): this {
             this.filters.push({ "displayOrder": { "$gte": val } });
             return this;
         }
 
-        withDisplayOrderLessThan(val: any): this {
+        withDisplayOrderLessThan(val: Decimal): this {
             this.filters.push({ "displayOrder": { "$lt": val } });
             return this;
         }
 
-        withDisplayOrderLessThanOrEqualTo(val: any): this {
+        withDisplayOrderLessThanOrEqualTo(val: Decimal): this {
             this.filters.push({ "displayOrder": { "$lte": val } });
             return this;
         }
 
-        withDisplayOrderBetween(lower: any, upper: any): this {
+        withDisplayOrderBetween(lower: Decimal, upper: Decimal): this {
             this.filters.push({ "displayOrder": { "$between": [lower, upper] } });
             return this;
         }

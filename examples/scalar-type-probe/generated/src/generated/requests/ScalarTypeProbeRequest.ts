@@ -100,12 +100,14 @@ export class ScalarTypeProbeRequest {
     }
 
     withDeletedRows(): this {
+        this.query.withDeletedRows();
         this.filters = this.filters.filter(filter => !("version" in filter));
         return this;
     }
 
     deletedRowsOnly(): this {
         this.withDeletedRows();
+        this.query.deletedRowsOnly();
         this.filters.push({ version: { "$lte": -1 } });
         return this;
     }

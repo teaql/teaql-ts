@@ -2,6 +2,20 @@
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+verify_scratch="$(mktemp -d -t teaql-ts-example-scratch.XXXXXXXX)"
+finish_verification() {
+  local status=$?
+  trap - EXIT
+  # Only logs/configuration owned by this invocation; never databases or caches.
+  if [[ -n "$verify_scratch" && -d "$verify_scratch" ]]; then
+    if ! rm -r -- "$verify_scratch"; then echo "WARNING: owned scratch retained: $verify_scratch" >&2; fi
+  fi
+  exit "$status"
+}
+trap finish_verification EXIT
+example_evidence="${TEAQL_EXAMPLES_EVIDENCE_DIR:-$(mktemp -d -t teaql-ts-example-evidence.XXXXXXXX)}"
+mkdir -p "$example_evidence"
+echo "Retained TypeScript example evidence: $example_evidence"
 # file: dependencies resolve the package's dist entry points, not TypeScript source.
 # Rebuild here so examples can never silently validate stale checked-in output.
 (cd "$repo" && npm run build)
@@ -36,13 +50,14 @@ for example in conformance ensure-schema-bootstrap school-management; do
 done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
 (cd "$repo/examples/task-board" && npm install && npm run build)
-(cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke && npm run smoke:orders)
+(cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke && \
+  TEAQL_BROWSER_ORDER_EVIDENCE="$example_evidence/browser-orders.json" npm run smoke:orders)
 (
   cd "$repo/examples/trace-chain"
   npm install
   npm run build
   for attempt in 1 2; do
-    graph_log="$(mktemp -t teaql-ts-graph.XXXXXX.log)"
+    graph_log="$verify_scratch/graph-$attempt.log"
     npm start | tee "$graph_log"
     rg -Fxq 'PASS TypeScript graph identity controls: duplicate, missing and equal-ID type collapse rejected' "$graph_log"
     rg -Fq 'GRAPH IDENTITY EVIDENCE ' "$graph_log"
@@ -54,7 +69,8 @@ done
   env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry
   env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry-graph
   env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry-graph
-  response_directory="$(mktemp -d -t teaql-ts-response-example.XXXXXXXX)"
+  response_directory="$example_evidence/standard-response"
+  mkdir -p "$response_directory"
   for attempt in 1 2; do
     response_log="$response_directory/round-$attempt.log"
     env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT \
@@ -71,24 +87,25 @@ done
   npm run test:stream-capture
 )
 for attempt in 1 2; do
-  aggregate_log="$(mktemp -t teaql-ts-aggregate.XXXXXX.log)"
+  aggregate_log="$verify_scratch/aggregate-$attempt.log"
   (cd "$repo/examples/trace-chain" && npm run test:relation-aggregate) | tee "$aggregate_log"
   rg -Fq 'FORWARD_NOTLOADED_OBSERVED {"logging":true' "$aggregate_log"
   rg -Fq 'FORWARD_NOTLOADED_OBSERVED {"logging":false' "$aggregate_log"
 done
 bash "$repo/scripts/verify-current-aggregate.sh"
 for attempt in 1 2; do
-  checker_log="$(mktemp -t teaql-ts-checker.XXXXXX.log)"
+  checker_log="$verify_scratch/checker-$attempt.log"
   TEAQL_TRACE_CHAIN_CHECKER_RUN="verify-examples-$attempt" \
     bash "$repo/scripts/run-checker-overlap.sh" "$checker_log"
 done
 for attempt in 1 2; do
-  plan_log="$(mktemp -t teaql-ts-plan-items.XXXXXX.log)"
+  plan_log="$verify_scratch/plan-items-$attempt.log"
   (cd "$repo/examples/trace-chain" && timeout --kill-after=5s 90s npm run test:plan-item-lineage) | tee "$plan_log"
   rg -Fxq 'PASS TypeScript generated plan item lineage: 4 scenarios; one plan, ordered same-type items, sibling privacy, independent next request' "$plan_log"
 done
 bash "$repo/examples/facet-trace/verify.sh"
-bootstrap_directory="$(mktemp -d -t teaql-ts-bootstrap.XXXXXXXX)"
+bootstrap_directory="$example_evidence/bootstrap"
+mkdir -p "$bootstrap_directory"
 for attempt in 1 2; do
   bootstrap_log="$bootstrap_directory/round-$attempt.log"
   (cd "$repo/examples/trace-chain" && TEAQL_TRACE_CHAIN_BOOTSTRAP_DB="$bootstrap_directory/bootstrap.sqlite" \
