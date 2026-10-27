@@ -62,14 +62,15 @@ class Client extends AbstractSQLTeaQLClient {
     }
     return rows;
   }
-  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T> {
+  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>,
+    prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T> {
     this.activeSaves++; this.maxSaves = Math.max(this.maxSaves, this.activeSaves);
     try {
       return await super.executeGraphSave(intent, async graph => {
         this.activeCallbacks++; this.maxCallbacks = Math.max(this.maxCallbacks, this.activeCallbacks);
         assert(this.observedDriver.current); this.observedDriver.current.reason = intent.comment;
         try { return await work(graph); } finally { this.activeCallbacks--; }
-      });
+      }, prepare, admit);
     } finally { this.activeSaves--; }
   }
   preflightMutation(input: any): any {
@@ -170,9 +171,9 @@ async function main() {
       assert.deepEqual(client.commands.map(c => plain(c.lineage)), expected);
       assert.deepEqual(audit.map(event => plain(event.mutationLineage)), expected);
       assert.deepEqual(client.physical.map(entry => plain(entry.mutationLineage)), expected.flatMap(chain => [chain, chain]));
-      assert.equal(driver.transactions.length, 2);
-      const failed = driver.transactions.find(t => t.reason === invalidReason)!;
-      assert.equal(failed.outcome, 'rollback'); assert.deepEqual(failed.sql, [], 'no ID allocation or business SQL before Checker rejection');
+      assert.equal(driver.transactions.length, 1, 'Checker rejection happens before a provider transaction');
+      assert.equal(driver.transactions.find(t => t.reason === invalidReason), undefined,
+        'no transaction, ID allocation or business SQL before Checker rejection');
       assert.equal(driver.transactions.find(t => t.reason === validReason)!.outcome, 'commit');
       assert.equal(ledger(platformA).snapshot().length, 0); assert.equal(ledger(platformB).snapshot().length, 0);
       assert.equal(E.platform(platformA).version().eval(), platformVersion);

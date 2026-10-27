@@ -45,10 +45,11 @@ class Client extends AbstractSQLTeaQLClient {
     }
     return rows;
   }
-  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T> {
+  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>,
+    prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T> {
     this.activeSaves++;
     this.maxOverlappingSaves = Math.max(this.maxOverlappingSaves, this.activeSaves);
-    try { return await super.executeGraphSave(intent, work); }
+    try { return await super.executeGraphSave(intent, work, prepare, admit); }
     finally { this.activeSaves--; }
   }
   async executeMutation(input: any): Promise<MutationResult> {
@@ -63,11 +64,13 @@ class Client extends AbstractSQLTeaQLClient {
 async function main() {
   const driver = new SQLiteDriver(database);
   const client = new Client(driver).install(GENERATED_RUNTIME_MODULE).setDiagnosticSQLLogSink(undefined);
-  const context = new UserContext().insertResource('dataService', client);
+  let clockCalls = 0;
+  const context = new UserContext().withBusinessClock({now: () => {clockCalls++; return new Date('2032-01-01T00:00:00Z');}})
+    .insertResource('dataService', client);
   const sql = new SQLExecutionEvidenceStore();
   const audit: Readonly<Record<string, unknown>>[] = [];
   client.setRuntimeTelemetrySink(sql).setAuditSink(event => { audit.push(event); });
-  const reset = () => { client.commands.length = 0; audit.length = 0; sql.enableAll(); };
+  const reset = () => { client.commands.length = 0; audit.length = 0; clockCalls = 0; sql.enableAll(); };
   const observe = (scenario: string) => console.log(JSON.stringify({ scenario,
     commands: client.commands, sql: sql.snapshot(), committedAudit: audit }));
   const create = async (suffix: string, twoItems = false) => {
@@ -196,14 +199,20 @@ async function main() {
       old.orderItemList().push(conflicting);
       old.updateDescription('pending receiver must survive conflict');
       reset();
+      const originalFixTime = new Date('2002-01-01T00:00:00Z');
+      context.insertResource('fixTime', originalFixTime);
       await assert.rejects(old.auditAs('reject mixed versions').save(context), /ENTITY_VERSION_CONFLICT/);
       assert.equal(client.commands.length, 0); assert.equal(audit.length, 0);
       assert.equal(sql.snapshot().filter(entry => ['insert', 'update', 'delete'].includes(entry.operation)).length, 0);
+      assert.equal(sql.snapshot().length, 0, 'no provider queries before whole-graph rejection');
+      assert.equal(clockCalls, 0, 'whole-graph conflict rejects before business clock/Fix');
+      assert.equal(context.getResource('fixTime'), originalFixTime, 'admission preserves the existing Fix scope');
       assert.equal(ledger(old).change(key('CustomerOrder', old.id)).description, 'pending receiver must survive conflict');
       assert.equal(pendingSource.change(key('OrderItem', conflicting.id)).name, 'uncommitted conflicting version');
       checks.push('conflict');
       observe('conflict');
       console.log('MIXED VERSION REJECTED: mutations=0 audits=0 receiver_pending=true source_pending=true');
+      console.log('MIXED VERSION PRECLOCK: clocks=0 statements=0 fix_scope_preserved=true');
     }
   } finally { await client.close(); }
   assert.equal(manifest('lib'), before, 'acceptance must not edit generated source');
