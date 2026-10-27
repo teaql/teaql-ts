@@ -3,7 +3,7 @@ import {
   ObjectMetadata,
   ObjectReadUrl,
   StorageError
-} from "../chunks/chunk-MJFGQZSQ.js";
+} from "../chunks/chunk-VNRIO2IL.js";
 import "../chunks/chunk-WEYNFMW2.js";
 import {
   __privateAdd,
@@ -151,6 +151,24 @@ var S3ObjectStorage = class {
       await __privateGet(this, _client).send(new DeleteObjectCommand({ Bucket: __privateGet(this, _bucket), Key: key.value }));
     } catch (error) {
       throw translate(error);
+    }
+  }
+  async deleteIfVersion(invocation, key, contentVersion) {
+    if (typeof contentVersion !== "string" || !contentVersion || contentVersion.length > 256 || contentVersion.trim() !== contentVersion || /[\x00-\x1f\x7f-\x9f]/.test(contentVersion) || contentVersion === "*") throw new StorageError("InvalidInput");
+    try {
+      await __privateGet(this, _client).send(new DeleteObjectCommand({
+        Bucket: __privateGet(this, _bucket),
+        Key: key.value,
+        IfMatch: contentVersion
+      }));
+      return "deleted";
+    } catch (error) {
+      const safe = translate(error);
+      if (safe.code === "NotFound" || safe.code === "Conflict" && error?.$metadata?.httpStatusCode === 412) {
+        const current = await this.head(invocation, key);
+        return current ? "version_mismatch" : "already_missing";
+      }
+      throw safe;
     }
   }
   async getReadUrl(_, key, options) {

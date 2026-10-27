@@ -23,7 +23,7 @@ import {
   locales,
   mergeRuntimeBootstrap,
   parseLocale
-} from "./chunks/chunk-RXNDHQEY.js";
+} from "./chunks/chunk-NVNGPT7M.js";
 import {
   installRuntimeCapability,
   requireRuntimeCapabilities
@@ -58,7 +58,7 @@ import {
   ObjectReadUrlOptions,
   ObjectStorage,
   StorageError
-} from "./chunks/chunk-MJFGQZSQ.js";
+} from "./chunks/chunk-VNRIO2IL.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,

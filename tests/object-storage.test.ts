@@ -7,14 +7,22 @@ import {ObjectKey,ObjectPutOptions,ObjectReadUrlOptions,ObjectReadUrl,ObjectMeta
 import {S3ObjectStorage} from '../src/object-storage/s3';
 
 class Stub implements ObjectStorageProvider {
-  size=3;error?:StorageError;seen?:StorageInvocation;closes=0;
+  size=3;error?:StorageError;seen?:StorageInvocation;closes=0;deletes=0;
   async put(i:StorageInvocation,key:ObjectKey,_:AsyncIterable<Uint8Array>,o:ObjectPutOptions):Promise<ObjectMetadata>{this.seen=i;return new ObjectMetadata(key,o.size);}
   async head(i:StorageInvocation):Promise<undefined>{this.seen=i;if(this.error)throw this.error;return undefined;}
   async get(_:StorageInvocation,key:ObjectKey):Promise<ObjectContent>{return new ObjectContent(new ObjectMetadata(key,this.size),(async function*(){yield new Uint8Array([1,2,3]);})(),async()=>{this.closes++;});}
-  async delete():Promise<void>{}
+  async delete():Promise<void>{this.deletes++;}
   async getReadUrl():Promise<ObjectReadUrl>{throw new StorageError('Unsupported');}
 }
 const key=new ObjectKey('PRIVATE-KEY-CANARY');
+test('conditional deletion fails closed when a provider only offers blind deletion',async()=>{
+  const provider=new Stub();
+  const storage=new UserContext().withObjectStorage(provider)
+    .withObjectStorageObserver(()=>{}).objectStorage('collect old Blob generation');
+  await expect(storage.deleteIfVersion(key,'version-one')).rejects.toMatchObject({code:'Unsupported'});
+  await expect(storage.deleteIfVersion(key,'*')).rejects.toMatchObject({code:'InvalidInput'});
+  expect(provider.deletes).toBe(0);
+});
 test('object storage validates options and masks private representations',()=>{
   for(const value of ['', 'x'.repeat(1025),'bad\nkey','\ud800'])expect(()=>new ObjectKey(value)).toThrow(StorageError);
   expect(()=>new ObjectPutOptions(MAX_OBJECT_PUT_SIZE+1,'create_only')).toThrow('TooLarge');

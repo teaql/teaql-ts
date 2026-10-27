@@ -366,6 +366,17 @@ var ObjectStorage = class {
   delete(key) {
     return __privateMethod(this, _ObjectStorage_instances, call_fn).call(this, "delete", () => __privateGet(this, _provider).delete(__privateGet(this, _invocation), key));
   }
+  async deleteIfVersion(key, contentVersion) {
+    if (typeof contentVersion !== "string" || !contentVersion || contentVersion.length > 256 || contentVersion.trim() !== contentVersion || /[\x00-\x1f\x7f-\x9f]/.test(contentVersion) || contentVersion === "*") invalid();
+    const deleteIfVersion = __privateGet(this, _provider).deleteIfVersion;
+    if (!deleteIfVersion) throw new StorageError("Unsupported");
+    return __privateMethod(this, _ObjectStorage_instances, call_fn).call(this, "delete_if_version", async () => {
+      const result = await deleteIfVersion.call(__privateGet(this, _provider), __privateGet(this, _invocation), key, contentVersion);
+      if (result !== "deleted" && result !== "already_missing" && result !== "version_mismatch")
+        throw new StorageError("Unavailable");
+      return result;
+    });
+  }
   getReadUrl(key, options = new ObjectReadUrlOptions()) {
     return __privateMethod(this, _ObjectStorage_instances, call_fn).call(this, "read_url", () => __privateGet(this, _provider).getReadUrl(__privateGet(this, _invocation), key, options));
   }
@@ -397,4 +408,4 @@ export {
   ObjectContent,
   ObjectStorage
 };
-//# sourceMappingURL=chunk-MJFGQZSQ.js.map
+//# sourceMappingURL=chunk-VNRIO2IL.js.map

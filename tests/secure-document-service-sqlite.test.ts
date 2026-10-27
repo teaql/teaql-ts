@@ -31,6 +31,8 @@ test('SQLite secure document open, accept and replay use current permission and 
     ]);
     const runtime = new SecureDocumentReferenceModule('order-service', 'test', keys,
       () => {});
+    // A selection must expire strictly before its 60-second parent document.
+    const selectionLifetimeSeconds = 30;
     const journal = new SqliteDocumentCommandJournal(driver);
     const catalog = new SqlBlobCatalog(driver);
     let failPresentation = false;
@@ -202,7 +204,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         canonicalField: 'attachment', kind: 'EXISTING_ROW' as const,
         targetKey: 'order:10', commandId: 'command-1' };
       const selectionToken = runtime.issueBlobSelection(principal, opened.documentToken,
-        { target: selectionTarget, stableKey: 'blob_A' }, 60);
+        { target: selectionTarget, stableKey: 'blob_A' }, selectionLifetimeSeconds);
       const submitted = { businessId: 'ORD-10', documentToken: opened.documentToken,
         commandId: 'command-1', body: { number: 'ORD-10', quantity: 3 },
         blobSelections: [{ token: selectionToken, targetEntity: 'Order',
@@ -247,7 +249,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         'Order', 'edit-order').document.snapshot.scope;
       const wrongCommandToken = runtime.issueBlobSelection(principal, fresh.documentToken,
         { target: { ...selectionTarget, scope: freshScope, commandId: 'different-command' },
-          stableKey: 'blob_A' }, 60);
+          stableKey: 'blob_A' }, selectionLifetimeSeconds);
       await expect(service.accept(context, { aggregateType: 'Order', purpose: 'edit-order',
         submitted: { businessId: 'ORD-10', documentToken: fresh.documentToken,
           commandId: 'command-wrong-selection', body: { number: 'ORD-10', quantity: 6 },
@@ -258,7 +260,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         .toMatchObject({ version: 2, quantity: 3 });
       const duplicateToken = runtime.issueBlobSelection(principal, fresh.documentToken,
         { target: { ...selectionTarget, scope: freshScope, commandId: 'command-duplicate' },
-          stableKey: 'blob_A' }, 60);
+          stableKey: 'blob_A' }, selectionLifetimeSeconds);
       const duplicate = { token: duplicateToken, targetEntity: 'Order',
         canonicalField: 'attachment', kind: 'EXISTING_ROW' as const, targetKey: 'order:10' };
       await expect(service.accept(context, { aggregateType: 'Order', purpose: 'edit-order',
@@ -268,7 +270,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         .rejects.toThrow('DOCUMENT_COMMAND_INVALID');
       const badToken = runtime.issueBlobSelection(principal, fresh.documentToken,
         { target: { ...selectionTarget, scope: freshScope, commandId: 'command-bad-blob' },
-          stableKey: 'blob_missing' }, 60);
+          stableKey: 'blob_missing' }, selectionLifetimeSeconds);
       await expect(service.accept(context, { aggregateType: 'Order', purpose: 'edit-order',
         submitted: { businessId: 'ORD-10', documentToken: fresh.documentToken,
           commandId: 'command-bad-blob', body: { number: 'ORD-10', quantity: 8 },
@@ -283,7 +285,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         ('blob_B','merchant:7','objects/b','v1','b.pdf','application/pdf',3,'uploaded_unbound')`);
       const receiptToken = runtime.issueBlobSelection(principal, fresh.documentToken,
         { target: { ...selectionTarget, scope: freshScope, commandId: 'command-receipt-fail' },
-          stableKey: 'blob_B' }, 60);
+          stableKey: 'blob_B' }, selectionLifetimeSeconds);
       await driver.query(`CREATE TRIGGER reject_selected_receipt
         BEFORE INSERT ON teaql_document_command_receipt
         WHEN NEW.command_id = 'command-receipt-fail'
@@ -354,7 +356,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         { target: { scope: childScope, targetEntity: 'OrderLine',
           canonicalField: 'attachment', kind: 'NEW_CLIENT_KEY',
           targetKey: 'client-line-1', commandId: 'command-new-child' },
-          stableKey: 'blob_C' }, 60);
+          stableKey: 'blob_C' }, selectionLifetimeSeconds);
       const childSubmitted = { businessId: 'ORD-10', documentToken: childOpen.documentToken,
         commandId: 'command-new-child', body: { number: 'ORD-10', quantity: 6 },
         blobSelections: [{ token: childToken, targetEntity: 'OrderLine',
@@ -387,7 +389,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         { target: { scope: nextScope, targetEntity: 'OrderLine',
           canonicalField: 'attachment', kind: 'NEW_CLIENT_KEY',
           targetKey: 'client-line-2', commandId: 'command-new-child-fail' },
-          stableKey: 'blob_D' }, 60);
+          stableKey: 'blob_D' }, selectionLifetimeSeconds);
       await driver.query(`CREATE TRIGGER reject_new_child_receipt
         BEFORE INSERT ON teaql_document_command_receipt
         WHEN NEW.command_id = 'command-new-child-fail'

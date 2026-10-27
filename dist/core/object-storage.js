@@ -293,6 +293,21 @@ class ObjectStorage {
     head(key) { return __classPrivateFieldGet(this, _ObjectStorage_instances, "m", _ObjectStorage_call).call(this, 'head', () => __classPrivateFieldGet(this, _ObjectStorage_provider, "f").head(__classPrivateFieldGet(this, _ObjectStorage_invocation, "f"), key)); }
     async exists(key) { return (await this.head(key)) !== undefined; }
     delete(key) { return __classPrivateFieldGet(this, _ObjectStorage_instances, "m", _ObjectStorage_call).call(this, 'delete', () => __classPrivateFieldGet(this, _ObjectStorage_provider, "f").delete(__classPrivateFieldGet(this, _ObjectStorage_invocation, "f"), key)); }
+    async deleteIfVersion(key, contentVersion) {
+        if (typeof contentVersion !== 'string' || !contentVersion ||
+            contentVersion.length > 256 || contentVersion.trim() !== contentVersion ||
+            /[\x00-\x1f\x7f-\x9f]/.test(contentVersion) || contentVersion === '*')
+            invalid();
+        const deleteIfVersion = __classPrivateFieldGet(this, _ObjectStorage_provider, "f").deleteIfVersion;
+        if (!deleteIfVersion)
+            throw new StorageError('Unsupported');
+        return __classPrivateFieldGet(this, _ObjectStorage_instances, "m", _ObjectStorage_call).call(this, 'delete_if_version', async () => {
+            const result = await deleteIfVersion.call(__classPrivateFieldGet(this, _ObjectStorage_provider, "f"), __classPrivateFieldGet(this, _ObjectStorage_invocation, "f"), key, contentVersion);
+            if (result !== 'deleted' && result !== 'already_missing' && result !== 'version_mismatch')
+                throw new StorageError('Unavailable');
+            return result;
+        });
+    }
     getReadUrl(key, options = new ObjectReadUrlOptions()) { return __classPrivateFieldGet(this, _ObjectStorage_instances, "m", _ObjectStorage_call).call(this, 'read_url', () => __classPrivateFieldGet(this, _ObjectStorage_provider, "f").getReadUrl(__classPrivateFieldGet(this, _ObjectStorage_invocation, "f"), key, options)); }
 }
 exports.ObjectStorage = ObjectStorage;

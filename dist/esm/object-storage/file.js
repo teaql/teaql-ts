@@ -3,7 +3,7 @@ import {
   ObjectMetadata,
   ObjectReadUrl,
   StorageError
-} from "../chunks/chunk-MJFGQZSQ.js";
+} from "../chunks/chunk-VNRIO2IL.js";
 import "../chunks/chunk-WEYNFMW2.js";
 import "../chunks/chunk-AQT573VW.js";
 

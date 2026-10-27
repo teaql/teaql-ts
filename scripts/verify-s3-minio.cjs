@@ -182,6 +182,7 @@ async function main() {
   const key = new ObjectKey(`f4/typescript/${randomUUID()}`);
   const createKey = new ObjectKey(`f4/typescript/create/${randomUUID()}`);
   const raceKey = new ObjectKey(`f4/typescript/race/${randomUUID()}`);
+  const conditionalKey = new ObjectKey(`f2/typescript/conditional-delete/${randomUUID()}`);
   const bytes = Buffer.from('%PDF-1.7\nF4 real S3-compatible bytes\n%%EOF');
   try {
     const written = await storage.putBytes(key, bytes,
@@ -226,6 +227,33 @@ async function main() {
       }
       console.log('PASS TypeScript real S3-compatible create-only duplicate/race');
     }
+    if (process.env.TEAQL_S3_TEST_CONDITIONAL_DELETE === '1') {
+      const first = await storage.putBytes(conditionalKey, bytes,
+        new ObjectPutOptions(bytes.length, 'create_only', 'application/pdf'));
+      if (await storage.deleteIfVersion(conditionalKey, '"00000000000000000000000000000000"')
+          !== 'version_mismatch' ||
+          (await storage.head(conditionalKey))?.etag !== first.etag) {
+        throw new Error('S3 conditional delete removed a mismatched generation');
+      }
+      const replacement = Buffer.from('next immutable generation');
+      const second = await storage.putBytes(conditionalKey, replacement,
+        new ObjectPutOptions(replacement.length, 'replace', 'text/plain'));
+      if (await storage.deleteIfVersion(conditionalKey, first.etag) !== 'version_mismatch' ||
+          (await storage.head(conditionalKey))?.etag !== second.etag ||
+          !Buffer.from(await storage.getBytes(conditionalKey, 1024)).equals(replacement)) {
+        throw new Error('S3 conditional delete removed a replacement generation');
+      }
+      if (await storage.deleteIfVersion(conditionalKey, second.etag) !== 'deleted' ||
+          await storage.head(conditionalKey) !== undefined ||
+          await storage.deleteIfVersion(conditionalKey, second.etag) !== 'already_missing') {
+        throw new Error('S3 conditional delete result/replay mismatch');
+      }
+      let wildcardDenied = false;
+      try { await storage.deleteIfVersion(conditionalKey, '*'); }
+      catch (error) { wildcardDenied = error instanceof StorageError && error.code === 'InvalidInput'; }
+      if (!wildcardDenied) throw new Error('S3 conditional delete accepted wildcard version');
+      console.log('PASS TypeScript real S3-compatible version-conditional delete/mismatch/replay');
+    }
     if (process.env.TEAQL_S3_TEST_BLOB_UPLOAD === '1') {
       await verifyBlobUpload(actor, storage);
       if (process.env.TEAQL_S3_TEST_REAL_IMAGE === '1') {
@@ -239,6 +267,9 @@ async function main() {
       if (process.env.TEAQL_S3_TEST_CREATE_ONLY === '1') {
         await storage.delete(createKey);
         await storage.delete(raceKey);
+      }
+      if (process.env.TEAQL_S3_TEST_CONDITIONAL_DELETE === '1') {
+        await storage.delete(conditionalKey);
       }
     } finally { provider.close(); }
   }
