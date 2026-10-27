@@ -1,6 +1,29 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FileObjectStorage = void 0;
+exports.SqliteFencedFileObjectStorage = exports.FileObjectStorage = void 0;
 /** Server-only file store with an explicit, authenticated HTTP read gateway. */
 const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");
@@ -8,6 +31,7 @@ const promises_1 = require("node:fs/promises");
 const node_http_1 = require("node:http");
 const node_path_1 = require("node:path");
 const node_events_1 = require("node:events");
+const promises_2 = require("node:timers/promises");
 const object_storage_1 = require("../core/object-storage");
 function hashKey(key) {
     return (0, node_crypto_1.createHash)('sha256').update(key.value, 'utf8').digest('hex');
@@ -53,6 +77,9 @@ class FileObjectStorage {
     }
     metadata(key, manifest) {
         return new object_storage_1.ObjectMetadata(key, manifest.size, manifest.contentType, `${manifest.etag}.${manifest.version}`, new Date(manifest.lastModified), manifest.metadata);
+    }
+    async withManifestLock(_hash, work) {
+        return work();
     }
     async put(_invocation, key, content, options) {
         const hash = hashKey(key);
@@ -106,20 +133,22 @@ class FileObjectStorage {
                 await manifestFile.close();
             }
             const destination = (0, node_path_1.join)(directory, 'manifest.json');
-            if (options.mode === 'create_only') {
-                try {
-                    await (0, promises_1.link)(temporaryManifest, destination);
+            await this.withManifestLock(hash, async () => {
+                if (options.mode === 'create_only') {
+                    try {
+                        await (0, promises_1.link)(temporaryManifest, destination);
+                    }
+                    catch (error) {
+                        if (error?.code === 'EEXIST')
+                            throw new object_storage_1.StorageError('Conflict');
+                        throw error;
+                    }
+                    await (0, promises_1.unlink)(temporaryManifest);
                 }
-                catch (error) {
-                    if (error?.code === 'EEXIST')
-                        throw new object_storage_1.StorageError('Conflict');
-                    throw error;
-                }
-                await (0, promises_1.unlink)(temporaryManifest);
-            }
-            else
-                await (0, promises_1.rename)(temporaryManifest, destination);
-            installed = true;
+                else
+                    await (0, promises_1.rename)(temporaryManifest, destination);
+                installed = true;
+            });
             return this.metadata(key, manifest);
         }
         catch (error) {
@@ -154,12 +183,21 @@ class FileObjectStorage {
         return manifest ? this.metadata(key, manifest) : undefined;
     }
     async delete(_invocation, key) {
+        const hash = hashKey(key);
         try {
-            await (0, promises_1.unlink)((0, node_path_1.join)(this.directory(hashKey(key)), 'manifest.json'));
+            await this.withManifestLock(hash, async () => {
+                try {
+                    await (0, promises_1.unlink)((0, node_path_1.join)(this.directory(hash), 'manifest.json'));
+                }
+                catch (error) {
+                    if (!isMissing(error))
+                        throw new object_storage_1.StorageError('Io');
+                }
+            });
         }
         catch (error) {
             if (!isMissing(error))
-                throw new object_storage_1.StorageError('Io');
+                throw error;
         }
     }
     ticket(value) {
@@ -339,4 +377,92 @@ class FileObjectStorage {
     [Symbol.for('nodejs.util.inspect.custom')]() { return this.toString(); }
 }
 exports.FileObjectStorage = FileObjectStorage;
+/** Opt-in File provider for hosts with better-sqlite3. Use a dedicated private
+ * root, shared only by fenced instances. Its separate lock database supplies
+ * crash-released, cross-process exclusion for manifest mutations. */
+class SqliteFencedFileObjectStorage extends FileObjectStorage {
+    async withManifestLock(_hash, work) {
+        // Each operation owns its own connection. Waiting is asynchronous so another
+        // operation in this Node process can finish and release its SQLite transaction.
+        const root = await (0, promises_1.lstat)(this.root);
+        if (!root.isDirectory() || root.isSymbolicLink() ||
+            process.platform !== 'win32' && (root.mode & 0o077) !== 0) {
+            throw new object_storage_1.StorageError('Unavailable');
+        }
+        const Database = await Promise.resolve().then(() => __importStar(require('better-sqlite3'))).then(module => module.default, () => { throw new object_storage_1.StorageError('NotConfigured'); });
+        const deadline = Date.now() + 30000;
+        for (;;) {
+            let db;
+            try {
+                db = new Database((0, node_path_1.join)(this.root, 'manifest-lock.sqlite'), { timeout: 0 });
+            }
+            catch (error) {
+                if (isMissing(error))
+                    throw error;
+                throw new object_storage_1.StorageError('Unavailable');
+            }
+            let begun = false;
+            try {
+                db.exec('BEGIN IMMEDIATE');
+                begun = true;
+                const result = await work();
+                db.exec('COMMIT');
+                begun = false;
+                return result;
+            }
+            catch (error) {
+                if (begun) {
+                    try {
+                        db.exec('ROLLBACK');
+                    }
+                    catch {
+                        throw new object_storage_1.StorageError('Unavailable');
+                    }
+                }
+                if (error?.code !== 'SQLITE_BUSY')
+                    throw error;
+            }
+            finally {
+                db.close();
+            }
+            if (Date.now() >= deadline)
+                throw new object_storage_1.StorageError('Timeout');
+            await (0, promises_2.setTimeout)(20);
+        }
+    }
+    async deleteIfVersion(_invocation, key, contentVersion) {
+        const hash = hashKey(key);
+        try {
+            return await this.withManifestLock(hash, async () => {
+                const current = await this.manifest(hash);
+                if (!current)
+                    return 'already_missing';
+                if (this.metadata(key, current).etag !== contentVersion)
+                    return 'version_mismatch';
+                try {
+                    await (0, promises_1.unlink)((0, node_path_1.join)(this.directory(hash), `data-${current.version}`));
+                }
+                catch (error) {
+                    if (!isMissing(error))
+                        throw new object_storage_1.StorageError('Io');
+                }
+                try {
+                    await (0, promises_1.unlink)((0, node_path_1.join)(this.directory(hash), 'manifest.json'));
+                }
+                catch {
+                    throw new object_storage_1.StorageError('Io');
+                }
+                return 'deleted';
+            });
+        }
+        catch (error) {
+            if (isMissing(error))
+                return 'already_missing';
+            if (error instanceof object_storage_1.StorageError)
+                throw error;
+            throw new object_storage_1.StorageError('Unavailable');
+        }
+    }
+}
+exports.SqliteFencedFileObjectStorage = SqliteFencedFileObjectStorage;
 //# sourceMappingURL=file.js.map

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BlobFieldSpec } from '../src/core/blob-ref';
@@ -10,7 +10,7 @@ import { ObjectByteStream, ObjectContent, ObjectKey, ObjectMetadata,
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
 import { SqliteBlobMaintenanceService } from '../src/blob-reference/maintenance-service';
 import { SqliteBlobUploadService } from '../src/blob-reference/upload-service';
-import { FileObjectStorage } from '../src/object-storage/file';
+import { FileObjectStorage, SqliteFencedFileObjectStorage } from '../src/object-storage/file';
 import { SQLiteDriver } from '../src/sql/sqlite';
 
 class ConditionalStore implements ObjectStorageProvider {
@@ -134,8 +134,20 @@ test('maintenance is explicit, authorized, outside graph SQL, and only collects 
     const written = await f.begin('written');
     await f.upload.write(f.actor, written.uploadId, (async function* () { yield bytes; })());
     const objectKey = await f.objectKey(written.reference.key);
-    await expect(f.driver.query('UPDATE teaql_blob_catalog SET object_key = ? WHERE key = ?',
-      [objectKey.value, missing.reference.key])).rejects.toThrow();
+    await f.catalog.validateSchema();
+    expect(missing.reference.key).not.toBe(written.reference.key);
+    const before = await f.driver.query('SELECT key, object_key FROM teaql_blob_catalog WHERE key IN (?, ?)',
+      [missing.reference.key, written.reference.key]);
+    expect(before.rows).toHaveLength(2);
+    expect(before.rows[0].object_key).not.toBe(before.rows[1].object_key);
+    const duplicate = await f.driver.query('UPDATE teaql_blob_catalog SET object_key = ? WHERE key = ?',
+      [objectKey.value, missing.reference.key]).then(result => result, () => undefined);
+    if (duplicate) {
+      const after = await f.driver.query('SELECT key, object_key FROM teaql_blob_catalog WHERE key IN (?, ?)',
+        [missing.reference.key, written.reference.key]);
+      throw new Error(`catalog unique key update succeeded: changed=${duplicate.rowCount}, ` +
+        `rows=${after.rows.length}, equal=${after.rows[0]?.object_key === after.rows[1]?.object_key}`);
+    }
     f.clock = written.expiresAt.getTime();
     const deleted = await f.maintenance.runBatch(f.actor);
     expect(deleted.outcomes).toMatchObject([{ status: 'deleted' }]);
@@ -189,6 +201,62 @@ test('a failed catalog acknowledgement resumes without deleting a newer generati
       { status: 'version_conflict' },
     ]);
     expect(f.provider.blindDeletes).toBe(0);
+  } finally { await f.close(); }
+});
+
+test('real SQLite and fenced File recover failed receipt and partial deletion', async () => {
+  const f = await fixture();
+  const fileRoot = join(f.root, 'fenced-files');
+  const file = new SqliteFencedFileObjectStorage(fileRoot, randomBytes(32));
+  const actor = new UserContext().withObjectStorage(file).withObjectStorageObserver(() => {});
+  const store = actor.objectStorage('real File maintenance');
+  const maintenance = new SqliteBlobMaintenanceService(f.catalog,
+    { scope: () => 'tenant-a', canMaintain: () => true }, 100, () => f.clock);
+  const put = async (key: ObjectKey, mode: 'create_only' | 'replace') =>
+    store.putBytes(key, bytes, new ObjectPutOptions(bytes.length, mode, 'application/pdf'));
+  try {
+    const pending = await f.begin('file-receipt-failure');
+    const key = await f.objectKey(pending.reference.key);
+    await put(key, 'create_only');
+    f.clock = pending.expiresAt.getTime();
+    await f.driver.query(`CREATE TRIGGER reject_file_receipt BEFORE UPDATE OF status ON teaql_blob_catalog
+      WHEN NEW.status = 'deleted' BEGIN SELECT RAISE(ABORT, 'private trigger'); END`);
+    expect((await maintenance.runBatch(actor)).outcomes).toMatchObject([
+      { status: 'failed', error: 'BLOB_CATALOG_FAILED' },
+    ]);
+    expect(await store.head(key)).toBeUndefined();
+    await f.driver.query('DROP TRIGGER reject_file_receipt');
+    expect((await maintenance.runBatch(actor)).outcomes).toMatchObject([
+      { status: 'already_missing' },
+    ]);
+
+    const stale = await f.begin('file-stale-version');
+    const staleKey = await f.objectKey(stale.reference.key);
+    const old = await put(staleKey, 'create_only');
+    await f.driver.query('UPDATE teaql_blob_catalog SET content_version = ? WHERE key = ?',
+      [old.etag, stale.reference.key]);
+    await f.driver.query("UPDATE teaql_blob_upload SET state = 'written', written_etag = ? WHERE key = ?",
+      [old.etag, stale.reference.key]);
+    const newer = await put(staleKey, 'replace');
+    f.clock = stale.expiresAt.getTime();
+    expect((await maintenance.runBatch(actor)).outcomes).toMatchObject([
+      { status: 'version_conflict' },
+    ]);
+    expect((await store.head(staleKey))?.etag).toBe(newer.etag);
+
+    const partial = await f.begin('file-partial-removal');
+    const partialKey = await f.objectKey(partial.reference.key);
+    const written = await put(partialKey, 'create_only');
+    await f.driver.query('UPDATE teaql_blob_catalog SET content_version = ? WHERE key = ?',
+      [written.etag, partial.reference.key]);
+    await f.driver.query("UPDATE teaql_blob_upload SET state = 'written', written_etag = ? WHERE key = ?",
+      [written.etag, partial.reference.key]);
+    const hash = createHash('sha256').update(partialKey.value).digest('hex');
+    await unlink(join(fileRoot, hash.slice(0, 2), hash, `data-${written.etag!.split('.')[1]}`));
+    f.clock = partial.expiresAt.getTime();
+    const recovered = await maintenance.runBatch(actor);
+    expect(recovered.outcomes).toContainEqual(expect.objectContaining({ status: 'deleted' }));
+    expect(await store.head(partialKey)).toBeUndefined();
   } finally { await f.close(); }
 });
 

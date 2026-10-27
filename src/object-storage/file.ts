@@ -1,14 +1,15 @@
 /** Server-only file store with an explicit, authenticated HTTP read gateway. */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { link, mkdir, open, readFile, rename, rm, stat, unlink } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readFile, rename, rm, stat, unlink } from 'node:fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { once } from 'node:events';
+import { setTimeout as delay } from 'node:timers/promises';
 import {
   ObjectByteStream, ObjectContent, ObjectKey, ObjectMetadata, ObjectPutOptions,
-  ObjectReadUrl, ObjectReadUrlOptions, ObjectStorageProvider, StorageError,
+  ObjectConditionalDeleteResult, ObjectReadUrl, ObjectReadUrlOptions, ObjectStorageProvider, StorageError,
   StorageInvocation,
 } from '../core/object-storage';
 
@@ -45,7 +46,7 @@ function safeManifest(value: unknown): Manifest {
 }
 
 export class FileObjectStorage implements ObjectStorageProvider {
-  private readonly root: string;
+  protected readonly root: string;
   private readonly secret: Buffer;
   private server?: Server;
   private publicBaseUrl?: string;
@@ -59,11 +60,11 @@ export class FileObjectStorage implements ObjectStorageProvider {
     this.secret = Buffer.from(signingKey);
   }
 
-  private directory(hash: string): string {
+  protected directory(hash: string): string {
     return join(this.root, hash.slice(0, 2), hash);
   }
 
-  private async manifest(hash: string): Promise<Manifest | undefined> {
+  protected async manifest(hash: string): Promise<Manifest | undefined> {
     try { return safeManifest(JSON.parse(await readFile(join(this.directory(hash), 'manifest.json'), 'utf8'))); }
     catch (error) {
       if (isMissing(error)) return undefined;
@@ -72,10 +73,14 @@ export class FileObjectStorage implements ObjectStorageProvider {
     }
   }
 
-  private metadata(key: ObjectKey, manifest: Manifest): ObjectMetadata {
+  protected metadata(key: ObjectKey, manifest: Manifest): ObjectMetadata {
     return new ObjectMetadata(key, manifest.size, manifest.contentType,
       `${manifest.etag}.${manifest.version}`,
       new Date(manifest.lastModified), manifest.metadata);
+  }
+
+  protected async withManifestLock<T>(_hash: string, work: () => Promise<T>): Promise<T> {
+    return work();
   }
 
   async put(_invocation: StorageInvocation, key: ObjectKey, content: ObjectByteStream,
@@ -117,15 +122,17 @@ export class FileObjectStorage implements ObjectStorageProvider {
       try { await manifestFile.writeFile(JSON.stringify(manifest)); await manifestFile.sync(); }
       finally { await manifestFile.close(); }
       const destination = join(directory, 'manifest.json');
-      if (options.mode === 'create_only') {
-        try { await link(temporaryManifest, destination); }
-        catch (error) {
-          if ((error as NodeJS.ErrnoException)?.code === 'EEXIST') throw new StorageError('Conflict');
-          throw error;
-        }
-        await unlink(temporaryManifest);
-      } else await rename(temporaryManifest, destination);
-      installed = true;
+      await this.withManifestLock(hash, async () => {
+        if (options.mode === 'create_only') {
+          try { await link(temporaryManifest, destination); }
+          catch (error) {
+            if ((error as NodeJS.ErrnoException)?.code === 'EEXIST') throw new StorageError('Conflict');
+            throw error;
+          }
+          await unlink(temporaryManifest);
+        } else await rename(temporaryManifest, destination);
+        installed = true;
+      });
       return this.metadata(key, manifest);
     } catch (error) {
       if (error instanceof StorageError) throw error;
@@ -155,8 +162,13 @@ export class FileObjectStorage implements ObjectStorageProvider {
   }
 
   async delete(_invocation: StorageInvocation, key: ObjectKey): Promise<void> {
-    try { await unlink(join(this.directory(hashKey(key)), 'manifest.json')); }
-    catch (error) { if (!isMissing(error)) throw new StorageError('Io'); }
+    const hash = hashKey(key);
+    try {
+      await this.withManifestLock(hash, async () => {
+        try { await unlink(join(this.directory(hash), 'manifest.json')); }
+        catch (error) { if (!isMissing(error)) throw new StorageError('Io'); }
+      });
+    } catch (error) { if (!isMissing(error)) throw error; }
   }
 
   private ticket(value: Ticket): string {
@@ -286,4 +298,67 @@ export class FileObjectStorage implements ObjectStorageProvider {
 
   toString(): string { return 'FileObjectStorage[configuration=masked]'; }
   [Symbol.for('nodejs.util.inspect.custom')](): string { return this.toString(); }
+}
+
+/** Opt-in File provider for hosts with better-sqlite3. Use a dedicated private
+ * root, shared only by fenced instances. Its separate lock database supplies
+ * crash-released, cross-process exclusion for manifest mutations. */
+export class SqliteFencedFileObjectStorage extends FileObjectStorage {
+  protected override async withManifestLock<T>(_hash: string, work: () => Promise<T>): Promise<T> {
+    // Each operation owns its own connection. Waiting is asynchronous so another
+    // operation in this Node process can finish and release its SQLite transaction.
+    const root = await lstat(this.root);
+    if (!root.isDirectory() || root.isSymbolicLink() ||
+        process.platform !== 'win32' && (root.mode & 0o077) !== 0) {
+      throw new StorageError('Unavailable');
+    }
+    const Database = await import('better-sqlite3').then(module => module.default,
+      () => { throw new StorageError('NotConfigured'); });
+    const deadline = Date.now() + 30_000;
+    for (;;) {
+      let db: import('better-sqlite3').Database;
+      try { db = new Database(join(this.root, 'manifest-lock.sqlite'), { timeout: 0 }); }
+      catch (error) {
+        if (isMissing(error)) throw error;
+        throw new StorageError('Unavailable');
+      }
+      let begun = false;
+      try {
+        db.exec('BEGIN IMMEDIATE');
+        begun = true;
+        const result = await work();
+        db.exec('COMMIT');
+        begun = false;
+        return result;
+      } catch (error) {
+        if (begun) {
+          try { db.exec('ROLLBACK'); } catch { throw new StorageError('Unavailable'); }
+        }
+        if ((error as { code?: string })?.code !== 'SQLITE_BUSY') throw error;
+      } finally { db.close(); }
+      if (Date.now() >= deadline) throw new StorageError('Timeout');
+      await delay(20);
+    }
+  }
+
+  async deleteIfVersion(_invocation: StorageInvocation, key: ObjectKey,
+                        contentVersion: string): Promise<ObjectConditionalDeleteResult> {
+    const hash = hashKey(key);
+    try {
+      return await this.withManifestLock(hash, async () => {
+        const current = await this.manifest(hash);
+        if (!current) return 'already_missing';
+        if (this.metadata(key, current).etag !== contentVersion) return 'version_mismatch';
+        try { await unlink(join(this.directory(hash), `data-${current.version}`)); }
+        catch (error) { if (!isMissing(error)) throw new StorageError('Io'); }
+        try { await unlink(join(this.directory(hash), 'manifest.json')); }
+        catch { throw new StorageError('Io'); }
+        return 'deleted';
+      });
+    } catch (error) {
+      if (isMissing(error)) return 'already_missing';
+      if (error instanceof StorageError) throw error;
+      throw new StorageError('Unavailable');
+    }
+  }
 }

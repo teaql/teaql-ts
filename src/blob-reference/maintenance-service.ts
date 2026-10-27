@@ -74,17 +74,20 @@ export class SqliteBlobMaintenanceService {
     if (!claim) return { reference, status: 'not_eligible' };
     await this.authorize(context, scope);
     const objectKey = new ObjectKey(claim.objectKey);
-    let observed;
-    try { observed = await store.head(objectKey); }
-    catch { throw new Error('BLOB_STORE_FAILED'); }
     let version = claim.contentVersion;
-    if (observed) {
-      if (!observed.etag || version && observed.etag !== version ||
-          claim.writtenETag && observed.etag !== claim.writtenETag)
-        throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
-      version = observed.etag;
-      await this.authorize(context, scope);
-      await this.catalog.captureExpiredDeletionVersion(scope, claim, version, this.time());
+    if (version && claim.writtenETag && version !== claim.writtenETag)
+      throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+    if (!version) {
+      let observed;
+      try { observed = await store.head(objectKey); }
+      catch { throw new Error('BLOB_STORE_FAILED'); }
+      if (observed) {
+        if (!observed.etag || claim.writtenETag && observed.etag !== claim.writtenETag)
+          throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+        version = observed.etag;
+        await this.authorize(context, scope);
+        await this.catalog.captureExpiredDeletionVersion(scope, claim, version, this.time());
+      }
     }
     await this.authorize(context, scope);
     let status: 'deleted' | 'already_missing' = 'already_missing';

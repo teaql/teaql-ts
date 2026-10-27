@@ -1,13 +1,22 @@
-import { ObjectByteStream, ObjectContent, ObjectKey, ObjectMetadata, ObjectPutOptions, ObjectReadUrl, ObjectReadUrlOptions, ObjectStorageProvider, StorageInvocation } from '../core/object-storage';
+import { ObjectByteStream, ObjectContent, ObjectKey, ObjectMetadata, ObjectPutOptions, ObjectConditionalDeleteResult, ObjectReadUrl, ObjectReadUrlOptions, ObjectStorageProvider, StorageInvocation } from '../core/object-storage';
+type Manifest = {
+    version: string;
+    size: number;
+    contentType: string;
+    etag: string;
+    lastModified: string;
+    metadata: Record<string, string>;
+};
 export declare class FileObjectStorage implements ObjectStorageProvider {
-    private readonly root;
+    protected readonly root: string;
     private readonly secret;
     private server?;
     private publicBaseUrl?;
     constructor(root: string, signingKey: Uint8Array);
-    private directory;
-    private manifest;
-    private metadata;
+    protected directory(hash: string): string;
+    protected manifest(hash: string): Promise<Manifest | undefined>;
+    protected metadata(key: ObjectKey, manifest: Manifest): ObjectMetadata;
+    protected withManifestLock<T>(_hash: string, work: () => Promise<T>): Promise<T>;
     put(_invocation: StorageInvocation, key: ObjectKey, content: ObjectByteStream, options: ObjectPutOptions): Promise<ObjectMetadata>;
     get(_invocation: StorageInvocation, key: ObjectKey): Promise<ObjectContent>;
     head(_invocation: StorageInvocation, key: ObjectKey): Promise<ObjectMetadata | undefined>;
@@ -21,4 +30,12 @@ export declare class FileObjectStorage implements ObjectStorageProvider {
     private serve;
     toString(): string;
 }
+/** Opt-in File provider for hosts with better-sqlite3. Use a dedicated private
+ * root, shared only by fenced instances. Its separate lock database supplies
+ * crash-released, cross-process exclusion for manifest mutations. */
+export declare class SqliteFencedFileObjectStorage extends FileObjectStorage {
+    protected withManifestLock<T>(_hash: string, work: () => Promise<T>): Promise<T>;
+    deleteIfVersion(_invocation: StorageInvocation, key: ObjectKey, contentVersion: string): Promise<ObjectConditionalDeleteResult>;
+}
+export {};
 //# sourceMappingURL=file.d.ts.map
