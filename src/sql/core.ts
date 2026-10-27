@@ -387,6 +387,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private bootstrap: RuntimeBootstrap = {};
   private graphMutationSession?: SqlSession;
   private activeGraph?: GraphMutationSession;
+  private graphSqlRollbackOnly = false;
   private graphAuditActions: Array<() => Promise<void>> = [];
   private graphCommitActions: Array<() => void> = [];
   private graphRollbackActions: Array<() => void> = [];
@@ -746,6 +747,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
+      this.graphSqlRollbackOnly = false;
       this.userContext.insertResource('fixTime', new Date());
       this.userContext.beginFixEvidence();
       fixEvidenceStarted = true;
@@ -757,6 +759,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         try {
           const value = await work(graph);
           this.userContext.ensureMutationPolicyGraphComplete();
+          if (this.graphSqlRollbackOnly) throw new Error('GRAPH_TRANSACTION_ROLLBACK_ONLY');
           return value;
         }
         finally { this.graphMutationSession = undefined; this.activeGraph = undefined; }
@@ -782,6 +785,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
+      this.graphSqlRollbackOnly = false;
       if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
       this.userContext.removeResource('fixTime');
       if (fixEvidenceStarted) this.userContext.finishFixEvidence();
@@ -802,9 +806,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (this.activeGraph !== graph || this.graphMutationSession !== physical) {
         throw new Error('BLOB_TRANSACTION_REQUIRED');
       }
-      return physical.query(sql, values);
+      try { return await physical.query(sql, values); }
+      catch (error) { this.graphSqlRollbackOnly = true; throw error; }
     } };
-    return work(guarded);
+    try { return await work(guarded); }
+    catch (error) {
+      if (this.activeGraph === graph && this.graphMutationSession === physical) {
+        this.graphSqlRollbackOnly = true;
+      }
+      throw error;
+    }
   }
 
   afterGraphCommit(work: () => void): void {

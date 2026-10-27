@@ -35,5 +35,22 @@ test('optional module SQL uses the caller graph physical transaction and rejects
         await session.query('INSERT INTO module_catalog(key) VALUES (?)', ['blob_a']);
       }));
     expect(await count()).toBe(1);
+
+    await expect(client.executeGraphSave(new MutationIntent('caught module failure'), async graph => {
+      await client.withGraphSqlSession(graph, async session => {
+        await session.query('INSERT INTO module_catalog(key) VALUES (?)', ['blob_b']);
+        await expect(session.query('INSERT INTO missing_module_table(key) VALUES (?)', ['blob_a']))
+          .rejects.toThrow();
+      });
+    })).rejects.toThrow('GRAPH_TRANSACTION_ROLLBACK_ONLY');
+    expect(await count()).toBe(1);
+
+    await expect(client.executeGraphSave(new MutationIntent('caught callback failure'), async graph => {
+      await expect(client.withGraphSqlSession(graph, async session => {
+        await session.query('INSERT INTO module_catalog(key) VALUES (?)', ['blob_c']);
+        throw new Error('module rejected binding');
+      })).rejects.toThrow('module rejected binding');
+    })).rejects.toThrow('GRAPH_TRANSACTION_ROLLBACK_ONLY');
+    expect(await count()).toBe(1);
   } finally { await client.close(); }
 });

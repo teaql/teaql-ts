@@ -1,4 +1,7 @@
-import type { TeaQLSqlDriver } from '../sql/core';
+import type { TeaQLDataService, TeaQLSqlDriver } from '../sql/core';
+import type { GraphMutationSession } from '../core/request-intent';
+import type { UserContext } from '../core/context';
+import { BlobRef } from '../core/blob-ref';
 import type { AuthorizedBlobSlot } from '../core/view-preparation';
 
 export type BlobReadRecord = Readonly<{
@@ -8,6 +11,26 @@ export type BlobReadRecord = Readonly<{
   contentType: string;
   sizeBytes: number;
 }>;
+
+export type BlobBindingTarget = Readonly<{
+  entity: string;
+  entityId: string;
+  field: string;
+}>;
+
+export type BlobBindingChange = Readonly<{
+  target: BlobBindingTarget;
+  next: BlobRef | null;
+  expectedVersion: number;
+  nextVersion: number;
+}>;
+
+/** The trusted host supplies current scope and authorizes the canonical target. */
+export interface BlobBindingAuthorization {
+  scope(context: UserContext): string;
+  authorize(context: UserContext, target: BlobBindingTarget,
+            previous: BlobRef | null, next: BlobRef | null): Promise<boolean>;
+}
 
 /** Physical catalog for the optional module. Migration is an explicit host action. */
 export class SqlBlobCatalog {
@@ -24,12 +47,84 @@ export class SqlBlobCatalog {
       )`);
       await this.driver.query(`CREATE TABLE IF NOT EXISTS teaql_blob_binding (
         scope TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT NOT NULL,
-        field TEXT NOT NULL, key TEXT NOT NULL, version BIGINT NOT NULL,
+        field TEXT NOT NULL, key TEXT, version BIGINT NOT NULL,
         PRIMARY KEY (scope,entity,entity_id,field),
         FOREIGN KEY (key) REFERENCES teaql_blob_catalog(key)
       )`);
       await this.driver.query('CREATE INDEX IF NOT EXISTS teaql_blob_binding_key ON teaql_blob_binding(key)');
     } catch { throw new Error('BLOB_CATALOG_FAILED'); }
+  }
+
+  /** SQLite's BEGIN IMMEDIATE owner serializes the authoritative binding row.
+   * The caller's graph owns commit; a failed module SQL call poisons that graph.
+   * Other SQL backends need their own row-lock implementation before use.
+   */
+  async bindInGraph(owner: TeaQLDataService, graph: GraphMutationSession,
+                    context: UserContext, change: BlobBindingChange,
+                    authorization: BlobBindingAuthorization): Promise<number> {
+    return owner.withGraphSqlSession(graph, async session => {
+      try {
+        if (this.driver.databaseKind !== 'sqlite') throw new Error('BLOB_CAPABILITY_MISSING');
+        if (!change || !change.target || !authorization ||
+            (change.next !== null && !(change.next instanceof BlobRef)) ||
+            !Number.isSafeInteger(change.expectedVersion) || change.expectedVersion < 0 ||
+            !Number.isSafeInteger(change.nextVersion) ||
+            change.nextVersion <= change.expectedVersion ||
+            [change.target.entity, change.target.entityId, change.target.field].some(value =>
+              typeof value !== 'string' || !value.trim() || value !== value.trim())) {
+          throw new Error('BLOB_REFERENCE_INVALID');
+        }
+        let scope: string;
+        try { scope = authorization.scope(context); }
+        catch { throw new Error('BLOB_BIND_DENIED'); }
+        if (typeof scope !== 'string' || !scope.trim() || scope !== scope.trim()) {
+          throw new Error('BLOB_BIND_DENIED');
+        }
+        const p = (index: number) => this.driver.placeholder(index);
+        const target = change.target;
+        const identity = [scope, target.entity, target.entityId, target.field];
+        const rows = await session.query(`SELECT key, version FROM teaql_blob_binding
+        WHERE scope = ${p(1)} AND entity = ${p(2)} AND entity_id = ${p(3)} AND field = ${p(4)}`,
+        identity);
+        if (rows.rows.length > 1) throw new Error('BLOB_CATALOG_FAILED');
+        const row = rows.rows[0] as { key: unknown; version: unknown } | undefined;
+        const version = row ? Number(row.version) : 0;
+        if (!Number.isSafeInteger(version) || version !== change.expectedVersion) {
+          throw new Error('BLOB_BIND_DENIED');
+        }
+        const previous = row?.key == null ? null : BlobRef.fromSQL(row.key);
+        let allowed = false;
+        try { allowed = await authorization.authorize(context, target, previous, change.next); }
+        catch { throw new Error('BLOB_BIND_DENIED'); }
+        if (!allowed) throw new Error('BLOB_BIND_DENIED');
+        if (change.next) {
+          const eligible = await session.query(`SELECT key FROM teaql_blob_catalog
+          WHERE key = ${p(1)} AND scope = ${p(2)} AND status = 'available'`,
+          [change.next.key, scope]);
+          if (eligible.rows.length !== 1) throw new Error('BLOB_BIND_DENIED');
+        }
+        let result;
+        if (row) {
+          result = await session.query(`UPDATE teaql_blob_binding SET key = ${p(1)}, version = ${p(2)}
+          WHERE scope = ${p(3)} AND entity = ${p(4)} AND entity_id = ${p(5)}
+          AND field = ${p(6)} AND version = ${p(7)}`,
+          [change.next?.key ?? null, change.nextVersion, ...identity, version]);
+        } else {
+          result = await session.query(`INSERT INTO teaql_blob_binding
+          (scope, entity, entity_id, field, key, version)
+          VALUES (${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}, ${p(6)})`,
+          [...identity, change.next?.key ?? null, change.nextVersion]);
+        }
+        if (result.rowCount !== 1) throw new Error('BLOB_BIND_DENIED');
+        return change.nextVersion;
+      } catch (error) {
+        if (error instanceof Error && ['BLOB_BIND_DENIED', 'BLOB_CATALOG_FAILED',
+          'BLOB_CAPABILITY_MISSING', 'BLOB_REFERENCE_INVALID'].includes(error.message)) {
+          throw error;
+        }
+        throw new Error('BLOB_CATALOG_FAILED');
+      }
+    });
   }
 
   async validateSchema(): Promise<void> {
@@ -38,7 +133,16 @@ export class SqlBlobCatalog {
         'content_type, size_bytes, status FROM teaql_blob_catalog WHERE 1 = 0');
       await this.driver.query('SELECT scope, entity, entity_id, field, key, version ' +
         'FROM teaql_blob_binding WHERE 1 = 0');
+      if (this.driver.databaseKind === 'sqlite') {
+        const columns = await this.driver.query('PRAGMA table_info(teaql_blob_binding)');
+        const key = columns.rows.find(row => row.name === 'key');
+        const version = columns.rows.find(row => row.name === 'version');
+        if (!key || Number(key.notnull) !== 0 || !version || Number(version.notnull) !== 1) {
+          throw new Error('BLOB_SCHEMA_MISSING');
+        }
+      }
     } catch (error) {
+      if (error instanceof Error && error.message === 'BLOB_SCHEMA_MISSING') throw error;
       if (isMissingTable(error)) throw new Error('BLOB_SCHEMA_MISSING');
       throw new Error('BLOB_CATALOG_FAILED');
     }
