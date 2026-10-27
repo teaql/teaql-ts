@@ -93,6 +93,7 @@ export declare class ObjectStorage {
     head(key: ObjectKey): Promise<ObjectMetadata | undefined>;
     exists(key: ObjectKey): Promise<boolean>;
     delete(key: ObjectKey): Promise<void>;
+    supportsVersionConditionalDelete(): boolean;
     deleteIfVersion(key: ObjectKey, contentVersion: string): Promise<ObjectConditionalDeleteResult>;
     getReadUrl(key: ObjectKey, options?: ObjectReadUrlOptions): Promise<ObjectReadUrl>;
 }

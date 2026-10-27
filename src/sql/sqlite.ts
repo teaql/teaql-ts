@@ -63,6 +63,13 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   private transactionActive = false;
   private soundexRegistered = false;
 
+  /** Maintenance must never cross the object-store boundary inside a graph SQL owner. */
+  assertNoCurrentTransaction(): void {
+    if (transactionOwner.getStore()?.gate === this.gate) {
+      throw new Error('SQLITE_TRANSACTION_REENTRY');
+    }
+  }
+
   constructor(filename: string) {
     if (!filename) throw new Error('filename is required');
     this.gateKey = filename === ':memory:' ? null : resolve(filename);

@@ -7,6 +7,8 @@ export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     private readonly gateKey;
     private transactionActive;
     private soundexRegistered;
+    /** Maintenance must never cross the object-store boundary inside a graph SQL owner. */
+    assertNoCurrentTransaction(): void;
     constructor(filename: string);
     private withConnection;
     identifier(value: string): string;

@@ -131,6 +131,7 @@ export class ObjectStorage {
   head(key:ObjectKey):Promise<ObjectMetadata|undefined>{return this.#call('head',()=>this.#provider.head(this.#invocation,key));}
   async exists(key:ObjectKey):Promise<boolean>{return (await this.head(key))!==undefined;}
   delete(key:ObjectKey):Promise<void>{return this.#call('delete',()=>this.#provider.delete(this.#invocation,key));}
+  supportsVersionConditionalDelete():boolean{return typeof this.#provider.deleteIfVersion==='function';}
   async deleteIfVersion(key:ObjectKey,contentVersion:string):Promise<ObjectConditionalDeleteResult>{
     if(typeof contentVersion!=='string'||!contentVersion||
        contentVersion.length>256||contentVersion.trim()!==contentVersion||

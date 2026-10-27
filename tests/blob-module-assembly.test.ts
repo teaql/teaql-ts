@@ -7,6 +7,7 @@ import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
 import { SqliteBlobUploadService } from '../src/blob-reference/upload-service';
 import { SqliteBlobMutationParticipant } from '../src/blob-reference/mutation-participant';
 import { SqlBlobResponseContributor } from '../src/blob-reference/read-service';
+import { SqliteBlobMaintenanceService } from '../src/blob-reference/maintenance-service';
 import { UserContext } from '../src/core/context';
 import { FileObjectStorage } from '../src/object-storage/file';
 import { SQLiteDriver } from '../src/sql/sqlite';
@@ -25,12 +26,15 @@ test('BlobReferenceModule installs passively and checks explicit schema readines
     scope: () => 'tenant-a', authorize: async () => false,
   });
   const response = new SqlBlobResponseContributor(catalog, { authorize: async () => false });
-  const module = new BlobReferenceModule(catalog, upload, mutation, response);
+  const maintenance = new SqliteBlobMaintenanceService(catalog,
+    { scope: () => 'tenant-a', canMaintain: async () => false });
+  const module = new BlobReferenceModule(catalog, upload, mutation, response, maintenance);
   const context = new UserContext();
   try {
     module.install(context);
     expect(context.getResource('blobUploadService')).toBe(upload);
     expect(context.getResource('blobMutationParticipant')).toBe(mutation);
+    expect(context.getResource('blobMaintenanceService')).toBe(maintenance);
     await expect(module.ready(context)).rejects.toThrow('BLOB_CAPABILITY_MISSING');
     context.withObjectStorage(new FileObjectStorage(join(root, 'objects'), randomBytes(32)));
     await expect(module.ready(context)).rejects.toThrow('BLOB_SCHEMA_MISSING');

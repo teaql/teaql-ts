@@ -12,6 +12,7 @@ const { S3ObjectStorage } = require('../dist/object-storage/s3');
 const { SqlBlobCatalog } = require('../dist/blob-reference/sql-catalog');
 const { SqlBlobResponseContributor } = require('../dist/blob-reference/read-service');
 const { SqliteBlobUploadService } = require('../dist/blob-reference/upload-service');
+const { SqliteBlobMaintenanceService } = require('../dist/blob-reference/maintenance-service');
 const { SharpBlobContentVerifier } = require('../dist/blob-reference/content-sharp');
 const { ViewPreparationService } = require('../dist/core/view-preparation');
 const { MutationIntent } = require('../dist/core/request-intent');
@@ -165,6 +166,55 @@ async function verifyBlobUpload(actor, storage, image = false) {
   }
 }
 
+async function verifyExpiredUploadMaintenance(actor, storage) {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-s3-blob-maintenance-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  let objectKey;
+  let clock = Date.now();
+  const scope = 'f2-s3-maintenance';
+  const field = () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default');
+  const authorization = { scope: () => scope, field, authorize: async () => true,
+    currentOnLease: async () => ({ scope, field: field(), allowed: true }) };
+  const bytes = Buffer.from('%PDF-1.7\nexpired incomplete S3 upload\n%%EOF');
+  try {
+    await catalog.ensureSchema();
+    const upload = new SqliteBlobUploadService(catalog, authorization,
+      { verify: async () => { throw new Error('must not verify incomplete upload'); } },
+      10_000, 1, () => clock);
+    const session = await upload.begin(actor, { entity: 'Asset', entityId: null, field: 'document' },
+      { fileName: 'orphan.pdf', declaredSize: bytes.length }, randomUUID());
+    objectKey = new ObjectKey((await driver.query('SELECT object_key FROM teaql_blob_catalog WHERE key = ?',
+      [session.reference.key])).rows[0].object_key);
+    await upload.write(actor, session.uploadId, (async function* () { yield bytes; })());
+    const original = await storage.head(objectKey);
+    if (!original?.etag) throw new Error('maintenance S3 object missing after write');
+    clock = session.expiresAt.getTime();
+    const maintenance = new SqliteBlobMaintenanceService(catalog,
+      { scope: () => scope, canMaintain: async () => true }, 10, () => clock);
+    await driver.query(`CREATE TRIGGER reject_deletion BEFORE UPDATE OF status ON teaql_blob_catalog
+      WHEN NEW.status = 'deleted' BEGIN SELECT RAISE(ABORT, 'test-only failure'); END`);
+    const failed = await maintenance.runBatch(actor);
+    if (failed.outcomes.length !== 1 || failed.outcomes[0].status !== 'failed' ||
+        (await driver.query('SELECT status, content_version FROM teaql_blob_catalog WHERE key = ?',
+          [session.reference.key])).rows[0].content_version !== original.etag ||
+        await storage.head(objectKey) !== undefined) {
+      throw new Error('maintenance S3 failed acknowledgement did not retain deletion claim');
+    }
+    await driver.query('DROP TRIGGER reject_deletion');
+    const recovered = await maintenance.runBatch(actor);
+    if (recovered.outcomes.length !== 1 || recovered.outcomes[0].status !== 'already_missing' ||
+        (await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+          [session.reference.key])).rows[0].status !== 'deleted') {
+      throw new Error('maintenance S3 recovery did not finalize pinned deletion');
+    }
+    console.log('PASS TypeScript real SQLite/S3 expired-upload claim/conditional delete/crash recovery');
+  } finally {
+    try { if (objectKey) await storage.delete(objectKey); }
+    finally { await driver.close(); await rm(root, { recursive: true, force: true }); }
+  }
+}
+
 async function main() {
   const endpoint = process.env.TEAQL_S3_TEST_ENDPOINT;
   const bucket = process.env.TEAQL_S3_TEST_BUCKET;
@@ -259,6 +309,9 @@ async function main() {
       if (process.env.TEAQL_S3_TEST_REAL_IMAGE === '1') {
         await verifyBlobUpload(actor, storage, true);
       }
+    }
+    if (process.env.TEAQL_S3_TEST_MAINTENANCE === '1') {
+      await verifyExpiredUploadMaintenance(actor, storage);
     }
     console.log('PASS TypeScript real S3-compatible replace/read/signed Range/expiry');
   } finally {

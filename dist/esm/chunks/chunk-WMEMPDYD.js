@@ -366,6 +366,9 @@ var ObjectStorage = class {
   delete(key) {
     return __privateMethod(this, _ObjectStorage_instances, call_fn).call(this, "delete", () => __privateGet(this, _provider).delete(__privateGet(this, _invocation), key));
   }
+  supportsVersionConditionalDelete() {
+    return typeof __privateGet(this, _provider).deleteIfVersion === "function";
+  }
   async deleteIfVersion(key, contentVersion) {
     if (typeof contentVersion !== "string" || !contentVersion || contentVersion.length > 256 || contentVersion.trim() !== contentVersion || /[\x00-\x1f\x7f-\x9f]/.test(contentVersion) || contentVersion === "*") invalid();
     const deleteIfVersion = __privateGet(this, _provider).deleteIfVersion;
@@ -408,4 +411,4 @@ export {
   ObjectContent,
   ObjectStorage
 };
-//# sourceMappingURL=chunk-VNRIO2IL.js.map
+//# sourceMappingURL=chunk-WMEMPDYD.js.map

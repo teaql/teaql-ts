@@ -1,7 +1,7 @@
 import {
   ObjectKey,
   ObjectReadUrlOptions
-} from "./chunk-VNRIO2IL.js";
+} from "./chunk-WMEMPDYD.js";
 
 // src/blob-reference/read-service.ts
 var SqlBlobResponseContributor = class {
@@ -39,4 +39,4 @@ var SqlBlobResponseContributor = class {
 export {
   SqlBlobResponseContributor
 };
-//# sourceMappingURL=chunk-6P3P54MH.js.map
+//# sourceMappingURL=chunk-ZWVT5JVC.js.map

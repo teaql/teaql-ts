@@ -4,6 +4,7 @@ import { SqlBlobCatalog } from './sql-catalog';
 import { SqliteBlobUploadService } from './upload-service';
 import { SqliteBlobMutationParticipant } from './mutation-participant';
 import { SqlBlobResponseContributor } from './read-service';
+import { SqliteBlobMaintenanceService } from './maintenance-service';
 
 /** Explicit assembly of the optional SQLite Blob runtime. Schema migration is a separate host action. */
 export class BlobReferenceModule {
@@ -12,24 +13,29 @@ export class BlobReferenceModule {
     readonly upload: SqliteBlobUploadService,
     readonly mutation: SqliteBlobMutationParticipant,
     readonly response: SqlBlobResponseContributor,
+    readonly maintenance?: SqliteBlobMaintenanceService,
   ) {
     if (!(catalog instanceof SqlBlobCatalog) || catalog.driver.databaseKind !== 'sqlite' ||
         !(upload instanceof SqliteBlobUploadService) ||
         !(mutation instanceof SqliteBlobMutationParticipant) ||
-        !(response instanceof SqlBlobResponseContributor)) {
+        !(response instanceof SqlBlobResponseContributor) ||
+        (maintenance !== undefined && !(maintenance instanceof SqliteBlobMaintenanceService))) {
       throw new Error('BLOB_CAPABILITY_MISSING');
     }
   }
 
   install(context: UserContext): void {
     if (!context || ['teaql.runtime.capability:blob.v1', 'blobUploadService',
-      'blobMutationParticipant', 'blobResponseContributor'].some(name => context.getResource(name))) {
+      'blobMutationParticipant', 'blobResponseContributor',
+      'blobMaintenanceService'].some(name => context.getResource(name))) {
       throw new Error('BLOB_CAPABILITY_MISSING');
     }
     installRuntimeCapability(context, { name: 'blob.v1', assertReady: current => {
       if (current !== context || current.getResource('blobUploadService') !== this.upload ||
           current.getResource('blobMutationParticipant') !== this.mutation ||
           current.getResource('blobResponseContributor') !== this.response ||
+          (this.maintenance !== undefined &&
+            current.getResource('blobMaintenanceService') !== this.maintenance) ||
           !current.getResource('objectStorageProvider')) {
         throw new Error('BLOB_CAPABILITY_MISSING');
       }
@@ -37,6 +43,7 @@ export class BlobReferenceModule {
     context.insertResource('blobUploadService', this.upload);
     context.insertResource('blobMutationParticipant', this.mutation);
     context.insertResource('blobResponseContributor', this.response);
+    if (this.maintenance) context.insertResource('blobMaintenanceService', this.maintenance);
   }
 
   /** Called explicitly after the host runs its catalog migration. */

@@ -293,6 +293,7 @@ class ObjectStorage {
     head(key) { return __classPrivateFieldGet(this, _ObjectStorage_instances, "m", _ObjectStorage_call).call(this, 'head', () => __classPrivateFieldGet(this, _ObjectStorage_provider, "f").head(__classPrivateFieldGet(this, _ObjectStorage_invocation, "f"), key)); }
     async exists(key) { return (await this.head(key)) !== undefined; }
     delete(key) { return __classPrivateFieldGet(this, _ObjectStorage_instances, "m", _ObjectStorage_call).call(this, 'delete', () => __classPrivateFieldGet(this, _ObjectStorage_provider, "f").delete(__classPrivateFieldGet(this, _ObjectStorage_invocation, "f"), key)); }
+    supportsVersionConditionalDelete() { return typeof __classPrivateFieldGet(this, _ObjectStorage_provider, "f").deleteIfVersion === 'function'; }
     async deleteIfVersion(key, contentVersion) {
         if (typeof contentVersion !== 'string' || !contentVersion ||
             contentVersion.length > 256 || contentVersion.trim() !== contentVersion ||

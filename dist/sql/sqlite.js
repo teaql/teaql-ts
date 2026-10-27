@@ -49,6 +49,12 @@ class SQLiteAsyncGate {
 const fileGates = new Map();
 const transactionOwner = new node_async_hooks_1.AsyncLocalStorage();
 class SQLiteDriver {
+    /** Maintenance must never cross the object-store boundary inside a graph SQL owner. */
+    assertNoCurrentTransaction() {
+        if (transactionOwner.getStore()?.gate === this.gate) {
+            throw new Error('SQLITE_TRANSACTION_REENTRY');
+        }
+    }
     constructor(filename) {
         this.databaseKind = 'sqlite';
         this.topNRelationPlanPolicy = 'alwaysProbe';

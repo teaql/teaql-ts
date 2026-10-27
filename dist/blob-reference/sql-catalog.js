@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SqlBlobCatalog = void 0;
 const blob_ref_1 = require("../core/blob-ref");
+const validDeleteVersion = (value) => typeof value === 'string' && !!value && value !== '*' && value.length <= 256 &&
+    value.trim() === value && !/[\x00-\x1f\x7f-\x9f]/.test(value);
 /** Physical catalog for the optional module. Migration is an explicit host action. */
 class SqlBlobCatalog {
     constructor(driver) {
@@ -23,6 +25,7 @@ class SqlBlobCatalog {
         FOREIGN KEY (key) REFERENCES teaql_blob_catalog(key)
       )`);
             await this.driver.query('CREATE INDEX IF NOT EXISTS teaql_blob_binding_key ON teaql_blob_binding(key)');
+            await this.driver.query('CREATE UNIQUE INDEX IF NOT EXISTS teaql_blob_catalog_object_key ON teaql_blob_catalog(object_key)');
             await this.driver.query(`CREATE TABLE IF NOT EXISTS teaql_blob_upload (
         upload_id TEXT PRIMARY KEY, scope TEXT NOT NULL, replay_key TEXT NOT NULL,
         request_hash TEXT NOT NULL, key TEXT NOT NULL UNIQUE,
@@ -34,6 +37,136 @@ class SqlBlobCatalog {
       )`);
         }
         catch {
+            throw new Error('BLOB_CATALOG_FAILED');
+        }
+    }
+    /** Scoped, bounded scan. The claim below rechecks every eligibility predicate. */
+    async expiredUploadDeletionCandidates(scope, after, now, limit) {
+        if (!validScope(scope) || !Number.isSafeInteger(now) || !Number.isSafeInteger(limit) ||
+            limit < 1 || limit > 1000)
+            throw new Error('BLOB_POLICY_INVALID');
+        try {
+            const rows = await this.driver.query(`SELECT c.key FROM teaql_blob_catalog c
+        JOIN teaql_blob_upload u ON u.key = c.key AND u.scope = c.scope
+        WHERE c.scope = ? AND c.key > ? AND u.expires_at <= ?
+          AND u.state IN ('initiated','written') AND c.status IN ('initiated','deleting')
+          AND NOT EXISTS (SELECT 1 FROM teaql_blob_binding b WHERE b.key = c.key)
+        ORDER BY c.key LIMIT ?`, [scope, after, now, limit]);
+            return rows.rows.map(row => {
+                if (typeof row.key !== 'string')
+                    throw new Error('BLOB_CATALOG_FAILED');
+                return row.key;
+            });
+        }
+        catch {
+            throw new Error('BLOB_CATALOG_FAILED');
+        }
+    }
+    /** BEGIN IMMEDIATE serializes this claim with upload write/complete and graph binding. */
+    async claimExpiredUploadDeletion(scope, key, now) {
+        try {
+            return await this.driver.transaction(async (sql) => {
+                const rows = await sql.query(`SELECT c.key, c.object_key, c.content_version,
+            c.status, u.state, u.expires_at, u.written_etag
+          FROM teaql_blob_catalog c JOIN teaql_blob_upload u
+            ON u.key = c.key AND u.scope = c.scope
+          WHERE c.scope = ? AND c.key = ?`, [scope, key]);
+                if (rows.rows.length !== 1)
+                    return undefined;
+                const row = rows.rows[0];
+                const bound = await sql.query('SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1', [key]);
+                if (bound.rows.length || !Number.isSafeInteger(Number(row.expires_at)) ||
+                    Number(row.expires_at) > now ||
+                    !['initiated', 'written'].includes(String(row.state)) ||
+                    !['initiated', 'deleting'].includes(String(row.status)))
+                    return undefined;
+                if (typeof row.object_key !== 'string' || !row.object_key ||
+                    typeof row.content_version !== 'string' ||
+                    (row.written_etag !== null && !validDeleteVersion(row.written_etag)) ||
+                    (row.content_version !== '' && !validDeleteVersion(row.content_version)) ||
+                    (row.state === 'written' && !row.written_etag))
+                    throw new Error('BLOB_CATALOG_FAILED');
+                const owners = await sql.query('SELECT count(*) AS n FROM teaql_blob_catalog WHERE object_key = ?', [row.object_key]);
+                if (Number(owners.rows[0]?.n) !== 1)
+                    throw new Error('BLOB_CATALOG_FAILED');
+                if (row.status === 'initiated') {
+                    const changed = await sql.query(`UPDATE teaql_blob_catalog SET status = 'deleting'
+            WHERE key = ? AND scope = ? AND status = 'initiated'`, [key, scope]);
+                    if (changed.rowCount !== 1)
+                        throw new Error('BLOB_CATALOG_FAILED');
+                }
+                return Object.freeze({ key, objectKey: row.object_key,
+                    contentVersion: row.content_version, writtenETag: row.written_etag });
+            });
+        }
+        catch (error) {
+            if (error instanceof Error && error.message === 'SQLITE_TRANSACTION_REENTRY')
+                throw error;
+            throw new Error('BLOB_CATALOG_FAILED');
+        }
+    }
+    async captureExpiredDeletionVersion(scope, record, version, now) {
+        if (!validDeleteVersion(version))
+            throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+        try {
+            await this.driver.transaction(async (sql) => {
+                const rows = await sql.query(`SELECT c.object_key, c.content_version, c.status,
+            u.state, u.expires_at, u.written_etag
+          FROM teaql_blob_catalog c JOIN teaql_blob_upload u
+            ON u.key = c.key AND u.scope = c.scope
+          WHERE c.scope = ? AND c.key = ?`, [scope, record.key]);
+                const row = rows.rows[0];
+                const bound = await sql.query('SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1', [record.key]);
+                if (rows.rows.length !== 1 || bound.rows.length || row.status !== 'deleting' ||
+                    row.object_key !== record.objectKey || !Number.isSafeInteger(Number(row.expires_at)) ||
+                    Number(row.expires_at) > now ||
+                    !['initiated', 'written'].includes(String(row.state)) ||
+                    row.written_etag && row.written_etag !== version ||
+                    row.content_version && row.content_version !== version)
+                    throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+                if (!row.content_version) {
+                    const changed = await sql.query(`UPDATE teaql_blob_catalog SET content_version = ?
+            WHERE key = ? AND scope = ? AND status = 'deleting' AND content_version = ''`, [version, record.key, scope]);
+                    if (changed.rowCount !== 1)
+                        throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+                }
+            });
+        }
+        catch (error) {
+            if (error instanceof Error && ['BLOB_IDEMPOTENCY_CONFLICT', 'SQLITE_TRANSACTION_REENTRY'].includes(error.message))
+                throw error;
+            throw new Error('BLOB_CATALOG_FAILED');
+        }
+    }
+    async finishExpiredUploadDeletion(scope, record, version, now) {
+        try {
+            await this.driver.transaction(async (sql) => {
+                const rows = await sql.query(`SELECT c.object_key, c.content_version, c.status,
+            u.state, u.expires_at
+          FROM teaql_blob_catalog c JOIN teaql_blob_upload u
+            ON u.key = c.key AND u.scope = c.scope
+          WHERE c.scope = ? AND c.key = ?`, [scope, record.key]);
+                if (rows.rows.length !== 1)
+                    throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+                const row = rows.rows[0];
+                if (row.object_key !== record.objectKey || row.content_version !== version)
+                    throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+                if (row.status === 'deleted')
+                    return;
+                const bound = await sql.query('SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1', [record.key]);
+                if (bound.rows.length || row.status !== 'deleting' ||
+                    !Number.isSafeInteger(Number(row.expires_at)) || Number(row.expires_at) > now ||
+                    !['initiated', 'written'].includes(String(row.state)))
+                    throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+                const changed = await sql.query(`UPDATE teaql_blob_catalog SET status = 'deleted'
+          WHERE key = ? AND scope = ? AND status = 'deleting' AND content_version = ?`, [record.key, scope, version]);
+                if (changed.rowCount !== 1)
+                    throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+            });
+        }
+        catch (error) {
+            if (error instanceof Error && ['BLOB_IDEMPOTENCY_CONFLICT', 'SQLITE_TRANSACTION_REENTRY'].includes(error.message))
+                throw error;
             throw new Error('BLOB_CATALOG_FAILED');
         }
     }
@@ -149,6 +282,13 @@ class SqlBlobCatalog {
                 const key = columns.rows.find(row => row.name === 'key');
                 const version = columns.rows.find(row => row.name === 'version');
                 if (!key || Number(key.notnull) !== 0 || !version || Number(version.notnull) !== 1) {
+                    throw new Error('BLOB_SCHEMA_MISSING');
+                }
+                const indexes = await this.driver.query('PRAGMA index_list(teaql_blob_catalog)');
+                const objectKeyIndex = indexes.rows.find(row => row.name === 'teaql_blob_catalog_object_key' &&
+                    Number(row.unique) === 1);
+                const indexed = await this.driver.query('PRAGMA index_info(teaql_blob_catalog_object_key)');
+                if (!objectKeyIndex || indexed.rows.length !== 1 || indexed.rows[0].name !== 'object_key') {
                     throw new Error('BLOB_SCHEMA_MISSING');
                 }
             }
