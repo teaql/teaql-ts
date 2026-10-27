@@ -36,7 +36,8 @@ export interface BlobBindingAuthorization {
 /** Physical catalog for the optional module. Migration is an explicit host action. */
 export declare class SqlBlobCatalog {
     readonly driver: TeaQLSqlDriver;
-    constructor(driver: TeaQLSqlDriver);
+    private readonly now;
+    constructor(driver: TeaQLSqlDriver, now?: () => number);
     ensureSchema(): Promise<void>;
     /** Scoped, bounded scan. The claim below rechecks every eligibility predicate. */
     expiredUploadDeletionCandidates(scope: string, after: string, now: number, limit: number): Promise<string[]>;

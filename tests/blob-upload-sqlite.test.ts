@@ -164,9 +164,11 @@ test('additive catalog migration leaves historical completion time unknown', asy
     await catalog.ensureSchema();
     await catalog.ensureSchema();
     await catalog.validateSchema();
-    const row = await driver.query('SELECT completed_at_ms, status FROM teaql_blob_catalog WHERE key = ?',
+    const row = await driver.query('SELECT completed_at_ms, last_unbound_at_ms, status FROM teaql_blob_catalog WHERE key = ?',
       ['blob_legacy']);
-    expect(row.rows).toMatchObject([{ completed_at_ms: null, status: 'uploaded_unbound' }]);
+    expect(row.rows).toMatchObject([{
+      completed_at_ms: null, last_unbound_at_ms: null, status: 'uploaded_unbound',
+    }]);
   } finally {
     await driver.close();
     await rm(root, { recursive: true, force: true });

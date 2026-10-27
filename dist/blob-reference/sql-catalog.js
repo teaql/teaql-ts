@@ -6,8 +6,9 @@ const validDeleteVersion = (value) => typeof value === 'string' && !!value && va
     value.trim() === value && !/[\x00-\x1f\x7f-\x9f]/.test(value);
 /** Physical catalog for the optional module. Migration is an explicit host action. */
 class SqlBlobCatalog {
-    constructor(driver) {
+    constructor(driver, now = Date.now) {
         this.driver = driver;
+        this.now = now;
     }
     async ensureSchema() {
         try {
@@ -15,20 +16,22 @@ class SqlBlobCatalog {
         key TEXT PRIMARY KEY, scope TEXT NOT NULL, object_key TEXT NOT NULL,
         content_version TEXT NOT NULL, file_name TEXT NOT NULL,
         content_type TEXT NOT NULL, size_bytes BIGINT NOT NULL,
-        completed_at_ms BIGINT,
+        completed_at_ms BIGINT, last_unbound_at_ms BIGINT,
         status TEXT NOT NULL CHECK (status IN
           ('initiated','uploaded_unbound','available','deleting','deleted'))
       )`);
             if (this.driver.databaseKind === 'sqlite') {
-                const columns = await this.driver.query('PRAGMA table_info(teaql_blob_catalog)');
-                if (!columns.rows.some(row => row.name === 'completed_at_ms')) {
+                for (const column of ['completed_at_ms', 'last_unbound_at_ms']) {
+                    const columns = await this.driver.query('PRAGMA table_info(teaql_blob_catalog)');
+                    if (columns.rows.some(row => row.name === column))
+                        continue;
                     try {
-                        await this.driver.query('ALTER TABLE teaql_blob_catalog ADD COLUMN completed_at_ms BIGINT');
+                        await this.driver.query(`ALTER TABLE teaql_blob_catalog ADD COLUMN ${column} BIGINT`);
                     }
                     catch {
                         // Another process may have completed the same additive migration.
                         const current = await this.driver.query('PRAGMA table_info(teaql_blob_catalog)');
-                        if (!current.rows.some(row => row.name === 'completed_at_ms'))
+                        if (!current.rows.some(row => row.name === column))
                             throw new Error('BLOB_CATALOG_FAILED');
                     }
                 }
@@ -268,14 +271,17 @@ class SqlBlobCatalog {
                         throw new Error('BLOB_BIND_DENIED');
                 }
                 if (previous && !previous.equals(change.next)) {
-                    await session.query(`UPDATE teaql_blob_catalog SET status = 'uploaded_unbound'
-            WHERE key = ${p(1)} AND scope = ${p(2)} AND status = 'available'
-              AND NOT EXISTS (SELECT 1 FROM teaql_blob_binding WHERE key = ${p(3)})`, [previous.key, scope, previous.key]);
+                    const now = this.now();
+                    if (!Number.isSafeInteger(now) || now < 0)
+                        throw new Error('BLOB_POLICY_INVALID');
+                    await session.query(`UPDATE teaql_blob_catalog SET last_unbound_at_ms = ${p(1)}
+            WHERE key = ${p(2)} AND scope = ${p(3)} AND status = 'available'
+              AND NOT EXISTS (SELECT 1 FROM teaql_blob_binding WHERE key = ${p(4)})`, [now, previous.key, scope, previous.key]);
                 }
                 return change.nextVersion;
             }
             catch (error) {
-                if (error instanceof Error && ['BLOB_BIND_DENIED', 'BLOB_CATALOG_FAILED',
+                if (error instanceof Error && ['BLOB_BIND_DENIED', 'BLOB_CATALOG_FAILED', 'BLOB_POLICY_INVALID',
                     'BLOB_CAPABILITY_MISSING', 'BLOB_REFERENCE_INVALID'].includes(error.message)) {
                     throw error;
                 }
@@ -286,7 +292,8 @@ class SqlBlobCatalog {
     async validateSchema() {
         try {
             await this.driver.query('SELECT key, scope, object_key, content_version, file_name, ' +
-                'content_type, size_bytes, completed_at_ms, status FROM teaql_blob_catalog WHERE 1 = 0');
+                'content_type, size_bytes, completed_at_ms, last_unbound_at_ms, status ' +
+                'FROM teaql_blob_catalog WHERE 1 = 0');
             await this.driver.query('SELECT scope, entity, entity_id, field, key, version ' +
                 'FROM teaql_blob_binding WHERE 1 = 0');
             await this.driver.query('SELECT upload_id, scope, replay_key, request_hash, key, entity, ' +

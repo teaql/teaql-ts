@@ -58,6 +58,8 @@ test('SQLite Blob target binding is in the business graph transaction and retain
       .toMatchObject({ key: reference.key, version: 1 });
     expect((await driver.query('SELECT status FROM teaql_blob_catalog')).rows[0].status)
       .toBe('available');
+    expect((await driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog'))
+      .rows[0].last_unbound_at_ms).toBeNull();
 
     await expect(client.executeGraphSave(new MutationIntent('rolled-back unbind'), async graph => {
       await client.withGraphSqlSession(graph, session => session.query(
@@ -70,6 +72,8 @@ test('SQLite Blob target binding is in the business graph transaction and retain
       .toBe(reference.key);
     expect((await driver.query('SELECT key, version FROM teaql_blob_binding')).rows[0])
       .toMatchObject({ key: reference.key, version: 1 });
+    expect((await driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog'))
+      .rows[0].last_unbound_at_ms).toBeNull();
 
     await expect(client.executeGraphSave(new MutationIntent('caught stale binding'), async graph => {
       await client.withGraphSqlSession(graph, session => session.query(
@@ -87,6 +91,7 @@ test('SQLite Blob target binding is in the business graph transaction and retain
         { target, next: null, expectedVersion: 1, nextVersion: 2 }, authorization)))
       .rejects.toThrow('BLOB_BIND_DENIED');
     permitted = true;
+    const beforeUnbind = Date.now();
     await client.executeGraphSave(new MutationIntent('clear asset Blob'), async graph => {
       await client.withGraphSqlSession(graph, session => session.query(
         'UPDATE asset SET document = NULL WHERE id = ?', ['1']));
@@ -95,8 +100,10 @@ test('SQLite Blob target binding is in the business graph transaction and retain
     });
     expect((await driver.query('SELECT key, version FROM teaql_blob_binding')).rows[0])
       .toMatchObject({ key: null, version: 2 });
-    expect((await driver.query('SELECT status FROM teaql_blob_catalog')).rows[0].status)
-      .toBe('uploaded_unbound');
+    const unbound = (await driver.query('SELECT status, last_unbound_at_ms FROM teaql_blob_catalog')).rows[0];
+    expect(unbound.status).toBe('available');
+    expect(Number(unbound.last_unbound_at_ms)).toBeGreaterThanOrEqual(beforeUnbind);
+    expect(Number(unbound.last_unbound_at_ms)).toBeLessThanOrEqual(Date.now());
     await client.executeGraphSave(new MutationIntent('rebind retained Blob'), graph =>
       catalog.bindInGraph(client, graph, context,
         { target, next: reference, expectedVersion: 2, nextVersion: 3 }, authorization));
