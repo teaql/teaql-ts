@@ -15,7 +15,9 @@ export type DocumentCommandReceipt = Readonly<{
     response: string;
 }>;
 /** Resolve and authorize the current context's trusted actor; never use submitted identity. */
-export type DocumentCommandAuthority = (context: UserContext, scope: ReferenceDocumentScope) => Promise<TrustedReferencePrincipal>;
+export type DocumentCommandAuthority = (context: UserContext, scope: ReferenceDocumentScope, session: SqlSession) => Promise<TrustedReferencePrincipal>;
+/** Closed JSON body for a document response; no getters, class instances or mutable nested nodes. */
+export declare function freezeDocumentBody(body: unknown): Readonly<Record<string, unknown>>;
 /** Explicit SQLite command receipt store. The application must consume the bound document token,
  * recheck the current model, binding and mutation plan, and present the accepted response after
  * commit. This store only makes the authorized command result durable with the business graph.

@@ -16,6 +16,7 @@ await build({
     'secure-document-reference/round-trip-reference': 'src/secure-document-reference/round-trip-reference.ts',
     'secure-document-reference/document-round-trip': 'src/secure-document-reference/document-round-trip.ts',
     'secure-document-reference/sqlite-command-journal': 'src/secure-document-reference/sqlite-command-journal.ts',
+    'secure-document-reference/sqlite-document-service': 'src/secure-document-reference/sqlite-document-service.ts',
     'sql/core': 'src/sql/core.ts',
     'sql/postgres': 'src/sql/postgres.ts',
     'sql/mysql': 'src/sql/mysql.ts',

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SqliteDocumentCommandJournal = void 0;
+exports.SqliteDocumentCommandJournal = exports.freezeDocumentBody = void 0;
 const node_crypto_1 = require("node:crypto");
 const MAX_COMMAND_BYTES = 256000;
 const MAX_RESPONSE_BYTES = 256000;
@@ -88,6 +88,24 @@ function freeze(value) {
         Object.freeze(value);
     }
 }
+/** Closed JSON body for a document response; no getters, class instances or mutable nested nodes. */
+function freezeDocumentBody(body) {
+    if (!body || typeof body !== 'object' || Array.isArray(body))
+        throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+    let encoded;
+    try {
+        encoded = canonical(body, 0, { left: 100000 }, new Set());
+    }
+    catch {
+        throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+    }
+    if (Buffer.byteLength(encoded, 'utf8') > MAX_RESPONSE_BYTES)
+        throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+    const copy = JSON.parse(encoded);
+    freeze(copy);
+    return copy;
+}
+exports.freezeDocumentBody = freezeDocumentBody;
 function prepareCommand(command) {
     if (!command || !text(command.businessId) || !text(command.documentToken, MAX_COMMAND_BYTES) ||
         !text(command.commandId, 256) || !command.body || typeof command.body !== 'object' ||
@@ -169,7 +187,7 @@ class SqliteDocumentCommandJournal {
             const current = async () => {
                 let principal;
                 try {
-                    principal = await authority(context, scope);
+                    principal = await authority(context, scope, session);
                 }
                 catch {
                     throw new Error('DOCUMENT_AUTHORIZATION_REQUIRED');

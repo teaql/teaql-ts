@@ -59,6 +59,11 @@
       "import": "./dist/esm/secure-document-reference/sqlite-command-journal.js",
       "require": "./dist/secure-document-reference/sqlite-command-journal.js"
     },
+    "./secure-document-reference/sqlite-document-service": {
+      "types": "./dist/secure-document-reference/sqlite-document-service.d.ts",
+      "import": "./dist/esm/secure-document-reference/sqlite-document-service.js",
+      "require": "./dist/secure-document-reference/sqlite-document-service.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",

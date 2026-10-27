@@ -20,7 +20,7 @@ export type DocumentCommandReceipt = Readonly<{
 
 /** Resolve and authorize the current context's trusted actor; never use submitted identity. */
 export type DocumentCommandAuthority = (
-  context: UserContext, scope: ReferenceDocumentScope,
+  context: UserContext, scope: ReferenceDocumentScope, session: SqlSession,
 ) => Promise<TrustedReferencePrincipal>;
 
 const MAX_COMMAND_BYTES = 256_000;
@@ -101,6 +101,20 @@ function freeze(value: unknown): void {
     for (const child of Object.values(value)) freeze(child);
     Object.freeze(value);
   }
+}
+
+/** Closed JSON body for a document response; no getters, class instances or mutable nested nodes. */
+export function freezeDocumentBody(body: unknown): Readonly<Record<string, unknown>> {
+  if (!body || typeof body !== 'object' || Array.isArray(body))
+    throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+  let encoded: string;
+  try { encoded = canonical(body, 0, { left: 100_000 }, new Set()); }
+  catch { throw new Error('DOCUMENT_PROJECTION_VIOLATION'); }
+  if (Buffer.byteLength(encoded, 'utf8') > MAX_RESPONSE_BYTES)
+    throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+  const copy = JSON.parse(encoded);
+  freeze(copy);
+  return copy;
 }
 
 function prepareCommand(command: SubmittedDocumentCommand): Readonly<{
@@ -192,7 +206,7 @@ export class SqliteDocumentCommandJournal {
       const requestHash = prepared.hash;
       const current = async (): Promise<string> => {
         let principal: TrustedReferencePrincipal;
-        try { principal = await authority(context, scope); }
+        try { principal = await authority(context, scope, session); }
         catch { throw new Error('DOCUMENT_AUTHORIZATION_REQUIRED'); }
         return actorHash(principal);
       };
