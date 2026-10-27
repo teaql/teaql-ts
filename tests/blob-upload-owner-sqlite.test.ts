@@ -208,6 +208,14 @@ test('committed Blob write with lost reply replays same bytes and File generatio
       .rejects.toHaveProperty('message', 'BLOB_STORE_FAILED');
     expect(await service.write(actor, session.uploadId, source(bytes))).toBe(bytes.length);
     expect(store.puts).toBe(1);
+    driver.loseNextCommitReply = true;
+    await expect(service.complete(actor, session.uploadId))
+      .rejects.toThrow('PRIVATE-COMMIT-CANARY');
+    expect((await driver.query('SELECT state FROM teaql_blob_upload WHERE upload_id = ?',
+      [session.uploadId])).rows[0].state).toBe('completed');
+    allowed = false;
+    await expect(service.complete(actor, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
+    allowed = true;
     expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
     expect(verifier.calls).toBe(1);
     expect(await service.write(actor, session.uploadId, source(bytes))).toBe(bytes.length);
