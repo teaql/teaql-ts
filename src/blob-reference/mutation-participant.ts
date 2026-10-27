@@ -32,7 +32,8 @@ export class SqliteBlobMutationParticipant implements BlobMutationParticipant {
           ? application.assigned[field] !== undefined
           : Object.prototype.hasOwnProperty.call(application.assigned, field));
       if (!write) continue;
-      if (column.blob!.entity !== application.entity || column.blob!.field !== field) {
+      if (column.blob!.entity !== application.entity ||
+          column.blob!.field !== (column.modelName ?? field)) {
         throw new Error('BLOB_REFERENCE_INVALID');
       }
       const assigned = application.assigned[field];
@@ -47,7 +48,7 @@ export class SqliteBlobMutationParticipant implements BlobMutationParticipant {
         throw new Error('BLOB_REFERENCE_INVALID');
       }
       const target: BlobBindingTarget = {
-        entity: application.entity, entityId: application.id, field,
+        entity: application.entity, entityId: application.id, field: column.blob!.field,
       };
       let rows;
       try {

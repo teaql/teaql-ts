@@ -7,7 +7,7 @@ import {
 } from "../chunks/chunk-HW6O6RX7.js";
 import {
   SqliteBlobMutationParticipant
-} from "../chunks/chunk-M7UA52AJ.js";
+} from "../chunks/chunk-6E4S7465.js";
 import {
   SqlBlobResponseContributor
 } from "../chunks/chunk-JEVDMH2Q.js";

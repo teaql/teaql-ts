@@ -15,7 +15,52 @@ const schema: EntitySchema = { table: 'asset', columns: {
   version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
   document: { columnName: 'document', logicalType: 'text', decode: 'string', nullable: true,
     blob: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default') },
+  legacyDocument: { columnName: 'legacy_document', modelName: 'legacy_document',
+    logicalType: 'text', decode: 'string', nullable: true,
+    blob: new BlobFieldSpec('Asset', 'legacy_document', ['doc'], true, 'default') },
 } };
+
+test('native binding keeps canonical model field when the TS member differs', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-name-'));
+  const filename = join(directory, 'runtime.sqlite');
+  const driver = new SQLiteDriver(filename);
+  const client = new SQLiteTeaQLClient(filename, { Asset: schema });
+  const catalog = new SqlBlobCatalog(driver);
+  const context = new UserContext().insertResource('dataService', client);
+  const reference = new BlobRef('blob_native_legacy');
+  installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
+  context.insertResource('blobMutationParticipant',
+    new SqliteBlobMutationParticipant(catalog, {
+      scope: () => 'tenant-a', authorize: async () => true,
+    }));
+  client.setUserContext(context);
+  try {
+    await catalog.ensureSchema();
+    await context.ensureSchema();
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key, scope, object_key, content_version, file_name, content_type, size_bytes, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+      reference.key, 'tenant-a', 'objects/legacy', 'v1', 'legacy.doc',
+      'application/msword', 7, 'uploaded_unbound',
+    ]);
+    await client.executeGraphSave(new MutationIntent('create canonical Blob field'),
+      graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Create',
+        id: '1', payload: { legacyDocument: reference } })));
+    expect((await driver.query('SELECT legacy_document FROM asset WHERE id = ?', ['1'])).rows[0])
+      .toMatchObject({ legacy_document: reference.key });
+    expect((await driver.query('SELECT field, key FROM teaql_blob_binding')).rows[0])
+      .toMatchObject({ field: 'legacy_document', key: reference.key });
+    await client.executeGraphSave(new MutationIntent('clear canonical Blob field'),
+      graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Update',
+        id: '1', version: 1, payload: { legacy_document: null } })));
+    expect((await driver.query('SELECT field, key FROM teaql_blob_binding')).rows[0])
+      .toMatchObject({ field: 'legacy_document', key: null });
+  } finally {
+    await client.close();
+    await driver.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test('native create/update/delete automatically maintains SQLite binding in the same graph', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-'));

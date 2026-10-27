@@ -24,7 +24,7 @@ var SqliteBlobMutationParticipant = class {
     for (const [field, column] of fields) {
       const write = application.action === "Delete" || (application.action === "Create" ? application.assigned[field] !== void 0 : Object.prototype.hasOwnProperty.call(application.assigned, field));
       if (!write) continue;
-      if (column.blob.entity !== application.entity || column.blob.field !== field) {
+      if (column.blob.entity !== application.entity || column.blob.field !== (column.modelName ?? field)) {
         throw new Error("BLOB_REFERENCE_INVALID");
       }
       const assigned = application.assigned[field];
@@ -39,7 +39,7 @@ var SqliteBlobMutationParticipant = class {
       const target = {
         entity: application.entity,
         entityId: application.id,
-        field
+        field: column.blob.field
       };
       let rows;
       try {
@@ -77,4 +77,4 @@ var SqliteBlobMutationParticipant = class {
 export {
   SqliteBlobMutationParticipant
 };
-//# sourceMappingURL=chunk-M7UA52AJ.js.map
+//# sourceMappingURL=chunk-6E4S7465.js.map
