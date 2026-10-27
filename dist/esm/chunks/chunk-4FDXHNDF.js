@@ -191,34 +191,34 @@ var SqliteBlobUploadService = class {
     }
     return new ObjectKey(result.rows[0].object_key);
   }
-  async recoverExisting(store, key, row, mime, inputHash) {
+  async recoverExisting(store, key, row, mime, inputHash, expectedETag) {
+    const mismatch = expectedETag ? "BLOB_IDEMPOTENCY_CONFLICT" : "BLOB_STORE_FAILED";
     const before = await store.head(key);
-    if (!before || before.size !== Number(row.declared_size) || before.contentType !== mime || !before.etag) throw new Error("BLOB_STORE_FAILED");
+    if (!before || before.size !== Number(row.declared_size) || before.contentType !== mime || !before.etag || expectedETag && before.etag !== expectedETag) throw new Error(mismatch);
     const content = await store.get(key);
     try {
-      if (content.metadata.size !== before.size || content.metadata.etag !== before.etag || content.metadata.contentType !== mime) throw new Error("BLOB_STORE_FAILED");
+      if (content.metadata.size !== before.size || content.metadata.etag !== before.etag || content.metadata.contentType !== mime) throw new Error(mismatch);
       const hash = createHash("sha256");
       let count = 0;
       for await (const block of content.stream) {
         if (!(block instanceof Uint8Array) || block.byteLength > before.size - count) {
-          throw new Error("BLOB_STORE_FAILED");
+          throw new Error(mismatch);
         }
         count += block.byteLength;
         hash.update(block);
       }
       if (count !== before.size || hash.digest("hex") !== inputHash) {
-        throw new Error("BLOB_STORE_FAILED");
+        throw new Error(mismatch);
       }
     } finally {
       await content.close();
     }
     const after = await store.head(key);
-    if (!after || after.size !== before.size || after.etag !== before.etag || after.contentType !== mime) throw new Error("BLOB_STORE_FAILED");
+    if (!after || after.size !== before.size || after.etag !== before.etag || after.contentType !== mime) throw new Error(mismatch);
     return before;
   }
   async write(context, uploadId, source) {
     const row = await this.row(context, uploadId, "Write");
-    if (row.state !== "initiated") throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
     const key = await this.objectKey(this.catalog.driver, row);
     const digest = createHash("sha256");
     let size = 0, consumed = false;
@@ -238,11 +238,73 @@ var SqliteBlobUploadService = class {
     } };
     const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
     return this.catalog.driver.transaction(async (sql) => {
-      const current = await sql.query(`SELECT state, key, expires_at FROM teaql_blob_upload
+      const current = await sql.query(`SELECT state, key, expires_at, written_sha256, written_etag FROM teaql_blob_upload
         WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
-      const catalog = await sql.query(`SELECT object_key, status FROM teaql_blob_catalog
+      const catalog = await sql.query(`SELECT object_key, status, content_version, content_type, size_bytes FROM teaql_blob_catalog
         WHERE key = ? AND scope = ?`, [row.key, row.scope]);
-      if (current.rows.length !== 1 || catalog.rows.length !== 1 || current.rows[0].state !== "initiated" || current.rows[0].key !== row.key || Number(current.rows[0].expires_at) !== Number(row.expires_at) || catalog.rows[0].object_key !== key.value || catalog.rows[0].status !== "initiated") {
+      if (current.rows.length !== 1 || catalog.rows.length !== 1 || current.rows[0].key !== row.key || Number(current.rows[0].expires_at) !== Number(row.expires_at) || catalog.rows[0].object_key !== key.value) {
+        throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
+      }
+      const observed = current.rows[0];
+      const catalogRow = catalog.rows[0];
+      if (observed.state === "written" || observed.state === "completed") {
+        const writtenHash = observed.written_sha256, writtenETag = observed.written_etag;
+        if (!writtenHash || !/^[0-9a-f]{64}$/.test(writtenHash) || !writtenETag || observed.state === "written" && catalogRow.status !== "initiated") {
+          throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
+        }
+        if (observed.state === "completed" && (catalogRow.status !== "uploaded_unbound" && catalogRow.status !== "available" || catalogRow.content_version !== writtenETag || catalogRow.content_type !== MIME[row.extension] || Number(catalogRow.size_bytes) !== Number(row.declared_size))) {
+          throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
+        }
+        await this.currentOnLease(
+          context,
+          sql,
+          target,
+          "Write",
+          { fileName: row.file_name, declaredSize: Number(row.declared_size) },
+          row.scope
+        );
+        if (this.now() >= Number(row.expires_at)) throw new Error("BLOB_UPLOAD_EXPIRED");
+        const replayHash = createHash("sha256");
+        let replaySize = 0;
+        try {
+          for await (const block of source) {
+            if (!(block instanceof Uint8Array) || block.byteLength > Number(row.declared_size) - replaySize) {
+              throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
+            }
+            replaySize += block.byteLength;
+            replayHash.update(block);
+          }
+        } catch (error) {
+          if (error instanceof Error && error.message === "BLOB_IDEMPOTENCY_CONFLICT") throw error;
+          throw new Error("BLOB_STORE_FAILED");
+        }
+        if (replaySize !== Number(row.declared_size) || replayHash.digest("hex") !== writtenHash) {
+          throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
+        }
+        let store2;
+        try {
+          store2 = context.objectStorage("recheck committed Blob upload");
+        } catch {
+          throw new Error("BLOB_STORE_FAILED");
+        }
+        try {
+          await this.recoverExisting(store2, key, row, MIME[row.extension], writtenHash, writtenETag);
+        } catch (error) {
+          if (error instanceof Error && error.message === "BLOB_IDEMPOTENCY_CONFLICT") throw error;
+          throw new Error("BLOB_STORE_FAILED");
+        }
+        await this.currentOnLease(
+          context,
+          sql,
+          target,
+          "Write",
+          { fileName: row.file_name, declaredSize: replaySize },
+          row.scope
+        );
+        if (this.now() >= Number(row.expires_at)) throw new Error("BLOB_UPLOAD_EXPIRED");
+        return replaySize;
+      }
+      if (observed.state !== "initiated" || catalogRow.status !== "initiated") {
         throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
       }
       await this.currentOnLease(
@@ -442,4 +504,4 @@ var SqliteBlobUploadService = class {
 export {
   SqliteBlobUploadService
 };
-//# sourceMappingURL=chunk-3M3VK4V5.js.map
+//# sourceMappingURL=chunk-4FDXHNDF.js.map

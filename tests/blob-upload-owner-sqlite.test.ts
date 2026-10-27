@@ -8,6 +8,7 @@ import { ObjectByteStream, ObjectKey, ObjectPutOptions, StorageInvocation } from
 import { FileObjectStorage } from '../src/object-storage/file';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
 import { BlobContentVerifier, BlobUploadAuthorization, SqliteBlobUploadService } from '../src/blob-reference/upload-service';
+import type { SqlSession } from '../src/sql/core';
 import { SQLiteDriver } from '../src/sql/sqlite';
 
 const source = (bytes: Uint8Array): ObjectByteStream => (async function* () { yield bytes; })();
@@ -53,6 +54,27 @@ class PausedFileStore extends FileObjectStorage {
     if (++this.puts === 1) {
       this.entered.release();
       await this.release.promise;
+    }
+    return result;
+  }
+}
+
+class CountingFileStore extends FileObjectStorage {
+  puts = 0;
+  override async put(invocation: StorageInvocation, key: ObjectKey, content: ObjectByteStream,
+                     options: ObjectPutOptions) {
+    this.puts += 1;
+    return super.put(invocation, key, content, options);
+  }
+}
+
+class LostWriteReplyDriver extends SQLiteDriver {
+  loseNextCommitReply = false;
+  override async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
+    const result = await super.transaction(work);
+    if (this.loseNextCommitReply) {
+      this.loseNextCommitReply = false;
+      throw new Error('PRIVATE-COMMIT-CANARY');
     }
     return result;
   }
@@ -140,6 +162,67 @@ test('Blob retry recovers only identical File bytes after SQLite journal promoti
   }
 });
 
+test('committed Blob write with lost reply replays same bytes and File generation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-commit-unknown-'));
+  const driver = new LostWriteReplyDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const store = new CountingFileStore(join(root, 'private'), randomBytes(32));
+  const actor = new UserContext().withObjectStorage(store).withObjectStorageObserver(() => {});
+  let allowed = true;
+  const field = () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default');
+  const authorization: BlobUploadAuthorization = {
+    scope: () => 'tenant-a', field,
+    authorize: async () => allowed,
+    currentOnLease: async () => ({ scope: 'tenant-a', field: field(), allowed }),
+  };
+  const verifier = new FixtureVerifier();
+  const service = new SqliteBlobUploadService(catalog, authorization, verifier, 10_000);
+  const bytes = Buffer.from('%PDF-1.7\nSQL commit succeeded, reply lost\n%%EOF');
+  try {
+    await catalog.ensureSchema();
+    const session = await service.begin(actor, { entity: 'Asset', entityId: null, field: 'document' },
+      { fileName: 'report.pdf', declaredSize: bytes.length }, 'unknown-write');
+    driver.loseNextCommitReply = true;
+    await expect(service.write(actor, session.uploadId, source(bytes)))
+      .rejects.toThrow('PRIVATE-COMMIT-CANARY');
+    const row = (await driver.query(`SELECT u.state, c.status, c.object_key, u.written_etag
+      FROM teaql_blob_upload u JOIN teaql_blob_catalog c ON c.key=u.key WHERE u.upload_id=?`,
+    [session.uploadId])).rows[0];
+    expect(row.state).toBe('written');
+    expect(row.status).toBe('initiated');
+    expect(row.written_etag).toBeTruthy();
+    expect(store.puts).toBe(1);
+    allowed = false;
+    await expect(service.write(actor, session.uploadId, source(bytes)))
+      .rejects.toThrow('BLOB_UPLOAD_DENIED');
+    allowed = true;
+    await expect(service.write(actor, session.uploadId, source(Buffer.alloc(bytes.length, 'x'))))
+      .rejects.toThrow('BLOB_IDEMPOTENCY_CONFLICT');
+    await expect(service.write(actor, session.uploadId, source(bytes.subarray(0, bytes.length - 1))))
+      .rejects.toThrow('BLOB_IDEMPOTENCY_CONFLICT');
+    const failedSource: ObjectByteStream = (async function* () {
+      throw new Error('PRIVATE-SOURCE-CANARY');
+      yield Buffer.alloc(0);
+    })();
+    await expect(service.write(actor, session.uploadId, failedSource))
+      .rejects.toHaveProperty('message', 'BLOB_STORE_FAILED');
+    expect(await service.write(actor, session.uploadId, source(bytes))).toBe(bytes.length);
+    expect(store.puts).toBe(1);
+    expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
+    expect(verifier.calls).toBe(1);
+    expect(await service.write(actor, session.uploadId, source(bytes))).toBe(bytes.length);
+    expect(verifier.calls).toBe(1);
+    const key = new ObjectKey(String(row.object_key));
+    await actor.objectStorage('replace File generation').putBytes(key, bytes,
+      new ObjectPutOptions(bytes.length, 'replace', 'application/pdf'));
+    await expect(service.write(actor, session.uploadId, source(bytes)))
+      .rejects.toThrow('BLOB_IDEMPOTENCY_CONFLICT');
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('Blob upload does not promote a File write when its original lease expires during I/O', async () => {
   const root = await mkdtemp(join(tmpdir(), 'teaql-blob-owner-expired-'));
   const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
@@ -191,7 +274,7 @@ test('two SQLite drivers serialize Blob File write across its SQL owner', async 
     expect(secondDone).toBe(false);
     store.release.release();
     expect(await firstWrite).toBe(bytes.length);
-    await expect(secondWrite).rejects.toThrow('BLOB_IDEMPOTENCY_CONFLICT');
+    expect(await secondWrite).toBe(bytes.length);
     expect(store.puts).toBe(1);
   } finally {
     store.release.release();
