@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { BlobFieldSpec, BlobRef } from '../core/blob-ref';
 import type { UserContext } from '../core/context';
-import { MAX_OBJECT_PUT_SIZE, ObjectByteStream, ObjectKey, ObjectPutOptions } from '../core/object-storage';
+import { MAX_OBJECT_PUT_SIZE, ObjectByteStream, ObjectKey, ObjectMetadata,
+  ObjectPutOptions, ObjectStorage, StorageError } from '../core/object-storage';
 import type { SqlSession } from '../sql/core';
 import { SqlBlobCatalog } from './sql-catalog';
 
@@ -197,6 +198,34 @@ export class SqliteBlobUploadService {
     return new ObjectKey(result.rows[0].object_key as string);
   }
 
+  private async recoverExisting(store: ObjectStorage, key: ObjectKey, row: UploadRow,
+                                mime: string, inputHash: string): Promise<ObjectMetadata> {
+    const before = await store.head(key);
+    if (!before || before.size !== Number(row.declared_size) ||
+        before.contentType !== mime || !before.etag) throw new Error('BLOB_STORE_FAILED');
+    const content = await store.get(key);
+    try {
+      if (content.metadata.size !== before.size || content.metadata.etag !== before.etag ||
+          content.metadata.contentType !== mime) throw new Error('BLOB_STORE_FAILED');
+      const hash = createHash('sha256');
+      let count = 0;
+      for await (const block of content.stream) {
+        if (!(block instanceof Uint8Array) || block.byteLength > before.size - count) {
+          throw new Error('BLOB_STORE_FAILED');
+        }
+        count += block.byteLength;
+        hash.update(block);
+      }
+      if (count !== before.size || hash.digest('hex') !== inputHash) {
+        throw new Error('BLOB_STORE_FAILED');
+      }
+    } finally { await content.close(); }
+    const after = await store.head(key);
+    if (!after || after.size !== before.size || after.etag !== before.etag ||
+        after.contentType !== mime) throw new Error('BLOB_STORE_FAILED');
+    return before;
+  }
+
   async write(context: UserContext, uploadId: string, source: ObjectByteStream): Promise<number> {
     const row = await this.row(context, uploadId, 'Write');
     if (row.state !== 'initiated') throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
@@ -233,10 +262,23 @@ export class SqliteBlobUploadService {
         { fileName: row.file_name, declaredSize: Number(row.declared_size) }, row.scope);
       let now = this.now();
       if (now >= Number(row.expires_at)) throw new Error('BLOB_UPLOAD_EXPIRED');
-      let metadata;
-      try { metadata = await context.objectStorage('write Blob upload').put(key, stream,
-        new ObjectPutOptions(Number(row.declared_size), 'create_only', MIME[row.extension])); }
+      let metadata: ObjectMetadata;
+      let recoveredHash: string | undefined;
+      let store: ObjectStorage;
+      try { store = context.objectStorage('write Blob upload'); }
       catch { throw new Error('BLOB_STORE_FAILED'); }
+      try { metadata = await store.put(key, stream,
+        new ObjectPutOptions(Number(row.declared_size), 'create_only', MIME[row.extension])); }
+      catch (error) {
+        if (!(error instanceof StorageError) || error.code !== 'Conflict') {
+          throw new Error('BLOB_STORE_FAILED');
+        }
+        try {
+          if (!consumed || size !== Number(row.declared_size)) throw new Error('BLOB_STORE_FAILED');
+          recoveredHash = digest.digest('hex');
+          metadata = await this.recoverExisting(store, key, row, MIME[row.extension], recoveredHash);
+        } catch { throw new Error('BLOB_STORE_FAILED'); }
+      }
       await this.currentOnLease(context, sql, target, 'Write',
         { fileName: row.file_name, declaredSize: size }, row.scope);
       now = this.now();
@@ -244,14 +286,16 @@ export class SqliteBlobUploadService {
       if (!consumed || metadata.size !== size || !metadata.etag || size !== Number(row.declared_size)) {
         throw new Error('BLOB_UPLOAD_INCOMPLETE');
       }
-      const hash = digest.digest('hex');
-      const updated = await sql.query(`UPDATE teaql_blob_upload
+      const hash = recoveredHash ?? digest.digest('hex');
+      let updated;
+      try { updated = await sql.query(`UPDATE teaql_blob_upload
         SET state = 'written', written_sha256 = ?, written_etag = ?
         WHERE upload_id = ? AND scope = ? AND state = 'initiated' AND expires_at > ?
           AND EXISTS (SELECT 1 FROM teaql_blob_catalog
             WHERE key = teaql_blob_upload.key AND scope = teaql_blob_upload.scope
               AND status = 'initiated')`,
-      [hash, metadata.etag, uploadId, row.scope, now]);
+      [hash, metadata.etag, uploadId, row.scope, now]); }
+      catch { throw new Error('BLOB_CATALOG_FAILED'); }
       if (updated.rowCount !== 1) throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
       return size;
     });

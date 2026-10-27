@@ -165,6 +165,38 @@ class SqliteBlobUploadService {
         }
         return new object_storage_1.ObjectKey(result.rows[0].object_key);
     }
+    async recoverExisting(store, key, row, mime, inputHash) {
+        const before = await store.head(key);
+        if (!before || before.size !== Number(row.declared_size) ||
+            before.contentType !== mime || !before.etag)
+            throw new Error('BLOB_STORE_FAILED');
+        const content = await store.get(key);
+        try {
+            if (content.metadata.size !== before.size || content.metadata.etag !== before.etag ||
+                content.metadata.contentType !== mime)
+                throw new Error('BLOB_STORE_FAILED');
+            const hash = (0, node_crypto_1.createHash)('sha256');
+            let count = 0;
+            for await (const block of content.stream) {
+                if (!(block instanceof Uint8Array) || block.byteLength > before.size - count) {
+                    throw new Error('BLOB_STORE_FAILED');
+                }
+                count += block.byteLength;
+                hash.update(block);
+            }
+            if (count !== before.size || hash.digest('hex') !== inputHash) {
+                throw new Error('BLOB_STORE_FAILED');
+            }
+        }
+        finally {
+            await content.close();
+        }
+        const after = await store.head(key);
+        if (!after || after.size !== before.size || after.etag !== before.etag ||
+            after.contentType !== mime)
+            throw new Error('BLOB_STORE_FAILED');
+        return before;
+    }
     async write(context, uploadId, source) {
         const row = await this.row(context, uploadId, 'Write');
         if (row.state !== 'initiated')
@@ -205,11 +237,30 @@ class SqliteBlobUploadService {
             if (now >= Number(row.expires_at))
                 throw new Error('BLOB_UPLOAD_EXPIRED');
             let metadata;
+            let recoveredHash;
+            let store;
             try {
-                metadata = await context.objectStorage('write Blob upload').put(key, stream, new object_storage_1.ObjectPutOptions(Number(row.declared_size), 'create_only', MIME[row.extension]));
+                store = context.objectStorage('write Blob upload');
             }
             catch {
                 throw new Error('BLOB_STORE_FAILED');
+            }
+            try {
+                metadata = await store.put(key, stream, new object_storage_1.ObjectPutOptions(Number(row.declared_size), 'create_only', MIME[row.extension]));
+            }
+            catch (error) {
+                if (!(error instanceof object_storage_1.StorageError) || error.code !== 'Conflict') {
+                    throw new Error('BLOB_STORE_FAILED');
+                }
+                try {
+                    if (!consumed || size !== Number(row.declared_size))
+                        throw new Error('BLOB_STORE_FAILED');
+                    recoveredHash = digest.digest('hex');
+                    metadata = await this.recoverExisting(store, key, row, MIME[row.extension], recoveredHash);
+                }
+                catch {
+                    throw new Error('BLOB_STORE_FAILED');
+                }
             }
             await this.currentOnLease(context, sql, target, 'Write', { fileName: row.file_name, declaredSize: size }, row.scope);
             now = this.now();
@@ -218,13 +269,19 @@ class SqliteBlobUploadService {
             if (!consumed || metadata.size !== size || !metadata.etag || size !== Number(row.declared_size)) {
                 throw new Error('BLOB_UPLOAD_INCOMPLETE');
             }
-            const hash = digest.digest('hex');
-            const updated = await sql.query(`UPDATE teaql_blob_upload
+            const hash = recoveredHash ?? digest.digest('hex');
+            let updated;
+            try {
+                updated = await sql.query(`UPDATE teaql_blob_upload
         SET state = 'written', written_sha256 = ?, written_etag = ?
         WHERE upload_id = ? AND scope = ? AND state = 'initiated' AND expires_at > ?
           AND EXISTS (SELECT 1 FROM teaql_blob_catalog
             WHERE key = teaql_blob_upload.key AND scope = teaql_blob_upload.scope
               AND status = 'initiated')`, [hash, metadata.etag, uploadId, row.scope, now]);
+            }
+            catch {
+                throw new Error('BLOB_CATALOG_FAILED');
+            }
             if (updated.rowCount !== 1)
                 throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
             return size;

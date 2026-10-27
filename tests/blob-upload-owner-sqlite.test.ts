@@ -103,6 +103,43 @@ test('Blob upload reads SQL-backed current permission through its borrowed owner
   }
 });
 
+test('Blob retry recovers only identical File bytes after SQLite journal promotion rollback', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-recover-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const actor = new UserContext().withObjectStorage(
+    new FileObjectStorage(join(root, 'private'), randomBytes(32))).withObjectStorageObserver(() => {});
+  const verifier = new FixtureVerifier();
+  const service = new SqliteBlobUploadService(catalog, authority(), verifier, 10_000);
+  const bytes = Buffer.from('%PDF-1.7\nrecover committed File content\n%%EOF');
+  try {
+    await catalog.ensureSchema();
+    const session = await service.begin(actor, { entity: 'Asset', entityId: null, field: 'document' },
+      { fileName: 'report.pdf', declaredSize: bytes.length }, 'recovery-request');
+    await driver.query(`CREATE TRIGGER reject_upload_write BEFORE UPDATE ON teaql_blob_upload
+      WHEN NEW.state='written' BEGIN SELECT RAISE(ABORT, 'injected'); END`);
+    await expect(service.write(actor, session.uploadId, source(bytes)))
+      .rejects.toThrow('BLOB_CATALOG_FAILED');
+    const row = (await driver.query(`SELECT c.object_key,u.state FROM teaql_blob_upload u
+      JOIN teaql_blob_catalog c ON c.key=u.key WHERE u.upload_id=?`,
+    [session.uploadId])).rows[0];
+    expect(row.state).toBe('initiated');
+    const key = new ObjectKey(String(row.object_key));
+    const stable = await actor.objectStorage('check recovery candidate').head(key);
+    expect(stable?.size).toBe(bytes.length);
+    await driver.query('DROP TRIGGER reject_upload_write');
+    await expect(service.write(actor, session.uploadId, source(Buffer.alloc(bytes.length, 'x'))))
+      .rejects.toThrow('BLOB_STORE_FAILED');
+    expect(await service.write(actor, session.uploadId, source(bytes))).toBe(bytes.length);
+    expect((await actor.objectStorage('check recovered generation').head(key))?.etag).toBe(stable?.etag);
+    expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
+    expect(verifier.calls).toBe(1);
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('Blob upload does not promote a File write when its original lease expires during I/O', async () => {
   const root = await mkdtemp(join(tmpdir(), 'teaql-blob-owner-expired-'));
   const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));

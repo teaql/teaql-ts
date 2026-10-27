@@ -56,6 +56,7 @@ export declare class SqliteBlobUploadService {
     begin(context: UserContext, target: BlobUploadTarget, input: BlobUploadInput, replayKey: string): Promise<BlobUploadSession>;
     private row;
     private objectKey;
+    private recoverExisting;
     write(context: UserContext, uploadId: string, source: ObjectByteStream): Promise<number>;
     complete(context: UserContext, uploadId: string): Promise<BlobRef>;
 }
