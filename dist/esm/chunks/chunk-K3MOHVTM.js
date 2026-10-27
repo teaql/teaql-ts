@@ -493,9 +493,9 @@ var SqliteBlobUploadService = class {
       if (updated.rowCount !== 1) throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
       const promoted = await sql.query(
         `UPDATE teaql_blob_catalog SET content_version = ?,
-        content_type = ?, size_bytes = ?, status = 'uploaded_unbound'
+        content_type = ?, size_bytes = ?, completed_at_ms = ?, status = 'uploaded_unbound'
         WHERE key = ? AND scope = ? AND status = 'initiated'`,
-        [writtenETag, verified.contentType, size, row.key, row.scope]
+        [writtenETag, verified.contentType, size, now, row.key, row.scope]
       );
       if (promoted.rowCount !== 1) throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
       return new BlobRef(row.key);
@@ -507,4 +507,4 @@ var SqliteBlobUploadService = class {
 export {
   SqliteBlobUploadService
 };
-//# sourceMappingURL=chunk-LF7TTBZI.js.map
+//# sourceMappingURL=chunk-K3MOHVTM.js.map

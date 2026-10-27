@@ -82,9 +82,16 @@ test('SQLite upload records a real File write and permits binding only after ful
     permitted = false;
     await expect(service.complete(context, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
     permitted = true;
+    const beforeCompletion = Date.now();
     expect((await service.complete(context, session.uploadId)).key).toBe(session.reference.key);
+    const completedAt = Number((await driver.query('SELECT completed_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [session.reference.key])).rows[0].completed_at_ms);
+    expect(completedAt).toBeGreaterThanOrEqual(beforeCompletion);
+    expect(completedAt).toBeLessThanOrEqual(Date.now());
     expect(verifier.calls).toBe(1);
     expect((await service.complete(context, session.uploadId)).key).toBe(session.reference.key);
+    expect(Number((await driver.query('SELECT completed_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [session.reference.key])).rows[0].completed_at_ms)).toBe(completedAt);
     expect(verifier.calls).toBe(1);
     permitted = false;
     await expect(service.complete(context, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
@@ -134,6 +141,32 @@ test('SQLite upload records a real File write and permits binding only after ful
     await expect(unsafe.complete(context, unconsumed.uploadId)).rejects.toThrow('BLOB_UPLOAD_INCOMPLETE');
     expect((await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
       [unconsumed.reference.key])).rows[0].status).toBe('initiated');
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('additive catalog migration leaves historical completion time unknown', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-completion-migration-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  try {
+    await driver.query(`CREATE TABLE teaql_blob_catalog (
+      key TEXT PRIMARY KEY, scope TEXT NOT NULL, object_key TEXT NOT NULL,
+      content_version TEXT NOT NULL, file_name TEXT NOT NULL,
+      content_type TEXT NOT NULL, size_bytes BIGINT NOT NULL,
+      status TEXT NOT NULL)`);
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key, scope, object_key, content_version, file_name, content_type, size_bytes, status)
+      VALUES ('blob_legacy','tenant-a','blob/legacy','old','legacy.pdf','application/pdf',1,'uploaded_unbound')`);
+    await expect(catalog.validateSchema()).rejects.toThrow();
+    await catalog.ensureSchema();
+    await catalog.ensureSchema();
+    await catalog.validateSchema();
+    const row = await driver.query('SELECT completed_at_ms, status FROM teaql_blob_catalog WHERE key = ?',
+      ['blob_legacy']);
+    expect(row.rows).toMatchObject([{ completed_at_ms: null, status: 'uploaded_unbound' }]);
   } finally {
     await driver.close();
     await rm(root, { recursive: true, force: true });

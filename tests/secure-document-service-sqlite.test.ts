@@ -188,7 +188,8 @@ test('SQLite secure document open, accept and replay use current permission and 
         subject TEXT NOT NULL, order_id INTEGER NOT NULL, can_edit INTEGER NOT NULL,
         PRIMARY KEY(subject,order_id))`);
       await driver.query("INSERT INTO document_order VALUES (10,'ORD-10','ORD-10',1,1,NULL)");
-      await driver.query(`INSERT INTO teaql_blob_catalog VALUES
+      await driver.query(`INSERT INTO teaql_blob_catalog
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status) VALUES
         ('blob_A','merchant:7','objects/a','v1','a.pdf','application/pdf',3,'uploaded_unbound')`);
       await driver.query("INSERT INTO document_permission VALUES ('alice',10,1)");
       await driver.query("INSERT INTO document_permission VALUES ('bob',10,1)");
@@ -281,7 +282,8 @@ test('SQLite secure document open, accept and replay use current permission and 
         .toMatchObject({ version: 2, quantity: 3, blob_key: 'blob_A' });
       expect((await driver.query('SELECT key,version FROM teaql_blob_binding')).rows[0])
         .toMatchObject({ key: 'blob_A', version: 1 });
-      await driver.query(`INSERT INTO teaql_blob_catalog VALUES
+      await driver.query(`INSERT INTO teaql_blob_catalog
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status) VALUES
         ('blob_B','merchant:7','objects/b','v1','b.pdf','application/pdf',3,'uploaded_unbound')`);
       const receiptToken = runtime.issueBlobSelection(principal, fresh.documentToken,
         { target: { ...selectionTarget, scope: freshScope, commandId: 'command-receipt-fail' },
@@ -346,7 +348,8 @@ test('SQLite secure document open, accept and replay use current permission and 
       expect(recovered.newRevision).toBe(3);
       expect(mutations).toBe(5); // first, catalog/receipt rejection, business trigger, presentation failure
 
-      await driver.query(`INSERT INTO teaql_blob_catalog VALUES
+      await driver.query(`INSERT INTO teaql_blob_catalog
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status) VALUES
         ('blob_C','merchant:7','objects/c','v1','c.pdf','application/pdf',3,'uploaded_unbound'),
         ('blob_D','merchant:7','objects/d','v1','d.pdf','application/pdf',3,'uploaded_unbound')`);
       const childOpen = await service.open(context, openRequest);
