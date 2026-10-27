@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BlobFieldSpec, BlobRef } from '../src/core/blob-ref';
 import { UserContext } from '../src/core/context';
+import { EntityRoot } from '../src/core/entity-root';
 import { MutationIntent } from '../src/core/request-intent';
 import { installRuntimeCapability } from '../src/core/runtime-capability';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
@@ -55,6 +56,71 @@ test('native binding keeps canonical model field when the TS member differs', as
         id: '1', version: 1, payload: { legacy_document: null } })));
     expect((await driver.query('SELECT field, key FROM teaql_blob_binding')).rows[0])
       .toMatchObject({ field: 'legacy_document', key: null });
+  } finally {
+    await client.close();
+    await driver.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('allocated ledger key binds a Blob inside its outer graph and rolls back with the owner', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-ledger-'));
+  const filename = join(directory, 'runtime.sqlite');
+  const driver = new SQLiteDriver(filename);
+  const client = new SQLiteTeaQLClient(filename, { Asset: schema });
+  const catalog = new SqlBlobCatalog(driver);
+  const context = new UserContext().insertResource('dataService', client);
+  const reference = new BlobRef('blob_native_ledger');
+  installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
+  context.insertResource('blobMutationParticipant',
+    new SqliteBlobMutationParticipant(catalog, {
+      scope: () => 'tenant-a', authorize: async () => true,
+    }));
+  client.setUserContext(context);
+  const provisional = { entity: 'Asset', id: -1 };
+  const save = async (fail: boolean) => {
+    const ledger = new EntityRoot();
+    ledger.markAsNew(provisional);
+    ledger.set(provisional, 'document', reference);
+    return client.executeGraphSave(new MutationIntent('save outer ledger'), async graph => {
+      const created = await client.executeMutation(graph.request({
+        entity: 'Asset', action: 'Create', ledgerRoot: ledger, ledgerKey: provisional,
+        payload: Object.freeze({ ...ledger.change(provisional) }),
+      }));
+      expect(created.id).toMatch(/^[1-9][0-9]*$/);
+      ledger.rekey(provisional, { entity: 'Asset', id: created.id });
+      expect(ledger.change({ entity: 'Asset', id: created.id }).document).toEqual(reference);
+      await client.withGraphSqlSession(graph, async sql => {
+        const bound = await sql.query('SELECT key FROM teaql_blob_binding WHERE entity_id = ?',
+          [created.id]);
+        expect(bound.rows[0].key).toBe(reference.key);
+      });
+      if (fail) throw new Error('outer owner rejected');
+      return created.id;
+    });
+  };
+  try {
+    await catalog.ensureSchema();
+    await context.ensureSchema();
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key, scope, object_key, content_version, file_name, content_type, size_bytes, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+      reference.key, 'tenant-a', 'objects/ledger', 'v1', 'ledger.pdf',
+      'application/pdf', 7, 'uploaded_unbound',
+    ]);
+    await expect(save(true)).rejects.toThrow('outer owner rejected');
+    expect((await driver.query('SELECT id FROM asset')).rows).toHaveLength(0);
+    expect((await driver.query('SELECT key FROM teaql_blob_binding')).rows).toHaveLength(0);
+    expect((await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+      [reference.key])).rows[0].status).toBe('uploaded_unbound');
+
+    const id = await save(false);
+    expect((await driver.query('SELECT document FROM asset WHERE id = ?', [id])).rows[0].document)
+      .toBe(reference.key);
+    expect((await driver.query('SELECT key FROM teaql_blob_binding WHERE entity_id = ?',
+      [id])).rows[0].key).toBe(reference.key);
+    expect((await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+      [reference.key])).rows[0].status).toBe('available');
   } finally {
     await client.close();
     await driver.close();

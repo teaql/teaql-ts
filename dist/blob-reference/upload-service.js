@@ -93,6 +93,9 @@ class SqliteBlobUploadService {
                 if (row.request_hash !== digest)
                     throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
                 await this.current(context, target, 'Begin', normalized, scope);
+                if (!Number.isSafeInteger(Number(row.expires_at)) ||
+                    this.now() >= Number(row.expires_at))
+                    throw new Error('BLOB_UPLOAD_EXPIRED');
                 return Object.freeze({ uploadId: row.upload_id, reference: new blob_ref_1.BlobRef(row.key),
                     expiresAt: new Date(Number(row.expires_at)) });
             }
@@ -176,9 +179,15 @@ class SqliteBlobUploadService {
             !metadata.etag)
             throw new Error('BLOB_UPLOAD_INCOMPLETE');
         await this.catalog.driver.transaction(async (sql) => {
+            const now = this.now();
+            if (now >= Number(row.expires_at))
+                throw new Error('BLOB_UPLOAD_EXPIRED');
             const updated = await sql.query(`UPDATE teaql_blob_upload
         SET state = 'written', written_sha256 = ?, written_etag = ?
-        WHERE upload_id = ? AND scope = ? AND state = 'initiated'`, [hash, metadata.etag, uploadId, row.scope]);
+        WHERE upload_id = ? AND scope = ? AND state = 'initiated' AND expires_at > ?
+          AND EXISTS (SELECT 1 FROM teaql_blob_catalog
+            WHERE key = teaql_blob_upload.key AND scope = teaql_blob_upload.scope
+              AND status = 'initiated')`, [hash, metadata.etag, uploadId, row.scope, now]);
             if (updated.rowCount !== 1)
                 throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
         });
@@ -262,8 +271,12 @@ class SqliteBlobUploadService {
         if (this.now() >= Number(row.expires_at))
             throw new Error('BLOB_UPLOAD_EXPIRED');
         await this.catalog.driver.transaction(async (sql) => {
+            const now = this.now();
+            if (now >= Number(row.expires_at))
+                throw new Error('BLOB_UPLOAD_EXPIRED');
             const updated = await sql.query(`UPDATE teaql_blob_upload SET state = 'completed'
-        WHERE upload_id = ? AND scope = ? AND state = 'written' AND written_sha256 = ? AND written_etag = ?`, [uploadId, row.scope, row.written_sha256, row.written_etag]);
+        WHERE upload_id = ? AND scope = ? AND state = 'written' AND written_sha256 = ?
+          AND written_etag = ? AND expires_at > ?`, [uploadId, row.scope, row.written_sha256, row.written_etag, now]);
             if (updated.rowCount !== 1)
                 throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
             const promoted = await sql.query(`UPDATE teaql_blob_catalog SET content_version = ?,

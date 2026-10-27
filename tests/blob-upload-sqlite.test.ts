@@ -134,3 +134,37 @@ test('SQLite upload records a real File write and permits binding only after ful
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('an expired replay key cannot recover an upload session, while a new request can begin', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-upload-expiry-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const context = new UserContext();
+  let clock = 1_700_000_000_000;
+  const service = new SqliteBlobUploadService(catalog, {
+    scope: () => 'tenant-a',
+    field: () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
+    authorize: async () => true,
+  }, new FixturePdfVerifier(), 10_000, 1, () => clock);
+  const target = { entity: 'Asset', entityId: null, field: 'document' };
+  const input = { fileName: 'report.pdf', declaredSize: 42 };
+  try {
+    await catalog.ensureSchema();
+    const first = await service.begin(context, target, input, 'request-expired');
+    expect((await service.begin(context, target, input, 'request-expired')).uploadId)
+      .toBe(first.uploadId);
+    clock = first.expiresAt.getTime();
+    await expect(service.begin(context, target, input, 'request-expired'))
+      .rejects.toThrow('BLOB_UPLOAD_EXPIRED');
+    const second = await service.begin(context, target, input, 'request-fresh');
+    expect(second.uploadId).not.toBe(first.uploadId);
+    await expect(service.write(context, first.uploadId,
+      (async function* () { yield Buffer.alloc(42); })()))
+      .rejects.toThrow('BLOB_UPLOAD_EXPIRED');
+    expect((await driver.query('SELECT state FROM teaql_blob_upload WHERE upload_id = ?',
+      [first.uploadId])).rows[0].state).toBe('initiated');
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});

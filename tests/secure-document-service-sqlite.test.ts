@@ -316,8 +316,15 @@ test('SQLite secure document open, accept and replay use current permission and 
         commandId: 'command-failed', body: { number: 'ORD-10', quantity: 9 } };
       await driver.query(`CREATE TRIGGER reject_nine BEFORE UPDATE ON document_order
         WHEN NEW.quantity = 9 BEGIN SELECT RAISE(ABORT, 'fixture failure'); END`);
-      await expect(service.accept(context, { aggregateType: 'Order', purpose: 'edit-order',
-        submitted: failed })).rejects.toThrow();
+      const failedResult = await service.accept(context, { aggregateType: 'Order',
+        purpose: 'edit-order', submitted: failed }).then(async accepted => ({
+        replayed: accepted.replayed,
+        mutations,
+        row: (await driver.query('SELECT version,quantity FROM document_order')).rows[0],
+        trigger: (await driver.query("SELECT name FROM sqlite_master WHERE name = 'reject_nine'"))
+          .rows.length,
+      }), error => error);
+      expect(failedResult).toBeInstanceOf(Error);
       expect((await driver.query('SELECT version,quantity FROM document_order')).rows[0])
         .toMatchObject({ version: 2, quantity: 3 });
       expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_document_command_receipt')).rows[0].n)
