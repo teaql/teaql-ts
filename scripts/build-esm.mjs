@@ -15,6 +15,7 @@ await build({
     'blob-reference/maintenance-service': 'src/blob-reference/maintenance-service.ts',
     'blob-reference/retention': 'src/blob-reference/retention.ts',
     'blob-reference/content-sharp': 'src/blob-reference/content-sharp.ts',
+    'blob-reference/content-pdfjs': 'src/blob-reference/content-pdfjs.ts',
     'blob-reference/module': 'src/blob-reference/module.ts',
     'secure-document-reference/round-trip-reference': 'src/secure-document-reference/round-trip-reference.ts',
     'secure-document-reference/document-round-trip': 'src/secure-document-reference/document-round-trip.ts',
