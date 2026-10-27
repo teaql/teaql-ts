@@ -34,9 +34,14 @@ export type CurrentDocument = Readonly<{
 export type VerifiedDocumentBlobSelection = Readonly<{
     target: BlobSelectionTarget;
     stableKey: string;
+    rowKey: string;
     entityId: string;
     expectedVersion: number;
     nextVersion: number;
+}>;
+export type DocumentBlobSelectionClaim = Readonly<{
+    target: BlobSelectionTarget;
+    stableKey: string;
 }>;
 /** The application owns the model-specific SQL projection and mutation plan. Every callback
  * receives the same physical SQLite transaction used for its read, mutation or receipt.
@@ -45,7 +50,12 @@ export interface SqliteDocumentHost {
     principal(context: UserContext): TrustedReferencePrincipal;
     authorize(context: UserContext, principal: TrustedReferencePrincipal, scope: ReferenceDocumentScope, session: SqlSession): Promise<void>;
     load(context: UserContext, businessId: string, session: SqlSession): Promise<CurrentDocument>;
-    apply(context: UserContext, issued: BoundDocumentSnapshot, submitted: SubmittedDocumentCommand, session: SqlSession, selections: readonly VerifiedDocumentBlobSelection[]): Promise<void>;
+    apply(context: UserContext, issued: BoundDocumentSnapshot, submitted: SubmittedDocumentCommand, session: SqlSession, selections: readonly DocumentBlobSelectionClaim[]): Promise<void>;
+    /** Resolve a submitted client key to the newly persisted child in this transaction. */
+    resolveNewBlobSelection?(context: UserContext, issued: BoundDocumentSnapshot, submitted: SubmittedDocumentCommand, selection: DocumentBlobSelectionClaim, session: SqlSession): Promise<Readonly<{
+        rowKey: string;
+        entityId: string;
+    }>>;
     /** Bind through the Blob catalog's current graph owner, with current slot authorization.
      * The service verifies the sealed claim and the resulting binding projection.
      */

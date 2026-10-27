@@ -62,6 +62,25 @@ test('SQLite secure document open, accept and replay use current permission and 
         if (bindings.rowCount > 1 || (bindings.rows[0]?.key ?? null) !== row.blob_key)
           throw new Error('DOCUMENT_PROJECTION_VIOLATION');
         const binding = bindings.rows[0];
+        const lines = await session.query(`SELECT id,version,client_key,blob_key
+          FROM document_order_line WHERE order_id = ? ORDER BY id`, [10]);
+        const lineEntities = [];
+        const lineBindings = [];
+        for (const line of lines.rows) {
+          const rowKey = `line:${line.id}`;
+          const linked = await session.query(`SELECT key,version FROM teaql_blob_binding
+            WHERE scope = ? AND entity = ? AND entity_id = ? AND field = ?`,
+          ['merchant:7', 'OrderLine', String(line.id), 'attachment']);
+          if (linked.rowCount > 1 || (linked.rows[0]?.key ?? null) !== line.blob_key)
+            throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+          lineEntities.push({ rowKey,
+            identity: { entityType: 'OrderLine', id: BigInt(line.id), version: Number(line.version) },
+            loadedFields: ['attachment'], writableFields: ['attachment'],
+            allowedMutations: ['UPDATE' as const] });
+          lineBindings.push({ rowKey, canonicalField: 'attachment', entityType: 'OrderLine',
+            stableKey: linked.rows[0]?.key ?? null,
+            bindingVersion: Number(linked.rows[0]?.version ?? 0), nullable: true, writable: true });
+        }
         return {
           document: { snapshot: {
             modelFingerprint: 'order-model-v1', businessId,
@@ -72,11 +91,14 @@ test('SQLite secure document open, accept and replay use current permission and 
               identity: { entityType: 'Order', id: BigInt(row.id), version },
               loadedFields: ['attachment', 'number', 'quantity'],
               writableFields: ['attachment', 'quantity'],
-              allowedMutations: ['UPDATE' as const] }],
-            relations: [],
+              allowedMutations: ['UPDATE' as const] }, ...lineEntities],
+            relations: [{ name: 'lines', rowKeys: lineEntities.map(line => line.rowKey),
+              completeness: 'COMPLETE' as const, writable: true,
+              allowedMutations: ['CREATE_CHILD' as const] }],
           }, bindings: [{ rowKey: 'order:10', canonicalField: 'attachment',
             entityType: 'Order', stableKey: binding?.key ?? null,
-            bindingVersion: Number(binding?.version ?? 0), nullable: true, writable: true }] },
+            bindingVersion: Number(binding?.version ?? 0), nullable: true, writable: true },
+          ...lineBindings] },
           body: { number: String(row.number), quantity: Number(row.quantity) },
           lifetimeSeconds: 120,
         };
@@ -91,25 +113,56 @@ test('SQLite secure document open, accept and replay use current permission and 
         const updated = await session.query(`UPDATE document_order
           SET quantity = ?, blob_key = COALESCE(?,blob_key), version = version + 1
           WHERE id = ? AND version = ? AND number = ?`,
-        [body.quantity, selections[0]?.stableKey ?? null,
+        [body.quantity, selections.find(selection =>
+          selection.target.kind === 'EXISTING_ROW')?.stableKey ?? null,
           10, Number(issued.snapshot.aggregate.version), body.number]);
         if (updated.rowCount !== 1) throw new Error('DOCUMENT_REVISION_CONFLICT');
+        for (const selection of selections) {
+          if (selection.target.kind !== 'NEW_CLIENT_KEY') continue;
+          if (selection.target.targetEntity !== 'OrderLine' ||
+              selection.target.canonicalField !== 'attachment' ||
+              !/^client-line-[12]$/.test(selection.target.targetKey))
+            throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+          const id = selection.target.targetKey === 'client-line-1' ? 21 : 22;
+          const created = await session.query(`INSERT INTO document_order_line
+            (id,order_id,client_key,version,blob_key) VALUES (?,?,?,?,NULL)`,
+          [id, 10, selection.target.targetKey, 1]);
+          if (created.rowCount !== 1) throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+        }
+      },
+      resolveNewBlobSelection: async (_context, _issued, _submitted, selection, session) => {
+        const rows = await session.query(`SELECT id FROM document_order_line
+          WHERE order_id = ? AND client_key = ?`, [10, selection.target.targetKey]);
+        if (rows.rowCount !== 1) throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+        return { rowKey: `line:${rows.rows[0].id}`, entityId: String(rows.rows[0].id) };
       },
       bindBlobSelection: async (current, owner, graph, selection) => {
-        if (selection.target.kind !== 'EXISTING_ROW' ||
-            selection.target.targetEntity !== 'Order' ||
-            selection.target.targetKey !== 'order:10' ||
-            selection.target.canonicalField !== 'attachment' || selection.entityId !== '10')
+        const existing = selection.target.kind === 'EXISTING_ROW' &&
+          selection.target.targetEntity === 'Order' && selection.rowKey === 'order:10' &&
+          selection.entityId === '10';
+        const child = selection.target.kind === 'NEW_CLIENT_KEY' &&
+          selection.target.targetEntity === 'OrderLine' &&
+          selection.rowKey === `line:${selection.entityId}` &&
+          ['21', '22'].includes(selection.entityId);
+        if ((!existing && !child) || selection.target.canonicalField !== 'attachment')
           throw new Error('BLOB_BIND_DENIED');
+        if (child) {
+          const updated = await owner.withGraphSqlSession(graph, session =>
+            session.query(`UPDATE document_order_line SET blob_key = ? WHERE id = ?`,
+              [selection.stableKey, Number(selection.entityId)]));
+          if (updated.rowCount !== 1) throw new Error('BLOB_BIND_DENIED');
+        }
         await catalog.bindInGraph(owner, graph, current, {
-          target: { entity: 'Order', entityId: selection.entityId,
+          target: { entity: selection.target.targetEntity, entityId: selection.entityId,
             field: selection.target.canonicalField },
           next: new BlobRef(selection.stableKey),
           expectedVersion: selection.expectedVersion,
           nextVersion: selection.nextVersion,
+          action: child ? 'Create' : 'Update',
         }, { scope: () => 'merchant:7',
           authorize: async (_context, target, _previous, next) =>
-            target.entity === 'Order' && target.entityId === '10' &&
+            target.entity === selection.target.targetEntity &&
+            target.entityId === selection.entityId &&
             target.field === 'attachment' && next instanceof BlobRef });
       },
       present: async () => { if (failPresentation) throw new Error('presentation unavailable'); },
@@ -126,6 +179,9 @@ test('SQLite secure document open, accept and replay use current permission and 
         id INTEGER PRIMARY KEY, business_id TEXT UNIQUE NOT NULL,
         number TEXT NOT NULL, version INTEGER NOT NULL, quantity INTEGER NOT NULL,
         blob_key TEXT)`);
+      await driver.query(`CREATE TABLE document_order_line (
+        id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL, client_key TEXT NOT NULL UNIQUE,
+        version INTEGER NOT NULL, blob_key TEXT)`);
       await driver.query(`CREATE TABLE document_permission (
         subject TEXT NOT NULL, order_id INTEGER NOT NULL, can_edit INTEGER NOT NULL,
         PRIMARY KEY(subject,order_id))`);
@@ -280,6 +336,72 @@ test('SQLite secure document open, accept and replay use current permission and 
       expect(recovered.replayed).toBe(true);
       expect(recovered.newRevision).toBe(3);
       expect(mutations).toBe(5); // first, catalog/receipt rejection, business trigger, presentation failure
+
+      await driver.query(`INSERT INTO teaql_blob_catalog VALUES
+        ('blob_C','merchant:7','objects/c','v1','c.pdf','application/pdf',3,'uploaded_unbound'),
+        ('blob_D','merchant:7','objects/d','v1','d.pdf','application/pdf',3,'uploaded_unbound')`);
+      const childOpen = await service.open(context, openRequest);
+      const childScope = runtime.consumeBoundDocumentSnapshot(principal, childOpen.documentToken,
+        'Order', 'edit-order').document.snapshot.scope;
+      const childToken = runtime.issueBlobSelection(principal, childOpen.documentToken,
+        { target: { scope: childScope, targetEntity: 'OrderLine',
+          canonicalField: 'attachment', kind: 'NEW_CLIENT_KEY',
+          targetKey: 'client-line-1', commandId: 'command-new-child' },
+          stableKey: 'blob_C' }, 60);
+      const childSubmitted = { businessId: 'ORD-10', documentToken: childOpen.documentToken,
+        commandId: 'command-new-child', body: { number: 'ORD-10', quantity: 6 },
+        blobSelections: [{ token: childToken, targetEntity: 'OrderLine',
+          canonicalField: 'attachment', kind: 'NEW_CLIENT_KEY' as const,
+          targetKey: 'client-line-1' }] };
+      const childAccepted = await service.accept(context,
+        { aggregateType: 'Order', purpose: 'edit-order', submitted: childSubmitted });
+      expect(childAccepted).toMatchObject({ previousRevision: 3, newRevision: 4,
+        replayed: false });
+      expect((await driver.query('SELECT version,quantity,blob_key FROM document_order')).rows[0])
+        .toMatchObject({ version: 4, quantity: 6, blob_key: 'blob_A' });
+      expect((await driver.query('SELECT id,version,blob_key FROM document_order_line')).rows[0])
+        .toMatchObject({ id: 21, version: 1, blob_key: 'blob_C' });
+      expect((await driver.query(`SELECT key,version FROM teaql_blob_binding
+        WHERE entity = 'OrderLine' AND entity_id = '21' AND field = 'attachment'`)).rows[0])
+        .toMatchObject({ key: 'blob_C', version: 1 });
+      expect((await driver.query("SELECT status FROM teaql_blob_catalog WHERE key = 'blob_C'"))
+        .rows[0].status).toBe('available');
+      expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_document_command_receipt'))
+        .rows[0].n).toBe(3);
+      const childReplay = await service.accept(context,
+        { aggregateType: 'Order', purpose: 'edit-order', submitted: childSubmitted });
+      expect(childReplay.replayed).toBe(true);
+      expect(childReplay.document.documentToken).toBe(childAccepted.document.documentToken);
+
+      const nextOpen = await service.open(context, openRequest);
+      const nextScope = runtime.consumeBoundDocumentSnapshot(principal, nextOpen.documentToken,
+        'Order', 'edit-order').document.snapshot.scope;
+      const nextToken = runtime.issueBlobSelection(principal, nextOpen.documentToken,
+        { target: { scope: nextScope, targetEntity: 'OrderLine',
+          canonicalField: 'attachment', kind: 'NEW_CLIENT_KEY',
+          targetKey: 'client-line-2', commandId: 'command-new-child-fail' },
+          stableKey: 'blob_D' }, 60);
+      await driver.query(`CREATE TRIGGER reject_new_child_receipt
+        BEFORE INSERT ON teaql_document_command_receipt
+        WHEN NEW.command_id = 'command-new-child-fail'
+        BEGIN SELECT RAISE(ABORT, 'receipt fixture failure'); END`);
+      await expect(service.accept(context, { aggregateType: 'Order', purpose: 'edit-order',
+        submitted: { businessId: 'ORD-10', documentToken: nextOpen.documentToken,
+          commandId: 'command-new-child-fail', body: { number: 'ORD-10', quantity: 7 },
+          blobSelections: [{ token: nextToken, targetEntity: 'OrderLine',
+            canonicalField: 'attachment', kind: 'NEW_CLIENT_KEY',
+            targetKey: 'client-line-2' }] } }))
+        .rejects.toThrow('DOCUMENT_CATALOG_FAILED');
+      expect((await driver.query('SELECT version,quantity FROM document_order')).rows[0])
+        .toMatchObject({ version: 4, quantity: 6 });
+      expect((await driver.query('SELECT COUNT(*) AS n FROM document_order_line')).rows[0].n)
+        .toBe(1);
+      expect((await driver.query(`SELECT COUNT(*) AS n FROM teaql_blob_binding
+        WHERE entity = 'OrderLine' AND entity_id = '22'`)).rows[0].n).toBe(0);
+      expect((await driver.query("SELECT status FROM teaql_blob_catalog WHERE key = 'blob_D'"))
+        .rows[0].status).toBe('uploaded_unbound');
+      expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_document_command_receipt'))
+        .rows[0].n).toBe(3);
     } finally {
       await client.close();
       await driver.close();

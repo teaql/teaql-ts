@@ -51,6 +51,20 @@ function stable(value, seen = new Set(), depth = 0, budget = { left: 100000 }) {
         seen.delete(value);
     }
 }
+function canonicalDocument(document) {
+    const compare = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
+    const mutationOrder = { UPDATE: 1, CREATE_CHILD: 2, REMOVE_CHILD: 3 };
+    const mutations = (values) => [...values].sort((a, b) => mutationOrder[a] - mutationOrder[b]);
+    return { ...document,
+        snapshot: { ...document.snapshot,
+            entities: document.snapshot.entities.map(entity => ({ ...entity,
+                loadedFields: [...entity.loadedFields].sort(compare),
+                writableFields: [...entity.writableFields].sort(compare),
+                allowedMutations: mutations(entity.allowedMutations) })),
+            relations: document.snapshot.relations.map(relation => ({ ...relation,
+                allowedMutations: mutations(relation.allowedMutations) })) },
+        bindings: [...document.bindings].sort((a, b) => compare(a.rowKey, b.rowKey) || compare(a.canonicalField, b.canonicalField)) };
+}
 function assertDocument(current, businessId, aggregateType, purpose) {
     if (!current || !current.document || !current.document.snapshot ||
         !current.body || typeof current.body !== 'object' || Array.isArray(current.body) ||
@@ -72,22 +86,30 @@ function verifiedSelections(runtime, principal, issued, submitted) {
             throw new Error('DOCUMENT_COMMAND_INVALID');
         seen.add(pair);
         const claim = runtime.consumeBlobSelection(principal, submitted.documentToken, selection.token, target).document;
-        // A new client key requires the host's persisted child-ID mapping; this adapter
-        // handles only rows whose trusted identity is already in the issued snapshot.
-        if (target.kind !== 'EXISTING_ROW')
-            throw new Error('DOCUMENT_CAPABILITY_MISSING');
-        const row = issued.snapshot.entities.find(entity => entity.rowKey === target.targetKey);
-        const binding = issued.bindings.find(candidate => candidate.rowKey === target.targetKey &&
-            candidate.canonicalField === target.canonicalField);
-        if (!row || !binding || row.identity.entityType !== target.targetEntity ||
-            !binding.writable || integer(binding.bindingVersion) >= Number.MAX_SAFE_INTEGER)
-            throw new Error('DOCUMENT_PROJECTION_VIOLATION');
-        result.push(Object.freeze({ target, stableKey: claim.stableKey,
-            entityId: BigInt(row.identity.id).toString(),
-            expectedVersion: integer(binding.bindingVersion),
-            nextVersion: integer(binding.bindingVersion) + 1 }));
+        result.push(Object.freeze({ target, stableKey: claim.stableKey }));
     }
     return Object.freeze(result);
+}
+function mappedExisting(issued, selection) {
+    const target = selection.target;
+    const row = issued.snapshot.entities.find(entity => entity.rowKey === target.targetKey);
+    const binding = issued.bindings.find(candidate => candidate.rowKey === target.targetKey &&
+        candidate.canonicalField === target.canonicalField);
+    if (!row || !binding || row.identity.entityType !== target.targetEntity ||
+        !binding.writable || integer(binding.bindingVersion) >= Number.MAX_SAFE_INTEGER)
+        throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+    return Object.freeze({ ...selection, rowKey: target.targetKey,
+        entityId: BigInt(row.identity.id).toString(),
+        expectedVersion: integer(binding.bindingVersion),
+        nextVersion: integer(binding.bindingVersion) + 1 });
+}
+function mappedNew(selection, resolved, issued) {
+    if (!resolved || !validText(resolved.rowKey) || !/^[1-9][0-9]*$/.test(resolved.entityId) ||
+        BigInt(resolved.entityId) > 18446744073709551615n ||
+        issued.snapshot.entities.some(row => row.rowKey === resolved.rowKey))
+        throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+    return Object.freeze({ ...selection, rowKey: resolved.rowKey,
+        entityId: resolved.entityId, expectedVersion: 0, nextVersion: 1 });
 }
 function contextual(businessId, documentToken, body) {
     const document = { businessId, documentToken, body };
@@ -165,13 +187,29 @@ class SqliteSecureDocumentService {
         }, async (session, submitted) => {
             const before = await this.host.load(context, submitted.businessId, session);
             assertDocument(before, submitted.businessId, request.aggregateType, request.purpose);
-            if (stable(before.document) !== stable(issued))
+            if (stable(canonicalDocument(before.document)) !==
+                stable(canonicalDocument(issued)))
                 throw new Error('DOCUMENT_REVISION_CONFLICT');
             const selections = verifiedSelections(this.runtime, principal, issued, submitted);
             if (selections.length && !this.host.bindBlobSelection)
                 throw new Error('DOCUMENT_CAPABILITY_MISSING');
+            if (selections.some(selection => selection.target.kind === 'NEW_CLIENT_KEY') &&
+                !this.host.resolveNewBlobSelection)
+                throw new Error('DOCUMENT_CAPABILITY_MISSING');
             await this.host.apply(context, issued, submitted, session, selections);
-            for (const selection of selections)
+            const mapped = [];
+            const mappedTargets = new Set();
+            for (const selection of selections) {
+                const binding = selection.target.kind === 'EXISTING_ROW'
+                    ? mappedExisting(issued, selection)
+                    : mappedNew(selection, await this.host.resolveNewBlobSelection(context, issued, submitted, selection, session), issued);
+                const pair = `${binding.rowKey}\0${binding.target.canonicalField}`;
+                if (mappedTargets.has(pair))
+                    throw new Error('DOCUMENT_COMMAND_INVALID');
+                mappedTargets.add(pair);
+                mapped.push(binding);
+            }
+            for (const selection of mapped)
                 await this.host.bindBlobSelection(context, this.owner, graph, selection, session);
             const after = await this.host.load(context, submitted.businessId, session);
             assertDocument(after, submitted.businessId, request.aggregateType, request.purpose);
@@ -181,13 +219,27 @@ class SqliteSecureDocumentService {
                 nextScope.purpose !== scope.purpose ||
                 BigInt(nextScope.aggregateId) !== BigInt(scope.aggregateId))
                 throw new Error('DOCUMENT_PROJECTION_VIOLATION');
-            for (const selection of selections) {
-                const binding = after.document.bindings.find(candidate => candidate.rowKey === selection.target.targetKey &&
+            for (const selection of mapped) {
+                const binding = after.document.bindings.find(candidate => candidate.rowKey === selection.rowKey &&
                     candidate.canonicalField === selection.target.canonicalField);
                 if (!binding || binding.entityType !== selection.target.targetEntity ||
                     binding.stableKey !== selection.stableKey ||
                     integer(binding.bindingVersion) !== selection.nextVersion)
                     throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+                if (selection.target.kind === 'NEW_CLIENT_KEY') {
+                    const row = after.document.snapshot.entities.find(candidate => candidate.rowKey === selection.rowKey);
+                    if (!row || row.identity.entityType !== selection.target.targetEntity ||
+                        BigInt(row.identity.id).toString() !== selection.entityId ||
+                        !row.writableFields.includes(selection.target.canonicalField) ||
+                        !after.document.snapshot.relations.some(relation => relation.rowKeys.includes(selection.rowKey) &&
+                            relation.completeness === 'COMPLETE' && relation.writable &&
+                            relation.allowedMutations.includes('CREATE_CHILD') &&
+                            issued.snapshot.relations.some(previous => previous.name === relation.name &&
+                                previous.completeness === 'COMPLETE' && previous.writable &&
+                                previous.allowedMutations.includes('CREATE_CHILD') &&
+                                !previous.rowKeys.includes(selection.rowKey))))
+                        throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+                }
             }
             await this.host.authorize(context, principal, after.document.snapshot.scope, session);
             const previousRevision = integer(scope.aggregateRevision);
