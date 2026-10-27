@@ -7,6 +7,14 @@ export type SubmittedDocumentCommand = Readonly<{
     documentToken: string;
     commandId: string;
     body: Readonly<Record<string, unknown>>;
+    /** tqs1 credentials are part of the durable replay identity, never an out-of-band request. */
+    blobSelections?: readonly Readonly<{
+        token: string;
+        targetEntity: string;
+        canonicalField: string;
+        kind: 'EXISTING_ROW' | 'NEW_CLIENT_KEY';
+        targetKey: string;
+    }>[];
 }>;
 /** The application-owned service validates the projection and writes its business mutation on this graph. */
 export type DocumentCommandReceipt = Readonly<{

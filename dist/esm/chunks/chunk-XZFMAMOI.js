@@ -91,18 +91,34 @@ function freezeDocumentBody(body) {
 function prepareCommand(command) {
   if (!command || !text(command.businessId) || !text(command.documentToken, MAX_COMMAND_BYTES) || !text(command.commandId, 256) || !command.body || typeof command.body !== "object" || Array.isArray(command.body))
     throw new Error("DOCUMENT_COMMAND_INVALID");
-  const encoded = canonical([
-    command.businessId,
-    command.documentToken,
-    command.commandId,
-    command.body
-  ], 0, { left: 1e5 }, /* @__PURE__ */ new Set());
+  const selections = command.blobSelections;
+  if (selections !== void 0 && (!Array.isArray(selections) || selections.length > 100 || selections.some((selection) => !selection || !text(selection.token, MAX_COMMAND_BYTES) || !text(selection.targetEntity) || !text(selection.canonicalField) || !text(selection.targetKey) || !["EXISTING_ROW", "NEW_CLIENT_KEY"].includes(selection.kind) || Object.keys(selection).sort().join(",") !== "canonicalField,kind,targetEntity,targetKey,token")))
+    throw new Error("DOCUMENT_COMMAND_INVALID");
+  const encoded = canonical(
+    [
+      command.businessId,
+      command.documentToken,
+      command.commandId,
+      command.body,
+      ...selections === void 0 ? [] : [selections]
+    ],
+    0,
+    { left: 1e5 },
+    /* @__PURE__ */ new Set()
+  );
   if (Buffer.byteLength(encoded, "utf8") > MAX_COMMAND_BYTES) throw new Error("DOCUMENT_COMMAND_INVALID");
-  const [businessId, documentToken, commandId, body] = JSON.parse(encoded);
+  const [businessId, documentToken, commandId, body, copiedSelections] = JSON.parse(encoded);
   freeze(body);
+  if (copiedSelections) freeze(copiedSelections);
   return {
     hash: createHash("sha256").update(encoded).digest("hex"),
-    snapshot: Object.freeze({ businessId, documentToken, commandId, body })
+    snapshot: Object.freeze({
+      businessId,
+      documentToken,
+      commandId,
+      body,
+      ...copiedSelections === void 0 ? {} : { blobSelections: copiedSelections }
+    })
   };
 }
 function scopeHash(scope) {
@@ -236,4 +252,4 @@ export {
   freezeDocumentBody,
   SqliteDocumentCommandJournal
 };
-//# sourceMappingURL=chunk-24H3NTBT.js.map
+//# sourceMappingURL=chunk-XZFMAMOI.js.map

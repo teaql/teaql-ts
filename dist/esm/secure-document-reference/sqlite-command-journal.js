@@ -1,7 +1,7 @@
 import {
   SqliteDocumentCommandJournal,
   freezeDocumentBody
-} from "../chunks/chunk-24H3NTBT.js";
+} from "../chunks/chunk-XZFMAMOI.js";
 import "../chunks/chunk-AQT573VW.js";
 export {
   SqliteDocumentCommandJournal,

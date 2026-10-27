@@ -60,6 +60,35 @@ function assertDocument(current, businessId, aggregateType, purpose) {
         current.document.snapshot.scope.purpose !== purpose)
         throw new Error('DOCUMENT_PROJECTION_VIOLATION');
 }
+function verifiedSelections(runtime, principal, issued, submitted) {
+    const result = [];
+    const seen = new Set();
+    for (const selection of submitted.blobSelections ?? []) {
+        const target = { scope: issued.snapshot.scope,
+            targetEntity: selection.targetEntity, canonicalField: selection.canonicalField,
+            kind: selection.kind, targetKey: selection.targetKey, commandId: submitted.commandId };
+        const pair = `${target.targetKey}\0${target.canonicalField}`;
+        if (seen.has(pair))
+            throw new Error('DOCUMENT_COMMAND_INVALID');
+        seen.add(pair);
+        const claim = runtime.consumeBlobSelection(principal, submitted.documentToken, selection.token, target).document;
+        // A new client key requires the host's persisted child-ID mapping; this adapter
+        // handles only rows whose trusted identity is already in the issued snapshot.
+        if (target.kind !== 'EXISTING_ROW')
+            throw new Error('DOCUMENT_CAPABILITY_MISSING');
+        const row = issued.snapshot.entities.find(entity => entity.rowKey === target.targetKey);
+        const binding = issued.bindings.find(candidate => candidate.rowKey === target.targetKey &&
+            candidate.canonicalField === target.canonicalField);
+        if (!row || !binding || row.identity.entityType !== target.targetEntity ||
+            !binding.writable || integer(binding.bindingVersion) >= Number.MAX_SAFE_INTEGER)
+            throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+        result.push(Object.freeze({ target, stableKey: claim.stableKey,
+            entityId: BigInt(row.identity.id).toString(),
+            expectedVersion: integer(binding.bindingVersion),
+            nextVersion: integer(binding.bindingVersion) + 1 }));
+    }
+    return Object.freeze(result);
+}
 function contextual(businessId, documentToken, body) {
     const document = { businessId, documentToken, body };
     Object.defineProperty(document, 'toString', { value: () => 'ContextualDocument[redacted]' });
@@ -138,7 +167,12 @@ class SqliteSecureDocumentService {
             assertDocument(before, submitted.businessId, request.aggregateType, request.purpose);
             if (stable(before.document) !== stable(issued))
                 throw new Error('DOCUMENT_REVISION_CONFLICT');
-            await this.host.apply(context, issued, submitted, session);
+            const selections = verifiedSelections(this.runtime, principal, issued, submitted);
+            if (selections.length && !this.host.bindBlobSelection)
+                throw new Error('DOCUMENT_CAPABILITY_MISSING');
+            await this.host.apply(context, issued, submitted, session, selections);
+            for (const selection of selections)
+                await this.host.bindBlobSelection(context, this.owner, graph, selection, session);
             const after = await this.host.load(context, submitted.businessId, session);
             assertDocument(after, submitted.businessId, request.aggregateType, request.purpose);
             const nextScope = after.document.snapshot.scope;
@@ -147,6 +181,14 @@ class SqliteSecureDocumentService {
                 nextScope.purpose !== scope.purpose ||
                 BigInt(nextScope.aggregateId) !== BigInt(scope.aggregateId))
                 throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+            for (const selection of selections) {
+                const binding = after.document.bindings.find(candidate => candidate.rowKey === selection.target.targetKey &&
+                    candidate.canonicalField === selection.target.canonicalField);
+                if (!binding || binding.entityType !== selection.target.targetEntity ||
+                    binding.stableKey !== selection.stableKey ||
+                    integer(binding.bindingVersion) !== selection.nextVersion)
+                    throw new Error('DOCUMENT_PROJECTION_VIOLATION');
+            }
             await this.host.authorize(context, principal, after.document.snapshot.scope, session);
             const previousRevision = integer(scope.aggregateRevision);
             const newRevision = integer(after.document.snapshot.scope.aggregateRevision);

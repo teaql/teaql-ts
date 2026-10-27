@@ -1,6 +1,7 @@
 import type { UserContext } from '../core/context';
+import type { GraphMutationSession } from '../core/request-intent';
 import type { SqlSession, TeaQLDataService, TeaQLSqlDriver } from '../sql/core';
-import { BoundDocumentSnapshot, SecureDocumentReferenceModule } from './document-round-trip';
+import { BlobSelectionTarget, BoundDocumentSnapshot, SecureDocumentReferenceModule } from './document-round-trip';
 import { ReferenceDocumentScope, TrustedReferencePrincipal } from './round-trip-reference';
 import { SqliteDocumentCommandJournal, SubmittedDocumentCommand } from './sqlite-command-journal';
 export type DocumentOpenRequest = Readonly<{
@@ -30,6 +31,13 @@ export type CurrentDocument = Readonly<{
     body: Readonly<Record<string, unknown>>;
     lifetimeSeconds: number;
 }>;
+export type VerifiedDocumentBlobSelection = Readonly<{
+    target: BlobSelectionTarget;
+    stableKey: string;
+    entityId: string;
+    expectedVersion: number;
+    nextVersion: number;
+}>;
 /** The application owns the model-specific SQL projection and mutation plan. Every callback
  * receives the same physical SQLite transaction used for its read, mutation or receipt.
  */
@@ -37,7 +45,11 @@ export interface SqliteDocumentHost {
     principal(context: UserContext): TrustedReferencePrincipal;
     authorize(context: UserContext, principal: TrustedReferencePrincipal, scope: ReferenceDocumentScope, session: SqlSession): Promise<void>;
     load(context: UserContext, businessId: string, session: SqlSession): Promise<CurrentDocument>;
-    apply(context: UserContext, issued: BoundDocumentSnapshot, submitted: SubmittedDocumentCommand, session: SqlSession): Promise<void>;
+    apply(context: UserContext, issued: BoundDocumentSnapshot, submitted: SubmittedDocumentCommand, session: SqlSession, selections: readonly VerifiedDocumentBlobSelection[]): Promise<void>;
+    /** Bind through the Blob catalog's current graph owner, with current slot authorization.
+     * The service verifies the sealed claim and the resulting binding projection.
+     */
+    bindBlobSelection?(context: UserContext, owner: TeaQLDataService, graph: GraphMutationSession, selection: VerifiedDocumentBlobSelection, session: SqlSession): Promise<void>;
     /** Optional final response rendering. Failure after accept commit reports a committed error. */
     present?(context: UserContext, document: ContextualDocument): Promise<void>;
 }

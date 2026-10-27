@@ -111,14 +111,28 @@ function prepareCommand(command) {
         !text(command.commandId, 256) || !command.body || typeof command.body !== 'object' ||
         Array.isArray(command.body))
         throw new Error('DOCUMENT_COMMAND_INVALID');
+    const selections = command.blobSelections;
+    if (selections !== undefined && (!Array.isArray(selections) || selections.length > 100 ||
+        selections.some(selection => !selection ||
+            !text(selection.token, MAX_COMMAND_BYTES) || !text(selection.targetEntity) ||
+            !text(selection.canonicalField) || !text(selection.targetKey) ||
+            !['EXISTING_ROW', 'NEW_CLIENT_KEY'].includes(selection.kind) ||
+            Object.keys(selection).sort().join(',') !==
+                'canonicalField,kind,targetEntity,targetKey,token')))
+        throw new Error('DOCUMENT_COMMAND_INVALID');
+    // Keep the original four-element digest for commands without selections so persisted
+    // receipts remain replayable after upgrading the optional module.
     const encoded = canonical([command.businessId, command.documentToken, command.commandId,
-        command.body], 0, { left: 100000 }, new Set());
+        command.body, ...(selections === undefined ? [] : [selections])], 0, { left: 100000 }, new Set());
     if (Buffer.byteLength(encoded, 'utf8') > MAX_COMMAND_BYTES)
         throw new Error('DOCUMENT_COMMAND_INVALID');
-    const [businessId, documentToken, commandId, body] = JSON.parse(encoded);
+    const [businessId, documentToken, commandId, body, copiedSelections] = JSON.parse(encoded);
     freeze(body);
+    if (copiedSelections)
+        freeze(copiedSelections);
     return { hash: (0, node_crypto_1.createHash)('sha256').update(encoded).digest('hex'),
-        snapshot: Object.freeze({ businessId, documentToken, commandId, body }) };
+        snapshot: Object.freeze({ businessId, documentToken, commandId, body,
+            ...(copiedSelections === undefined ? {} : { blobSelections: copiedSelections }) }) };
 }
 function scopeHash(scope) {
     if (!scope || !text(scope.documentId) || !text(scope.purpose) ||
