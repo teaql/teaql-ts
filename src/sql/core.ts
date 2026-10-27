@@ -196,7 +196,7 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 
 export interface TeaQLDataService {
   withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
-  executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T>;
+  executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T>;
   preflightMutation(mutation: any): any;
   afterGraphCommit(work: () => void): void;
   afterGraphRollback(work: () => void): void;
@@ -773,7 +773,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         .map(([field, value]) => [schema.columns[field]?.modelName ?? field, value])), ...canonicalValues } };
   }
 
-  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T> {
+  async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T> {
     // Root intent is mandatory before lifecycle initialization or provider work.
     const graph = new GraphMutationSession(intent);
     await this.telemetryStartup;
@@ -793,6 +793,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
+      // The synchronous generated pass runs inside the serialized save queue.
+      // No clock, Fix, policy or provider may precede whole-input admission.
+      const pending = admit?.(graph);
+      if (admit && typeof pending !== 'boolean') throw new Error('GRAPH_ADMISSION_RESULT_REQUIRED');
+      if (pending === false) {
+        graph.sealPreparedGraph(); this.activeGraph = graph;
+        try {return await work(graph);} finally {this.activeGraph = undefined;}
+      }
       this.userContext.insertResource('fixTime', this.userContext.businessTime());
       this.userContext.beginFixEvidence();
       fixEvidenceStarted = true;
@@ -841,8 +849,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
       if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
-      this.userContext.removeResource('fixTime');
-      if (fixEvidenceStarted) this.userContext.finishFixEvidence();
+      if (fixEvidenceStarted) this.userContext.removeResource('fixTime').finishFixEvidence();
       release();
     }
     };

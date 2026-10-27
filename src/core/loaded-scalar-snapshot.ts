@@ -1,25 +1,66 @@
 import { snapshotQuery } from './query-snapshot';
 import type { EntityKey, EntityRoot } from './entity-root';
 import {EntityVersion, EntityVersionInput, entityVersion} from './mutation-version';
+import {CheckException} from './checker';
+import {ObjectLocation} from './object-location';
 
 const loadedSnapshots = new WeakMap<object, LoadedScalarSnapshot>();
+
+/** Stable, value-free conflict; paths remain canonical Checker locations. */
+export class LoadedEntityIdentityError extends CheckException {
+  readonly code = 'ENTITY_VERSION_CONFLICT';
+  constructor(field: 'id' | 'version') {
+    super([{ruleId: 'entity_version_conflict', location: ObjectLocation.property(field),
+      message: 'ENTITY_VERSION_CONFLICT: loaded entity identity must remain unchanged'}]);
+    this.name = 'LoadedEntityIdentityError';
+  }
+}
 
 /** @internal Loaded scalar provenance. No relations, ownership, SQL or Context. */
 export class LoadedScalarSnapshot {
   readonly #values: Readonly<Record<string, unknown>>;
   readonly #owner?: Readonly<{key: EntityKey; version: EntityVersion}>;
+  readonly #identityKey?: EntityKey;
 
   constructor(values: Record<string, unknown> = {}, key?: EntityKey, version?: EntityVersionInput) {
     this.#values = snapshotQuery(values);
     if (key && version !== undefined) {
       const exact = entityVersion(version);
-      if (exact !== 0) this.#owner = Object.freeze({key: Object.freeze({...key}), version: exact});
+      if (exact !== 0) {
+        this.#identityKey = Object.freeze({...key});
+        this.#owner = Object.freeze({key: this.#identityKey, version: exact});
+      }
     }
+    // An explicit ID-only reference still has an immutable identity. A new
+    // entity's temporary key with no native ID must remain unbound until save.
+    if (!this.#identityKey && key && values.id !== undefined) this.#identityKey = Object.freeze({...key});
     Object.freeze(this);
   }
 
   /** Copies prevent callers or mutable JSON/date fields from rewriting history. */
   values(): Readonly<Record<string, unknown>> { return snapshotQuery(this.#values); }
+
+  /** Validate even read-only nodes, before root attachment or FK normalization. */
+  validateNativeIdentity(key: EntityKey, nativeID: unknown, nativeVersion: unknown): void {
+    const expected = this.#identityKey;
+    if (expected && (expected.entity !== key.entity || !Object.is(expected.id, key.id)
+      || !Object.is(expected.id, nativeID))) throw new LoadedEntityIdentityError('id');
+    if (this.#owner) {
+      let version: EntityVersion;
+      try {version = entityVersion(nativeVersion);} catch {throw new LoadedEntityIdentityError('version');}
+      if (version !== this.#owner.version) throw new LoadedEntityIdentityError('version');
+    }
+  }
+
+  /** Normalize restored intent first. Clean old views may observe an advanced
+   * ledger, but a dirty old view must never borrow its newer committed version. */
+  validateMutationVersion(root: EntityRoot, key: EntityKey): void {
+    if (!this.#owner || !root.hasPending(key)) return;
+    if (this.#owner.key.entity !== key.entity || !Object.is(this.#owner.key.id, key.id)
+      || root.isNew(key) || root.originalVersion(key) !== this.#owner.version) {
+      throw new LoadedEntityIdentityError('version');
+    }
+  }
 
   /** @internal Generated hydration stores provenance outside entity/JSON state. */
   static captureFor(entity: object, values: Record<string, unknown>, key?: EntityKey, version?: EntityVersionInput): LoadedScalarSnapshot {
