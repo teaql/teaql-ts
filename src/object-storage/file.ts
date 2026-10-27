@@ -1,7 +1,7 @@
 /** Server-only file store with an explicit, authenticated HTTP read gateway. */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { link, lstat, mkdir, open, readFile, rename, rm, stat, unlink } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readFile, readdir, rename, rm, stat, unlink } from 'node:fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { join } from 'node:path';
@@ -83,6 +83,10 @@ export class FileObjectStorage implements ObjectStorageProvider {
     return work();
   }
 
+  protected async withWriterLock<T>(_hash: string, work: () => Promise<T>): Promise<T> {
+    return work();
+  }
+
   async put(_invocation: StorageInvocation, key: ObjectKey, content: ObjectByteStream,
             options: ObjectPutOptions): Promise<ObjectMetadata> {
     const hash = hashKey(key);
@@ -92,56 +96,58 @@ export class FileObjectStorage implements ObjectStorageProvider {
     const temporaryManifest = join(directory, `manifest-${version}`);
     try { await mkdir(directory, { recursive: true, mode: 0o700 }); }
     catch { throw new StorageError('Io'); }
-    let installed = false;
-    try {
-      const file = await open(dataPath, 'wx', 0o600);
-      const digest = createHash('sha256');
-      let size = 0;
+    return this.withWriterLock(hash, async () => {
+      let installed = false;
       try {
-        for await (const block of content) {
-          if (!(block instanceof Uint8Array) || block.byteLength > options.size - size) {
-            throw new StorageError('InvalidInput');
+        const file = await open(dataPath, 'wx', 0o600);
+        const digest = createHash('sha256');
+        let size = 0;
+        try {
+          for await (const block of content) {
+            if (!(block instanceof Uint8Array) || block.byteLength > options.size - size) {
+              throw new StorageError('InvalidInput');
+            }
+            digest.update(block);
+            let offset = 0;
+            while (offset < block.byteLength) {
+              const written = await file.write(block, offset, block.byteLength - offset);
+              if (!written.bytesWritten) throw new StorageError('Io');
+              offset += written.bytesWritten;
+            }
+            size += block.byteLength;
           }
-          digest.update(block);
-          let offset = 0;
-          while (offset < block.byteLength) {
-            const written = await file.write(block, offset, block.byteLength - offset);
-            if (!written.bytesWritten) throw new StorageError('Io');
-            offset += written.bytesWritten;
-          }
-          size += block.byteLength;
+          if (size !== options.size) throw new StorageError('InvalidInput');
+          await file.sync();
+        } finally { await file.close(); }
+        const manifest: Manifest = {
+          version, size, contentType: options.contentType, etag: digest.digest('hex'),
+          lastModified: new Date().toISOString(), metadata: { ...options.metadata },
+        };
+        const manifestFile = await open(temporaryManifest, 'wx', 0o600);
+        try { await manifestFile.writeFile(JSON.stringify(manifest)); await manifestFile.sync(); }
+        finally { await manifestFile.close(); }
+        const destination = join(directory, 'manifest.json');
+        await this.withManifestLock(hash, async () => {
+          if (options.mode === 'create_only') {
+            try { await link(temporaryManifest, destination); }
+            catch (error) {
+              if ((error as NodeJS.ErrnoException)?.code === 'EEXIST') throw new StorageError('Conflict');
+              throw error;
+            }
+            await unlink(temporaryManifest);
+          } else await rename(temporaryManifest, destination);
+          installed = true;
+        });
+        return this.metadata(key, manifest);
+      } catch (error) {
+        if (error instanceof StorageError) throw error;
+        throw new StorageError('Io');
+      } finally {
+        if (!installed) {
+          await Promise.allSettled([rm(dataPath, { force: true }), rm(temporaryManifest, { force: true })]);
         }
-        if (size !== options.size) throw new StorageError('InvalidInput');
-        await file.sync();
-      } finally { await file.close(); }
-      const manifest: Manifest = {
-        version, size, contentType: options.contentType, etag: digest.digest('hex'),
-        lastModified: new Date().toISOString(), metadata: { ...options.metadata },
-      };
-      const manifestFile = await open(temporaryManifest, 'wx', 0o600);
-      try { await manifestFile.writeFile(JSON.stringify(manifest)); await manifestFile.sync(); }
-      finally { await manifestFile.close(); }
-      const destination = join(directory, 'manifest.json');
-      await this.withManifestLock(hash, async () => {
-        if (options.mode === 'create_only') {
-          try { await link(temporaryManifest, destination); }
-          catch (error) {
-            if ((error as NodeJS.ErrnoException)?.code === 'EEXIST') throw new StorageError('Conflict');
-            throw error;
-          }
-          await unlink(temporaryManifest);
-        } else await rename(temporaryManifest, destination);
-        installed = true;
-      });
-      return this.metadata(key, manifest);
-    } catch (error) {
-      if (error instanceof StorageError) throw error;
-      throw new StorageError('Io');
-    } finally {
-      if (!installed) {
-        await Promise.allSettled([rm(dataPath, { force: true }), rm(temporaryManifest, { force: true })]);
       }
-    }
+    });
   }
 
   async get(_invocation: StorageInvocation, key: ObjectKey): Promise<ObjectContent> {
@@ -304,7 +310,7 @@ export class FileObjectStorage implements ObjectStorageProvider {
  * root, shared only by fenced instances. Its separate lock database supplies
  * crash-released, cross-process exclusion for manifest mutations. */
 export class SqliteFencedFileObjectStorage extends FileObjectStorage {
-  protected override async withManifestLock<T>(_hash: string, work: () => Promise<T>): Promise<T> {
+  private async withSqliteLock<T>(path: string, work: () => Promise<T>): Promise<T> {
     // Each operation owns its own connection. Waiting is asynchronous so another
     // operation in this Node process can finish and release its SQLite transaction.
     const root = await lstat(this.root);
@@ -317,7 +323,7 @@ export class SqliteFencedFileObjectStorage extends FileObjectStorage {
     const deadline = Date.now() + 30_000;
     for (;;) {
       let db: import('better-sqlite3').Database;
-      try { db = new Database(join(this.root, 'manifest-lock.sqlite'), { timeout: 0 }); }
+      try { db = new Database(path, { timeout: 0 }); }
       catch (error) {
         if (isMissing(error)) throw error;
         throw new StorageError('Unavailable');
@@ -339,6 +345,40 @@ export class SqliteFencedFileObjectStorage extends FileObjectStorage {
       if (Date.now() >= deadline) throw new StorageError('Timeout');
       await delay(20);
     }
+  }
+
+  protected override async withManifestLock<T>(_hash: string, work: () => Promise<T>): Promise<T> {
+    return this.withSqliteLock(join(this.root, 'manifest-lock.sqlite'), work);
+  }
+
+  protected override async withWriterLock<T>(hash: string, work: () => Promise<T>): Promise<T> {
+    return this.withSqliteLock(join(this.directory(hash), 'writer-lock.sqlite'), work);
+  }
+
+  /** Host-scheduled cleanup for one known key after all processes sharing this
+   * private root have upgraded to the writer-lock-capable provider. */
+  async sweepOldGenerations(key: ObjectKey): Promise<number> {
+    const hash = hashKey(key);
+    const directory = this.directory(hash);
+    try { await lstat(directory); }
+    catch (error) { if (isMissing(error)) return 0; throw new StorageError('Unavailable'); }
+    return this.withWriterLock(hash, async () => this.withManifestLock(hash, async () => {
+      const current = await this.manifest(hash);
+      let removed = 0;
+      try {
+        for (const name of await readdir(directory)) {
+          if (!/^data-[0-9a-f-]{36}$/.test(name) || name === `data-${current?.version}`) continue;
+          const path = join(directory, name);
+          if (!(await lstat(path)).isFile()) throw new StorageError('Unavailable');
+          await unlink(path);
+          removed++;
+        }
+        return removed;
+      } catch (error) {
+        if (error instanceof StorageError) throw error;
+        throw new StorageError('Io');
+      }
+    }));
   }
 
   async deleteIfVersion(_invocation: StorageInvocation, key: ObjectKey,

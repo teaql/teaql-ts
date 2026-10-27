@@ -21,7 +21,12 @@ unreferenced deadline and floor. An active binding blocks the claim. The claim
 uses SQLite `BEGIN IMMEDIATE`; object deletion requires a pinned version and
 an `ObjectStorage` implementation with version-conditional delete. For local
 files, use the opt-in `SqliteFencedFileObjectStorage` with its private root.
+The host may call `sweepOldGenerations(key)` on that provider for a known key.
+It takes a per-key SQLite writer lock before the manifest lock, removes only
+inaccessible old immutable data generations, and preserves the current one.
+All processes sharing the private root must first run this writer-lock-capable
+version. Schedule and retry this per-key sweep separately from catalog receipts.
 
-This checkpoint does not sweep older immutable File data generations or prove
+This checkpoint does not provide a catalog-driven old-generation sweep or prove
 direct-upload quiescence. It does not imply that the full five-language F2–F5
 acceptance gates are complete.

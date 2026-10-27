@@ -81,6 +81,9 @@ class FileObjectStorage {
     async withManifestLock(_hash, work) {
         return work();
     }
+    async withWriterLock(_hash, work) {
+        return work();
+    }
     async put(_invocation, key, content, options) {
         const hash = hashKey(key);
         const directory = this.directory(hash);
@@ -93,74 +96,76 @@ class FileObjectStorage {
         catch {
             throw new object_storage_1.StorageError('Io');
         }
-        let installed = false;
-        try {
-            const file = await (0, promises_1.open)(dataPath, 'wx', 0o600);
-            const digest = (0, node_crypto_1.createHash)('sha256');
-            let size = 0;
+        return this.withWriterLock(hash, async () => {
+            let installed = false;
             try {
-                for await (const block of content) {
-                    if (!(block instanceof Uint8Array) || block.byteLength > options.size - size) {
+                const file = await (0, promises_1.open)(dataPath, 'wx', 0o600);
+                const digest = (0, node_crypto_1.createHash)('sha256');
+                let size = 0;
+                try {
+                    for await (const block of content) {
+                        if (!(block instanceof Uint8Array) || block.byteLength > options.size - size) {
+                            throw new object_storage_1.StorageError('InvalidInput');
+                        }
+                        digest.update(block);
+                        let offset = 0;
+                        while (offset < block.byteLength) {
+                            const written = await file.write(block, offset, block.byteLength - offset);
+                            if (!written.bytesWritten)
+                                throw new object_storage_1.StorageError('Io');
+                            offset += written.bytesWritten;
+                        }
+                        size += block.byteLength;
+                    }
+                    if (size !== options.size)
                         throw new object_storage_1.StorageError('InvalidInput');
-                    }
-                    digest.update(block);
-                    let offset = 0;
-                    while (offset < block.byteLength) {
-                        const written = await file.write(block, offset, block.byteLength - offset);
-                        if (!written.bytesWritten)
-                            throw new object_storage_1.StorageError('Io');
-                        offset += written.bytesWritten;
-                    }
-                    size += block.byteLength;
+                    await file.sync();
                 }
-                if (size !== options.size)
-                    throw new object_storage_1.StorageError('InvalidInput');
-                await file.sync();
+                finally {
+                    await file.close();
+                }
+                const manifest = {
+                    version, size, contentType: options.contentType, etag: digest.digest('hex'),
+                    lastModified: new Date().toISOString(), metadata: { ...options.metadata },
+                };
+                const manifestFile = await (0, promises_1.open)(temporaryManifest, 'wx', 0o600);
+                try {
+                    await manifestFile.writeFile(JSON.stringify(manifest));
+                    await manifestFile.sync();
+                }
+                finally {
+                    await manifestFile.close();
+                }
+                const destination = (0, node_path_1.join)(directory, 'manifest.json');
+                await this.withManifestLock(hash, async () => {
+                    if (options.mode === 'create_only') {
+                        try {
+                            await (0, promises_1.link)(temporaryManifest, destination);
+                        }
+                        catch (error) {
+                            if (error?.code === 'EEXIST')
+                                throw new object_storage_1.StorageError('Conflict');
+                            throw error;
+                        }
+                        await (0, promises_1.unlink)(temporaryManifest);
+                    }
+                    else
+                        await (0, promises_1.rename)(temporaryManifest, destination);
+                    installed = true;
+                });
+                return this.metadata(key, manifest);
+            }
+            catch (error) {
+                if (error instanceof object_storage_1.StorageError)
+                    throw error;
+                throw new object_storage_1.StorageError('Io');
             }
             finally {
-                await file.close();
-            }
-            const manifest = {
-                version, size, contentType: options.contentType, etag: digest.digest('hex'),
-                lastModified: new Date().toISOString(), metadata: { ...options.metadata },
-            };
-            const manifestFile = await (0, promises_1.open)(temporaryManifest, 'wx', 0o600);
-            try {
-                await manifestFile.writeFile(JSON.stringify(manifest));
-                await manifestFile.sync();
-            }
-            finally {
-                await manifestFile.close();
-            }
-            const destination = (0, node_path_1.join)(directory, 'manifest.json');
-            await this.withManifestLock(hash, async () => {
-                if (options.mode === 'create_only') {
-                    try {
-                        await (0, promises_1.link)(temporaryManifest, destination);
-                    }
-                    catch (error) {
-                        if (error?.code === 'EEXIST')
-                            throw new object_storage_1.StorageError('Conflict');
-                        throw error;
-                    }
-                    await (0, promises_1.unlink)(temporaryManifest);
+                if (!installed) {
+                    await Promise.allSettled([(0, promises_1.rm)(dataPath, { force: true }), (0, promises_1.rm)(temporaryManifest, { force: true })]);
                 }
-                else
-                    await (0, promises_1.rename)(temporaryManifest, destination);
-                installed = true;
-            });
-            return this.metadata(key, manifest);
-        }
-        catch (error) {
-            if (error instanceof object_storage_1.StorageError)
-                throw error;
-            throw new object_storage_1.StorageError('Io');
-        }
-        finally {
-            if (!installed) {
-                await Promise.allSettled([(0, promises_1.rm)(dataPath, { force: true }), (0, promises_1.rm)(temporaryManifest, { force: true })]);
             }
-        }
+        });
     }
     async get(_invocation, key) {
         const hash = hashKey(key);
@@ -381,7 +386,7 @@ exports.FileObjectStorage = FileObjectStorage;
  * root, shared only by fenced instances. Its separate lock database supplies
  * crash-released, cross-process exclusion for manifest mutations. */
 class SqliteFencedFileObjectStorage extends FileObjectStorage {
-    async withManifestLock(_hash, work) {
+    async withSqliteLock(path, work) {
         // Each operation owns its own connection. Waiting is asynchronous so another
         // operation in this Node process can finish and release its SQLite transaction.
         const root = await (0, promises_1.lstat)(this.root);
@@ -394,7 +399,7 @@ class SqliteFencedFileObjectStorage extends FileObjectStorage {
         for (;;) {
             let db;
             try {
-                db = new Database((0, node_path_1.join)(this.root, 'manifest-lock.sqlite'), { timeout: 0 });
+                db = new Database(path, { timeout: 0 });
             }
             catch (error) {
                 if (isMissing(error))
@@ -429,6 +434,47 @@ class SqliteFencedFileObjectStorage extends FileObjectStorage {
                 throw new object_storage_1.StorageError('Timeout');
             await (0, promises_2.setTimeout)(20);
         }
+    }
+    async withManifestLock(_hash, work) {
+        return this.withSqliteLock((0, node_path_1.join)(this.root, 'manifest-lock.sqlite'), work);
+    }
+    async withWriterLock(hash, work) {
+        return this.withSqliteLock((0, node_path_1.join)(this.directory(hash), 'writer-lock.sqlite'), work);
+    }
+    /** Host-scheduled cleanup for one known key after all processes sharing this
+     * private root have upgraded to the writer-lock-capable provider. */
+    async sweepOldGenerations(key) {
+        const hash = hashKey(key);
+        const directory = this.directory(hash);
+        try {
+            await (0, promises_1.lstat)(directory);
+        }
+        catch (error) {
+            if (isMissing(error))
+                return 0;
+            throw new object_storage_1.StorageError('Unavailable');
+        }
+        return this.withWriterLock(hash, async () => this.withManifestLock(hash, async () => {
+            const current = await this.manifest(hash);
+            let removed = 0;
+            try {
+                for (const name of await (0, promises_1.readdir)(directory)) {
+                    if (!/^data-[0-9a-f-]{36}$/.test(name) || name === `data-${current?.version}`)
+                        continue;
+                    const path = (0, node_path_1.join)(directory, name);
+                    if (!(await (0, promises_1.lstat)(path)).isFile())
+                        throw new object_storage_1.StorageError('Unavailable');
+                    await (0, promises_1.unlink)(path);
+                    removed++;
+                }
+                return removed;
+            }
+            catch (error) {
+                if (error instanceof object_storage_1.StorageError)
+                    throw error;
+                throw new object_storage_1.StorageError('Io');
+            }
+        }));
     }
     async deleteIfVersion(_invocation, key, contentVersion) {
         const hash = hashKey(key);
