@@ -52,7 +52,7 @@ class FileObjectStorage {
         }
     }
     metadata(key, manifest) {
-        return new object_storage_1.ObjectMetadata(key, manifest.size, manifest.contentType, manifest.etag, new Date(manifest.lastModified), manifest.metadata);
+        return new object_storage_1.ObjectMetadata(key, manifest.size, manifest.contentType, `${manifest.etag}.${manifest.version}`, new Date(manifest.lastModified), manifest.metadata);
     }
     async put(_invocation, key, content, options) {
         const hash = hashKey(key);
@@ -312,7 +312,7 @@ class FileObjectStorage {
             const headers = {
                 'Content-Type': manifest.contentType, 'Content-Length': partial ? end - start + 1 : size,
                 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, no-store',
-                'X-Content-Type-Options': 'nosniff', ETag: `"${manifest.etag}"`,
+                'X-Content-Type-Options': 'nosniff', ETag: `"${manifest.etag}.${manifest.version}"`,
                 'Last-Modified': new Date(manifest.lastModified).toUTCString(),
             };
             if (ticket.disposition)

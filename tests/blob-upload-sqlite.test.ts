@@ -95,6 +95,17 @@ test('SQLite upload records a real File write and permits binding only after ful
     expect((await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
       [later.reference.key])).rows[0].status).toBe('initiated');
 
+    const sameBytes = await service.begin(context, target, info, 'request-4');
+    await service.write(context, sameBytes.uploadId, (async function* () { yield bytes; })());
+    const sameKey = (await driver.query('SELECT object_key FROM teaql_blob_catalog WHERE key = ?',
+      [sameBytes.reference.key])).rows[0].object_key;
+    await context.objectStorage('test same-byte replacement').putBytes(
+      new ObjectKey(String(sameKey)), bytes,
+      new ObjectPutOptions(bytes.length, 'replace', 'application/pdf'));
+    await expect(service.complete(context, sameBytes.uploadId)).rejects.toThrow('BLOB_UPLOAD_INCOMPLETE');
+    expect((await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+      [sameBytes.reference.key])).rows[0].status).toBe('initiated');
+
     const unconsumed = await service.begin(context, target, info, 'request-3');
     await service.write(context, unconsumed.uploadId, (async function* () { yield bytes; })());
     const shortcut: BlobContentVerifier = { verify: async () => ({

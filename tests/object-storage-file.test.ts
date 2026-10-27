@@ -19,7 +19,7 @@ test('file provider commits exact bytes and serves authenticated HTTP GET, HEAD 
     const put = await storage.putBytes(key, bytes,
       new ObjectPutOptions(bytes.length, 'create_only', 'application/pdf'));
     expect(put.size).toBe(bytes.length);
-    expect((await storage.head(key))?.etag).toMatch(/^[0-9a-f]{64}$/);
+    expect((await storage.head(key))?.etag).toMatch(/^[0-9a-f]{64}\.[0-9a-f-]{36}$/);
     expect(Buffer.from(await storage.getBytes(key, bytes.length))).toEqual(bytes);
     await expect(storage.putBytes(key, bytes,
       new ObjectPutOptions(bytes.length, 'create_only', 'application/pdf')))

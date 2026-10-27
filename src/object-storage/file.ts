@@ -73,7 +73,8 @@ export class FileObjectStorage implements ObjectStorageProvider {
   }
 
   private metadata(key: ObjectKey, manifest: Manifest): ObjectMetadata {
-    return new ObjectMetadata(key, manifest.size, manifest.contentType, manifest.etag,
+    return new ObjectMetadata(key, manifest.size, manifest.contentType,
+      `${manifest.etag}.${manifest.version}`,
       new Date(manifest.lastModified), manifest.metadata);
   }
 
@@ -269,7 +270,7 @@ export class FileObjectStorage implements ObjectStorageProvider {
       const headers: Record<string, string | number> = {
         'Content-Type': manifest.contentType, 'Content-Length': partial ? end - start + 1 : size,
         'Accept-Ranges': 'bytes', 'Cache-Control': 'private, no-store',
-        'X-Content-Type-Options': 'nosniff', ETag: `"${manifest.etag}"`,
+        'X-Content-Type-Options': 'nosniff', ETag: `"${manifest.etag}.${manifest.version}"`,
         'Last-Modified': new Date(manifest.lastModified).toUTCString(),
       };
       if (ticket.disposition) headers['Content-Disposition'] = ticket.disposition;

@@ -52,7 +52,7 @@ var FileObjectStorage = class {
       key,
       manifest.size,
       manifest.contentType,
-      manifest.etag,
+      `${manifest.etag}.${manifest.version}`,
       new Date(manifest.lastModified),
       manifest.metadata
     );
@@ -299,7 +299,7 @@ var FileObjectStorage = class {
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
-        ETag: `"${manifest.etag}"`,
+        ETag: `"${manifest.etag}.${manifest.version}"`,
         "Last-Modified": new Date(manifest.lastModified).toUTCString()
       };
       if (ticket.disposition) headers["Content-Disposition"] = ticket.disposition;
