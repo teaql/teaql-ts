@@ -16,6 +16,7 @@ const { SqliteBlobMaintenanceService } = require('../dist/blob-reference/mainten
 const { BlobRetentionPolicy } = require('../dist/blob-reference/retention');
 const { SharpBlobContentVerifier } = require('../dist/blob-reference/content-sharp');
 const { PdfjsBlobContentVerifier } = require('../dist/blob-reference/content-pdfjs');
+const { FfmpegBlobContentVerifier } = require('../dist/blob-reference/content-ffmpeg');
 const { ViewPreparationService } = require('../dist/core/view-preparation');
 const { MutationIntent } = require('../dist/core/request-intent');
 const { SQLiteDriver, SQLiteTeaQLClient } = require('../dist/sql/sqlite');
@@ -27,12 +28,17 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
   const client = new SQLiteTeaQLClient(filename, {});
   client.setUserContext(actor);
   const catalog = new SqlBlobCatalog(driver);
-  const extension = mode === 'image' ? 'jpg' : 'pdf';
-  const contentType = mode === 'image' ? 'image/jpeg' : 'application/pdf';
-  const fileName = mode === 'image' ? 'sample.jpg' : 'report.pdf';
+  const extension = mode === 'image' ? 'jpg' :
+    mode === 'mp3' || mode === 'mp4' ? mode : 'pdf';
+  const contentType = mode === 'image' ? 'image/jpeg' :
+    mode === 'mp3' ? 'audio/mpeg' : mode === 'mp4' ? 'video/mp4' : 'application/pdf';
+  const fileName = mode === 'image' ? 'sample.jpg' :
+    mode === 'mp3' || mode === 'mp4' ? `sample.${mode}` : 'report.pdf';
   const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures',
     mode === 'image' ? 'blob-sample.jpg' :
-      mode === 'pdf' ? 'blob-parser-sample.pdf' : 'blob-sample.pdf'));
+      mode === 'pdf' ? 'blob-parser-sample.pdf' :
+        mode === 'mp3' || mode === 'mp4' ? `reference-modules/sample.${mode}` :
+          'blob-sample.pdf'));
   const target = { entity: 'Asset', entityId: null, field: 'document' };
   let permitted = true;
   const field = () => new BlobFieldSpec('Asset', 'document', [extension], true, 'default');
@@ -59,7 +65,13 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
       contentType: 'application/pdf' };
   } };
   const parser = mode === 'image' ? new SharpBlobContentVerifier() :
-    mode === 'pdf' ? new PdfjsBlobContentVerifier() : undefined;
+    mode === 'pdf' ? new PdfjsBlobContentVerifier() :
+      mode === 'mp3' || mode === 'mp4' ? new FfmpegBlobContentVerifier(
+        process.env.TEAQL_FFPROBE_BIN || '/usr/bin/ffprobe',
+        process.env.TEAQL_FFMPEG_BIN || '/usr/bin/ffmpeg',
+        process.env.TEAQL_PRLIMIT_BIN || '/usr/bin/prlimit') : undefined;
+  const label = mode === 'image' ? 'real JPEG ' : mode === 'pdf' ? 'real PDF ' :
+    mode === 'mp3' || mode === 'mp4' ? `real ${mode.toUpperCase()} ` : '';
   const verifier = parser ? { calls: 0, async verify(content, extension, maximumBytes) {
     this.calls++;
     return parser.verify(content, extension, maximumBytes);
@@ -99,7 +111,7 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
         saved.rows[0].content_version !== head?.etag) {
       throw new Error('Blob S3 upload catalog/object mismatch');
     }
-    console.log(`PASS TypeScript ${mode === 'image' ? 'real JPEG ' : mode === 'pdf' ? 'real PDF ' : ''}Blob upload SQLite/S3 write/confirm/replay/revocation`);
+    console.log(`PASS TypeScript ${label}Blob upload SQLite/S3 write/confirm/replay/revocation`);
     await driver.query('CREATE TABLE asset (id TEXT PRIMARY KEY, document TEXT)');
     const bindingTarget = { entity: 'Asset', entityId: '1', field: 'document' };
     const bindingAuthorization = { scope: () => 'f4-s3-upload',
@@ -162,7 +174,7 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
     catch (error) {
       if (error.code !== 'BLOB_READ_DENIED' || error.businessState !== 'committed') throw error;
     }
-    console.log(`PASS TypeScript ${mode === 'image' ? 'real JPEG ' : mode === 'pdf' ? 'real PDF ' : ''}Blob S3 graph bind/authorized signed view/Range/revocation`);
+    console.log(`PASS TypeScript ${label}Blob S3 graph bind/authorized signed view/Range/revocation`);
   } finally {
     try { if (objectKey) await storage.delete(objectKey); }
     finally {
@@ -389,6 +401,10 @@ async function main() {
       }
       if (process.env.TEAQL_S3_TEST_REAL_PDF === '1') {
         await verifyBlobUpload(actor, storage, 'pdf');
+      }
+      if (process.env.TEAQL_S3_TEST_REAL_MEDIA === '1') {
+        await verifyBlobUpload(actor, storage, 'mp3');
+        await verifyBlobUpload(actor, storage, 'mp4');
       }
     }
     if (process.env.TEAQL_S3_TEST_MAINTENANCE === '1') {

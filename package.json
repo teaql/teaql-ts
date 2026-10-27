@@ -64,6 +64,11 @@
       "import": "./dist/esm/blob-reference/content-pdfjs.js",
       "require": "./dist/blob-reference/content-pdfjs.js"
     },
+    "./blob-reference/content-ffmpeg": {
+      "types": "./dist/blob-reference/content-ffmpeg.d.ts",
+      "import": "./dist/esm/blob-reference/content-ffmpeg.js",
+      "require": "./dist/blob-reference/content-ffmpeg.js"
+    },
     "./blob-reference/module": {
       "types": "./dist/blob-reference/module.d.ts",
       "import": "./dist/esm/blob-reference/module.js",
@@ -163,6 +168,7 @@
       "blob-reference/retention": ["dist/blob-reference/retention.d.ts"],
       "blob-reference/content-sharp": ["dist/blob-reference/content-sharp.d.ts"],
       "blob-reference/content-pdfjs": ["dist/blob-reference/content-pdfjs.d.ts"],
+      "blob-reference/content-ffmpeg": ["dist/blob-reference/content-ffmpeg.d.ts"],
       "blob-reference/module": ["dist/blob-reference/module.d.ts"],
       "secure-document-reference/round-trip-reference": ["dist/secure-document-reference/round-trip-reference.d.ts"],
       "secure-document-reference/document-round-trip": ["dist/secure-document-reference/document-round-trip.d.ts"],

@@ -1,4 +1,4 @@
-# Optional JPEG/PNG and PDF content verifiers
+# Optional image, PDF and media content verifiers
 
 `@teaql/teaql/blob-reference/content-sharp` exports `SharpBlobContentVerifier`,
 which implements the Blob upload service's trusted `BlobContentVerifier` interface.
@@ -26,7 +26,22 @@ hard memory or CPU limit. Malformed, encrypted and unsupported documents fail
 closed. Run `node scripts/verify-pdfjs.cjs` after `npm run build` to exercise
 the real Node package entry and SQLite/File upload promotion.
 
-Seven further extensions still need production verifier adapters. A host must
+`@teaql/teaql/blob-reference/content-ffmpeg` exports
+`FfmpegBlobContentVerifier` for `mp3` and `mp4` on Linux. The host passes
+absolute paths to trusted `ffprobe`, `ffmpeg` and `prlimit` executables and
+keeps those tools patched; the npm package does not bundle them. Readiness
+checks each executable. Verification checks complete MP3 frames or MP4 boxes,
+probes actual streams and frame counts, requires a non-cover-art MP4 video
+track, and fully decodes the media. Client filenames and URLs never reach
+FFmpeg, which receives bytes only through a pipe. Linux `prlimit` caps each
+decoder at 10 CPU seconds and 512 MiB virtual memory; a parent timer caps wall
+time at 15 seconds. Input, frame, pixel and concurrent-work limits also apply.
+The adapter hashes original bytes and returns `audio/mpeg` or `video/mp4`.
+It validates format, not malware safety. MP3 support requires fixed non-free
+bitrate and constant sample rate; MP4 needs a supported `ftyp` brand, `moov`
+and `mdat`.
+
+Four further extensions still need production verifier adapters. A host must
 use a verifier supporting every extension it enables. No parser or storage I/O
 runs at construction. These in-process parsers do not provide a process memory
 or execution-time isolation guarantee; untrusted PDF deployments should apply
