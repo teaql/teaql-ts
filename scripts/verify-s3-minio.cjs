@@ -13,6 +13,7 @@ const { SqlBlobCatalog } = require('../dist/blob-reference/sql-catalog');
 const { SqlBlobResponseContributor } = require('../dist/blob-reference/read-service');
 const { SqliteBlobUploadService } = require('../dist/blob-reference/upload-service');
 const { SqliteBlobMaintenanceService } = require('../dist/blob-reference/maintenance-service');
+const { BlobRetentionPolicy } = require('../dist/blob-reference/retention');
 const { SharpBlobContentVerifier } = require('../dist/blob-reference/content-sharp');
 const { ViewPreparationService } = require('../dist/core/view-preparation');
 const { MutationIntent } = require('../dist/core/request-intent');
@@ -37,7 +38,8 @@ async function verifyBlobUpload(actor, storage, image = false) {
     scope: () => 'f4-s3-upload',
     field,
     authorize: async () => permitted,
-    currentOnLease: async () => ({ scope: 'f4-s3-upload', field: field(), allowed: permitted }),
+    currentOnLease: async () => ({ scope: 'f4-s3-upload', field: field(), allowed: permitted,
+      policy: new BlobRetentionPolicy('default', 'server_stream', 86400, 604800) }),
   };
   const fixtureVerifier = { calls: 0, async verify(content, extension, maximumBytes) {
     this.calls++;
@@ -100,7 +102,9 @@ async function verifyBlobUpload(actor, storage, image = false) {
     const bindingAuthorization = { scope: () => 'f4-s3-upload',
       authorize: async (_ctx, actual, _previous, next, action) =>
         actual.entity === 'Asset' && actual.entityId === '1' &&
-        actual.field === 'document' && next?.equals(session.reference) && action === 'Create' };
+        actual.field === 'document' && next?.equals(session.reference) && action === 'Create',
+      currentPolicyOnLease: () => new BlobRetentionPolicy('default', 'server_stream', 86400, 604800),
+    };
     await client.executeGraphSave(new MutationIntent('bind S3 Blob in business graph'),
       async graph => {
         await client.withGraphSqlSession(graph, sql => sql.query(
@@ -215,6 +219,77 @@ async function verifyExpiredUploadMaintenance(actor, storage) {
   }
 }
 
+async function verifyCompletedRetention(actor, storage) {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-s3-completed-retention-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const scope = 'f4-s3-completed-retention';
+  const prefix = randomUUID().replaceAll('-', '');
+  const objects = [];
+  const maintenance = new SqliteBlobMaintenanceService(catalog,
+    { scope: () => scope, canMaintain: async () => true }, 10, () => 10000);
+
+  async function seed(suffix, status, lastUnbound = null, floor = null,
+                      profile = 'default', mode = 'server_stream', bound = false) {
+    const reference = `blob_${prefix}_${suffix}`;
+    const key = new ObjectKey(`f4/typescript/completed-retention/${prefix}/${suffix}`);
+    objects.push(key);
+    const bytes = Buffer.from(`%PDF-1.7\n${suffix}\n%%EOF`);
+    const created = await storage.putBytes(key, bytes,
+      new ObjectPutOptions(bytes.length, 'create_only', 'application/pdf'));
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key,scope,object_key,content_version,file_name,content_type,size_bytes,
+       completed_at_ms,last_unbound_at_ms,policy_profile,upload_mode,
+       unbound_retention_seconds,effective_unref_seconds,retention_floor_until_ms,status)
+      VALUES (?,?,?,?,?,?,?,9000,?,?,?,1,2,?,?)`,
+    [reference, scope, key.value, created.etag, 'file.pdf', 'application/pdf',
+      bytes.length, lastUnbound, profile, mode, floor, status]);
+    await driver.query(`INSERT INTO teaql_blob_upload
+      (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
+       extension,declared_size,expires_at,state,written_etag)
+      VALUES (?,?,?,?,?,'Asset','1','document','file.pdf','pdf',?,9000,'completed',?)`,
+    [`bu_${prefix}_${suffix}`, scope, `replay_${prefix}_${suffix}`,
+      `hash_${prefix}_${suffix}`, reference, bytes.length, created.etag]);
+    if (bound) await driver.query(`INSERT INTO teaql_blob_binding
+      (scope,entity,entity_id,field,key,version)
+      VALUES (?,'Asset',?,'document',?,1)`, [scope, `${prefix}_${suffix}`, reference]);
+    return { reference, key };
+  }
+
+  try {
+    await catalog.ensureSchema();
+    const expired = await seed('expired', 'uploaded_unbound');
+    const former = await seed('former', 'available', 7000, 10000);
+    const active = await seed('active', 'available', null, null, 'default', 'server_stream', true);
+    const floored = await seed('floored', 'available', 7000, 20000);
+    const legacy = await seed('legacy', 'uploaded_unbound', null, null, null);
+    const direct = await seed('direct', 'uploaded_unbound', null, null, 'default', 'direct');
+    const batch = await maintenance.runBatch(actor);
+    const deleted = batch.outcomes.filter(outcome => outcome.status === 'deleted');
+    if (deleted.length !== 2 || deleted[0].reference.key !== expired.reference ||
+        deleted[1].reference.key !== former.reference ||
+        batch.outcomes.some(outcome => !['deleted', 'not_eligible'].includes(outcome.status))) {
+      throw new Error('completed S3 retention selected wrong objects');
+    }
+    for (const item of [expired, former]) {
+      const row = await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?', [item.reference]);
+      if (await storage.head(item.key) !== undefined || row.rows[0].status !== 'deleted') {
+        throw new Error('completed S3 retention did not delete eligible object');
+      }
+    }
+    for (const item of [active, floored, legacy, direct]) {
+      const row = await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?', [item.reference]);
+      if (await storage.head(item.key) === undefined || row.rows[0].status === 'deleted') {
+        throw new Error('completed S3 retention deleted protected object');
+      }
+    }
+    console.log('PASS TypeScript real SQLite/S3 completed retention eligibility/conditional delete');
+  } finally {
+    try { for (const key of objects) await storage.delete(key); }
+    finally { await driver.close(); await rm(root, { recursive: true, force: true }); }
+  }
+}
+
 async function main() {
   const endpoint = process.env.TEAQL_S3_TEST_ENDPOINT;
   const bucket = process.env.TEAQL_S3_TEST_BUCKET;
@@ -312,6 +387,7 @@ async function main() {
     }
     if (process.env.TEAQL_S3_TEST_MAINTENANCE === '1') {
       await verifyExpiredUploadMaintenance(actor, storage);
+      await verifyCompletedRetention(actor, storage);
     }
     console.log('PASS TypeScript real S3-compatible replace/read/signed Range/expiry');
   } finally {
