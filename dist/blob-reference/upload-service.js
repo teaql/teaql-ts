@@ -186,6 +186,38 @@ class SqliteBlobUploadService {
     }
     async complete(context, uploadId) {
         const row = await this.row(context, uploadId, 'Confirm');
+        if (row.state === 'completed') {
+            if (!row.written_sha256 || !/^[0-9a-f]{64}$/.test(row.written_sha256) ||
+                !row.written_etag)
+                throw new Error('BLOB_UPLOAD_INCOMPLETE');
+            const result = await this.catalog.driver.query(`SELECT object_key, content_version,
+        content_type, size_bytes, status FROM teaql_blob_catalog WHERE key = ? AND scope = ?`, [row.key, row.scope]);
+            if (result.rows.length !== 1)
+                throw new Error('BLOB_UPLOAD_INCOMPLETE');
+            const catalog = result.rows[0];
+            if (catalog.status !== 'uploaded_unbound' && catalog.status !== 'available' ||
+                catalog.content_version !== row.written_etag ||
+                catalog.content_type !== MIME[row.extension] ||
+                Number(catalog.size_bytes) !== Number(row.declared_size) ||
+                typeof catalog.object_key !== 'string')
+                throw new Error('BLOB_UPLOAD_INCOMPLETE');
+            let current;
+            try {
+                current = await context.objectStorage('recheck completed Blob upload')
+                    .head(new object_storage_1.ObjectKey(catalog.object_key));
+            }
+            catch {
+                throw new Error('BLOB_UPLOAD_INCOMPLETE');
+            }
+            if (!current || current.etag !== row.written_etag ||
+                current.size !== Number(row.declared_size))
+                throw new Error('BLOB_UPLOAD_INCOMPLETE');
+            await this.current(context, { entity: row.entity, entityId: row.entity_id, field: row.field }, 'Confirm', { fileName: row.file_name, declaredSize: Number(row.declared_size),
+                declaredContentType: MIME[row.extension] }, row.scope);
+            if (this.now() >= Number(row.expires_at))
+                throw new Error('BLOB_UPLOAD_EXPIRED');
+            return new blob_ref_1.BlobRef(row.key);
+        }
         if (row.state !== 'written' || !row.written_sha256 || !row.written_etag) {
             throw new Error('BLOB_UPLOAD_INCOMPLETE');
         }

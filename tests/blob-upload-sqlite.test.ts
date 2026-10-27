@@ -79,10 +79,22 @@ test('SQLite upload records a real File write and permits binding only after ful
     permitted = true;
     expect((await service.complete(context, session.uploadId)).key).toBe(session.reference.key);
     expect(verifier.calls).toBe(1);
+    expect((await service.complete(context, session.uploadId)).key).toBe(session.reference.key);
+    expect(verifier.calls).toBe(1);
+    permitted = false;
+    await expect(service.complete(context, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
+    permitted = true;
     expect((await driver.query('SELECT status, content_type, size_bytes FROM teaql_blob_catalog WHERE key = ?',
       [session.reference.key])).rows[0]).toMatchObject({
         status: 'uploaded_unbound', content_type: 'application/pdf', size_bytes: bytes.length,
       });
+    const completedKey = (await driver.query('SELECT object_key FROM teaql_blob_catalog WHERE key = ?',
+      [session.reference.key])).rows[0].object_key;
+    await context.objectStorage('test completed generation replacement').putBytes(
+      new ObjectKey(String(completedKey)), bytes,
+      new ObjectPutOptions(bytes.length, 'replace', 'application/pdf'));
+    await expect(service.complete(context, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_INCOMPLETE');
+    expect(verifier.calls).toBe(1);
 
     const later = await service.begin(context, target, info, 'request-2');
     await service.write(context, later.uploadId, (async function* () { yield bytes; })());
