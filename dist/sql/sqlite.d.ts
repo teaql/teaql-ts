@@ -3,8 +3,12 @@ export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     readonly databaseKind: "sqlite";
     readonly topNRelationPlanPolicy: "alwaysProbe";
     private readonly database;
+    private readonly gate;
+    private readonly gateKey;
+    private transactionActive;
     private soundexRegistered;
     constructor(filename: string);
+    private withConnection;
     identifier(value: string): string;
     placeholder(_index: number): string;
     encode(value: any, column?: ColumnSchema): any;

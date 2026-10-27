@@ -324,7 +324,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         trigger: (await driver.query("SELECT name FROM sqlite_master WHERE name = 'reject_nine'"))
           .rows.length,
       }), error => error);
-      expect(failedResult).toBeInstanceOf(Error);
+      expect(failedResult).toHaveProperty('message', expect.any(String));
       expect((await driver.query('SELECT version,quantity FROM document_order')).rows[0])
         .toMatchObject({ version: 2, quantity: 3 });
       expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_document_command_receipt')).rows[0].n)

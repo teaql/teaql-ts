@@ -19,6 +19,8 @@ import "../chunks/chunk-AQT573VW.js";
 
 // src/sql/sqlite.ts
 import Database from "better-sqlite3";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { resolve } from "node:path";
 function soundex(value) {
   const letters = String(value ?? "").toUpperCase().match(/[A-Z]/g) ?? [];
   if (!letters.length) return "?000";
@@ -37,15 +39,62 @@ function soundex(value) {
   }
   return result.padEnd(4, "0");
 }
+var SQLiteAsyncGate = class {
+  constructor() {
+    this.tail = Promise.resolve();
+    this.waiting = 0;
+  }
+  get busy() {
+    return this.waiting > 0;
+  }
+  async enter() {
+    const previous = this.tail;
+    let release;
+    this.tail = new Promise((done) => {
+      release = done;
+    });
+    this.waiting += 1;
+    await previous;
+    return () => {
+      this.waiting -= 1;
+      release();
+    };
+  }
+};
+var fileGates = /* @__PURE__ */ new Map();
+var transactionOwner = new AsyncLocalStorage();
 var SQLiteDriver = class {
   constructor(filename) {
     this.databaseKind = "sqlite";
     this.topNRelationPlanPolicy = "alwaysProbe";
+    this.transactionActive = false;
     this.soundexRegistered = false;
     if (!filename) throw new Error("filename is required");
+    this.gateKey = filename === ":memory:" ? null : resolve(filename);
+    const shared = this.gateKey === null ? null : fileGates.get(this.gateKey);
+    if (shared?.gate.busy) throw new Error("SQLITE_BUSY");
     this.database = new Database(filename);
     this.database.pragma("journal_mode = WAL");
     this.database.pragma("foreign_keys = ON");
+    if (this.gateKey === null) this.gate = new SQLiteAsyncGate();
+    else if (shared) {
+      shared.users += 1;
+      this.gate = shared.gate;
+    } else {
+      this.gate = new SQLiteAsyncGate();
+      fileGates.set(this.gateKey, { gate: this.gate, users: 1 });
+    }
+  }
+  async withConnection(work) {
+    const owner = transactionOwner.getStore();
+    if (owner === this && this.transactionActive) return work();
+    if (owner?.gate === this.gate) throw new Error("SQLITE_CROSS_CONNECTION_REENTRY");
+    const release = await this.gate.enter();
+    try {
+      return await work();
+    } finally {
+      release();
+    }
   }
   identifier(value) {
     return `"${assertSafeIdentifier(value)}"`;
@@ -119,15 +168,23 @@ var SQLiteDriver = class {
     );
   }
   async transaction(work) {
-    this.database.exec("BEGIN IMMEDIATE");
-    try {
-      const result = await work(this);
-      this.database.exec("COMMIT");
-      return result;
-    } catch (error) {
-      this.database.exec("ROLLBACK");
-      throw error;
+    if (transactionOwner.getStore()?.gate === this.gate) {
+      throw new Error("SQLITE_TRANSACTION_REENTRY");
     }
+    return this.withConnection(async () => {
+      this.database.exec("BEGIN IMMEDIATE");
+      this.transactionActive = true;
+      try {
+        const result = await transactionOwner.run(this, () => work(this));
+        this.database.exec("COMMIT");
+        return result;
+      } catch (error) {
+        this.database.exec("ROLLBACK");
+        throw error;
+      } finally {
+        this.transactionActive = false;
+      }
+    });
   }
   async nextId(session, entity) {
     for (let attempt = 1; attempt <= 100; attempt += 1) {
@@ -170,21 +227,42 @@ var SQLiteDriver = class {
     return ensureOptimisticIdFloor(session, (index) => this.placeholder(index), entity, floor);
   }
   async query(sql, values = []) {
-    const statement = this.database.prepare(sql);
-    if (statement.reader) {
-      const rows = statement.all(...values);
-      return { rows, rowCount: rows.length };
-    }
-    const result = statement.run(...values);
-    return { rows: [], rowCount: result.changes };
+    return this.withConnection(() => {
+      const statement = this.database.prepare(sql);
+      if (statement.reader) {
+        const rows = statement.all(...values);
+        return { rows, rowCount: rows.length };
+      }
+      const result = statement.run(...values);
+      return { rows: [], rowCount: result.changes };
+    });
   }
   async *stream(sql, values = []) {
-    const statement = this.database.prepare(sql);
-    if (!statement.reader) throw new Error("stream() requires a SELECT statement");
-    for (const row of statement.iterate(...values)) yield row;
+    const iterator = await this.withConnection(() => {
+      const statement = this.database.prepare(sql);
+      if (!statement.reader) throw new Error("stream() requires a SELECT statement");
+      return statement.iterate(...values)[Symbol.iterator]();
+    });
+    try {
+      while (true) {
+        const next = await this.withConnection(() => iterator.next());
+        if (next.done) return;
+        yield next.value;
+      }
+    } finally {
+      await this.withConnection(() => {
+        iterator.return?.();
+      });
+    }
   }
   async close() {
-    this.database.close();
+    await this.withConnection(() => {
+      this.database.close();
+    });
+    if (this.gateKey !== null) {
+      const shared = fileGates.get(this.gateKey);
+      if (shared && --shared.users === 0) fileGates.delete(this.gateKey);
+    }
   }
 };
 var SQLiteTeaQLClient = class extends AbstractSQLTeaQLClient {
