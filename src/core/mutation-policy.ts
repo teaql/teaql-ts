@@ -1,5 +1,6 @@
 /** Governed application policy for complete mutation graphs. */
 import { MutationIntent } from './request-intent';
+import { BlobRef } from './blob-ref';
 
 export const MISSING_MUTATION_POLICY = 'MUTATION-POLICY-001';
 export const MISSING_MUTATION_POLICY_APPROVAL = 'MUTATION-POLICY-002';
@@ -403,6 +404,7 @@ function freezePlan(plan: MutationPlan): MutationPlan {
 }
 
 function cloneAndFreeze(value: unknown, ancestors = new WeakSet<object>()): unknown {
+  if (value instanceof BlobRef) return value;
   if (value === null || value === undefined || typeof value === 'string'
       || typeof value === 'number' || typeof value === 'boolean'
       || typeof value === 'bigint') return value;
@@ -457,6 +459,7 @@ function operationMatchKey(mutation: any, operation: MutationOperation): string 
 }
 
 function canonicalJSON(value: unknown): string {
+  if (value instanceof BlobRef) return JSON.stringify({ blobKey: value.key });
   if (typeof value === 'bigint') return JSON.stringify(`${value.toString()}n`);
   if (value === undefined) return '"<undefined>"';
   if (value === null || typeof value !== 'object') return JSON.stringify(value);

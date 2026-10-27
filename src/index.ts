@@ -14,6 +14,8 @@ export * from './core/i18n';
 export * from './core/tools';
 export * from './core/local-cache';
 export * from './core/runtime-module';
+export * from './core/blob-ref';
+export * from './core/runtime-capability';
 export * from './core/smart-list';
 export * from './core/telemetry';
 export { SelectQuery, MutationQuery, AggregationCacheOptions, OrderBy, SortDirection } from './core/ast';

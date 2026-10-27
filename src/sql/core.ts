@@ -7,6 +7,8 @@ import {
 } from '../core/telemetry';
 import { CheckException, EntityChecker } from '../core/checker';
 import { UserContext } from '../core/context';
+import { BlobFieldSpec, BlobRef } from '../core/blob-ref';
+import { requireRuntimeCapabilities } from '../core/runtime-capability';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
@@ -42,6 +44,8 @@ export type ColumnSchema = {
   nullable?: boolean;
   /** Trusted model/application log policy, never taken from a query payload. */
   logPolicy?: SQLParameterLogPolicy;
+  /** Trusted generated model metadata. SQL still stores only the stable Key. */
+  blob?: BlobFieldSpec;
 };
 
 export type EntitySchema = {
@@ -342,6 +346,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   private fieldLogPolicy(schema: EntitySchema, field: string): SQLParameterLogPolicy {
     const column = schema.columns[field];
+    if (column?.blob) return 'masked';
     const name = column?.modelName ?? column?.columnName ?? field;
     if (credentialName(name) || credentialName(field)) return 'credential';
     if (!schema.auditMaskFields) return 'unknown';
@@ -385,18 +390,35 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private graphRollbackActions: Array<() => void> = [];
   private graphSaveTail: Promise<void> = Promise.resolve();
   private readonly schemas: Record<string, EntitySchema>;
+  private readonly requiredCapabilities = new Set<string>();
 
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
     schemas: Record<string, EntitySchema>,
-  ) { this.schemas = { ...schemas }; }
+  ) {
+    this.schemas = { ...schemas };
+    if (Object.values(schemas).some(schema => Object.values(schema.columns).some(column => column.blob))) {
+      this.requiredCapabilities.add(BlobFieldSpec.CAPABILITY);
+    }
+  }
 
   /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module: import('../core/runtime-module').RuntimeModule): this {
     Object.assign(this.schemas, module.schemas);
     Object.assign(this.checkers, module.checkers);
     this.bootstrap = mergeRuntimeBootstrap(this.bootstrap, module.bootstrap);
+    for (const name of module.requiredCapabilities) this.requiredCapabilities.add(name);
+    for (const schema of Object.values(module.schemas)) {
+      if (Object.values(schema.columns).some(column => column.blob)) {
+        this.requiredCapabilities.add(BlobFieldSpec.CAPABILITY);
+      }
+    }
     return this;
+  }
+
+  /** Check concrete, explicitly installed resources without running migrations or jobs. */
+  validateCapabilities(): void {
+    requireRuntimeCapabilities(this.userContext, this.requiredCapabilities);
   }
 
   setUserContext(context: UserContext): this { this.userContext = context; return this; }
@@ -425,6 +447,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   private encode(value: any, column?: ColumnSchema): any {
+    if (column?.blob) {
+      if (value === null && column.blob.nullable) return null;
+      if (!(value instanceof BlobRef)) throw new TypeError('BLOB_REFERENCE_INVALID');
+      return this.driver.encode(value.key, column);
+    }
     const normalized = value?.id ?? value;
     if (normalized === undefined) return undefined;
     return this.driver.encode(normalized, column);
@@ -436,6 +463,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === undefined) continue;
+      if (column.blob) { result[field] = BlobRef.fromSQL(value); continue; }
       if (column.decode === 'number') result[field] = Number(value);
       if (column.decode === 'string') result[field] = String(value);
       if (column.decode === 'date' && value instanceof Date) {
@@ -605,6 +633,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */
   async [contextSchemaCapability](context: UserContext): Promise<void> {
+    requireRuntimeCapabilities(context, this.requiredCapabilities);
     await this.telemetryStartup;
     if (!this.schemaReady) {
       this.schemaReady = this.driver.ensureSchema(this.schemas);
@@ -665,7 +694,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (!column) throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
       return {
         column: column.columnName,
-        value: this.driver.encode(value, column),
+        value: this.encode(value, column),
       };
     });
     const query = new SelectQuery(record.entity).filter({ id: { $eq: record.id } }).limit(1)
@@ -697,6 +726,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T> {
     // Root intent is mandatory before lifecycle initialization or provider work.
     const graph = new GraphMutationSession(intent);
+    this.validateCapabilities();
     await this.telemetryStartup;
     const save = async () => {
     // Generated child saves call their within-graph entry point directly. Every
@@ -835,6 +865,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async executeMutation(mutation: any): Promise<MutationResult> {
     await this.telemetryStartup;
     // Validate before Checker, policy, telemetry and transaction/provider work.
+    this.validateCapabilities();
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
     mutation = request.mutation;
@@ -1068,6 +1099,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === undefined) continue;
+      if (column.blob) { result[field] = BlobRef.fromSQL(value); continue; }
       if (column.decode === 'number') result[field] = Number(value);
       if (column.decode === 'string') result[field] = String(value);
       if (column.decode === 'date' && value instanceof Date) result[field] = value.toISOString();
