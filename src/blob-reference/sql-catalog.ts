@@ -23,13 +23,15 @@ export type BlobBindingChange = Readonly<{
   next: BlobRef | null;
   expectedVersion: number;
   nextVersion: number;
+  action?: 'Create' | 'Update' | 'Delete';
 }>;
 
 /** The trusted host supplies current scope and authorizes the canonical target. */
 export interface BlobBindingAuthorization {
   scope(context: UserContext): string;
   authorize(context: UserContext, target: BlobBindingTarget,
-            previous: BlobRef | null, next: BlobRef | null): Promise<boolean>;
+            previous: BlobRef | null, next: BlobRef | null,
+            action: 'Create' | 'Update' | 'Delete'): Promise<boolean>;
 }
 
 /** Physical catalog for the optional module. Migration is an explicit host action. */
@@ -67,6 +69,7 @@ export class SqlBlobCatalog {
         if (this.driver.databaseKind !== 'sqlite') throw new Error('BLOB_CAPABILITY_MISSING');
         if (!change || !change.target || !authorization ||
             (change.next !== null && !(change.next instanceof BlobRef)) ||
+            (change.action !== undefined && !['Create', 'Update', 'Delete'].includes(change.action)) ||
             !Number.isSafeInteger(change.expectedVersion) || change.expectedVersion < 0 ||
             !Number.isSafeInteger(change.nextVersion) ||
             change.nextVersion <= change.expectedVersion ||
@@ -94,7 +97,8 @@ export class SqlBlobCatalog {
         }
         const previous = row?.key == null ? null : BlobRef.fromSQL(row.key);
         let allowed = false;
-        try { allowed = await authorization.authorize(context, target, previous, change.next); }
+        try { allowed = await authorization.authorize(context, target, previous,
+          change.next, change.action ?? 'Update'); }
         catch { throw new Error('BLOB_BIND_DENIED'); }
         if (!allowed) throw new Error('BLOB_BIND_DENIED');
         if (change.next) {

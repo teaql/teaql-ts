@@ -201,6 +201,20 @@ export interface TeaQLDataService {
   close?(): Promise<void>;
 }
 
+/** Optional native graph participant. Concrete Blob code lives outside the base runtime. */
+export interface BlobMutationParticipant {
+  apply(context: UserContext, owner: TeaQLDataService, graph: GraphMutationSession,
+        session: SqlSession, application: Readonly<{
+          action: 'Create' | 'Update' | 'Delete';
+          entity: string;
+          schema: EntitySchema;
+          assigned: Readonly<Record<string, unknown>>;
+          persisted: Readonly<Record<string, unknown>>;
+          id: string;
+          version: number;
+        }>): Promise<void>;
+}
+
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 /** Statement/cursor completion, not transaction commit or business success. */
 export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
@@ -840,6 +854,26 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return request.graphSession ? work(this.graphMutationSession!) : this.driver.transaction(work);
   }
 
+  private async applyBlobMutation(request: MutationRequest<any>, session: SqlSession,
+                                  schema: EntitySchema, assigned: Record<string, unknown>,
+                                  persisted: Record<string, unknown>, id: string,
+                                  version: number, action: 'Create' | 'Update' | 'Delete'): Promise<void> {
+    if (!Object.values(schema.columns).some(column => column.blob)) return;
+    const participant = this.userContext.getResource<BlobMutationParticipant>('blobMutationParticipant');
+    if (!participant || typeof participant.apply !== 'function') {
+      throw new Error('BLOB_CAPABILITY_MISSING');
+    }
+    if (!request.graphSession) throw new Error('BLOB_TRANSACTION_REQUIRED');
+    try {
+      await participant.apply(this.userContext, this, request.graphSession, session,
+        { action, entity: String(request.mutation.entity), schema, assigned,
+          persisted, id, version });
+    } catch (error) {
+      this.graphSqlRollbackOnly = true;
+      throw error;
+    }
+  }
+
   preflightMutation(mutation: any): any {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
@@ -909,6 +943,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       mutation = this.checkAndFixMutation(request);
       const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
       const schema = this.schema(mutation.entity);
+      if (Object.values(schema.columns).some(column => column.blob)) {
+        const participant = this.userContext.getResource<BlobMutationParticipant>('blobMutationParticipant');
+        if (!request.graphSession) throw new Error('BLOB_TRANSACTION_REQUIRED');
+        if (!participant || typeof participant.apply !== 'function') {
+          throw new Error('BLOB_CAPABILITY_MISSING');
+        }
+      }
       const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
       const diagnosticBindings = this.mutationLogBindings(request, mutation, schema);
       const table = this.driver.identifier(schema.table);
@@ -945,11 +986,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
         const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'insert', id, diagnosticBindings);
         await this.executeLoggedSQL('insert', sql, values, intent, () => session.query(sql, values), undefined, statements);
+        const persistedRecord = await this.readPersistedRecord(session, schema, id, intent, sql, values, statements);
+        await this.applyBlobMutation(request, session, schema, mutationRecord, persistedRecord,
+          id, version, 'Create');
         return {
           success: true,
           id,
           version,
-          persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values, statements),
+          persistedRecord,
         };
       }
 
@@ -990,6 +1034,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const persistedRecord = await this.readPersistedRecord(
           session, schema, String(mutation.id), intent, sql, values, statements,
         );
+        await this.applyBlobMutation(request, session, schema, mutationRecord, persistedRecord,
+          String(mutation.id), Number(persistedRecord.version), 'Update');
         return {
           success: true,
           id: String(mutation.id),
@@ -1024,6 +1070,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const persistedRecord = await this.readPersistedRecord(
           session, schema, String(mutation.id), intent, sql, values, statements,
         );
+        await this.applyBlobMutation(request, session, schema, mutationRecord, persistedRecord,
+          String(mutation.id), Number(persistedRecord.version), 'Delete');
         return {
           success: true,
           id: String(mutation.id),
