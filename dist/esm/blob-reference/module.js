@@ -13,7 +13,7 @@ import {
 } from "../chunks/chunk-JEVDMH2Q.js";
 import {
   SqliteBlobUploadService
-} from "../chunks/chunk-4FDXHNDF.js";
+} from "../chunks/chunk-2CCRP32S.js";
 import "../chunks/chunk-VJE6OLEA.js";
 import "../chunks/chunk-MJFGQZSQ.js";
 import "../chunks/chunk-WEYNFMW2.js";
@@ -52,6 +52,7 @@ var BlobReferenceModule = class {
   async ready(context) {
     requireRuntimeCapabilities(context, ["blob.v1"]);
     await this.catalog.validateSchema();
+    await this.upload.validateVerifierReady();
   }
 };
 export {

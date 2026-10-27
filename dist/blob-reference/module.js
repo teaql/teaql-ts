@@ -41,6 +41,7 @@ class BlobReferenceModule {
     async ready(context) {
         (0, runtime_capability_1.requireRuntimeCapabilities)(context, ['blob.v1']);
         await this.catalog.validateSchema();
+        await this.upload.validateVerifierReady();
     }
 }
 exports.BlobReferenceModule = BlobReferenceModule;

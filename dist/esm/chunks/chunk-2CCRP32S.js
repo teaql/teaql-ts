@@ -39,6 +39,9 @@ var SqliteBlobUploadService = class {
       throw new Error("BLOB_POLICY_INVALID");
     }
   }
+  async validateVerifierReady() {
+    await this.verifier.validateReady?.();
+  }
   async current(context, target, action, input, expectedScope) {
     if (!target || !name(target.entity) || !name(target.field) || !entityId(target.entityId)) {
       throw new Error("BLOB_REFERENCE_INVALID");
@@ -504,4 +507,4 @@ var SqliteBlobUploadService = class {
 export {
   SqliteBlobUploadService
 };
-//# sourceMappingURL=chunk-4FDXHNDF.js.map
+//# sourceMappingURL=chunk-2CCRP32S.js.map

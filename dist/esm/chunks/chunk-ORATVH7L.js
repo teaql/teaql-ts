@@ -12,6 +12,9 @@ import {
   mergeRuntimeBootstrap
 } from "./chunk-RXNDHQEY.js";
 import {
+  requireRuntimeCapabilities
+} from "./chunk-HDIMWNEB.js";
+import {
   GraphCommittedError,
   GraphMutationSession,
   MutationIntent,
@@ -29,9 +32,6 @@ import {
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
 } from "./chunk-LDU2JPAZ.js";
-import {
-  requireRuntimeCapabilities
-} from "./chunk-HDIMWNEB.js";
 import {
   BlobFieldSpec,
   BlobRef
@@ -2047,4 +2047,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-I4YMBFBQ.js.map
+//# sourceMappingURL=chunk-ORATVH7L.js.map

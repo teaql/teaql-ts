@@ -39,6 +39,11 @@
       "import": "./dist/esm/blob-reference/upload-service.js",
       "require": "./dist/blob-reference/upload-service.js"
     },
+    "./blob-reference/content-sharp": {
+      "types": "./dist/blob-reference/content-sharp.d.ts",
+      "import": "./dist/esm/blob-reference/content-sharp.js",
+      "require": "./dist/blob-reference/content-sharp.js"
+    },
     "./blob-reference/module": {
       "types": "./dist/blob-reference/module.d.ts",
       "import": "./dist/esm/blob-reference/module.js",
@@ -133,6 +138,7 @@
       "blob-reference/mutation-participant": ["dist/blob-reference/mutation-participant.d.ts"],
       "blob-reference/read-service": ["dist/blob-reference/read-service.d.ts"],
       "blob-reference/upload-service": ["dist/blob-reference/upload-service.d.ts"],
+      "blob-reference/content-sharp": ["dist/blob-reference/content-sharp.d.ts"],
       "blob-reference/module": ["dist/blob-reference/module.d.ts"],
       "secure-document-reference/round-trip-reference": ["dist/secure-document-reference/round-trip-reference.d.ts"],
       "secure-document-reference/document-round-trip": ["dist/secure-document-reference/document-round-trip.d.ts"],
@@ -214,6 +220,7 @@
     "peggy": "^5.1.0",
     "pg": "^8.12.0",
     "pg-query-stream": "^4.7.0",
+    "sharp": "0.35.5",
     "ts-jest": "^29.1.0",
     "typescript": "5.4.5"
   },
@@ -240,9 +247,11 @@
     "expo-sqlite": "*",
     "mysql2": "^3.11.0",
     "pg": "^8.12.0",
-    "pg-query-stream": "^4.7.0"
+    "pg-query-stream": "^4.7.0",
+    "sharp": "0.35.5"
   },
   "peerDependenciesMeta": {
+    "sharp": { "optional": true },
     "@aws-sdk/client-s3": { "optional": true },
     "@aws-sdk/s3-request-presigner": { "optional": true },
     "@opentelemetry/otlp-transformer": { "optional": true },

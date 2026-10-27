@@ -12,6 +12,7 @@ await build({
     'blob-reference/mutation-participant': 'src/blob-reference/mutation-participant.ts',
     'blob-reference/read-service': 'src/blob-reference/read-service.ts',
     'blob-reference/upload-service': 'src/blob-reference/upload-service.ts',
+    'blob-reference/content-sharp': 'src/blob-reference/content-sharp.ts',
     'blob-reference/module': 'src/blob-reference/module.ts',
     'secure-document-reference/round-trip-reference': 'src/secure-document-reference/round-trip-reference.ts',
     'secure-document-reference/document-round-trip': 'src/secure-document-reference/document-round-trip.ts',

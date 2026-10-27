@@ -34,6 +34,9 @@ class SqliteBlobUploadService {
             throw new Error('BLOB_POLICY_INVALID');
         }
     }
+    async validateVerifierReady() {
+        await this.verifier.validateReady?.();
+    }
     async current(context, target, action, input, expectedScope) {
         if (!target || !name(target.entity) || !name(target.field) || !entityId(target.entityId)) {
             throw new Error('BLOB_REFERENCE_INVALID');

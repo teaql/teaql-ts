@@ -15,11 +15,12 @@ test('BlobReferenceModule installs passively and checks explicit schema readines
   const root = await mkdtemp(join(tmpdir(), 'teaql-blob-module-'));
   const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
   const catalog = new SqlBlobCatalog(driver);
+  const verifierReady = jest.fn(async () => {});
   const upload = new SqliteBlobUploadService(catalog, {
     scope: () => 'tenant-a', field: () => { throw new Error('not used'); },
     authorize: async () => false,
     currentOnLease: async () => { throw new Error('not used'); },
-  }, { verify: async () => { throw new Error('not used'); } }, 1000);
+  }, { verify: async () => { throw new Error('not used'); }, validateReady: verifierReady }, 1000);
   const mutation = new SqliteBlobMutationParticipant(catalog, {
     scope: () => 'tenant-a', authorize: async () => false,
   });
@@ -35,6 +36,7 @@ test('BlobReferenceModule installs passively and checks explicit schema readines
     await expect(module.ready(context)).rejects.toThrow('BLOB_SCHEMA_MISSING');
     await catalog.ensureSchema();
     await expect(module.ready(context)).resolves.toBeUndefined();
+    expect(verifierReady).toHaveBeenCalledTimes(1);
     expect(() => module.install(context)).toThrow('BLOB_CAPABILITY_MISSING');
   } finally {
     await driver.close();

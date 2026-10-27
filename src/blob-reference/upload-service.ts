@@ -26,6 +26,7 @@ export interface BlobUploadAuthorization {
 /** A mandatory trusted byte parser. Client MIME and object metadata cannot implement this SPI. */
 export interface BlobContentVerifier {
   verify(content: ObjectByteStream, extension: string, maximumBytes: number): Promise<BlobVerifiedContent>;
+  validateReady?(): Promise<void> | void;
 }
 
 export type BlobUploadSession = Readonly<{ uploadId: string; reference: BlobRef; expiresAt: Date }>;
@@ -65,6 +66,10 @@ export class SqliteBlobUploadService {
         !Number.isSafeInteger(leaseSeconds) || leaseSeconds < 1 || leaseSeconds > 3600) {
       throw new Error('BLOB_POLICY_INVALID');
     }
+  }
+
+  async validateVerifierReady(): Promise<void> {
+    await this.verifier.validateReady?.();
   }
 
   private async current(context: UserContext, target: BlobUploadTarget,
