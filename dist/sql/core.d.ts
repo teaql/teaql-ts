@@ -1,5 +1,6 @@
 import { RuntimeTelemetry } from '../core/telemetry';
 import { UserContext } from '../core/context';
+import { BlobFieldSpec } from '../core/blob-ref';
 import { contextSchemaCapability } from '../core/schema-capability';
 import { SelectQuery } from '../core/ast';
 import { GraphMutationSession, MutationIntent } from '../core/request-intent';
@@ -16,6 +17,8 @@ export type ColumnSchema = {
     nullable?: boolean;
     /** Trusted model/application log policy, never taken from a query payload. */
     logPolicy?: SQLParameterLogPolicy;
+    /** Trusted generated model metadata. SQL still stores only the stable Key. */
+    blob?: BlobFieldSpec;
 };
 export type EntitySchema = {
     table: string;
@@ -72,6 +75,8 @@ export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder
 export interface TeaQLDataService {
     withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
     executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
+    /** Optional module SPI: the caller's physical graph transaction, guarded by its session. */
+    withGraphSqlSession<T>(graph: GraphMutationSession, work: (session: SqlSession) => Promise<T>): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -81,6 +86,18 @@ export interface TeaQLDataService {
     executeForStream<T = any>(query: any, chunkSize?: number): AsyncIterable<T[]>;
     executeFacetMembership?(outerQuery: any, relationName: string, countAliases?: readonly string[]): Promise<Map<string, number>>;
     close?(): Promise<void>;
+}
+/** Optional native graph participant. Concrete Blob code lives outside the base runtime. */
+export interface BlobMutationParticipant {
+    apply(context: UserContext, owner: TeaQLDataService, graph: GraphMutationSession, session: SqlSession, application: Readonly<{
+        action: 'Create' | 'Update' | 'Delete';
+        entity: string;
+        schema: EntitySchema;
+        assigned: Readonly<Record<string, unknown>>;
+        persisted: Readonly<Record<string, unknown>>;
+        id: string;
+        version: number;
+    }>): Promise<void>;
 }
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 /** Statement/cursor completion, not transaction commit or business success. */
@@ -174,14 +191,18 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private bootstrap;
     private graphMutationSession?;
     private activeGraph?;
+    private graphSqlRollbackOnly;
     private graphAuditActions;
     private graphCommitActions;
     private graphRollbackActions;
     private graphSaveTail;
     private readonly schemas;
+    private readonly requiredCapabilities;
     protected constructor(driver: TeaQLSqlDriver, schemas: Record<string, EntitySchema>);
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
+    /** Check concrete, explicitly installed resources without running migrations or jobs. */
+    validateCapabilities(): void;
     setUserContext(context: UserContext): this;
     private schema;
     private toRuntimeMutationRecord;
@@ -208,10 +229,12 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private ensureBootstrapData;
     private planBootstrapMutation;
     executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
+    withGraphSqlSession<T>(graph: GraphMutationSession, work: (session: SqlSession) => Promise<T>): Promise<T>;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
     private requireGraphOwnership;
     private withMutationSession;
+    private applyBlobMutation;
     preflightMutation(mutation: any): any;
     private mutationLogBindings;
     private checkAndFixMutation;

@@ -1041,6 +1041,80 @@ var GraphCommittedError = class extends Error {
   }
 };
 
+// src/core/blob-ref.ts
+var _key;
+var _BlobRef = class _BlobRef {
+  constructor(key) {
+    __privateAdd(this, _key);
+    if (typeof key !== "string" || !_BlobRef.KEY.test(key)) {
+      throw new TypeError("BLOB_REFERENCE_INVALID");
+    }
+    __privateSet(this, _key, key);
+    Object.freeze(this);
+  }
+  get key() {
+    return __privateGet(this, _key);
+  }
+  static fromJSON(value) {
+    if (typeof value !== "string") throw new TypeError("BLOB_REFERENCE_INVALID");
+    return new _BlobRef(value);
+  }
+  static fromSQL(value) {
+    if (typeof value !== "string") throw new TypeError("BLOB_REFERENCE_INVALID");
+    return new _BlobRef(value);
+  }
+  equals(other) {
+    return other instanceof _BlobRef && this.key === other.key;
+  }
+  /** Generic JSON output must go through an authorized prepared view. */
+  toJSON() {
+    throw new Error("BLOB_PRESENTATION_REQUIRED");
+  }
+  toString() {
+    return "BlobRef[masked]";
+  }
+  [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
+    return this.toString();
+  }
+};
+_key = new WeakMap();
+_BlobRef.KEY = /^blob_[A-Za-z0-9_-]{1,123}$/;
+var BlobRef = _BlobRef;
+var MIME_TYPES = Object.freeze({
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  mp4: "video/mp4",
+  mp3: "audio/mpeg",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pdf: "application/pdf"
+});
+var _BlobFieldSpec = class _BlobFieldSpec {
+  constructor(entity, field, extensions, nullable, policyProfile) {
+    this.protocolVersion = _BlobFieldSpec.CAPABILITY;
+    this.maxFiles = 1;
+    if (!entity?.trim() || !field?.trim() || !policyProfile?.trim() || entity !== entity.trim() || field !== field.trim() || policyProfile !== policyProfile.trim()) {
+      throw new TypeError("BLOB_POLICY_INVALID");
+    }
+    const normalized = [...new Set(extensions)].sort();
+    if (!normalized.length || normalized.some((extension) => !Object.prototype.hasOwnProperty.call(MIME_TYPES, extension))) {
+      throw new TypeError("BLOB_FORMAT_NOT_ALLOWED");
+    }
+    this.entity = entity;
+    this.field = field;
+    this.allowedExtensions = Object.freeze(normalized);
+    this.allowedContentTypes = Object.freeze([...new Set(normalized.map((extension) => MIME_TYPES[extension]))].sort());
+    this.nullable = nullable;
+    this.policyProfile = policyProfile;
+    Object.freeze(this);
+  }
+};
+_BlobFieldSpec.CAPABILITY = "blob.v1";
+var BlobFieldSpec = _BlobFieldSpec;
+
 // src/core/mutation-policy.ts
 var MISSING_MUTATION_POLICY = "MUTATION-POLICY-001";
 var MISSING_MUTATION_POLICY_APPROVAL = "MUTATION-POLICY-002";
@@ -1324,6 +1398,7 @@ function freezePlan(plan) {
   });
 }
 function cloneAndFreeze(value, ancestors = /* @__PURE__ */ new WeakSet()) {
+  if (value instanceof BlobRef) return value;
   if (value === null || value === void 0 || typeof value === "string" || typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return value;
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "object") {
@@ -1370,6 +1445,7 @@ function operationMatchKey(mutation, operation) {
   return `operation:${operationSignature(operation)}`;
 }
 function canonicalJSON(value) {
+  if (value instanceof BlobRef) return JSON.stringify({ blobKey: value.key });
   if (typeof value === "bigint") return JSON.stringify(`${value.toString()}n`);
   if (value === void 0) return '"<undefined>"';
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -1926,7 +2002,7 @@ function mergeRuntimeBootstrap(left, right) {
   };
 }
 var RuntimeModule = class _RuntimeModule {
-  constructor(schemas = {}, checkers = {}, bootstrap = {}) {
+  constructor(schemas = {}, checkers = {}, bootstrap = {}, requiredCapabilities = []) {
     this.schemas = Object.freeze({ ...schemas });
     this.checkers = Object.freeze({ ...checkers });
     this.bootstrap = Object.freeze({
@@ -1934,15 +2010,49 @@ var RuntimeModule = class _RuntimeModule {
       constants: Object.freeze([...bootstrap.constants ?? []]),
       ensure: bootstrap.ensure
     });
+    for (const capability of requiredCapabilities) {
+      if (typeof capability !== "string" || !capability.trim() || capability !== capability.trim()) {
+        throw new TypeError("Invalid runtime capability");
+      }
+    }
+    this.requiredCapabilities = Object.freeze([...new Set(requiredCapabilities)].sort());
+  }
+  withRequiredCapabilities(...capabilities) {
+    return new _RuntimeModule(
+      { ...this.schemas },
+      { ...this.checkers },
+      this.bootstrap,
+      [...this.requiredCapabilities, ...capabilities]
+    );
   }
   and(other) {
     return new _RuntimeModule(
       { ...this.schemas, ...other.schemas },
       { ...this.checkers, ...other.checkers },
-      mergeRuntimeBootstrap(this.bootstrap, other.bootstrap)
+      mergeRuntimeBootstrap(this.bootstrap, other.bootstrap),
+      [...this.requiredCapabilities, ...other.requiredCapabilities]
     );
   }
 };
+
+// src/core/runtime-capability.ts
+var slot = (name) => `teaql.runtime.capability:${name}`;
+function installRuntimeCapability(context, resource) {
+  if (!resource || !resource.name?.trim() || typeof resource.assertReady !== "function") {
+    throw new TypeError("Invalid runtime capability resource");
+  }
+  if (context.getResource(slot(resource.name))) throw new Error("Duplicate runtime capability");
+  context.insertResource(slot(resource.name), resource);
+}
+function requireRuntimeCapabilities(context, required) {
+  for (const name of required) {
+    const resource = context.getResource(slot(name));
+    if (!resource || resource.name !== name) {
+      throw new Error(name === "blob.v1" ? "BLOB_CAPABILITY_MISSING" : name === "secure_document.v1" ? "DOCUMENT_CONFIGURATION" : "RUNTIME_CAPABILITY_MISSING");
+    }
+    resource.assertReady(context);
+  }
+}
 
 // src/core/smart-list.ts
 var SmartList = class _SmartList extends Array {
@@ -2296,6 +2406,8 @@ export {
   MutationRequest,
   GraphMutationSession,
   GraphCommittedError,
+  BlobRef,
+  BlobFieldSpec,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
   MutationPolicyError,
@@ -2313,7 +2425,9 @@ export {
   MutationQuery,
   mergeRuntimeBootstrap,
   RuntimeModule,
+  installRuntimeCapability,
+  requireRuntimeCapabilities,
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-JJ4HMFU3.js.map
+//# sourceMappingURL=chunk-JQQARA66.js.map

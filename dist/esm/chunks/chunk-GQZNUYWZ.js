@@ -2,6 +2,8 @@ import {
   telemetryNotice
 } from "./chunk-LGSUBUWZ.js";
 import {
+  BlobFieldSpec,
+  BlobRef,
   CheckException,
   GraphCommittedError,
   GraphMutationSession,
@@ -24,9 +26,10 @@ import {
   projectSafeSQLLog,
   queryDiagnosticOrigin,
   queryTraceSource,
+  requireRuntimeCapabilities,
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-JJ4HMFU3.js";
+} from "./chunk-JQQARA66.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -216,14 +219,20 @@ var AbstractSQLTeaQLClient = class {
     this.checkers = {};
     this.userContext = new UserContext();
     this.bootstrap = {};
+    this.graphSqlRollbackOnly = false;
     this.graphAuditActions = [];
     this.graphCommitActions = [];
     this.graphRollbackActions = [];
     this.graphSaveTail = Promise.resolve();
+    this.requiredCapabilities = /* @__PURE__ */ new Set();
     this.schemas = { ...schemas };
+    if (Object.values(schemas).some((schema) => Object.values(schema.columns).some((column) => column.blob))) {
+      this.requiredCapabilities.add(BlobFieldSpec.CAPABILITY);
+    }
   }
   fieldLogPolicy(schema, field) {
     const column = schema.columns[field];
+    if (column?.blob) return "masked";
     const name = column?.modelName ?? column?.columnName ?? field;
     if (credentialName(name) || credentialName(field)) return "credential";
     if (!schema.auditMaskFields) return "unknown";
@@ -257,7 +266,17 @@ var AbstractSQLTeaQLClient = class {
     Object.assign(this.schemas, module.schemas);
     Object.assign(this.checkers, module.checkers);
     this.bootstrap = mergeRuntimeBootstrap(this.bootstrap, module.bootstrap);
+    for (const name of module.requiredCapabilities) this.requiredCapabilities.add(name);
+    for (const schema of Object.values(module.schemas)) {
+      if (Object.values(schema.columns).some((column) => column.blob)) {
+        this.requiredCapabilities.add(BlobFieldSpec.CAPABILITY);
+      }
+    }
     return this;
+  }
+  /** Check concrete, explicitly installed resources without running migrations or jobs. */
+  validateCapabilities() {
+    requireRuntimeCapabilities(this.userContext, this.requiredCapabilities);
   }
   setUserContext(context) {
     this.userContext = context;
@@ -279,6 +298,11 @@ var AbstractSQLTeaQLClient = class {
     return result;
   }
   encode(value, column) {
+    if (column?.blob) {
+      if (value === null && column.blob.nullable) return null;
+      if (!(value instanceof BlobRef)) throw new TypeError("BLOB_REFERENCE_INVALID");
+      return this.driver.encode(value.key, column);
+    }
     const normalized = value?.id ?? value;
     if (normalized === void 0) return void 0;
     return this.driver.encode(normalized, column);
@@ -289,6 +313,10 @@ var AbstractSQLTeaQLClient = class {
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === void 0) continue;
+      if (column.blob) {
+        result[field] = BlobRef.fromSQL(value);
+        continue;
+      }
       if (column.decode === "number") result[field] = Number(value);
       if (column.decode === "string") result[field] = String(value);
       if (column.decode === "date" && value instanceof Date) {
@@ -467,6 +495,7 @@ var AbstractSQLTeaQLClient = class {
   }
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */
   async [contextSchemaCapability](context) {
+    requireRuntimeCapabilities(context, this.requiredCapabilities);
     await this.telemetryStartup;
     if (!this.schemaReady) {
       this.schemaReady = this.driver.ensureSchema(this.schemas);
@@ -526,7 +555,7 @@ var AbstractSQLTeaQLClient = class {
       if (!column) throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
       return {
         column: column.columnName,
-        value: this.driver.encode(value, column)
+        value: this.encode(value, column)
       };
     });
     const query = new SelectQuery(record.entity).filter({ id: { $eq: record.id } }).limit(1).comment("inspect model bootstrap record").purpose("ensure model-defined root and constants");
@@ -564,6 +593,7 @@ var AbstractSQLTeaQLClient = class {
   }
   async executeGraphSave(intent, work) {
     const graph = new GraphMutationSession(intent);
+    this.validateCapabilities();
     await this.telemetryStartup;
     const save = async () => {
       const predecessor = this.graphSaveTail;
@@ -579,6 +609,7 @@ var AbstractSQLTeaQLClient = class {
         this.graphCommitActions = [];
         this.graphRollbackActions = [];
         this.graphAuditActions = [];
+        this.graphSqlRollbackOnly = false;
         this.userContext.insertResource("fixTime", /* @__PURE__ */ new Date());
         this.userContext.beginFixEvidence();
         fixEvidenceStarted = true;
@@ -590,6 +621,7 @@ var AbstractSQLTeaQLClient = class {
           try {
             const value = await work(graph);
             this.userContext.ensureMutationPolicyGraphComplete();
+            if (this.graphSqlRollbackOnly) throw new Error("GRAPH_TRANSACTION_ROLLBACK_ONLY");
             return value;
           } finally {
             this.graphMutationSession = void 0;
@@ -623,6 +655,7 @@ var AbstractSQLTeaQLClient = class {
         this.graphCommitActions = [];
         this.graphRollbackActions = [];
         this.graphAuditActions = [];
+        this.graphSqlRollbackOnly = false;
         if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
         this.userContext.removeResource("fixTime");
         if (fixEvidenceStarted) this.userContext.finishFixEvidence();
@@ -634,6 +667,31 @@ var AbstractSQLTeaQLClient = class {
       name: "graph.save",
       attributes: { "teaql.entity.type": "graph", "teaql.mutation.kind": "graph" }
     }, save);
+  }
+  async withGraphSqlSession(graph, work) {
+    const physical = this.graphMutationSession;
+    if (!physical || this.activeGraph !== graph) {
+      throw new Error("BLOB_TRANSACTION_REQUIRED");
+    }
+    const guarded = { query: async (sql, values) => {
+      if (this.activeGraph !== graph || this.graphMutationSession !== physical) {
+        throw new Error("BLOB_TRANSACTION_REQUIRED");
+      }
+      try {
+        return await physical.query(sql, values);
+      } catch (error) {
+        this.graphSqlRollbackOnly = true;
+        throw error;
+      }
+    } };
+    try {
+      return await work(guarded);
+    } catch (error) {
+      if (this.activeGraph === graph && this.graphMutationSession === physical) {
+        this.graphSqlRollbackOnly = true;
+      }
+      throw error;
+    }
   }
   afterGraphCommit(work) {
     if (!this.graphMutationSession) throw new Error("No graph save is active");
@@ -651,6 +709,34 @@ var AbstractSQLTeaQLClient = class {
   async withMutationSession(request, work) {
     this.requireGraphOwnership(request);
     return request.graphSession ? work(this.graphMutationSession) : this.driver.transaction(work);
+  }
+  async applyBlobMutation(request, session, schema, assigned, persisted, id, version, action) {
+    if (!Object.values(schema.columns).some((column) => column.blob)) return;
+    const participant = this.userContext.getResource("blobMutationParticipant");
+    if (!participant || typeof participant.apply !== "function") {
+      throw new Error("BLOB_CAPABILITY_MISSING");
+    }
+    if (!request.graphSession) throw new Error("BLOB_TRANSACTION_REQUIRED");
+    try {
+      await participant.apply(
+        this.userContext,
+        this,
+        request.graphSession,
+        session,
+        {
+          action,
+          entity: String(request.mutation.entity),
+          schema,
+          assigned,
+          persisted,
+          id,
+          version
+        }
+      );
+    } catch (error) {
+      this.graphSqlRollbackOnly = true;
+      throw error;
+    }
   }
   preflightMutation(mutation) {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
@@ -703,6 +789,7 @@ var AbstractSQLTeaQLClient = class {
   }
   async executeMutation(mutation) {
     await this.telemetryStartup;
+    this.validateCapabilities();
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
     mutation = request.mutation;
@@ -719,6 +806,13 @@ var AbstractSQLTeaQLClient = class {
         mutation = this.checkAndFixMutation(request);
         const mutationGovernance = this.userContext.enterMutationPolicy(mutation);
         const schema = this.schema(mutation.entity);
+        if (Object.values(schema.columns).some((column) => column.blob)) {
+          const participant = this.userContext.getResource("blobMutationParticipant");
+          if (!request.graphSession) throw new Error("BLOB_TRANSACTION_REQUIRED");
+          if (!participant || typeof participant.apply !== "function") {
+            throw new Error("BLOB_CAPABILITY_MISSING");
+          }
+        }
         const mutationRecord = this.toRuntimeMutationRecord(schema, mutation.payload || {});
         const diagnosticBindings = this.mutationLogBindings(request, mutation, schema);
         const table = this.driver.identifier(schema.table);
@@ -752,11 +846,22 @@ var AbstractSQLTeaQLClient = class {
             const sql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
             const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, "insert", id, diagnosticBindings);
             await this.executeLoggedSQL("insert", sql, values, intent, () => session.query(sql, values), void 0, statements);
+            const persistedRecord = await this.readPersistedRecord(session, schema, id, intent, sql, values, statements);
+            await this.applyBlobMutation(
+              request,
+              session,
+              schema,
+              mutationRecord,
+              persistedRecord,
+              id,
+              version,
+              "Create"
+            );
             return {
               success: true,
               id,
               version,
-              persistedRecord: await this.readPersistedRecord(session, schema, id, intent, sql, values, statements)
+              persistedRecord
             };
           }
           if (mutation.action === "Update") {
@@ -799,6 +904,16 @@ var AbstractSQLTeaQLClient = class {
               values,
               statements
             );
+            await this.applyBlobMutation(
+              request,
+              session,
+              schema,
+              mutationRecord,
+              persistedRecord,
+              String(mutation.id),
+              Number(persistedRecord.version),
+              "Update"
+            );
             return {
               success: true,
               id: String(mutation.id),
@@ -835,6 +950,16 @@ var AbstractSQLTeaQLClient = class {
               sql,
               values,
               statements
+            );
+            await this.applyBlobMutation(
+              request,
+              session,
+              schema,
+              mutationRecord,
+              persistedRecord,
+              String(mutation.id),
+              Number(persistedRecord.version),
+              "Delete"
             );
             return {
               success: true,
@@ -950,6 +1075,10 @@ var AbstractSQLTeaQLClient = class {
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === void 0) continue;
+      if (column.blob) {
+        result[field] = BlobRef.fromSQL(value);
+        continue;
+      }
       if (column.decode === "number") result[field] = Number(value);
       if (column.decode === "string") result[field] = String(value);
       if (column.decode === "date" && value instanceof Date) result[field] = value.toISOString();
@@ -1909,4 +2038,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-YW5SDSKW.js.map
+//# sourceMappingURL=chunk-GQZNUYWZ.js.map

@@ -9,6 +9,11 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./object-storage/file": {
+      "types": "./dist/object-storage/file.d.ts",
+      "import": "./dist/esm/object-storage/file.js",
+      "require": "./dist/object-storage/file.js"
+    },
     "./object-storage/s3": {
       "types": "./dist/object-storage/s3.d.ts",
       "import": "./dist/esm/object-storage/s3.js",
@@ -77,6 +82,7 @@
   },
   "typesVersions": {
     "*": {
+      "object-storage/file": ["dist/object-storage/file.d.ts"],
       "object-storage/s3": ["dist/object-storage/s3.d.ts"],
       "sql/core": [
         "dist/sql/core.d.ts"

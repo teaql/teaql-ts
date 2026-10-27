@@ -21,7 +21,9 @@ export declare class RuntimeModule {
     readonly schemas: Readonly<Record<string, EntitySchema>>;
     readonly checkers: Readonly<Record<string, EntityChecker>>;
     readonly bootstrap: RuntimeBootstrap;
-    constructor(schemas?: Record<string, EntitySchema>, checkers?: Record<string, EntityChecker>, bootstrap?: RuntimeBootstrap);
+    readonly requiredCapabilities: readonly string[];
+    constructor(schemas?: Record<string, EntitySchema>, checkers?: Record<string, EntityChecker>, bootstrap?: RuntimeBootstrap, requiredCapabilities?: readonly string[]);
+    withRequiredCapabilities(...capabilities: string[]): RuntimeModule;
     and(other: RuntimeModule): RuntimeModule;
 }
 //# sourceMappingURL=runtime-module.d.ts.map
