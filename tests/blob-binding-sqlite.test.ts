@@ -5,6 +5,7 @@ import { BlobRef } from '../src/core/blob-ref';
 import { UserContext } from '../src/core/context';
 import { MutationIntent } from '../src/core/request-intent';
 import { BlobBindingAuthorization, SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
+import { BlobRetentionPolicy } from '../src/blob-reference/retention';
 import { SQLiteDriver, SQLiteTeaQLClient } from '../src/sql/sqlite';
 
 test('SQLite Blob target binding is in the business graph transaction and retains a tombstone', async () => {
@@ -22,6 +23,7 @@ test('SQLite Blob target binding is in the business graph transaction and retain
     authorize: async (_context, target, _previous, next) =>
       permitted && target.entity === 'Asset' && target.entityId === '1' &&
       target.field === 'document' && (next === null || next.equals(reference)),
+    currentPolicyOnLease: () => new BlobRetentionPolicy('default', 'server_stream', 3600, 3600),
   };
   const target = { entity: 'Asset', entityId: '1', field: 'document' };
   try {
@@ -45,6 +47,15 @@ test('SQLite Blob target binding is in the business graph transaction and retain
           expectedVersion: 0, nextVersion: 1 }, authorization)))
       .rejects.toThrow('BLOB_REFERENCE_INVALID');
     expect((await driver.query('SELECT key FROM teaql_blob_binding')).rowCount).toBe(0);
+
+    await expect(client.executeGraphSave(new MutationIntent('ambiguous legacy Blob'), graph =>
+      catalog.bindInGraph(client, graph, context,
+        { target, next: reference, expectedVersion: 0, nextVersion: 1 }, authorization)))
+      .rejects.toThrow('BLOB_BIND_DENIED');
+    await driver.query(`UPDATE teaql_blob_catalog SET completed_at_ms = ?,
+      policy_profile = 'default', upload_mode = 'server_stream',
+      unbound_retention_seconds = 3600, effective_unref_seconds = 3600 WHERE key = ?`,
+    [Date.now(), reference.key]);
 
     await client.executeGraphSave(new MutationIntent('create asset and bind Blob'), async graph => {
       await client.withGraphSqlSession(graph, session => session.query(
@@ -128,4 +139,97 @@ test('readiness rejects the earlier binding schema that cannot retain unbound ve
       PRIMARY KEY (scope, entity, entity_id, field))`);
     await expect(catalog.validateSchema()).rejects.toThrow('BLOB_SCHEMA_MISSING');
   } finally { await driver.close(); }
+});
+
+test('trusted policy binding uses completion and last-unbind deadlines on the graph SQL owner', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'teaql-blob-retention-bind-'));
+  const filename = join(directory, 'catalog.sqlite');
+  const driver = new SQLiteDriver(filename);
+  const client = new SQLiteTeaQLClient(filename, {});
+  let clock = 10_999;
+  const catalog = new SqlBlobCatalog(driver, () => clock);
+  const actor = new UserContext();
+  client.setUserContext(actor);
+  const reference = new BlobRef('blob_retention_1');
+  const target = { entity: 'Asset', entityId: '1', field: 'document' };
+  let policy = new BlobRetentionPolicy('target', 'server_stream', 10, 30, 15);
+  const authorization: BlobBindingAuthorization = {
+    scope: () => 'tenant-a', authorize: async () => true,
+    currentPolicyOnLease: async (_actor, lease) => {
+      expect((await lease.query('SELECT 1 AS n')).rows[0].n).toBe(1);
+      return policy;
+    },
+  };
+  const bind = (next: BlobRef | null, expectedVersion: number, nextVersion: number) =>
+    client.executeGraphSave(new MutationIntent('retention-aware Blob binding'), async graph => {
+      await client.withGraphSqlSession(graph, session => session.query(
+        'UPDATE asset SET document = ? WHERE id = ?', [next?.key ?? null, '1']));
+      return catalog.bindInGraph(client, graph, actor,
+        { target, next, expectedVersion, nextVersion }, authorization);
+    });
+  try {
+    await catalog.ensureSchema();
+    await driver.query('CREATE TABLE asset (id TEXT PRIMARY KEY, document TEXT)');
+    await driver.query("INSERT INTO asset VALUES ('1',NULL)");
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key,scope,object_key,content_version,file_name,content_type,size_bytes,status,
+       completed_at_ms,policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [reference.key, 'tenant-a', 'objects/retained',
+      'version-1', 'report.pdf', 'application/pdf', 1, 'uploaded_unbound', 1000,
+      'default', 'server_stream', 10, 20]);
+    await expect(client.executeGraphSave(new MutationIntent('missing target policy'), graph =>
+      catalog.bindInGraph(client, graph, actor,
+        { target, next: reference, expectedVersion: 0, nextVersion: 1 },
+        { scope: () => 'tenant-a', authorize: async () => true })))
+      .rejects.toThrow('BLOB_BIND_DENIED');
+    expect((await driver.query('SELECT key FROM teaql_blob_binding')).rows).toHaveLength(0);
+
+    await bind(reference, 0, 1);
+    expect((await driver.query(`SELECT status,last_unbound_at_ms,effective_unref_seconds,
+      retention_floor_until_ms FROM teaql_blob_catalog WHERE key = ?`, [reference.key])).rows[0])
+      .toMatchObject({ status: 'available', last_unbound_at_ms: null,
+        effective_unref_seconds: 30, retention_floor_until_ms: 25_999 });
+    await expect(client.executeGraphSave(new MutationIntent('abort policy unbind'), async graph => {
+      await catalog.bindInGraph(client, graph, actor,
+        { target, next: null, expectedVersion: 1, nextVersion: 2 }, authorization);
+      throw new Error('abort graph');
+    })).rejects.toThrow('abort graph');
+    expect((await driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [reference.key])).rows[0].last_unbound_at_ms).toBeNull();
+
+    clock = 12_000;
+    await bind(null, 1, 2);
+    expect((await driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [reference.key])).rows[0].last_unbound_at_ms).toBe(12_000);
+    policy = new BlobRetentionPolicy('target', 'server_stream', 1, 1);
+    clock = 20_000;
+    await bind(reference, 2, 3);
+    expect((await driver.query(`SELECT last_unbound_at_ms,effective_unref_seconds,
+      retention_floor_until_ms FROM teaql_blob_catalog WHERE key = ?`, [reference.key])).rows[0])
+      .toMatchObject({ last_unbound_at_ms: null, effective_unref_seconds: 30,
+        retention_floor_until_ms: 25_999 });
+    clock = 22_000;
+    await bind(null, 3, 4);
+    clock = 52_000;
+    await expect(bind(reference, 4, 5)).rejects.toThrow('BLOB_REFERENCE_EXPIRED');
+    expect((await driver.query('SELECT document FROM asset WHERE id = ?', ['1'])).rows[0].document)
+      .toBeNull();
+
+    const expired = new BlobRef('blob_retention_expired');
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key,scope,object_key,content_version,file_name,content_type,size_bytes,status,
+       completed_at_ms,policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [expired.key, 'tenant-a', 'objects/expired',
+      'version-2', 'old.pdf', 'application/pdf', 1, 'uploaded_unbound', 1000,
+      'default', 'server_stream', 10, 20]);
+    await expect(client.executeGraphSave(new MutationIntent('expired unbound Blob'), graph =>
+      catalog.bindInGraph(client, graph, actor,
+        { target: { ...target, entityId: '2' }, next: expired,
+          expectedVersion: 0, nextVersion: 1 }, authorization)))
+      .rejects.toThrow('BLOB_REFERENCE_EXPIRED');
+  } finally {
+    await client.close();
+    await driver.close();
+    await rm(directory, { recursive: true, force: true });
+  }
 });

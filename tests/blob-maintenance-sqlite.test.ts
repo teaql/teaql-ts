@@ -8,6 +8,7 @@ import { ObjectByteStream, ObjectContent, ObjectKey, ObjectMetadata,
   ObjectPutOptions, ObjectReadUrl, ObjectReadUrlOptions, ObjectStorageProvider,
   StorageError, StorageInvocation } from '../src/core/object-storage';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
+import { BlobRetentionPolicy } from '../src/blob-reference/retention';
 import { SqliteBlobMaintenanceService } from '../src/blob-reference/maintenance-service';
 import { SqliteBlobUploadService } from '../src/blob-reference/upload-service';
 import { FileObjectStorage, SqliteFencedFileObjectStorage } from '../src/object-storage/file';
@@ -68,7 +69,7 @@ class ConditionalStore implements ObjectStorageProvider {
 const bytes = Buffer.from('%PDF-1.7\nreal test bytes\n%%EOF');
 const target = { entity: 'Asset', entityId: null, field: 'document' };
 
-async function fixture() {
+async function fixture(policy?: BlobRetentionPolicy) {
   const root = await mkdtemp(join(tmpdir(), 'teaql-blob-maintenance-'));
   const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
   const catalog = new SqlBlobCatalog(driver);
@@ -81,7 +82,7 @@ async function fixture() {
     field: () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
     authorize: async () => true,
     currentOnLease: async () => ({ scope,
-      field: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'), allowed: true }),
+      field: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'), allowed: true, policy }),
   }, { verify: async (source) => {
     const parts: Buffer[] = [];
     for await (const block of source) parts.push(Buffer.from(block));
@@ -112,7 +113,7 @@ async function fixture() {
   };
 }
 
-test('maintenance is explicit, authorized, outside graph SQL, and only collects expired uncompleted uploads', async () => {
+test('maintenance is explicit, authorized, outside graph SQL, and leaves legacy completed rows untouched', async () => {
   const f = await fixture();
   try {
     const missing = await f.begin('missing');
@@ -257,6 +258,124 @@ test('real SQLite and fenced File recover failed receipt and partial deletion', 
     const recovered = await maintenance.runBatch(actor);
     expect(recovered.outcomes).toContainEqual(expect.objectContaining({ status: 'deleted' }));
     expect(await store.head(partialKey)).toBeUndefined();
+  } finally { await f.close(); }
+});
+
+test('real fenced File collects policy-backed completed and formerly bound Blobs at their deadlines', async () => {
+  const f = await fixture(new BlobRetentionPolicy('default', 'server_stream', 10, 20));
+  const file = new SqliteFencedFileObjectStorage(join(f.root, 'retained-files'), randomBytes(32));
+  const actor = new UserContext().withObjectStorage(file).withObjectStorageObserver(() => {});
+  const store = actor.objectStorage('retention maintenance test');
+  const maintenance = new SqliteBlobMaintenanceService(f.catalog,
+    { scope: () => 'tenant-a', canMaintain: () => true }, 100, () => f.clock);
+  const started = f.clock;
+  const completed = async (replay: string) => {
+    const upload = await f.upload.begin(actor, target,
+      { fileName: 'report.pdf', declaredSize: bytes.length }, replay);
+    await f.upload.write(actor, upload.uploadId, (async function* () { yield bytes; })());
+    await f.upload.complete(actor, upload.uploadId);
+    return { reference: upload.reference, key: await f.objectKey(upload.reference.key) };
+  };
+  try {
+    const unbound = await completed('retained-unbound');
+    const formerlyBound = await completed('retained-formerly-bound');
+    const bound = await completed('retained-active');
+    const legacy = await completed('retained-legacy');
+    const direct = await completed('retained-direct');
+    await f.driver.query(`UPDATE teaql_blob_catalog SET status = 'available',
+      last_unbound_at_ms = ?, effective_unref_seconds = 20,
+      retention_floor_until_ms = ? WHERE key = ?`,
+    [started, started + 30_000, formerlyBound.reference.key]);
+    await f.driver.query(`UPDATE teaql_blob_catalog SET status = 'available',
+      last_unbound_at_ms = ? WHERE key = ?`, [started, bound.reference.key]);
+    await f.driver.query(`INSERT INTO teaql_blob_binding
+      (scope,entity,entity_id,field,key,version) VALUES (?,?,?,?,?,?)`,
+    ['tenant-a', 'Asset', 'active', 'document', bound.reference.key, 1]);
+    await f.driver.query(`UPDATE teaql_blob_catalog SET policy_profile = NULL,
+      upload_mode = NULL, unbound_retention_seconds = NULL, effective_unref_seconds = NULL
+      WHERE key = ?`, [legacy.reference.key]);
+    await f.driver.query(`UPDATE teaql_blob_catalog SET upload_mode = 'direct' WHERE key = ?`,
+      [direct.reference.key]);
+
+    f.clock = started + 9_999;
+    expect((await maintenance.runBatch(actor)).outcomes).toHaveLength(0);
+    expect(await store.head(unbound.key)).toBeDefined();
+    f.clock = started + 10_000;
+    expect(await f.catalog.expiredUploadDeletionCandidates('tenant-a', '', f.clock, 100))
+      .toHaveLength(0);
+    expect(await f.catalog.claimExpiredUploadDeletion('tenant-a', unbound.reference.key, f.clock))
+      .toBeUndefined();
+    const first = await maintenance.runBatch(actor);
+    expect(first.outcomes).toMatchObject([{ reference: unbound.reference, status: 'deleted' }]);
+    expect(await store.head(unbound.key)).toBeUndefined();
+    expect(await store.head(formerlyBound.key)).toBeDefined();
+
+    f.clock = started + 30_000;
+    const candidates = await f.catalog.deletionCandidates('tenant-a', '', f.clock, 100);
+    expect(candidates).toContain(formerlyBound.reference.key);
+    const race = await completed('retained-candidate-bind-race');
+    f.clock = started + 40_000;
+    expect(await f.catalog.deletionCandidates('tenant-a', '', f.clock, 100))
+      .toContain(race.reference.key);
+    await f.driver.query(`INSERT INTO teaql_blob_binding
+      (scope,entity,entity_id,field,key,version) VALUES (?,?,?,?,?,?)`,
+    ['tenant-a', 'Asset', 'raced', 'document', race.reference.key, 1]);
+    expect(await f.catalog.claimDeletion('tenant-a', race.reference.key, f.clock)).toBeUndefined();
+    const second = await maintenance.runBatch(actor);
+    expect(second.outcomes).toMatchObject([
+      { reference: formerlyBound.reference, status: 'deleted' },
+    ]);
+    for (const protectedBlob of [bound, legacy, direct, race]) {
+      expect(await store.head(protectedBlob.key)).toBeDefined();
+    }
+    expect((await f.driver.query(`SELECT status FROM teaql_blob_catalog WHERE key = ?`,
+      [race.reference.key])).rows[0].status).toBe('uploaded_unbound');
+  } finally { await f.close(); }
+});
+
+test('completed File collection retries a failed receipt and fences a replacement generation', async () => {
+  const f = await fixture(new BlobRetentionPolicy('default', 'server_stream', 1, 2));
+  const file = new SqliteFencedFileObjectStorage(join(f.root, 'completed-retry'), randomBytes(32));
+  const actor = new UserContext().withObjectStorage(file).withObjectStorageObserver(() => {});
+  const store = actor.objectStorage('completed retry test');
+  const maintenance = new SqliteBlobMaintenanceService(f.catalog,
+    { scope: () => 'tenant-a', canMaintain: () => true }, 100, () => f.clock);
+  const upload = async (replay: string) => {
+    const begun = await f.upload.begin(actor, target,
+      { fileName: 'report.pdf', declaredSize: bytes.length }, replay);
+    await f.upload.write(actor, begun.uploadId, (async function* () { yield bytes; })());
+    await f.upload.complete(actor, begun.uploadId);
+    return { reference: begun.reference, key: await f.objectKey(begun.reference.key) };
+  };
+  try {
+    const failedReceipt = await upload('completed-failed-receipt');
+    const replaced = await upload('completed-replaced-generation');
+    const newer = await store.putBytes(replaced.key, bytes,
+      new ObjectPutOptions(bytes.length, 'replace', 'application/pdf'));
+    f.clock += 1000;
+    await f.driver.query(`CREATE TRIGGER reject_completed_receipt
+      BEFORE UPDATE OF status ON teaql_blob_catalog
+      WHEN NEW.status = 'deleted' BEGIN SELECT RAISE(ABORT, 'private trigger'); END`);
+    const first = await maintenance.runBatch(actor);
+    expect(first.outcomes).toContainEqual(expect.objectContaining({
+      reference: failedReceipt.reference, status: 'failed', error: 'BLOB_CATALOG_FAILED',
+    }));
+    expect(first.outcomes).toContainEqual(expect.objectContaining({
+      reference: replaced.reference, status: 'version_conflict',
+    }));
+    expect(await store.head(failedReceipt.key)).toBeUndefined();
+    expect((await store.head(replaced.key))?.etag).toBe(newer.etag);
+    await f.driver.query('DROP TRIGGER reject_completed_receipt');
+    const retry = await maintenance.runBatch(actor);
+    expect(retry.outcomes).toContainEqual(expect.objectContaining({
+      reference: failedReceipt.reference, status: 'already_missing',
+    }));
+    expect(retry.outcomes).toContainEqual(expect.objectContaining({
+      reference: replaced.reference, status: 'version_conflict',
+    }));
+    expect((await f.status(failedReceipt.reference.key)).status).toBe('deleted');
+    expect((await f.status(replaced.reference.key)).status).toBe('deleting');
+    expect((await store.head(replaced.key))?.etag).toBe(newer.etag);
   } finally { await f.close(); }
 });
 

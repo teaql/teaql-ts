@@ -7,9 +7,20 @@ import { EntityRoot } from '../src/core/entity-root';
 import { MutationIntent } from '../src/core/request-intent';
 import { installRuntimeCapability } from '../src/core/runtime-capability';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
+import { BlobRetentionPolicy } from '../src/blob-reference/retention';
 import { SqliteBlobMutationParticipant } from '../src/blob-reference/mutation-participant';
 import type { EntitySchema } from '../src/sql/core';
 import { SQLiteDriver, SQLiteTeaQLClient } from '../src/sql/sqlite';
+
+const currentPolicyOnLease = () => new BlobRetentionPolicy('default', 'server_stream', 3600, 3600);
+async function markPolicyBacked(driver: SQLiteDriver, key: string): Promise<void> {
+  const now = Date.now();
+  await driver.query(`UPDATE teaql_blob_catalog SET completed_at_ms = ?,
+    last_unbound_at_ms = CASE WHEN status = 'available' THEN ? ELSE NULL END,
+    policy_profile = 'default', upload_mode = 'server_stream',
+    unbound_retention_seconds = 3600, effective_unref_seconds = 3600 WHERE key = ?`,
+  [now, now, key]);
+}
 
 const schema: EntitySchema = { table: 'asset', columns: {
   id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
@@ -32,7 +43,7 @@ test('native binding keeps canonical model field when the TS member differs', as
   installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
   context.insertResource('blobMutationParticipant',
     new SqliteBlobMutationParticipant(catalog, {
-      scope: () => 'tenant-a', authorize: async () => true,
+      scope: () => 'tenant-a', authorize: async () => true, currentPolicyOnLease,
     }));
   client.setUserContext(context);
   try {
@@ -44,6 +55,7 @@ test('native binding keeps canonical model field when the TS member differs', as
       reference.key, 'tenant-a', 'objects/legacy', 'v1', 'legacy.doc',
       'application/msword', 7, 'uploaded_unbound',
     ]);
+    await markPolicyBacked(driver, reference.key);
     await client.executeGraphSave(new MutationIntent('create canonical Blob field'),
       graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Create',
         id: '1', payload: { legacyDocument: reference } })));
@@ -74,7 +86,7 @@ test('allocated ledger key binds a Blob inside its outer graph and rolls back wi
   installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
   context.insertResource('blobMutationParticipant',
     new SqliteBlobMutationParticipant(catalog, {
-      scope: () => 'tenant-a', authorize: async () => true,
+      scope: () => 'tenant-a', authorize: async () => true, currentPolicyOnLease,
     }));
   client.setUserContext(context);
   const provisional = { entity: 'Asset', id: -1 };
@@ -108,6 +120,7 @@ test('allocated ledger key binds a Blob inside its outer graph and rolls back wi
       reference.key, 'tenant-a', 'objects/ledger', 'v1', 'ledger.pdf',
       'application/pdf', 7, 'uploaded_unbound',
     ]);
+    await markPolicyBacked(driver, reference.key);
     await expect(save(true)).rejects.toThrow('outer owner rejected');
     expect((await driver.query('SELECT id FROM asset')).rows).toHaveLength(0);
     expect((await driver.query('SELECT key FROM teaql_blob_binding')).rows).toHaveLength(0);
@@ -140,6 +153,7 @@ test('native create/update/delete automatically maintains SQLite binding in the 
   const authorization = {
     scope: () => 'tenant-a',
     authorize: async () => permitted,
+    currentPolicyOnLease,
   };
   installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
   context.insertResource('blobMutationParticipant',
@@ -153,6 +167,7 @@ test('native create/update/delete automatically maintains SQLite binding in the 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [reference.key, 'tenant-a', 'objects/native-1', 'v1', 'asset.pdf',
       'application/pdf', 7, 'available']);
+    await markPolicyBacked(driver, reference.key);
 
     const created = await client.executeGraphSave(new MutationIntent('create native Blob asset'),
       graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Create', id: '1',

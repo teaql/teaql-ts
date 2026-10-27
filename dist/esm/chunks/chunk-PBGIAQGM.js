@@ -65,7 +65,7 @@ var SqliteBlobMaintenanceService = class {
   async collect(context, scope, key, store) {
     const reference = new BlobRef(key);
     await this.authorize(context, scope);
-    const claim = await this.catalog.claimExpiredUploadDeletion(scope, key, this.time());
+    const claim = await this.catalog.claimDeletion(scope, key, this.time());
     if (!claim) return { reference, status: "not_eligible" };
     await this.authorize(context, scope);
     const objectKey = new ObjectKey(claim.objectKey);
@@ -84,7 +84,7 @@ var SqliteBlobMaintenanceService = class {
           throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
         version = observed.etag;
         await this.authorize(context, scope);
-        await this.catalog.captureExpiredDeletionVersion(scope, claim, version, this.time());
+        await this.catalog.captureDeletionVersion(scope, claim, version, this.time());
       }
     }
     await this.authorize(context, scope);
@@ -100,7 +100,7 @@ var SqliteBlobMaintenanceService = class {
       status = result;
     }
     await this.authorize(context, scope);
-    await this.catalog.finishExpiredUploadDeletion(scope, claim, version, this.time());
+    await this.catalog.finishDeletion(scope, claim, version, this.time());
     return { reference, status };
   }
   async runBatch(context, cursor) {
@@ -110,13 +110,13 @@ var SqliteBlobMaintenanceService = class {
     this.requireStandalone();
     let store;
     try {
-      store = context.objectStorage("collect expired Blob upload");
+      store = context.objectStorage("collect retained Blob lifecycle");
     } catch {
       throw new Error("BLOB_CAPABILITY_MISSING");
     }
     if (!store.supportsVersionConditionalDelete()) throw new Error("BLOB_CAPABILITY_MISSING");
     await this.catalog.validateSchema();
-    const candidates = await this.catalog.expiredUploadDeletionCandidates(
+    const candidates = await this.catalog.deletionCandidates(
       scope,
       cursor?.position() ?? "",
       this.time(),
@@ -147,4 +147,4 @@ export {
   BlobMaintenanceCursor,
   SqliteBlobMaintenanceService
 };
-//# sourceMappingURL=chunk-IEZNGXBH.js.map
+//# sourceMappingURL=chunk-PBGIAQGM.js.map

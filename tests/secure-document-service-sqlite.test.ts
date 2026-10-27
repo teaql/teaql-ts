@@ -6,6 +6,7 @@ import { UserContext } from '../src/core/context';
 import { BlobRef } from '../src/core/blob-ref';
 import { GraphCommittedError } from '../src/core/request-intent';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
+import { BlobRetentionPolicy } from '../src/blob-reference/retention';
 import { SecureDocumentReferenceModule } from '../src/secure-document-reference/document-round-trip';
 import { SqliteDocumentCommandJournal } from '../src/secure-document-reference/sqlite-command-journal';
 import { SqliteSecureDocumentService, SqliteDocumentHost } from
@@ -35,6 +36,12 @@ test('SQLite secure document open, accept and replay use current permission and 
     const selectionLifetimeSeconds = 30;
     const journal = new SqliteDocumentCommandJournal(driver);
     const catalog = new SqlBlobCatalog(driver);
+    const markPolicyBacked = async (...keys: string[]) => {
+      for (const key of keys) await driver.query(`UPDATE teaql_blob_catalog
+        SET completed_at_ms = ?, policy_profile = 'default', upload_mode = 'server_stream',
+          unbound_retention_seconds = 3600, effective_unref_seconds = 3600 WHERE key = ?`,
+      [Date.now(), key]);
+    };
     let failPresentation = false;
     let mutations = 0;
     let changeActor = false;
@@ -165,7 +172,8 @@ test('SQLite secure document open, accept and replay use current permission and 
           authorize: async (_context, target, _previous, next) =>
             target.entity === selection.target.targetEntity &&
             target.entityId === selection.entityId &&
-            target.field === 'attachment' && next instanceof BlobRef });
+            target.field === 'attachment' && next instanceof BlobRef,
+          currentPolicyOnLease: () => new BlobRetentionPolicy('default', 'server_stream', 3600, 3600) });
       },
       present: async () => { if (failPresentation) throw new Error('presentation unavailable'); },
     };
@@ -189,8 +197,11 @@ test('SQLite secure document open, accept and replay use current permission and 
         PRIMARY KEY(subject,order_id))`);
       await driver.query("INSERT INTO document_order VALUES (10,'ORD-10','ORD-10',1,1,NULL)");
       await driver.query(`INSERT INTO teaql_blob_catalog
-        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status) VALUES
-        ('blob_A','merchant:7','objects/a','v1','a.pdf','application/pdf',3,'uploaded_unbound')`);
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status,
+         completed_at_ms,policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      ['blob_A', 'merchant:7', 'objects/a', 'v1', 'a.pdf', 'application/pdf', 3,
+        'uploaded_unbound', Date.now(), 'default', 'server_stream', 3600, 3600]);
       await driver.query("INSERT INTO document_permission VALUES ('alice',10,1)");
       await driver.query("INSERT INTO document_permission VALUES ('bob',10,1)");
 
@@ -285,6 +296,7 @@ test('SQLite secure document open, accept and replay use current permission and 
       await driver.query(`INSERT INTO teaql_blob_catalog
         (key,scope,object_key,content_version,file_name,content_type,size_bytes,status) VALUES
         ('blob_B','merchant:7','objects/b','v1','b.pdf','application/pdf',3,'uploaded_unbound')`);
+      await markPolicyBacked('blob_B');
       const receiptToken = runtime.issueBlobSelection(principal, fresh.documentToken,
         { target: { ...selectionTarget, scope: freshScope, commandId: 'command-receipt-fail' },
           stableKey: 'blob_B' }, selectionLifetimeSeconds);
@@ -352,6 +364,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         (key,scope,object_key,content_version,file_name,content_type,size_bytes,status) VALUES
         ('blob_C','merchant:7','objects/c','v1','c.pdf','application/pdf',3,'uploaded_unbound'),
         ('blob_D','merchant:7','objects/d','v1','d.pdf','application/pdf',3,'uploaded_unbound')`);
+      await markPolicyBacked('blob_C', 'blob_D');
       const childOpen = await service.open(context, openRequest);
       const childScope = runtime.consumeBoundDocumentSnapshot(principal, childOpen.documentToken,
         'Order', 'edit-order').document.snapshot.scope;

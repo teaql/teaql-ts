@@ -7,7 +7,8 @@ export declare class BlobRetentionPolicy {
     readonly uploadMode: 'server_stream' | 'direct';
     readonly unboundRetentionSeconds: number;
     readonly unreferencedRetentionSeconds: number;
-    constructor(profile: string, uploadMode: 'server_stream' | 'direct', unboundRetentionSeconds: number, unreferencedRetentionSeconds: number);
+    readonly minimumRetentionSeconds: number;
+    constructor(profile: string, uploadMode: 'server_stream' | 'direct', unboundRetentionSeconds: number, unreferencedRetentionSeconds: number, minimumRetentionSeconds?: number);
 }
 export declare class BlobRetention {
     static effectiveRetention(acceptedSeconds: Iterable<number>, proposedSeconds: number): number;

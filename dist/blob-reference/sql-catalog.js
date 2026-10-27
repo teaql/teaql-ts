@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SqlBlobCatalog = void 0;
 const blob_ref_1 = require("../core/blob-ref");
+const retention_1 = require("./retention");
 const validDeleteVersion = (value) => typeof value === 'string' && !!value && value !== '*' && value.length <= 256 &&
     value.trim() === value && !/[\x00-\x1f\x7f-\x9f]/.test(value);
 /** Physical catalog for the optional module. Migration is an explicit host action. */
@@ -65,7 +66,43 @@ class SqlBlobCatalog {
             throw new Error('BLOB_CATALOG_FAILED');
         }
     }
-    /** Scoped, bounded scan. The claim below rechecks every eligibility predicate. */
+    /** Scoped, bounded scan. Only trusted server-stream policy rows can enter
+     * completed/previously-bound retention collection; claim rechecks them. */
+    async deletionCandidates(scope, after, now, limit) {
+        if (!validScope(scope) || !Number.isSafeInteger(now) || !Number.isSafeInteger(limit) ||
+            limit < 1 || limit > 1000)
+            throw new Error('BLOB_POLICY_INVALID');
+        try {
+            const rows = await this.driver.query(`SELECT c.key FROM teaql_blob_catalog c
+        JOIN teaql_blob_upload u ON u.key = c.key AND u.scope = c.scope
+        WHERE c.scope = ? AND c.key > ? AND (
+          (c.status = 'deleting' AND (u.state IN ('initiated','written') OR
+            (u.state = 'completed' AND c.upload_mode = 'server_stream')))
+          OR (c.status = 'initiated' AND u.state IN ('initiated','written')
+            AND u.expires_at <= ?)
+          OR (c.status = 'uploaded_unbound' AND u.state = 'completed'
+            AND c.upload_mode = 'server_stream' AND c.completed_at_ms IS NOT NULL
+            AND c.unbound_retention_seconds IS NOT NULL
+            AND c.completed_at_ms + c.unbound_retention_seconds * 1000 <= ?)
+          OR (c.status = 'available' AND u.state = 'completed'
+            AND c.upload_mode = 'server_stream' AND c.last_unbound_at_ms IS NOT NULL
+            AND c.effective_unref_seconds IS NOT NULL
+            AND c.last_unbound_at_ms + c.effective_unref_seconds * 1000 <= ?
+            AND (c.retention_floor_until_ms IS NULL OR c.retention_floor_until_ms <= ?))
+        )
+          AND NOT EXISTS (SELECT 1 FROM teaql_blob_binding b WHERE b.key = c.key)
+        ORDER BY c.key LIMIT ?`, [scope, after, now, now, now, now, limit]);
+            return rows.rows.map(row => {
+                if (typeof row.key !== 'string')
+                    throw new Error('BLOB_CATALOG_FAILED');
+                return row.key;
+            });
+        }
+        catch {
+            throw new Error('BLOB_CATALOG_FAILED');
+        }
+    }
+    /** Compatibility entry point for callers that only collect incomplete uploads. */
     async expiredUploadDeletionCandidates(scope, after, now, limit) {
         if (!validScope(scope) || !Number.isSafeInteger(now) || !Number.isSafeInteger(limit) ||
             limit < 1 || limit > 1000)
@@ -87,12 +124,14 @@ class SqlBlobCatalog {
             throw new Error('BLOB_CATALOG_FAILED');
         }
     }
-    /** BEGIN IMMEDIATE serializes this claim with upload write/complete and graph binding. */
-    async claimExpiredUploadDeletion(scope, key, now) {
+    /** BEGIN IMMEDIATE serializes this claim with upload and graph binding. */
+    async claimDeletion(scope, key, now, incompleteOnly = false) {
         try {
             return await this.driver.transaction(async (sql) => {
-                const rows = await sql.query(`SELECT c.key, c.object_key, c.content_version,
-            c.status, u.state, u.expires_at, u.written_etag
+                const rows = await sql.query(`SELECT c.key,c.object_key,c.content_version,c.status,
+            c.completed_at_ms,c.last_unbound_at_ms,c.policy_profile,c.upload_mode,
+            c.unbound_retention_seconds,c.effective_unref_seconds,c.retention_floor_until_ms,
+            u.state,u.expires_at,u.written_etag
           FROM teaql_blob_catalog c JOIN teaql_blob_upload u
             ON u.key = c.key AND u.scope = c.scope
           WHERE c.scope = ? AND c.key = ?`, [scope, key]);
@@ -100,10 +139,8 @@ class SqlBlobCatalog {
                     return undefined;
                 const row = rows.rows[0];
                 const bound = await sql.query('SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1', [key]);
-                if (bound.rows.length || !Number.isSafeInteger(Number(row.expires_at)) ||
-                    Number(row.expires_at) > now ||
-                    !['initiated', 'written'].includes(String(row.state)) ||
-                    !['initiated', 'deleting'].includes(String(row.status)))
+                if (bound.rows.length || !Number.isSafeInteger(now) || now < 0 ||
+                    !['initiated', 'uploaded_unbound', 'available', 'deleting'].includes(String(row.status)))
                     return undefined;
                 if (typeof row.object_key !== 'string' || !row.object_key ||
                     typeof row.content_version !== 'string' ||
@@ -111,12 +148,47 @@ class SqlBlobCatalog {
                     (row.content_version !== '' && !validDeleteVersion(row.content_version)) ||
                     (row.state === 'written' && !row.written_etag))
                     throw new Error('BLOB_CATALOG_FAILED');
+                const incomplete = row.state === 'initiated' || row.state === 'written';
+                if (incompleteOnly && !incomplete)
+                    return undefined;
+                if (incomplete) {
+                    if (!Number.isSafeInteger(row.expires_at) ||
+                        (row.status !== 'deleting' && (row.status !== 'initiated' || row.expires_at > now)))
+                        return undefined;
+                }
+                else if (row.state === 'completed') {
+                    if (row.upload_mode !== 'server_stream' ||
+                        typeof row.policy_profile !== 'string' || !row.policy_profile ||
+                        !Number.isSafeInteger(row.completed_at_ms) || row.completed_at_ms < 0 ||
+                        !Number.isSafeInteger(row.unbound_retention_seconds) || row.unbound_retention_seconds < 0 ||
+                        !Number.isSafeInteger(row.effective_unref_seconds) || row.effective_unref_seconds < 0 ||
+                        !validDeleteVersion(row.content_version) ||
+                        row.written_etag !== row.content_version)
+                        return undefined;
+                    if (row.status === 'uploaded_unbound') {
+                        if (!retention_1.BlobRetention.collectable('uploaded_unbound', 0, now, undefined, row.completed_at_ms, row.unbound_retention_seconds))
+                            return undefined;
+                    }
+                    else if (row.status === 'available') {
+                        if (!Number.isSafeInteger(row.last_unbound_at_ms) || row.last_unbound_at_ms < 0 ||
+                            (row.retention_floor_until_ms !== null &&
+                                (!Number.isSafeInteger(row.retention_floor_until_ms) || row.retention_floor_until_ms < 0)))
+                            return undefined;
+                        const eligible = retention_1.BlobRetention.unreferencedEligibleAt(row.last_unbound_at_ms, row.effective_unref_seconds, row.retention_floor_until_ms ?? undefined);
+                        if (!retention_1.BlobRetention.collectable('available', 0, now, undefined, undefined, 0, eligible))
+                            return undefined;
+                    }
+                    else if (row.status !== 'deleting')
+                        return undefined;
+                }
+                else
+                    return undefined;
                 const owners = await sql.query('SELECT count(*) AS n FROM teaql_blob_catalog WHERE object_key = ?', [row.object_key]);
                 if (Number(owners.rows[0]?.n) !== 1)
                     throw new Error('BLOB_CATALOG_FAILED');
-                if (row.status === 'initiated') {
+                if (row.status !== 'deleting') {
                     const changed = await sql.query(`UPDATE teaql_blob_catalog SET status = 'deleting'
-            WHERE key = ? AND scope = ? AND status = 'initiated'`, [key, scope]);
+            WHERE key = ? AND scope = ? AND status = ?`, [key, scope, row.status]);
                     if (changed.rowCount !== 1)
                         throw new Error('BLOB_CATALOG_FAILED');
                 }
@@ -130,7 +202,10 @@ class SqlBlobCatalog {
             throw new Error('BLOB_CATALOG_FAILED');
         }
     }
-    async captureExpiredDeletionVersion(scope, record, version, now) {
+    async claimExpiredUploadDeletion(scope, key, now) {
+        return this.claimDeletion(scope, key, now, true);
+    }
+    async captureDeletionVersion(scope, record, version, now) {
         if (!validDeleteVersion(version))
             throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
         try {
@@ -163,11 +238,15 @@ class SqlBlobCatalog {
             throw new Error('BLOB_CATALOG_FAILED');
         }
     }
-    async finishExpiredUploadDeletion(scope, record, version, now) {
+    async captureExpiredDeletionVersion(scope, record, version, now) {
+        return this.captureDeletionVersion(scope, record, version, now);
+    }
+    async finishDeletion(scope, record, version, now) {
         try {
             await this.driver.transaction(async (sql) => {
-                const rows = await sql.query(`SELECT c.object_key, c.content_version, c.status,
-            u.state, u.expires_at
+                const rows = await sql.query(`SELECT c.object_key,c.content_version,c.status,
+            c.upload_mode,c.policy_profile,c.completed_at_ms,c.unbound_retention_seconds,
+            c.effective_unref_seconds,u.state,u.expires_at,u.written_etag
           FROM teaql_blob_catalog c JOIN teaql_blob_upload u
             ON u.key = c.key AND u.scope = c.scope
           WHERE c.scope = ? AND c.key = ?`, [scope, record.key]);
@@ -179,9 +258,16 @@ class SqlBlobCatalog {
                 if (row.status === 'deleted')
                     return;
                 const bound = await sql.query('SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1', [record.key]);
+                const incomplete = row.state === 'initiated' || row.state === 'written';
+                const complete = row.state === 'completed' && row.upload_mode === 'server_stream' &&
+                    typeof row.policy_profile === 'string' && !!row.policy_profile &&
+                    Number.isSafeInteger(row.completed_at_ms) && row.completed_at_ms >= 0 &&
+                    Number.isSafeInteger(row.unbound_retention_seconds) && row.unbound_retention_seconds >= 0 &&
+                    Number.isSafeInteger(row.effective_unref_seconds) && row.effective_unref_seconds >= 0 &&
+                    row.written_etag === version;
                 if (bound.rows.length || row.status !== 'deleting' ||
-                    !Number.isSafeInteger(Number(row.expires_at)) || Number(row.expires_at) > now ||
-                    !['initiated', 'written'].includes(String(row.state)))
+                    !Number.isSafeInteger(now) || now < 0 ||
+                    !((incomplete && Number.isSafeInteger(row.expires_at) && row.expires_at <= now) || complete))
                     throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
                 const changed = await sql.query(`UPDATE teaql_blob_catalog SET status = 'deleted'
           WHERE key = ? AND scope = ? AND status = 'deleting' AND content_version = ?`, [record.key, scope, version]);
@@ -194,6 +280,9 @@ class SqlBlobCatalog {
                 throw error;
             throw new Error('BLOB_CATALOG_FAILED');
         }
+    }
+    async finishExpiredUploadDeletion(scope, record, version, now) {
+        return this.finishDeletion(scope, record, version, now);
     }
     /** SQLite's BEGIN IMMEDIATE owner serializes the authoritative binding row.
      * The caller's graph owns commit; a failed module SQL call poisons that graph.
@@ -250,12 +339,52 @@ class SqlBlobCatalog {
                 }
                 if (!allowed)
                     throw new Error('BLOB_BIND_DENIED');
+                let acceptedPolicy;
+                let acceptedFloor;
                 if (change.next) {
-                    const eligible = await session.query(`SELECT key FROM teaql_blob_catalog
+                    const eligible = await session.query(`SELECT key,status,completed_at_ms,last_unbound_at_ms,
+            policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds,
+            retention_floor_until_ms FROM teaql_blob_catalog
           WHERE key = ${p(1)} AND scope = ${p(2)}
             AND status IN ('uploaded_unbound', 'available')`, [change.next.key, scope]);
                     if (eligible.rows.length !== 1)
                         throw new Error('BLOB_BIND_DENIED');
+                    const blob = eligible.rows[0];
+                    if (blob.upload_mode !== 'server_stream' ||
+                        typeof blob.policy_profile !== 'string' || !blob.policy_profile ||
+                        !Number.isSafeInteger(blob.unbound_retention_seconds) || blob.unbound_retention_seconds < 0 ||
+                        !Number.isSafeInteger(blob.effective_unref_seconds) || blob.effective_unref_seconds < 0 ||
+                        !Number.isSafeInteger(blob.completed_at_ms) || blob.completed_at_ms < 0 ||
+                        !authorization.currentPolicyOnLease)
+                        throw new Error('BLOB_BIND_DENIED');
+                    try {
+                        acceptedPolicy = await authorization.currentPolicyOnLease(context, session, target);
+                    }
+                    catch {
+                        throw new Error('BLOB_BIND_DENIED');
+                    }
+                    if (!(acceptedPolicy instanceof retention_1.BlobRetentionPolicy) ||
+                        acceptedPolicy.uploadMode !== 'server_stream')
+                        throw new Error('BLOB_BIND_DENIED');
+                    const now = this.now();
+                    if (!Number.isSafeInteger(now) || now < 0)
+                        throw new Error('BLOB_POLICY_INVALID');
+                    let eligibleAt;
+                    if (blob.status === 'available') {
+                        const bound = await session.query(`SELECT 1 FROM teaql_blob_binding
+              WHERE key = ${p(1)} LIMIT 1`, [change.next.key]);
+                        if (!bound.rows.length && blob.last_unbound_at_ms !== null) {
+                            if (!Number.isSafeInteger(blob.last_unbound_at_ms) || blob.last_unbound_at_ms < 0 ||
+                                (blob.retention_floor_until_ms !== null &&
+                                    (!Number.isSafeInteger(blob.retention_floor_until_ms) || blob.retention_floor_until_ms < 0)))
+                                throw new Error('BLOB_BIND_DENIED');
+                            eligibleAt = retention_1.BlobRetention.unreferencedEligibleAt(blob.last_unbound_at_ms, blob.effective_unref_seconds, blob.retention_floor_until_ms ?? undefined);
+                        }
+                        else if (!bound.rows.length)
+                            throw new Error('BLOB_BIND_DENIED');
+                    }
+                    retention_1.BlobRetention.requireBindable(blob.status, now, blob.completed_at_ms, blob.unbound_retention_seconds, eligibleAt);
+                    acceptedFloor = retention_1.BlobRetention.unreferencedEligibleAt(now, acceptedPolicy.minimumRetentionSeconds);
                 }
                 let result;
                 if (row) {
@@ -276,6 +405,19 @@ class SqlBlobCatalog {
               AND status IN ('uploaded_unbound', 'available')`, [change.next.key, scope]);
                     if (promoted.rowCount !== 1)
                         throw new Error('BLOB_BIND_DENIED');
+                    if (acceptedPolicy && acceptedFloor !== undefined) {
+                        const accepted = await session.query(`UPDATE teaql_blob_catalog SET
+              last_unbound_at_ms = NULL,
+              effective_unref_seconds = MAX(effective_unref_seconds, ${p(1)}),
+              retention_floor_until_ms = CASE
+                WHEN retention_floor_until_ms IS NULL OR retention_floor_until_ms < ${p(2)}
+                THEN ${p(3)} ELSE retention_floor_until_ms END
+              WHERE key = ${p(4)} AND scope = ${p(5)} AND upload_mode = 'server_stream'
+                AND effective_unref_seconds IS NOT NULL`, [acceptedPolicy.unreferencedRetentionSeconds, acceptedFloor, acceptedFloor,
+                            change.next.key, scope]);
+                        if (accepted.rowCount !== 1)
+                            throw new Error('BLOB_BIND_DENIED');
+                    }
                 }
                 if (previous && !previous.equals(change.next)) {
                     const now = this.now();
@@ -289,6 +431,7 @@ class SqlBlobCatalog {
             }
             catch (error) {
                 if (error instanceof Error && ['BLOB_BIND_DENIED', 'BLOB_CATALOG_FAILED', 'BLOB_POLICY_INVALID',
+                    'BLOB_REFERENCE_EXPIRED', 'BLOB_UPLOAD_INCOMPLETE',
                     'BLOB_CAPABILITY_MISSING', 'BLOB_REFERENCE_INVALID'].includes(error.message)) {
                     throw error;
                 }

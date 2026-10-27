@@ -10,12 +10,13 @@ function retention(seconds) {
   return seconds;
 }
 var BlobRetentionPolicy = class {
-  constructor(profile, uploadMode, unboundRetentionSeconds, unreferencedRetentionSeconds) {
+  constructor(profile, uploadMode, unboundRetentionSeconds, unreferencedRetentionSeconds, minimumRetentionSeconds = 0) {
     if (typeof profile !== "string" || !profile.trim() || profile !== profile.trim() || Buffer.byteLength(profile) > 256 || /[\x00-\x1f\x7f-\x9f]/.test(profile) || !["server_stream", "direct"].includes(uploadMode)) throw new Error("BLOB_POLICY_INVALID");
     this.profile = profile;
     this.uploadMode = uploadMode;
     this.unboundRetentionSeconds = retention(unboundRetentionSeconds);
     this.unreferencedRetentionSeconds = retention(unreferencedRetentionSeconds);
+    this.minimumRetentionSeconds = retention(minimumRetentionSeconds);
     Object.freeze(this);
   }
 };
@@ -68,4 +69,4 @@ export {
   BlobRetentionPolicy,
   BlobRetention
 };
-//# sourceMappingURL=chunk-FUEEXNNP.js.map
+//# sourceMappingURL=chunk-I5BWLNYV.js.map

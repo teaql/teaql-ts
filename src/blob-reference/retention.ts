@@ -23,9 +23,11 @@ export class BlobRetentionPolicy {
   readonly uploadMode: 'server_stream' | 'direct';
   readonly unboundRetentionSeconds: number;
   readonly unreferencedRetentionSeconds: number;
+  readonly minimumRetentionSeconds: number;
 
   constructor(profile: string, uploadMode: 'server_stream' | 'direct',
-              unboundRetentionSeconds: number, unreferencedRetentionSeconds: number) {
+              unboundRetentionSeconds: number, unreferencedRetentionSeconds: number,
+              minimumRetentionSeconds = 0) {
     if (typeof profile !== 'string' || !profile.trim() || profile !== profile.trim() ||
         Buffer.byteLength(profile) > 256 || /[\x00-\x1f\x7f-\x9f]/.test(profile) ||
         !['server_stream', 'direct'].includes(uploadMode)) throw new Error('BLOB_POLICY_INVALID');
@@ -33,6 +35,7 @@ export class BlobRetentionPolicy {
     this.uploadMode = uploadMode;
     this.unboundRetentionSeconds = retention(unboundRetentionSeconds);
     this.unreferencedRetentionSeconds = retention(unreferencedRetentionSeconds);
+    this.minimumRetentionSeconds = retention(minimumRetentionSeconds);
     Object.freeze(this);
   }
 }

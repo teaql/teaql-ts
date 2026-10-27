@@ -23,7 +23,7 @@ export type BlobMaintenanceBatch = Readonly<{
     outcomes: readonly BlobMaintenanceOutcome[];
     next?: BlobMaintenanceCursor;
 }>;
-/** Explicit host-scheduled collection of expired, uncompleted server-stream uploads only. */
+/** Explicit host-scheduled, version-fenced server-stream lifecycle collection. */
 export declare class SqliteBlobMaintenanceService {
     private readonly catalog;
     private readonly authorization;

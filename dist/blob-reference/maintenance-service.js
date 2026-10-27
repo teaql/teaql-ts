@@ -19,7 +19,7 @@ class BlobMaintenanceCursor {
 exports.BlobMaintenanceCursor = BlobMaintenanceCursor;
 const validScope = (value) => typeof value === 'string' && !!value.trim() && value === value.trim() &&
     Buffer.byteLength(value) <= 256 && !/[\x00-\x1f\x7f-\x9f]/.test(value);
-/** Explicit host-scheduled collection of expired, uncompleted server-stream uploads only. */
+/** Explicit host-scheduled, version-fenced server-stream lifecycle collection. */
 class SqliteBlobMaintenanceService {
     constructor(catalog, authorization, batchSize = 100, now = Date.now) {
         this.catalog = catalog;
@@ -61,7 +61,7 @@ class SqliteBlobMaintenanceService {
     async collect(context, scope, key, store) {
         const reference = new blob_ref_1.BlobRef(key);
         await this.authorize(context, scope);
-        const claim = await this.catalog.claimExpiredUploadDeletion(scope, key, this.time());
+        const claim = await this.catalog.claimDeletion(scope, key, this.time());
         if (!claim)
             return { reference, status: 'not_eligible' };
         await this.authorize(context, scope);
@@ -82,7 +82,7 @@ class SqliteBlobMaintenanceService {
                     throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
                 version = observed.etag;
                 await this.authorize(context, scope);
-                await this.catalog.captureExpiredDeletionVersion(scope, claim, version, this.time());
+                await this.catalog.captureDeletionVersion(scope, claim, version, this.time());
             }
         }
         await this.authorize(context, scope);
@@ -100,7 +100,7 @@ class SqliteBlobMaintenanceService {
             status = result;
         }
         await this.authorize(context, scope);
-        await this.catalog.finishExpiredUploadDeletion(scope, claim, version, this.time());
+        await this.catalog.finishDeletion(scope, claim, version, this.time());
         return { reference, status };
     }
     async runBatch(context, cursor) {
@@ -110,7 +110,7 @@ class SqliteBlobMaintenanceService {
         this.requireStandalone();
         let store;
         try {
-            store = context.objectStorage('collect expired Blob upload');
+            store = context.objectStorage('collect retained Blob lifecycle');
         }
         catch {
             throw new Error('BLOB_CAPABILITY_MISSING');
@@ -118,7 +118,7 @@ class SqliteBlobMaintenanceService {
         if (!store.supportsVersionConditionalDelete())
             throw new Error('BLOB_CAPABILITY_MISSING');
         await this.catalog.validateSchema();
-        const candidates = await this.catalog.expiredUploadDeletionCandidates(scope, cursor?.position() ?? '', this.time(), this.batchSize);
+        const candidates = await this.catalog.deletionCandidates(scope, cursor?.position() ?? '', this.time(), this.batchSize);
         const outcomes = [];
         for (const key of candidates) {
             try {
