@@ -99,6 +99,24 @@ var SqlBlobCatalog = class {
       throw new Error("BLOB_CATALOG_FAILED");
     }
   }
+  /** Includes deleted rows: their immutable File generations can outlive the
+   * current manifest and must remain discoverable for a later sweep retry. */
+  async fileGenerationSweepCandidates(scope, after, limit) {
+    if (!validScope(scope) || typeof after !== "string" || !Number.isSafeInteger(limit) || limit < 1 || limit > 1e3)
+      throw new Error("BLOB_POLICY_INVALID");
+    try {
+      const rows = await this.driver.query(`SELECT key, object_key FROM teaql_blob_catalog
+        WHERE scope = ? AND key > ? AND upload_mode = 'server_stream'
+        ORDER BY key LIMIT ?`, [scope, after, limit]);
+      return rows.rows.map((row) => {
+        if (typeof row.key !== "string" || !row.key || typeof row.object_key !== "string" || !row.object_key)
+          throw new Error("BLOB_CATALOG_FAILED");
+        return Object.freeze({ key: row.key, objectKey: row.object_key });
+      });
+    } catch {
+      throw new Error("BLOB_CATALOG_FAILED");
+    }
+  }
   /** Compatibility entry point for callers that only collect incomplete uploads. */
   async expiredUploadDeletionCandidates(scope, after, now, limit) {
     if (!validScope(scope) || !Number.isSafeInteger(now) || !Number.isSafeInteger(limit) || limit < 1 || limit > 1e3) throw new Error("BLOB_POLICY_INVALID");
@@ -498,4 +516,4 @@ function isMissingTable(error) {
 export {
   SqlBlobCatalog
 };
-//# sourceMappingURL=chunk-CE6SCGYP.js.map
+//# sourceMappingURL=chunk-MEW4FLBI.js.map

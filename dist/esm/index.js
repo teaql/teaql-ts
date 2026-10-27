@@ -25,10 +25,6 @@ import {
   parseLocale
 } from "./chunks/chunk-5XIEPHRP.js";
 import {
-  installRuntimeCapability,
-  requireRuntimeCapabilities
-} from "./chunks/chunk-HDIMWNEB.js";
-import {
   GraphCommittedError,
   GraphMutationSession,
   LoadedScalarSnapshot,
@@ -44,6 +40,10 @@ import {
   queryOperationComment,
   queryTraceSource
 } from "./chunks/chunk-LDU2JPAZ.js";
+import {
+  installRuntimeCapability,
+  requireRuntimeCapabilities
+} from "./chunks/chunk-HDIMWNEB.js";
 import {
   BlobFieldSpec,
   BlobRef

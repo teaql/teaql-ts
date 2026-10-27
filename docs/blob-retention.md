@@ -24,9 +24,20 @@ files, use the opt-in `SqliteFencedFileObjectStorage` with its private root.
 The host may call `sweepOldGenerations(key)` on that provider for a known key.
 It takes a per-key SQLite writer lock before the manifest lock, removes only
 inaccessible old immutable data generations, and preserves the current one.
-All processes sharing the private root must first run this writer-lock-capable
-version. Schedule and retry this per-key sweep separately from catalog receipts.
 
-This checkpoint does not provide a catalog-driven old-generation sweep or prove
-direct-upload quiescence. It does not imply that the full five-language F2–F5
-acceptance gates are complete.
+The optional `@teaql/teaql/blob-reference/file-generation-maintenance` entry
+adds `SqliteBlobFileGenerationSweepService`. After **all** processes sharing
+the private root run the fenced writer protocol, the host explicitly constructs
+it with `true` as the `allWritersUpgraded` constructor argument and calls
+`runBatch(context, provider, cursor)`
+outside a graph transaction. It scans only the current authorized scope's
+trusted server-stream catalog rows, including `deleted` rows whose old File
+generations may remain. The passed provider must be the same
+`SqliteFencedFileObjectStorage` installed in that context. Outcomes report the
+number of removed generations; the current manifest generation is preserved.
+The scan is bounded and cursor-based. Restart from the beginning to retry a
+failed row, and keep catalog rows until their File sweep can complete. This
+service is host-scheduled and separate from catalog deletion receipts.
+
+The host upgrade assertion cannot detect an older external writer by itself.
+Direct-upload quiescence and full five-language F2–F5 acceptance remain open.

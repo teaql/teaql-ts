@@ -17,6 +17,7 @@ export type BlobDeletionRecord = Readonly<{
   key: string; objectKey: string; contentVersion: string; writtenETag: string | null;
 }>;
 export type ExpiredUploadDeletionRecord = BlobDeletionRecord;
+export type BlobFileGenerationCandidate = Readonly<{ key: string; objectKey: string }>;
 const validDeleteVersion = (value: unknown): value is string =>
   typeof value === 'string' && !!value && value !== '*' && value.length <= 256 &&
   value.trim() === value && !/[\x00-\x1f\x7f-\x9f]/.test(value);
@@ -129,6 +130,26 @@ export class SqlBlobCatalog {
       return rows.rows.map(row => {
         if (typeof row.key !== 'string') throw new Error('BLOB_CATALOG_FAILED');
         return row.key;
+      });
+    } catch { throw new Error('BLOB_CATALOG_FAILED'); }
+  }
+
+  /** Includes deleted rows: their immutable File generations can outlive the
+   * current manifest and must remain discoverable for a later sweep retry. */
+  async fileGenerationSweepCandidates(scope: string, after: string,
+                                      limit: number): Promise<BlobFileGenerationCandidate[]> {
+    if (!validScope(scope) || typeof after !== 'string' ||
+        !Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
+      throw new Error('BLOB_POLICY_INVALID');
+    try {
+      const rows = await this.driver.query(`SELECT key, object_key FROM teaql_blob_catalog
+        WHERE scope = ? AND key > ? AND upload_mode = 'server_stream'
+        ORDER BY key LIMIT ?`, [scope, after, limit]);
+      return rows.rows.map(row => {
+        if (typeof row.key !== 'string' || !row.key ||
+            typeof row.object_key !== 'string' || !row.object_key)
+          throw new Error('BLOB_CATALOG_FAILED');
+        return Object.freeze({ key: row.key, objectKey: row.object_key });
       });
     } catch { throw new Error('BLOB_CATALOG_FAILED'); }
   }

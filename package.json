@@ -44,6 +44,11 @@
       "import": "./dist/esm/blob-reference/maintenance-service.js",
       "require": "./dist/blob-reference/maintenance-service.js"
     },
+    "./blob-reference/file-generation-maintenance": {
+      "types": "./dist/blob-reference/file-generation-maintenance.d.ts",
+      "import": "./dist/esm/blob-reference/file-generation-maintenance.js",
+      "require": "./dist/blob-reference/file-generation-maintenance.js"
+    },
     "./blob-reference/retention": {
       "types": "./dist/blob-reference/retention.d.ts",
       "import": "./dist/esm/blob-reference/retention.js",
@@ -154,6 +159,7 @@
       "blob-reference/read-service": ["dist/blob-reference/read-service.d.ts"],
       "blob-reference/upload-service": ["dist/blob-reference/upload-service.d.ts"],
       "blob-reference/maintenance-service": ["dist/blob-reference/maintenance-service.d.ts"],
+      "blob-reference/file-generation-maintenance": ["dist/blob-reference/file-generation-maintenance.d.ts"],
       "blob-reference/retention": ["dist/blob-reference/retention.d.ts"],
       "blob-reference/content-sharp": ["dist/blob-reference/content-sharp.d.ts"],
       "blob-reference/content-pdfjs": ["dist/blob-reference/content-pdfjs.d.ts"],

@@ -13,6 +13,7 @@ await build({
     'blob-reference/read-service': 'src/blob-reference/read-service.ts',
     'blob-reference/upload-service': 'src/blob-reference/upload-service.ts',
     'blob-reference/maintenance-service': 'src/blob-reference/maintenance-service.ts',
+    'blob-reference/file-generation-maintenance': 'src/blob-reference/file-generation-maintenance.ts',
     'blob-reference/retention': 'src/blob-reference/retention.ts',
     'blob-reference/content-sharp': 'src/blob-reference/content-sharp.ts',
     'blob-reference/content-pdfjs': 'src/blob-reference/content-pdfjs.ts',
