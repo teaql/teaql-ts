@@ -18,6 +18,7 @@ test('BlobReferenceModule installs passively and checks explicit schema readines
   const upload = new SqliteBlobUploadService(catalog, {
     scope: () => 'tenant-a', field: () => { throw new Error('not used'); },
     authorize: async () => false,
+    currentOnLease: async () => { throw new Error('not used'); },
   }, { verify: async () => { throw new Error('not used'); } }, 1000);
   const mutation = new SqliteBlobMutationParticipant(catalog, {
     scope: () => 'tenant-a', authorize: async () => false,

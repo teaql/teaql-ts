@@ -1,6 +1,7 @@
 import { BlobFieldSpec, BlobRef } from '../core/blob-ref';
 import type { UserContext } from '../core/context';
 import { ObjectByteStream } from '../core/object-storage';
+import type { SqlSession } from '../sql/core';
 import { SqlBlobCatalog } from './sql-catalog';
 export type BlobUploadTarget = Readonly<{
     entity: string;
@@ -22,6 +23,12 @@ export interface BlobUploadAuthorization {
     scope(context: UserContext): string;
     field(context: UserContext, target: BlobUploadTarget): BlobFieldSpec;
     authorize(context: UserContext, target: BlobUploadTarget, action: 'Begin' | 'Write' | 'Confirm', input: BlobUploadInput): Promise<boolean>;
+    /** Resolve current scope, model field and action permission on this physical SQL lease. */
+    currentOnLease(context: UserContext, lease: SqlSession, target: BlobUploadTarget, action: 'Begin' | 'Write' | 'Confirm', input: BlobUploadInput): Promise<{
+        scope: string;
+        field: BlobFieldSpec;
+        allowed: boolean;
+    }>;
 }
 /** A mandatory trusted byte parser. Client MIME and object metadata cannot implement this SPI. */
 export interface BlobContentVerifier {
@@ -42,6 +49,8 @@ export declare class SqliteBlobUploadService {
     private readonly now;
     constructor(catalog: SqlBlobCatalog, authorization: BlobUploadAuthorization, verifier: BlobContentVerifier, maximumBytes: number, leaseSeconds?: number, now?: () => number);
     private current;
+    private currentOnLease;
+    private checkCurrent;
     private normalize;
     private digest;
     begin(context: UserContext, target: BlobUploadTarget, input: BlobUploadInput, replayKey: string): Promise<BlobUploadSession>;

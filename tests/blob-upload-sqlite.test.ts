@@ -49,6 +49,11 @@ test('SQLite upload records a real File write and permits binding only after ful
     authorize: async (_context, actual, action) => permitted &&
       actual.entity === 'Asset' && actual.field === 'document' &&
       ['Begin', 'Write', 'Confirm'].includes(action),
+    currentOnLease: async (_context, _lease, actual, action) => ({
+      scope, field: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
+      allowed: permitted && actual.entity === 'Asset' && actual.field === 'document' &&
+        ['Begin', 'Write', 'Confirm'].includes(action),
+    }),
   };
   const service = new SqliteBlobUploadService(catalog, authorization, verifier, 10_000);
   try {
@@ -145,6 +150,8 @@ test('an expired replay key cannot recover an upload session, while a new reques
     scope: () => 'tenant-a',
     field: () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
     authorize: async () => true,
+    currentOnLease: async () => ({ scope: 'tenant-a',
+      field: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'), allowed: true }),
   }, new FixturePdfVerifier(), 10_000, 1, () => clock);
   const target = { entity: 'Asset', entityId: null, field: 'document' };
   const input = { fileName: 'report.pdf', declaredSize: 42 };
