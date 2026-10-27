@@ -54,6 +54,11 @@
       "import": "./dist/esm/secure-document-reference/document-round-trip.js",
       "require": "./dist/secure-document-reference/document-round-trip.js"
     },
+    "./secure-document-reference/sqlite-command-journal": {
+      "types": "./dist/secure-document-reference/sqlite-command-journal.d.ts",
+      "import": "./dist/esm/secure-document-reference/sqlite-command-journal.js",
+      "require": "./dist/secure-document-reference/sqlite-command-journal.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
