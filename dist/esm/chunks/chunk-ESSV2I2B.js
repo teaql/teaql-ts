@@ -282,6 +282,9 @@ var AbstractSQLTeaQLClient = class {
     this.userContext = context;
     return this;
   }
+  isCurrentGraphActor(graph, context) {
+    return this.activeGraph === graph && this.userContext === context;
+  }
   schema(entity) {
     const schema = this.schemas[entity];
     if (!schema) throw new Error(`Unknown TeaQL entity: ${entity}`);
@@ -2038,4 +2041,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-GQZNUYWZ.js.map
+//# sourceMappingURL=chunk-ESSV2I2B.js.map

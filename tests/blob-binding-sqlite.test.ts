@@ -14,6 +14,7 @@ test('SQLite Blob target binding is in the business graph transaction and retain
   const client = new SQLiteTeaQLClient(filename, {});
   const catalog = new SqlBlobCatalog(driver);
   const context = new UserContext();
+  client.setUserContext(context);
   const reference = new BlobRef('blob_asset_1');
   let permitted = true;
   const authorization: BlobBindingAuthorization = {
@@ -32,6 +33,18 @@ test('SQLite Blob target binding is in the business graph transaction and retain
     [reference.key, 'tenant-a', 'objects/version-1', 'v1', 'asset.pdf',
       'application/pdf', 7, 'available']);
     await catalog.validateSchema();
+
+    await expect(client.executeGraphSave(new MutationIntent('foreign actor binding'), graph =>
+      catalog.bindInGraph(client, graph, new UserContext(),
+        { target, next: reference, expectedVersion: 0, nextVersion: 1 }, authorization)))
+      .rejects.toThrow('BLOB_BIND_DENIED');
+    expect((await driver.query('SELECT key FROM teaql_blob_binding')).rowCount).toBe(0);
+    await expect(client.executeGraphSave(new MutationIntent('noncanonical target'), graph =>
+      catalog.bindInGraph(client, graph, context,
+        { target: { ...target, entityId: '01' }, next: reference,
+          expectedVersion: 0, nextVersion: 1 }, authorization)))
+      .rejects.toThrow('BLOB_REFERENCE_INVALID');
+    expect((await driver.query('SELECT key FROM teaql_blob_binding')).rowCount).toBe(0);
 
     await client.executeGraphSave(new MutationIntent('create asset and bind Blob'), async graph => {
       await client.withGraphSqlSession(graph, session => session.query(

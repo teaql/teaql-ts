@@ -66,21 +66,24 @@ export class SqlBlobCatalog {
                     authorization: BlobBindingAuthorization): Promise<number> {
     return owner.withGraphSqlSession(graph, async session => {
       try {
+        if (!owner.isCurrentGraphActor(graph, context)) throw new Error('BLOB_BIND_DENIED');
         if (this.driver.databaseKind !== 'sqlite') throw new Error('BLOB_CAPABILITY_MISSING');
         if (!change || !change.target || !authorization ||
             (change.next !== null && !(change.next instanceof BlobRef)) ||
             (change.action !== undefined && !['Create', 'Update', 'Delete'].includes(change.action)) ||
+            (change.action === 'Create' && change.expectedVersion !== 0) ||
+            (change.action === 'Delete' && change.next !== null) ||
             !Number.isSafeInteger(change.expectedVersion) || change.expectedVersion < 0 ||
             !Number.isSafeInteger(change.nextVersion) ||
             change.nextVersion <= change.expectedVersion ||
-            [change.target.entity, change.target.entityId, change.target.field].some(value =>
-              typeof value !== 'string' || !value.trim() || value !== value.trim())) {
+            !validName(change.target.entity) || !validName(change.target.field) ||
+            !validEntityID(change.target.entityId)) {
           throw new Error('BLOB_REFERENCE_INVALID');
         }
         let scope: string;
         try { scope = authorization.scope(context); }
         catch { throw new Error('BLOB_BIND_DENIED'); }
-        if (typeof scope !== 'string' || !scope.trim() || scope !== scope.trim()) {
+        if (!validScope(scope)) {
           throw new Error('BLOB_BIND_DENIED');
         }
         const p = (index: number) => this.driver.placeholder(index);
@@ -181,6 +184,21 @@ export class SqlBlobCatalog {
     return Object.freeze({ objectKey: row.object_key, contentVersion: row.content_version,
       fileName: row.file_name, contentType: row.content_type, sizeBytes: size });
   }
+}
+
+function validName(value: unknown): value is string {
+  return typeof value === 'string' && !!value.trim() && value === value.trim() &&
+    Array.from(value).length <= 128 && !/[\x00-\x1f\x7f-\x9f]/.test(value);
+}
+
+function validScope(value: unknown): value is string {
+  return typeof value === 'string' && !!value.trim() && value === value.trim() &&
+    new TextEncoder().encode(value).length <= 256 && !/[\x00-\x1f\x7f-\x9f]/.test(value);
+}
+
+function validEntityID(value: unknown): value is string {
+  return typeof value === 'string' && /^[1-9][0-9]*$/.test(value) &&
+    value.length <= 20 && BigInt(value) <= 18446744073709551615n;
 }
 
 function isMissingTable(error: unknown): boolean {

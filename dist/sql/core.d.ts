@@ -77,6 +77,8 @@ export interface TeaQLDataService {
     executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
     /** Optional module SPI: the caller's physical graph transaction, guarded by its session. */
     withGraphSqlSession<T>(graph: GraphMutationSession, work: (session: SqlSession) => Promise<T>): Promise<T>;
+    /** Identity of the trusted context installed for this exact active graph. */
+    isCurrentGraphActor(graph: GraphMutationSession, context: UserContext): boolean;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -204,6 +206,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     /** Check concrete, explicitly installed resources without running migrations or jobs. */
     validateCapabilities(): void;
     setUserContext(context: UserContext): this;
+    isCurrentGraphActor(graph: GraphMutationSession, context: UserContext): boolean;
     private schema;
     private toRuntimeMutationRecord;
     private encode;

@@ -227,6 +227,9 @@ class AbstractSQLTeaQLClient {
         (0, runtime_capability_1.requireRuntimeCapabilities)(this.userContext, this.requiredCapabilities);
     }
     setUserContext(context) { this.userContext = context; return this; }
+    isCurrentGraphActor(graph, context) {
+        return this.activeGraph === graph && this.userContext === context;
+    }
     schema(entity) {
         const schema = this.schemas[entity];
         if (!schema)
