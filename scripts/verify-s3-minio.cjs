@@ -1,10 +1,88 @@
 // Explicit local S3-compatible integration gate. Requires a disposable bucket.
 // Never print credentials, object keys or full signed URLs.
-const { randomUUID } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
+const { readFile, mkdtemp, rm } = require('node:fs/promises');
+const { tmpdir } = require('node:os');
+const { join } = require('node:path');
 const { S3Client } = require('@aws-sdk/client-s3');
+const { BlobFieldSpec } = require('../dist/core/blob-ref');
 const { UserContext } = require('../dist/core/context');
 const { ObjectKey, ObjectPutOptions, ObjectReadUrlOptions, StorageError } = require('../dist/core/object-storage');
 const { S3ObjectStorage } = require('../dist/object-storage/s3');
+const { SqlBlobCatalog } = require('../dist/blob-reference/sql-catalog');
+const { SqliteBlobUploadService } = require('../dist/blob-reference/upload-service');
+const { SQLiteDriver } = require('../dist/sql/sqlite');
+
+async function verifyBlobUpload(actor, storage) {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-s3-blob-upload-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures', 'blob-sample.pdf'));
+  const target = { entity: 'Asset', entityId: null, field: 'document' };
+  let permitted = true;
+  const field = () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default');
+  const authorization = {
+    scope: () => 'f4-s3-upload',
+    field,
+    authorize: async () => permitted,
+    currentOnLease: async () => ({ scope: 'f4-s3-upload', field: field(), allowed: permitted }),
+  };
+  const verifier = { calls: 0, async verify(content, extension, maximumBytes) {
+    this.calls++;
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of content) {
+      size += chunk.byteLength;
+      if (size > maximumBytes) throw new Error('BLOB_SIZE_EXCEEDED');
+      chunks.push(Buffer.from(chunk));
+    }
+    const value = Buffer.concat(chunks);
+    if (extension !== 'pdf' || !value.subarray(0, 5).equals(Buffer.from('%PDF-')) ||
+        !value.includes(Buffer.from('%%EOF'))) throw new Error('BLOB_FORMAT_NOT_ALLOWED');
+    return { sizeBytes: size, sha256: createHash('sha256').update(value).digest('hex'),
+      contentType: 'application/pdf' };
+  } };
+  let objectKey;
+  try {
+    await catalog.ensureSchema();
+    const service = new SqliteBlobUploadService(catalog, authorization, verifier, 10_000);
+    const session = await service.begin(actor, target,
+      { fileName: 'report.pdf', declaredSize: bytes.length, declaredContentType: 'application/pdf' },
+      randomUUID());
+    const row = await driver.query('SELECT object_key FROM teaql_blob_catalog WHERE key = ?',
+      [session.reference.key]);
+    objectKey = new ObjectKey(row.rows[0].object_key);
+    const source = () => (async function* () { yield bytes; })();
+    if (await service.write(actor, session.uploadId, source()) !== bytes.length) {
+      throw new Error('Blob S3 upload write length mismatch');
+    }
+    permitted = false;
+    try { await service.complete(actor, session.uploadId); throw new Error('Blob S3 upload ignored revocation'); }
+    catch (error) { if (error.message !== 'BLOB_UPLOAD_DENIED') throw error; }
+    permitted = true;
+    if ((await service.complete(actor, session.uploadId)).key !== session.reference.key ||
+        (await service.complete(actor, session.uploadId)).key !== session.reference.key ||
+        verifier.calls !== 1) throw new Error('Blob S3 upload confirmation replay mismatch');
+    if (await service.write(actor, session.uploadId, source()) !== bytes.length ||
+        !Buffer.from(await storage.getBytes(objectKey, 10_000)).equals(bytes)) {
+      throw new Error('Blob S3 upload committed-write replay mismatch');
+    }
+    const saved = await driver.query(
+      'SELECT status, content_type, size_bytes, content_version FROM teaql_blob_catalog WHERE key = ?',
+      [session.reference.key]);
+    const head = await storage.head(objectKey);
+    if (saved.rows[0].status !== 'uploaded_unbound' ||
+        saved.rows[0].content_type !== 'application/pdf' ||
+        Number(saved.rows[0].size_bytes) !== bytes.length ||
+        saved.rows[0].content_version !== head?.etag) {
+      throw new Error('Blob S3 upload catalog/object mismatch');
+    }
+    console.log('PASS TypeScript Blob upload SQLite/S3 write/confirm/replay/revocation');
+  } finally {
+    try { if (objectKey) await storage.delete(objectKey); }
+    finally { await driver.close(); await rm(root, { recursive: true, force: true }); }
+  }
+}
 
 async function main() {
   const endpoint = process.env.TEAQL_S3_TEST_ENDPOINT;
@@ -66,6 +144,9 @@ async function main() {
         throw new Error('S3 create-only race did not have one winner');
       }
       console.log('PASS TypeScript real S3-compatible create-only duplicate/race');
+    }
+    if (process.env.TEAQL_S3_TEST_BLOB_UPLOAD === '1') {
+      await verifyBlobUpload(actor, storage);
     }
     console.log('PASS TypeScript real S3-compatible replace/read/signed Range/expiry');
   } finally {
