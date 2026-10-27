@@ -10,12 +10,18 @@ const { UserContext } = require('../dist/core/context');
 const { ObjectKey, ObjectPutOptions, ObjectReadUrlOptions, StorageError } = require('../dist/core/object-storage');
 const { S3ObjectStorage } = require('../dist/object-storage/s3');
 const { SqlBlobCatalog } = require('../dist/blob-reference/sql-catalog');
+const { SqlBlobResponseContributor } = require('../dist/blob-reference/read-service');
 const { SqliteBlobUploadService } = require('../dist/blob-reference/upload-service');
-const { SQLiteDriver } = require('../dist/sql/sqlite');
+const { ViewPreparationService } = require('../dist/core/view-preparation');
+const { MutationIntent } = require('../dist/core/request-intent');
+const { SQLiteDriver, SQLiteTeaQLClient } = require('../dist/sql/sqlite');
 
 async function verifyBlobUpload(actor, storage) {
   const root = await mkdtemp(join(tmpdir(), 'teaql-s3-blob-upload-'));
-  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const filename = join(root, 'catalog.sqlite');
+  const driver = new SQLiteDriver(filename);
+  const client = new SQLiteTeaQLClient(filename, {});
+  client.setUserContext(actor);
   const catalog = new SqlBlobCatalog(driver);
   const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures', 'blob-sample.pdf'));
   const target = { entity: 'Asset', entityId: null, field: 'document' };
@@ -78,9 +84,74 @@ async function verifyBlobUpload(actor, storage) {
       throw new Error('Blob S3 upload catalog/object mismatch');
     }
     console.log('PASS TypeScript Blob upload SQLite/S3 write/confirm/replay/revocation');
+    await driver.query('CREATE TABLE asset (id TEXT PRIMARY KEY, document TEXT)');
+    const bindingTarget = { entity: 'Asset', entityId: '1', field: 'document' };
+    const bindingAuthorization = { scope: () => 'f4-s3-upload',
+      authorize: async (_ctx, actual, _previous, next, action) =>
+        actual.entity === 'Asset' && actual.entityId === '1' &&
+        actual.field === 'document' && next?.equals(session.reference) && action === 'Create' };
+    await client.executeGraphSave(new MutationIntent('bind S3 Blob in business graph'),
+      async graph => {
+        await client.withGraphSqlSession(graph, sql => sql.query(
+          'INSERT INTO asset(id, document) VALUES (?, ?)', ['1', session.reference.key]));
+        if (await catalog.bindInGraph(client, graph, actor,
+          { target: bindingTarget, next: session.reference, expectedVersion: 0,
+            nextVersion: 1, action: 'Create' }, bindingAuthorization) !== 1) {
+          throw new Error('Blob S3 graph bind version mismatch');
+        }
+      });
+    if ((await driver.query('SELECT document FROM asset WHERE id = ?', ['1'])).rows[0].document
+        !== session.reference.key ||
+        (await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+          [session.reference.key])).rows[0].status !== 'available') {
+      throw new Error('Blob S3 graph bind did not commit together');
+    }
+    let readAllowed = true, bindingVersion = 1;
+    const viewContext = actor
+      .insertResource('responseGraphAuthorizer', { authorize: async () => ({
+        presentation: { document: session.reference },
+        blobSlots: [{ path: ['document'], ...bindingTarget, scope: 'f4-s3-upload',
+          bindingVersion, reference: session.reference }],
+      }) })
+      .insertResource('blobResponseContributor', new SqlBlobResponseContributor(catalog, {
+        authorize: async () => readAllowed,
+      }, 3));
+    const viewService = new ViewPreparationService();
+    const options = { mode: 'ordinary', businessOutcome: 'read_only' };
+    const prepared = await viewService.prepare(viewContext,
+      { document: session.reference }, options);
+    const url = prepared.presentation.document;
+    if (typeof url !== 'string' || !url.startsWith('http') || !prepared.expiresAt ||
+        prepared.cacheControl !== 'private, no-store') {
+      throw new Error('Blob S3 authorized URL projection mismatch');
+    }
+    const response = await fetch(url, { headers: { Range: 'bytes=0-7' } });
+    const partial = Buffer.from(await response.arrayBuffer());
+    if (response.status !== 206 || !partial.equals(bytes.subarray(0, 8)) ||
+        response.headers.get('content-type') !== 'application/pdf' ||
+        !response.headers.get('content-disposition')?.includes('report.pdf')) {
+      throw new Error('Blob S3 signed projection HTTP response mismatch');
+    }
+    readAllowed = false;
+    try { await viewService.prepare(viewContext, { document: session.reference }, options);
+      throw new Error('Blob S3 revoked read projected URL'); }
+    catch (error) { if (error.code !== 'BLOB_READ_DENIED') throw error; }
+    readAllowed = true;
+    bindingVersion = 0;
+    try { await viewService.prepare(viewContext, { document: session.reference },
+      { mode: 'ordinary', businessOutcome: 'committed' });
+      throw new Error('Blob S3 stale binding projected URL'); }
+    catch (error) {
+      if (error.code !== 'BLOB_READ_DENIED' || error.businessState !== 'committed') throw error;
+    }
+    console.log('PASS TypeScript Blob S3 graph bind/authorized signed view/Range/revocation');
   } finally {
     try { if (objectKey) await storage.delete(objectKey); }
-    finally { await driver.close(); await rm(root, { recursive: true, force: true }); }
+    finally {
+      await client.close();
+      await driver.close();
+      await rm(root, { recursive: true, force: true });
+    }
   }
 }
 
