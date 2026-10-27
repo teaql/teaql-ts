@@ -1560,9 +1560,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const predicates = filters.map(expression =>
       this.compileExpression(expression, schema, values),
     );
-    if (schema.columns.version) {
+    const visibility = query.deletionVisibility ?? 'live';
+    if (!['live', 'all', 'deleted'].includes(visibility)) throw new Error('QUERY_INVALID_DELETION_VISIBILITY');
+    if (schema.columns.version && visibility !== 'all') {
       predicates.push(
-        `${this.driver.identifier(schema.columns.version.columnName)} > 0`,
+        `${this.driver.identifier(schema.columns.version.columnName)} ${visibility === 'deleted' ? '<' : '>'} 0`,
       );
     }
     if (predicates.length) {

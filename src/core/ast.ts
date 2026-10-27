@@ -103,6 +103,8 @@ export class SelectQuery {
   public relationAggregates: RelationAggregate[] = [];
   public commentText?: string;
   public purposeText?: string;
+  /** Query semantics, not authorization: Context policies still apply to every row. */
+  public deletionVisibility: 'live' | 'all' | 'deleted' = 'live';
   
   constructor(entity: string) {
     this.entity = entity;
@@ -159,6 +161,9 @@ export class SelectQuery {
     this.filterCondition = condition;
     return this;
   }
+
+  withDeletedRows(): this { this.deletionVisibility = 'all'; return this; }
+  deletedRowsOnly(): this { this.deletionVisibility = 'deleted'; return this; }
 
   limit(limit: number): this {
     if (!Number.isSafeInteger(limit) || limit < 1) {
@@ -229,6 +234,7 @@ export class SelectQuery {
     count.filterCondition = snapshotQuery(this.filterCondition);
     count.commentText = this.commentText;
     count.purposeText = this.purposeText;
+    count.deletionVisibility = this.deletionVisibility;
     count.aggregate('Count', 'id', alias);
     retainQueryDiagnosticOrigin(this, count);
     return count;
