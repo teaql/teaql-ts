@@ -1,16 +1,20 @@
 import { snapshotQuery } from './query-snapshot';
 import type { EntityKey, EntityRoot } from './entity-root';
+import {EntityVersion, EntityVersionInput, entityVersion} from './mutation-version';
 
 const loadedSnapshots = new WeakMap<object, LoadedScalarSnapshot>();
 
 /** @internal Loaded scalar provenance. No relations, ownership, SQL or Context. */
 export class LoadedScalarSnapshot {
   readonly #values: Readonly<Record<string, unknown>>;
-  readonly #owner?: Readonly<{key: EntityKey; version: number}>;
+  readonly #owner?: Readonly<{key: EntityKey; version: EntityVersion}>;
 
-  constructor(values: Record<string, unknown> = {}, key?: EntityKey, version?: number) {
+  constructor(values: Record<string, unknown> = {}, key?: EntityKey, version?: EntityVersionInput) {
     this.#values = snapshotQuery(values);
-    if (key && Number.isSafeInteger(version) && version !== 0) this.#owner = Object.freeze({key: Object.freeze({...key}), version: version!});
+    if (key && version !== undefined) {
+      const exact = entityVersion(version);
+      if (exact !== 0) this.#owner = Object.freeze({key: Object.freeze({...key}), version: exact});
+    }
     Object.freeze(this);
   }
 
@@ -18,7 +22,7 @@ export class LoadedScalarSnapshot {
   values(): Readonly<Record<string, unknown>> { return snapshotQuery(this.#values); }
 
   /** @internal Generated hydration stores provenance outside entity/JSON state. */
-  static captureFor(entity: object, values: Record<string, unknown>, key?: EntityKey, version?: number): LoadedScalarSnapshot {
+  static captureFor(entity: object, values: Record<string, unknown>, key?: EntityKey, version?: EntityVersionInput): LoadedScalarSnapshot {
     const snapshot = new LoadedScalarSnapshot(values, key, version);
     loadedSnapshots.set(entity, snapshot);
     return snapshot;

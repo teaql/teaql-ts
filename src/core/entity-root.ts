@@ -1,4 +1,5 @@
 export type EntityId = string | number | bigint;
+import {EntityVersion, EntityVersionInput, entityVersion} from './mutation-version';
 
 export type EntityKey = Readonly<{ entity: string; id: EntityId }>;
 export type EntityChange = Readonly<{ key: EntityKey; values: Readonly<Record<string, unknown>> }>;
@@ -8,7 +9,7 @@ const identity = (key: EntityKey): string => `${key.entity}\u0000${typeof key.id
 /** Pending mutation ledger shared by one generated object graph. */
 export class EntityRoot {
   private readonly changes = new Map<string, { key: EntityKey; values: Record<string, unknown> }>();
-  private readonly originalVersions = new Map<string, { key: EntityKey; version: number }>();
+  private readonly originalVersions = new Map<string, { key: EntityKey; version: EntityVersion }>();
   private readonly newKeys = new Map<string, EntityKey>();
   private readonly deletedKeys = new Map<string, EntityKey>();
   private readonly traces = new Map<string, { key: EntityKey; nodes: readonly TraceNode[] }>();
@@ -78,7 +79,7 @@ export class EntityRoot {
       || Object.keys(this.changes.get(id)?.values ?? {}).length > 0;
   }
 
-  private snapshotVersions(): Array<{ key: EntityKey; version: number }> { return [...this.originalVersions.values()]; }
+  private snapshotVersions(): Array<{ key: EntityKey; version: EntityVersion }> { return [...this.originalVersions.values()]; }
 
   rekey(oldKey: EntityKey, newKey: EntityKey): void {
     const oldId = identity(oldKey); const newId = identity(newKey); if (oldId === newId) return;
@@ -96,22 +97,24 @@ export class EntityRoot {
     const id = identity(key); this.changes.delete(id); this.newKeys.delete(id); this.deletedKeys.delete(id); this.traces.delete(id);
   }
 
-  private requireMatchingVersion(key: EntityKey, version: number): void {
+  private requireMatchingVersion(key: EntityKey, version: EntityVersion): void {
     const original = this.originalVersion(key);
     if (original !== undefined && original !== version) {
       throw new Error('ENTITY_VERSION_CONFLICT: one graph cannot contain different loaded versions of the same typed entity');
     }
   }
-  setOriginalVersion(key: EntityKey, version: number): void {
+  setOriginalVersion(key: EntityKey, input: EntityVersionInput): void {
+    const version = entityVersion(input);
     this.requireMatchingVersion(key, version);
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
   }
   /** @internal Accept only the authoritative result after this key committed. */
-  acceptCommittedVersion(key: EntityKey, version: number): void {
+  acceptCommittedVersion(key: EntityKey, input: EntityVersionInput): void {
+    const version = entityVersion(input);
     if (this.hasPending(key)) throw new Error('ENTITY_COMMIT_PENDING: clear committed changes before accepting the persisted version');
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
   }
-  originalVersion(key: EntityKey): number | undefined { return this.originalVersions.get(identity(key))?.version; }
+  originalVersion(key: EntityKey): EntityVersion | undefined { return this.originalVersions.get(identity(key))?.version; }
   markAsNew(key: EntityKey): void { this.newKeys.set(identity(key), Object.freeze({ ...key })); }
   isNew(key: EntityKey): boolean { return this.newKeys.has(identity(key)); }
   markAsDeleted(key: EntityKey): void { const id = identity(key); this.changes.delete(id); this.deletedKeys.set(id, Object.freeze({ ...key })); }

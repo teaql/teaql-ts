@@ -26,6 +26,7 @@ import type { FacetAggregate } from '../core/facet';
 import { SmartList } from '../core/smart-list';
 import { decimal } from '../core/decimal';
 import { long } from '../core/long';
+import {EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, VersionOperation} from '../core/mutation-version';
 import { localTime } from '../core/local-time';
 
 export type LogicalColumnType =
@@ -106,7 +107,7 @@ export type SqlQueryResult = {
 export type MutationResult = {
   success: boolean;
   id: string;
-  version?: number;
+  version?: EntityVersion;
   deleted?: boolean;
   persistedRecord?: Record<string, unknown>;
   /** Trusted internal result; use policy projection before diagnostics. */
@@ -483,6 +484,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === undefined) continue;
+      if (field === 'version') { result[field] = entityVersion(value); continue; }
       if (column.decode === 'number') result[field] = Number(value);
       this.requireFiniteFloatingPoint(result[field], column);
       if (column.decode === 'string') result[field] = String(value);
@@ -750,7 +752,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // Reconciliation must see an existing tombstone too. Normal list SQL adds
     // version > 0 and would attempt a duplicate INSERT for a deleted constant.
     // This fixed primary-key lookup still owns validated query intent and logs.
-    const sql = `SELECT * FROM ${this.driver.identifier(schema.table)} WHERE ` +
+    const projection = Object.entries(schema.columns).map(([field, column]) => this.fieldProjection(field, column, column.columnName)).join(', ');
+    const sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
       `${this.driver.identifier(schema.columns.id?.columnName ?? 'id')} = ${this.driver.placeholder(1)}`;
     const values = [record.id];
     this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
@@ -765,7 +768,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (!changed.length) return undefined;
     // Checker sees the fully loaded object, not a partial update projection.
     return { entity: record.entity, action: 'Update', id: record.id,
-      version: Number(row[schema.columns.version?.columnName ?? 'version']),
+      version: entityVersion(row[schema.columns.version?.columnName ?? 'version']),
       payload: { ...Object.fromEntries(Object.entries(this.decodeRowForSchema(schema, row))
         .map(([field, value]) => [schema.columns[field]?.modelName ?? field, value])), ...canonicalValues } };
   }
@@ -907,17 +910,22 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         fields.validate(mutation.ledgerRoot.change(mutation.ledgerKey), mutation.action === 'Update');
       }
     }
+    const originalVersion = schema ? this.checkedMutationVersion(mutation) : undefined;
     // The ledger exposes immutable snapshots. Fixers receive a mutable working
     // payload and every derived value is copied back into the graph ledger.
     mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
     Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
     const checker = this.checkers[String(mutation.entity)];
-    if (!checker) { this.validateFloatingMutation(mutation); return mutation; }
+    if (!checker) { this.validateFloatingMutation(mutation); return this.sealMutationVersion(mutation, schema ? originalVersion : undefined, Boolean(schema)); }
     const results: import('../core/i18n').CheckResult[] = [];
     const ownsFixTime = this.userContext.getResource<Date>('fixTime') === undefined;
     if (ownsFixTime) this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
     try {
       checker.checkAndFix(this.userContext, mutation, results);
+      if (schema && (mutation.action !== request.mutation.action
+        || this.checkedMutationVersion(mutation) !== originalVersion)) {
+        throw new MutationVersionError('invalid_type');
+      }
       if (mutation.ledgerKey && mutation.ledgerRoot) {
         for (const [field, value] of Object.entries(mutation.payload || {})) {
           mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
@@ -928,10 +936,44 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       // This same path runs in generated graph preparation, before transaction,
       // ID allocation or provider calls. Encoding alone would reject too late.
       this.validateFloatingMutation(mutation);
-      return mutation;
+      return this.sealMutationVersion(mutation, originalVersion, Boolean(schema));
     } finally {
       if (ownsFixTime) this.userContext.removeResource('fixTime').finishFixEvidence();
     }
+  }
+
+  private sealMutationVersion(mutation: any, original: EntityVersion | undefined, modeled: boolean): any {
+    if (modeled && ['Create', 'Update', 'Delete', 'Recover'].includes(mutation.action)) {
+      Object.defineProperties(mutation, {
+        version: {value: original, enumerable: true, writable: false, configurable: false},
+        expectedVersion: {value: original, enumerable: mutation.expectedVersion !== undefined, writable: false, configurable: false},
+        action: {value: mutation.action, enumerable: true, writable: false, configurable: false},
+      });
+    }
+    return mutation;
+  }
+
+  /** Validate original state before Fix/policy/clock/provider. Missing originals
+   * retain the explicit trusted administrative SQL path, never a fake version. */
+  private checkedMutationVersion(mutation: any): EntityVersion | undefined {
+    if (mutation.action === 'Create') { nextEntityVersion('Create'); return undefined; }
+    if (!['Update', 'Delete', 'Recover'].includes(mutation.action)) return undefined;
+    const supplied = mutation.version !== undefined, expected = mutation.expectedVersion !== undefined;
+    if (!supplied && !expected) {
+      if (mutation.action === 'Recover') throw new MutationVersionError('invalid_type', 'Recover');
+      return undefined;
+    }
+    const original = entityVersion(supplied ? mutation.version : mutation.expectedVersion);
+    if (supplied && expected && original !== entityVersion(mutation.expectedVersion)) throw new MutationVersionError('invalid_type');
+    nextEntityVersion(mutation.action as VersionOperation, original);
+    return original;
+  }
+
+  /** Preserve integer storage while asking JS drivers for exact version text. */
+  private fieldProjection(field: string, column: ColumnSchema, alias = field): string {
+    const sql = this.driver.identifier(column.columnName);
+    const exact = field === 'version' ? `CAST(${sql} AS ${this.driver.databaseKind === 'mysql' ? 'CHAR' : 'TEXT'})` : sql;
+    return `${exact} AS ${this.driver.identifier(alias)}`;
   }
 
   async executeMutation(mutation: any): Promise<MutationResult> {
@@ -975,7 +1017,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         if (mutation.id) {
           await this.driver.ensureIdFloor(session, mutation.entity, id);
         }
-        const version = Number(mutation.version || 0) + 1;
+        const version = nextEntityVersion('Create');
         const record: Record<string, unknown> = { ...mutationRecord, id, version };
         const fields = Object.keys(schema.columns)
           .filter(field => record[field] !== undefined);
@@ -1019,8 +1061,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const predicates = [
           `${this.driver.identifier('id')} = ${this.driver.placeholder(values.length)}`,
         ];
-        if (mutation.version !== undefined && mutation.version !== null) {
-          this.bindValue(values, Number(mutation.version), this.fieldLogPolicy(schema, 'version'));
+        const original = this.checkedMutationVersion(mutation);
+        predicates.push(`${versionColumn} > 0`, `${versionColumn} < 9223372036854775807`);
+        if (original !== undefined) {
+          this.bindValue(values, original, this.fieldLogPolicy(schema, 'version'));
           predicates.push(
             `${versionColumn} = ${this.driver.placeholder(values.length)}`,
           );
@@ -1040,29 +1084,32 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         return {
           success: true,
           id: String(mutation.id),
-          version: Number(persistedRecord.version),
+          version: entityVersion(persistedRecord.version),
           persistedRecord,
         };
       }
 
-      if (mutation.action === 'Delete') {
+      if (mutation.action === 'Delete' || mutation.action === 'Recover') {
         const versionColumn = this.driver.identifier('version');
         const values: any[] = [String(mutation.id)];
         this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
         const predicates = [
           `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
         ];
-        if (mutation.version !== undefined && mutation.version !== null) {
-          this.bindValue(values, Number(mutation.version), this.fieldLogPolicy(schema, 'version'));
+        const original = this.checkedMutationVersion(mutation), recovering = mutation.action === 'Recover';
+        predicates.push(`${versionColumn} ${recovering ? '<' : '>'} 0`);
+        if (original !== undefined) {
+          this.bindValue(values, original, this.fieldLogPolicy(schema, 'version'));
           predicates.push(
             `${this.driver.identifier('version')} = ` +
             this.driver.placeholder(values.length),
           );
         }
-        const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
+        const sql = `UPDATE ${table} SET ${versionColumn} = -${versionColumn} ${recovering ? '+' : '-'} 1 ` +
           `WHERE ${predicates.join(' AND ')}`;
-        const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id), diagnosticBindings);
-        const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values), undefined, statements);
+        const operation = recovering ? 'update' : 'delete';
+        const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, operation, String(mutation.id), diagnosticBindings);
+        const result = await this.executeLoggedSQL(operation, sql, values, intent, () => session.query(sql, values), undefined, statements);
         if (result.rowCount !== 1) {
           throw new Error(
             `Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`,
@@ -1074,8 +1121,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         return {
           success: true,
           id: String(mutation.id),
-          version: Number(persistedRecord.version),
-          deleted: true,
+          version: entityVersion(persistedRecord.version),
+          deleted: !recovering,
           persistedRecord,
         };
       }
@@ -1127,9 +1174,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     intent: SQLLogIntent, writeSQL: string, writeValues: any[],
     statements: SQLExecutionMetadata[],
   ): Promise<Record<string, unknown>> {
-    const projection = Object.entries(schema.columns).map(([field, column]) =>
-      `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`,
-    ).join(', ');
+    const projection = Object.entries(schema.columns).map(([field, column]) => this.fieldProjection(field, column)).join(', ');
     const sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
       `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`;
     const values = [id];
@@ -1175,6 +1220,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === undefined) continue;
+      if (field === 'version') { result[field] = entityVersion(value); continue; }
       if (column.decode === 'number') result[field] = Number(value);
       this.requireFiniteFloatingPoint(result[field], column);
       if (column.decode === 'string') result[field] = String(value);
@@ -1453,7 +1499,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
     let projection = requestedFields.map(field => {
       const column = schema.columns[field];
-      return `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`;
+      return this.fieldProjection(field, column);
     }).join(', ');
     const aggregates = this.aggregates(query);
     if (aggregates.length) {

@@ -314,13 +314,15 @@ export class SelectQuery {
   }
 }
 
+import type {EntityVersion} from './mutation-version';
+
 export class MutationQuery {
   constructor(
     public entity: string,
-    public action: "Create" | "Update" | "Delete",
+    public action: "Create" | "Update" | "Delete" | "Recover",
     public payload: any,
     public id?: any,
     public comment?: string,
-    public expectedVersion?: number,
+    public expectedVersion?: EntityVersion,
   ) {}
 }

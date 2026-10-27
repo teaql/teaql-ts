@@ -1,5 +1,6 @@
 /** Governed application policy for complete mutation graphs. */
 import { MutationIntent } from './request-intent';
+import type {EntityVersion} from './mutation-version';
 
 export const MISSING_MUTATION_POLICY = 'MUTATION-POLICY-001';
 export const MISSING_MUTATION_POLICY_APPROVAL = 'MUTATION-POLICY-002';
@@ -16,7 +17,7 @@ export type MutationOperation = Readonly<{
   kind: MutationOperationKind;
   entity: string;
   entityId?: unknown;
-  originalVersion?: number;
+  originalVersion?: EntityVersion;
   changedValues: Readonly<Record<string, unknown>>;
 }>;
 
