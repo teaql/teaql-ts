@@ -12,28 +12,33 @@ const { S3ObjectStorage } = require('../dist/object-storage/s3');
 const { SqlBlobCatalog } = require('../dist/blob-reference/sql-catalog');
 const { SqlBlobResponseContributor } = require('../dist/blob-reference/read-service');
 const { SqliteBlobUploadService } = require('../dist/blob-reference/upload-service');
+const { SharpBlobContentVerifier } = require('../dist/blob-reference/content-sharp');
 const { ViewPreparationService } = require('../dist/core/view-preparation');
 const { MutationIntent } = require('../dist/core/request-intent');
 const { SQLiteDriver, SQLiteTeaQLClient } = require('../dist/sql/sqlite');
 
-async function verifyBlobUpload(actor, storage) {
+async function verifyBlobUpload(actor, storage, image = false) {
   const root = await mkdtemp(join(tmpdir(), 'teaql-s3-blob-upload-'));
   const filename = join(root, 'catalog.sqlite');
   const driver = new SQLiteDriver(filename);
   const client = new SQLiteTeaQLClient(filename, {});
   client.setUserContext(actor);
   const catalog = new SqlBlobCatalog(driver);
-  const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures', 'blob-sample.pdf'));
+  const extension = image ? 'jpg' : 'pdf';
+  const contentType = image ? 'image/jpeg' : 'application/pdf';
+  const fileName = image ? 'sample.jpg' : 'report.pdf';
+  const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures',
+    image ? 'blob-sample.jpg' : 'blob-sample.pdf'));
   const target = { entity: 'Asset', entityId: null, field: 'document' };
   let permitted = true;
-  const field = () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default');
+  const field = () => new BlobFieldSpec('Asset', 'document', [extension], true, 'default');
   const authorization = {
     scope: () => 'f4-s3-upload',
     field,
     authorize: async () => permitted,
     currentOnLease: async () => ({ scope: 'f4-s3-upload', field: field(), allowed: permitted }),
   };
-  const verifier = { calls: 0, async verify(content, extension, maximumBytes) {
+  const fixtureVerifier = { calls: 0, async verify(content, extension, maximumBytes) {
     this.calls++;
     const chunks = [];
     let size = 0;
@@ -48,12 +53,17 @@ async function verifyBlobUpload(actor, storage) {
     return { sizeBytes: size, sha256: createHash('sha256').update(value).digest('hex'),
       contentType: 'application/pdf' };
   } };
+  const sharp = image ? new SharpBlobContentVerifier() : undefined;
+  const verifier = image ? { calls: 0, async verify(content, extension, maximumBytes) {
+    this.calls++;
+    return sharp.verify(content, extension, maximumBytes);
+  } } : fixtureVerifier;
   let objectKey;
   try {
     await catalog.ensureSchema();
     const service = new SqliteBlobUploadService(catalog, authorization, verifier, 10_000);
     const session = await service.begin(actor, target,
-      { fileName: 'report.pdf', declaredSize: bytes.length, declaredContentType: 'application/pdf' },
+      { fileName, declaredSize: bytes.length, declaredContentType: contentType },
       randomUUID());
     const row = await driver.query('SELECT object_key FROM teaql_blob_catalog WHERE key = ?',
       [session.reference.key]);
@@ -78,12 +88,12 @@ async function verifyBlobUpload(actor, storage) {
       [session.reference.key]);
     const head = await storage.head(objectKey);
     if (saved.rows[0].status !== 'uploaded_unbound' ||
-        saved.rows[0].content_type !== 'application/pdf' ||
+        saved.rows[0].content_type !== contentType ||
         Number(saved.rows[0].size_bytes) !== bytes.length ||
         saved.rows[0].content_version !== head?.etag) {
       throw new Error('Blob S3 upload catalog/object mismatch');
     }
-    console.log('PASS TypeScript Blob upload SQLite/S3 write/confirm/replay/revocation');
+    console.log(`PASS TypeScript ${image ? 'real JPEG ' : ''}Blob upload SQLite/S3 write/confirm/replay/revocation`);
     await driver.query('CREATE TABLE asset (id TEXT PRIMARY KEY, document TEXT)');
     const bindingTarget = { entity: 'Asset', entityId: '1', field: 'document' };
     const bindingAuthorization = { scope: () => 'f4-s3-upload',
@@ -128,8 +138,8 @@ async function verifyBlobUpload(actor, storage) {
     const response = await fetch(url, { headers: { Range: 'bytes=0-7' } });
     const partial = Buffer.from(await response.arrayBuffer());
     if (response.status !== 206 || !partial.equals(bytes.subarray(0, 8)) ||
-        response.headers.get('content-type') !== 'application/pdf' ||
-        !response.headers.get('content-disposition')?.includes('report.pdf')) {
+        response.headers.get('content-type') !== contentType ||
+        !response.headers.get('content-disposition')?.includes(fileName)) {
       throw new Error('Blob S3 signed projection HTTP response mismatch');
     }
     readAllowed = false;
@@ -144,7 +154,7 @@ async function verifyBlobUpload(actor, storage) {
     catch (error) {
       if (error.code !== 'BLOB_READ_DENIED' || error.businessState !== 'committed') throw error;
     }
-    console.log('PASS TypeScript Blob S3 graph bind/authorized signed view/Range/revocation');
+    console.log(`PASS TypeScript ${image ? 'real JPEG ' : ''}Blob S3 graph bind/authorized signed view/Range/revocation`);
   } finally {
     try { if (objectKey) await storage.delete(objectKey); }
     finally {
@@ -218,6 +228,9 @@ async function main() {
     }
     if (process.env.TEAQL_S3_TEST_BLOB_UPLOAD === '1') {
       await verifyBlobUpload(actor, storage);
+      if (process.env.TEAQL_S3_TEST_REAL_IMAGE === '1') {
+        await verifyBlobUpload(actor, storage, true);
+      }
     }
     console.log('PASS TypeScript real S3-compatible replace/read/signed Range/expiry');
   } finally {
