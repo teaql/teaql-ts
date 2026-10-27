@@ -19,6 +19,26 @@
       "import": "./dist/esm/object-storage/s3.js",
       "require": "./dist/object-storage/s3.js"
     },
+    "./blob-reference/sql-catalog": {
+      "types": "./dist/blob-reference/sql-catalog.d.ts",
+      "import": "./dist/esm/blob-reference/sql-catalog.js",
+      "require": "./dist/blob-reference/sql-catalog.js"
+    },
+    "./blob-reference/mutation-participant": {
+      "types": "./dist/blob-reference/mutation-participant.d.ts",
+      "import": "./dist/esm/blob-reference/mutation-participant.js",
+      "require": "./dist/blob-reference/mutation-participant.js"
+    },
+    "./blob-reference/read-service": {
+      "types": "./dist/blob-reference/read-service.d.ts",
+      "import": "./dist/esm/blob-reference/read-service.js",
+      "require": "./dist/blob-reference/read-service.js"
+    },
+    "./blob-reference/upload-service": {
+      "types": "./dist/blob-reference/upload-service.d.ts",
+      "import": "./dist/esm/blob-reference/upload-service.js",
+      "require": "./dist/blob-reference/upload-service.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
@@ -84,6 +104,10 @@
     "*": {
       "object-storage/file": ["dist/object-storage/file.d.ts"],
       "object-storage/s3": ["dist/object-storage/s3.d.ts"],
+      "blob-reference/sql-catalog": ["dist/blob-reference/sql-catalog.d.ts"],
+      "blob-reference/mutation-participant": ["dist/blob-reference/mutation-participant.d.ts"],
+      "blob-reference/read-service": ["dist/blob-reference/read-service.d.ts"],
+      "blob-reference/upload-service": ["dist/blob-reference/upload-service.d.ts"],
       "sql/core": [
         "dist/sql/core.d.ts"
       ],

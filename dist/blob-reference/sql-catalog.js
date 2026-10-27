@@ -23,6 +23,15 @@ class SqlBlobCatalog {
         FOREIGN KEY (key) REFERENCES teaql_blob_catalog(key)
       )`);
             await this.driver.query('CREATE INDEX IF NOT EXISTS teaql_blob_binding_key ON teaql_blob_binding(key)');
+            await this.driver.query(`CREATE TABLE IF NOT EXISTS teaql_blob_upload (
+        upload_id TEXT PRIMARY KEY, scope TEXT NOT NULL, replay_key TEXT NOT NULL,
+        request_hash TEXT NOT NULL, key TEXT NOT NULL UNIQUE,
+        entity TEXT NOT NULL, entity_id TEXT, field TEXT NOT NULL,
+        file_name TEXT NOT NULL, extension TEXT NOT NULL, declared_size BIGINT NOT NULL,
+        expires_at BIGINT NOT NULL, state TEXT NOT NULL CHECK (state IN ('initiated','written','completed')),
+        written_sha256 TEXT, written_etag TEXT,
+        UNIQUE (scope, replay_key), FOREIGN KEY (key) REFERENCES teaql_blob_catalog(key)
+      )`);
         }
         catch {
             throw new Error('BLOB_CATALOG_FAILED');
@@ -85,7 +94,8 @@ class SqlBlobCatalog {
                     throw new Error('BLOB_BIND_DENIED');
                 if (change.next) {
                     const eligible = await session.query(`SELECT key FROM teaql_blob_catalog
-          WHERE key = ${p(1)} AND scope = ${p(2)} AND status = 'available'`, [change.next.key, scope]);
+          WHERE key = ${p(1)} AND scope = ${p(2)}
+            AND status IN ('uploaded_unbound', 'available')`, [change.next.key, scope]);
                     if (eligible.rows.length !== 1)
                         throw new Error('BLOB_BIND_DENIED');
                 }
@@ -102,6 +112,18 @@ class SqlBlobCatalog {
                 }
                 if (result.rowCount !== 1)
                     throw new Error('BLOB_BIND_DENIED');
+                if (change.next) {
+                    const promoted = await session.query(`UPDATE teaql_blob_catalog SET status = 'available'
+            WHERE key = ${p(1)} AND scope = ${p(2)}
+              AND status IN ('uploaded_unbound', 'available')`, [change.next.key, scope]);
+                    if (promoted.rowCount !== 1)
+                        throw new Error('BLOB_BIND_DENIED');
+                }
+                if (previous && !previous.equals(change.next)) {
+                    await session.query(`UPDATE teaql_blob_catalog SET status = 'uploaded_unbound'
+            WHERE key = ${p(1)} AND scope = ${p(2)} AND status = 'available'
+              AND NOT EXISTS (SELECT 1 FROM teaql_blob_binding WHERE key = ${p(3)})`, [previous.key, scope, previous.key]);
+                }
                 return change.nextVersion;
             }
             catch (error) {
@@ -119,6 +141,9 @@ class SqlBlobCatalog {
                 'content_type, size_bytes, status FROM teaql_blob_catalog WHERE 1 = 0');
             await this.driver.query('SELECT scope, entity, entity_id, field, key, version ' +
                 'FROM teaql_blob_binding WHERE 1 = 0');
+            await this.driver.query('SELECT upload_id, scope, replay_key, request_hash, key, entity, ' +
+                'entity_id, field, file_name, extension, declared_size, expires_at, state, ' +
+                'written_sha256, written_etag FROM teaql_blob_upload WHERE 1 = 0');
             if (this.driver.databaseKind === 'sqlite') {
                 const columns = await this.driver.query('PRAGMA table_info(teaql_blob_binding)');
                 const key = columns.rows.find(row => row.name === 'key');

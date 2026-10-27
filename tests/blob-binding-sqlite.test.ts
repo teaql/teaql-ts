@@ -31,7 +31,7 @@ test('SQLite Blob target binding is in the business graph transaction and retain
       (key, scope, object_key, content_version, file_name, content_type, size_bytes, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [reference.key, 'tenant-a', 'objects/version-1', 'v1', 'asset.pdf',
-      'application/pdf', 7, 'available']);
+      'application/pdf', 7, 'uploaded_unbound']);
     await catalog.validateSchema();
 
     await expect(client.executeGraphSave(new MutationIntent('foreign actor binding'), graph =>
@@ -56,6 +56,8 @@ test('SQLite Blob target binding is in the business graph transaction and retain
       .toBe(reference.key);
     expect((await driver.query('SELECT key, version FROM teaql_blob_binding')).rows[0])
       .toMatchObject({ key: reference.key, version: 1 });
+    expect((await driver.query('SELECT status FROM teaql_blob_catalog')).rows[0].status)
+      .toBe('available');
 
     await expect(client.executeGraphSave(new MutationIntent('rolled-back unbind'), async graph => {
       await client.withGraphSqlSession(graph, session => session.query(
@@ -93,6 +95,13 @@ test('SQLite Blob target binding is in the business graph transaction and retain
     });
     expect((await driver.query('SELECT key, version FROM teaql_blob_binding')).rows[0])
       .toMatchObject({ key: null, version: 2 });
+    expect((await driver.query('SELECT status FROM teaql_blob_catalog')).rows[0].status)
+      .toBe('uploaded_unbound');
+    await client.executeGraphSave(new MutationIntent('rebind retained Blob'), graph =>
+      catalog.bindInGraph(client, graph, context,
+        { target, next: reference, expectedVersion: 2, nextVersion: 3 }, authorization));
+    expect((await driver.query('SELECT status FROM teaql_blob_catalog')).rows[0].status)
+      .toBe('available');
   } finally {
     await client.close();
     await driver.close();

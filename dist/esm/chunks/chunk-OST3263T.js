@@ -2,8 +2,6 @@ import {
   telemetryNotice
 } from "./chunk-LGSUBUWZ.js";
 import {
-  BlobFieldSpec,
-  BlobRef,
   CheckException,
   GraphCommittedError,
   GraphMutationSession,
@@ -29,7 +27,11 @@ import {
   requireRuntimeCapabilities,
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance
-} from "./chunk-JQQARA66.js";
+} from "./chunk-5RP5ZUBS.js";
+import {
+  BlobFieldSpec,
+  BlobRef
+} from "./chunk-VJE6OLEA.js";
 import {
   observeRuntimeOperation,
   startRuntimeOperation
@@ -2041,4 +2043,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-ESSV2I2B.js.map
+//# sourceMappingURL=chunk-OST3263T.js.map

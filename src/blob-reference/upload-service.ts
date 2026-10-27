@@ -1,0 +1,267 @@
+import { createHash, randomBytes } from 'node:crypto';
+import { BlobFieldSpec, BlobRef } from '../core/blob-ref';
+import type { UserContext } from '../core/context';
+import { MAX_OBJECT_PUT_SIZE, ObjectByteStream, ObjectKey, ObjectPutOptions } from '../core/object-storage';
+import type { SqlSession } from '../sql/core';
+import { SqlBlobCatalog } from './sql-catalog';
+
+export type BlobUploadTarget = Readonly<{ entity: string; entityId: string | null; field: string }>;
+export type BlobUploadInput = Readonly<{ fileName: string; declaredSize: number; declaredContentType?: string }>;
+export type BlobVerifiedContent = Readonly<{ sizeBytes: number; sha256: string; contentType: string }>;
+
+/** The host must resolve the current model and make independent field/action decisions. */
+export interface BlobUploadAuthorization {
+  scope(context: UserContext): string;
+  field(context: UserContext, target: BlobUploadTarget): BlobFieldSpec;
+  authorize(context: UserContext, target: BlobUploadTarget,
+    action: 'Begin' | 'Write' | 'Confirm', input: BlobUploadInput): Promise<boolean>;
+}
+
+/** A mandatory trusted byte parser. Client MIME and object metadata cannot implement this SPI. */
+export interface BlobContentVerifier {
+  verify(content: ObjectByteStream, extension: string, maximumBytes: number): Promise<BlobVerifiedContent>;
+}
+
+export type BlobUploadSession = Readonly<{ uploadId: string; reference: BlobRef; expiresAt: Date }>;
+type UploadRow = {
+  upload_id: string; scope: string; key: string; entity: string; entity_id: string | null;
+  field: string; file_name: string; extension: string; declared_size: number;
+  expires_at: number; state: 'initiated' | 'written' | 'completed';
+  written_sha256: string | null; written_etag: string | null;
+};
+
+const MIME: Readonly<Record<string, string>> = Object.freeze({
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', mp4: 'video/mp4',
+  mp3: 'audio/mpeg', doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pdf: 'application/pdf',
+});
+const token = () => randomBytes(24).toString('base64url');
+const name = (value: unknown) => typeof value === 'string' && !!value.trim() &&
+  value === value.trim() && Buffer.byteLength(value) <= 256 &&
+  !/[\x00-\x1f\x7f-\x9f]/.test(value);
+const entityId = (value: unknown) => value === null || typeof value === 'string' &&
+  /^[1-9][0-9]*$/.test(value) && value.length <= 20 && BigInt(value) <= 18446744073709551615n;
+const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+
+/** SQLite server-stream upload path. Installation is explicit through SqlBlobCatalog.ensureSchema. */
+export class SqliteBlobUploadService {
+  constructor(private readonly catalog: SqlBlobCatalog,
+              private readonly authorization: BlobUploadAuthorization,
+              private readonly verifier: BlobContentVerifier,
+              private readonly maximumBytes: number,
+              private readonly leaseSeconds = 900,
+              private readonly now: () => number = Date.now) {
+    if (catalog.driver.databaseKind !== 'sqlite' || !verifier ||
+        !Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || maximumBytes > MAX_OBJECT_PUT_SIZE ||
+        !Number.isSafeInteger(leaseSeconds) || leaseSeconds < 1 || leaseSeconds > 3600) {
+      throw new Error('BLOB_POLICY_INVALID');
+    }
+  }
+
+  private async current(context: UserContext, target: BlobUploadTarget,
+                        action: 'Begin' | 'Write' | 'Confirm', input: BlobUploadInput,
+                        expectedScope?: string): Promise<string> {
+    if (!target || !name(target.entity) || !name(target.field) || !entityId(target.entityId)) {
+      throw new Error('BLOB_REFERENCE_INVALID');
+    }
+    let scope: string, field: BlobFieldSpec, allowed: boolean;
+    try {
+      scope = this.authorization.scope(context);
+      field = this.authorization.field(context, target);
+      allowed = await this.authorization.authorize(context, target, action, input);
+    } catch { throw new Error('BLOB_UPLOAD_DENIED'); }
+    if (!name(scope) || Buffer.byteLength(scope) > 256 || expectedScope !== undefined && scope !== expectedScope ||
+        !(field instanceof BlobFieldSpec) || field.entity !== target.entity ||
+        field.field !== target.field || !allowed) throw new Error('BLOB_UPLOAD_DENIED');
+    const extension = input.fileName.slice(input.fileName.lastIndexOf('.') + 1).toLowerCase();
+    if (!field.allowedExtensions.includes(extension)) throw new Error('BLOB_FORMAT_NOT_ALLOWED');
+    return scope;
+  }
+
+  private normalize(input: BlobUploadInput): BlobUploadInput {
+    if (!input || typeof input.fileName !== 'string' ||
+        !Number.isSafeInteger(input.declaredSize) || input.declaredSize < 0 ||
+        input.declaredSize > this.maximumBytes) throw new Error('BLOB_SIZE_EXCEEDED');
+    const fileName = input.fileName.split(/[/\\]/).pop()!;
+    if (!name(fileName) || Buffer.byteLength(fileName) > 512) throw new Error('BLOB_FORMAT_NOT_ALLOWED');
+    const extension = fileName.slice(fileName.lastIndexOf('.') + 1).toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(MIME, extension)) throw new Error('BLOB_FORMAT_NOT_ALLOWED');
+    const declaredContentType = input.declaredContentType?.trim().toLowerCase();
+    if (declaredContentType !== undefined &&
+        (!name(declaredContentType) || Buffer.byteLength(declaredContentType) > 128)) {
+      throw new Error('BLOB_FORMAT_NOT_ALLOWED');
+    }
+    return { fileName, declaredSize: input.declaredSize, declaredContentType };
+  }
+
+  private digest(target: BlobUploadTarget, input: BlobUploadInput): string {
+    const parts = [target.entity, target.entityId, target.field, input.fileName,
+      input.declaredSize, input.declaredContentType ?? null];
+    return sha256(Buffer.from(JSON.stringify(parts), 'utf8'));
+  }
+
+  async begin(context: UserContext, target: BlobUploadTarget, input: BlobUploadInput,
+              replayKey: string): Promise<BlobUploadSession> {
+    const normalized = this.normalize(input);
+    if (!name(replayKey) || Buffer.byteLength(replayKey) > 256) throw new Error('BLOB_REFERENCE_INVALID');
+    const scope = await this.current(context, target, 'Begin', normalized);
+    const digest = this.digest(target, normalized);
+    const extension = normalized.fileName.slice(normalized.fileName.lastIndexOf('.') + 1).toLowerCase();
+    return this.catalog.driver.transaction(async sql => {
+      const existing = await sql.query('SELECT * FROM teaql_blob_upload WHERE scope = ? AND replay_key = ?',
+        [scope, replayKey]);
+      if (existing.rows.length) {
+        const row = existing.rows[0] as UploadRow & { request_hash: string };
+        if (row.request_hash !== digest) throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+        await this.current(context, target, 'Begin', normalized, scope);
+        return Object.freeze({ uploadId: row.upload_id, reference: new BlobRef(row.key),
+          expiresAt: new Date(Number(row.expires_at)) });
+      }
+      const reference = new BlobRef(`blob_${token()}`);
+      const uploadId = `bu_${token()}`;
+      const objectKey = `blob/${token()}`;
+      const expiresAt = this.now() + this.leaseSeconds * 1000;
+      await this.current(context, target, 'Begin', normalized, scope);
+      await sql.query(`INSERT INTO teaql_blob_catalog
+        (key,scope,object_key,content_version,file_name,content_type,size_bytes,status)
+        VALUES (?,?,?,?,?,?,?,?)`, [reference.key, scope, objectKey, '', normalized.fileName, '', 0, 'initiated']);
+      await sql.query(`INSERT INTO teaql_blob_upload
+        (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
+         extension,declared_size,expires_at,state)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [uploadId, scope, replayKey, digest, reference.key, target.entity, target.entityId,
+        target.field, normalized.fileName, extension, normalized.declaredSize, expiresAt, 'initiated']);
+      return Object.freeze({ uploadId, reference, expiresAt: new Date(expiresAt) });
+    });
+  }
+
+  private async row(context: UserContext, uploadId: string,
+                    action: 'Write' | 'Confirm'): Promise<UploadRow> {
+    if (typeof uploadId !== 'string' || !/^bu_[A-Za-z0-9_-]{32}$/.test(uploadId)) {
+      throw new Error('BLOB_UPLOAD_DENIED');
+    }
+    let scope: string;
+    try { scope = this.authorization.scope(context); }
+    catch { throw new Error('BLOB_UPLOAD_DENIED'); }
+    if (!name(scope)) throw new Error('BLOB_UPLOAD_DENIED');
+    const result = await this.catalog.driver.query('SELECT * FROM teaql_blob_upload WHERE scope = ? AND upload_id = ?',
+      [scope, uploadId]);
+    if (result.rows.length !== 1) throw new Error('BLOB_UPLOAD_DENIED');
+    const row = result.rows[0] as UploadRow;
+    const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
+    await this.current(context, target, action,
+      { fileName: row.file_name, declaredSize: Number(row.declared_size) }, scope);
+    if (!Number.isSafeInteger(Number(row.expires_at)) || this.now() >= Number(row.expires_at)) {
+      throw new Error('BLOB_UPLOAD_EXPIRED');
+    }
+    if (!Number.isSafeInteger(Number(row.declared_size)) || Number(row.declared_size) > this.maximumBytes) {
+      throw new Error('BLOB_SIZE_EXCEEDED');
+    }
+    return row;
+  }
+
+  private async objectKey(sql: SqlSession, row: UploadRow): Promise<ObjectKey> {
+    const result = await sql.query('SELECT object_key FROM teaql_blob_catalog WHERE key = ? AND scope = ?',
+      [row.key, row.scope]);
+    if (result.rows.length !== 1 || typeof result.rows[0].object_key !== 'string') {
+      throw new Error('BLOB_CATALOG_FAILED');
+    }
+    return new ObjectKey(result.rows[0].object_key as string);
+  }
+
+  async write(context: UserContext, uploadId: string, source: ObjectByteStream): Promise<number> {
+    const row = await this.row(context, uploadId, 'Write');
+    if (row.state !== 'initiated') throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+    const key = await this.objectKey(this.catalog.driver, row);
+    const digest = createHash('sha256');
+    let size = 0;
+    const service = this;
+    const stream: ObjectByteStream = { [Symbol.asyncIterator]: async function* () {
+      for await (const block of source) {
+        if (service.now() >= Number(row.expires_at)) throw new Error('BLOB_UPLOAD_EXPIRED');
+        if (!(block instanceof Uint8Array) || block.byteLength > Number(row.declared_size) - size) {
+          throw new Error('BLOB_SIZE_EXCEEDED');
+        }
+        size += block.byteLength;
+        digest.update(block);
+        yield block;
+      }
+      if (size !== Number(row.declared_size)) throw new Error('BLOB_UPLOAD_INCOMPLETE');
+    } };
+    const metadata = await context.objectStorage('write Blob upload').put(key, stream,
+      new ObjectPutOptions(Number(row.declared_size), 'create_only', MIME[row.extension]));
+    const hash = digest.digest('hex');
+    const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
+    await this.current(context, target, 'Write',
+      { fileName: row.file_name, declaredSize: size }, row.scope);
+    if (this.now() >= Number(row.expires_at) || metadata.size !== size ||
+        !metadata.etag) throw new Error('BLOB_UPLOAD_INCOMPLETE');
+    await this.catalog.driver.transaction(async sql => {
+      const updated = await sql.query(`UPDATE teaql_blob_upload
+        SET state = 'written', written_sha256 = ?, written_etag = ?
+        WHERE upload_id = ? AND scope = ? AND state = 'initiated'`,
+      [hash, metadata.etag, uploadId, row.scope]);
+      if (updated.rowCount !== 1) throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+    });
+    return size;
+  }
+
+  async complete(context: UserContext, uploadId: string): Promise<BlobRef> {
+    const row = await this.row(context, uploadId, 'Confirm');
+    if (row.state !== 'written' || !row.written_sha256 || !row.written_etag) {
+      throw new Error('BLOB_UPLOAD_INCOMPLETE');
+    }
+    const key = await this.objectKey(this.catalog.driver, row);
+    const storage = context.objectStorage('verify Blob upload');
+    const before = await storage.head(key);
+    if (!before || before.size !== Number(row.declared_size) || before.etag !== row.written_etag) {
+      throw new Error('BLOB_UPLOAD_INCOMPLETE');
+    }
+    const content = await storage.get(key);
+    let size = 0, consumed = false;
+    const hash = createHash('sha256');
+    const bytes: ObjectByteStream = { [Symbol.asyncIterator]: async function* () {
+      for await (const block of content.stream) {
+        size += block.byteLength;
+        hash.update(block);
+        yield block;
+      }
+      consumed = true;
+    } };
+    let verified: BlobVerifiedContent;
+    try {
+      if (content.metadata.size !== before.size || content.metadata.etag !== before.etag) {
+        throw new Error('BLOB_UPLOAD_INCOMPLETE');
+      }
+      verified = await this.verifier.verify(bytes, row.extension, this.maximumBytes);
+    } finally { await content.close(); }
+    if (!consumed || size !== before.size || verified.sizeBytes !== size ||
+        !/^[0-9a-f]{64}$/.test(verified.sha256) || verified.sha256 !== hash.digest('hex') ||
+        verified.sha256 !== row.written_sha256 || verified.contentType !== MIME[row.extension]) {
+      throw new Error('BLOB_UPLOAD_INCOMPLETE');
+    }
+    const after = await storage.head(key);
+    if (!after || after.size !== before.size || after.etag !== before.etag) {
+      throw new Error('BLOB_UPLOAD_INCOMPLETE');
+    }
+    const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
+    await this.current(context, target, 'Confirm',
+      { fileName: row.file_name, declaredSize: size, declaredContentType: verified.contentType }, row.scope);
+    if (this.now() >= Number(row.expires_at)) throw new Error('BLOB_UPLOAD_EXPIRED');
+    await this.catalog.driver.transaction(async sql => {
+      const updated = await sql.query(`UPDATE teaql_blob_upload SET state = 'completed'
+        WHERE upload_id = ? AND scope = ? AND state = 'written' AND written_sha256 = ? AND written_etag = ?`,
+      [uploadId, row.scope, row.written_sha256, row.written_etag]);
+      if (updated.rowCount !== 1) throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+      const promoted = await sql.query(`UPDATE teaql_blob_catalog SET content_version = ?,
+        content_type = ?, size_bytes = ?, status = 'uploaded_unbound'
+        WHERE key = ? AND scope = ? AND status = 'initiated'`,
+      [row.written_etag, verified.contentType, size, row.key, row.scope]);
+      if (promoted.rowCount !== 1) throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+    });
+    return new BlobRef(row.key);
+  }
+}

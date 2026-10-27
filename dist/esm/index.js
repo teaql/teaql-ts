@@ -1,7 +1,5 @@
 import {
   AggregationCacheOptions,
-  BlobFieldSpec,
-  BlobRef,
   CheckException,
   ContextRootError,
   DelegatingMutationGovernanceSink,
@@ -41,7 +39,11 @@ import {
   queryOperationComment,
   queryTraceSource,
   requireRuntimeCapabilities
-} from "./chunks/chunk-JQQARA66.js";
+} from "./chunks/chunk-5RP5ZUBS.js";
+import {
+  BlobFieldSpec,
+  BlobRef
+} from "./chunks/chunk-VJE6OLEA.js";
 import {
   MAX_OBJECT_PUT_SIZE,
   ObjectContent,
