@@ -6,6 +6,8 @@ import type { SQLLogBindingSource } from './log-privacy';
 import { snapshotQuery, queryExecutionOwner, retainQueryExecutionOwner } from './query-snapshot';
 import { LoadedScalarSnapshot } from './loaded-scalar-snapshot';
 import { MutationFieldLayout } from './mutation-field-layout';
+import {PreparedGraphState} from './prepared-mutation';
+export {PreparedMutationError} from './prepared-mutation';
 
 const mutationSnapshots = new WeakMap<object, LoadedScalarSnapshot>();
 
@@ -259,6 +261,10 @@ export class MutationRequest<T extends object = MutationQuery> {
   constructor(mutation: T, intent?: MutationIntent) {
     this.#intent = new MutationIntent(intent === undefined ? (mutation as any)?.comment : intent?.comment);
     this.#mutation = { ...mutation };
+    // A request owns its top-level work record. Do not expose the immutable
+    // ledger snapshot as a writable execution payload or clone entity handles.
+    if ((mutation as any).payload && typeof (mutation as any).payload === 'object')
+      (this.#mutation as any).payload = {...(mutation as any).payload};
     Object.defineProperty(this.#mutation, 'comment', {
       value: this.#intent.comment, enumerable: true, writable: false, configurable: false,
     });
@@ -312,6 +318,7 @@ export class GraphMutationSession {
   #bindings?: SQLLogBindingSource;
   #preparedCount = 0;
   #sealed = false;
+  readonly #prepared = new PreparedGraphState();
 
   constructor(intent: MutationIntent) {
     this.#intent = new MutationIntent(intent?.comment);
@@ -320,7 +327,25 @@ export class GraphMutationSession {
   get intent(): MutationIntent { return this.#intent; }
 
   /** @internal Only generated complete traversal may seal a prepared plan. */
-  sealPreparedGraph(): void { this.#sealed = true; }
+  sealPreparedGraph(): void { this.#prepared.seal(); this.#sealed = true; }
+  get isPreparedSealed(): boolean {return this.#sealed;}
+  get preparedRootEntity(): string | undefined {return this.#prepared.rootEntity;}
+  /** @internal Generated graph registration carries no Context-owned ledger. */
+  registerSource(object: object, root: EntityRoot, key: EntityKey, references: Readonly<Record<string, string>>,
+    read: () => Record<string, unknown>): void {this.#prepared.register(object, root, key, references, read);}
+  sourceMembers(objects: readonly object[]): readonly symbol[] {return this.#prepared.members(objects);}
+  captureInputSources(): void {this.#prepared.captureInput();}
+  bindExecutionReference(read: () => unknown): void {this.#prepared.bind(read);}
+  bindExecutionMetadata(read: () => Record<string, unknown>): void {this.#prepared.bindMetadata(read);}
+  capturePreparedMutation(request: MutationRequest<any>, mutation: any, references: Readonly<Record<string, string>>): any {
+    return this.#prepared.remember(request, mutation, references);
+  }
+  replayPreparedMutation(request: MutationRequest<any>): any | undefined {return this.#prepared.replay(request);}
+  validatePreparedSources(): void {this.#prepared.validate();}
+  recordPreparedResult(request: MutationRequest<any>, result: any): void {this.#prepared.providerResult(request, result);}
+  acceptPreparedResult(root: EntityRoot, oldKey: EntityKey, newKey: EntityKey): void {this.#prepared.applied(root, oldKey, newKey);}
+  finishPreparedCommit(root: EntityRoot, key: EntityKey): void {this.#prepared.committed(root, key);}
+  requirePreparedComplete(): void {this.#prepared.complete();}
   get isPreparedEmpty(): boolean { return this.#sealed && this.#preparedCount === 0; }
   /** @internal Manual unsealed graphs retain their existing transaction behavior. */
   recordPreparedMutation(): void {

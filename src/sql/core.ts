@@ -776,6 +776,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   async executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T> {
     // Root intent is mandatory before lifecycle initialization or provider work.
     const graph = new GraphMutationSession(intent);
+    const executionContext = this.userContext;
+    graph.bindExecutionReference(() => this.userContext);
+    graph.bindExecutionMetadata(() => ({schemas: this.schemas, checkerNames: Object.keys(this.checkers).sort()}));
+    for (const name of Object.keys(this.checkers)) {
+      graph.bindExecutionReference(() => this.checkers[name]);
+      graph.bindExecutionReference(() => this.checkers[name]?.checkAndFix);
+    }
     await this.telemetryStartup;
     const save = async () => {
     // Generated child saves call their within-graph entry point directly. Every
@@ -790,6 +797,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     let mutationPolicyGraphStarted = false;
     let committed = false;
     try {
+      graph.validatePreparedSources();
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
@@ -797,14 +805,15 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       // No clock, Fix, policy or provider may precede whole-input admission.
       const pending = admit?.(graph);
       if (admit && typeof pending !== 'boolean') throw new Error('GRAPH_ADMISSION_RESULT_REQUIRED');
+      graph.captureInputSources();
       if (pending === false) {
         graph.sealPreparedGraph(); this.activeGraph = graph;
         try {return await work(graph);} finally {this.activeGraph = undefined;}
       }
-      this.userContext.insertResource('fixTime', this.userContext.businessTime());
-      this.userContext.beginFixEvidence();
+      executionContext.insertResource('fixTime', executionContext.businessTime());
+      executionContext.beginFixEvidence();
       fixEvidenceStarted = true;
-      this.userContext.beginMutationPolicyGraph();
+      executionContext.beginMutationPolicyGraph();
       mutationPolicyGraphStarted = true;
       // Generated Checker/Fix is a preparation phase, not provider work. Keep
       // the same graph capability and captured clock for the transaction, but
@@ -812,6 +821,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.activeGraph = graph;
       try { await prepare?.(graph); }
       finally { this.activeGraph = undefined; }
+      if (prepare && !graph.isPreparedSealed) graph.sealPreparedGraph();
+      executionContext.prepareMutationPolicyGraph(graph.preparedRootEntity);
+      graph.validatePreparedSources();
       if (graph.isPreparedEmpty) {
         this.activeGraph = graph;
         try { return await work(graph); }
@@ -822,7 +834,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         this.activeGraph = graph;
         try {
           const value = await work(graph);
-          this.userContext.ensureMutationPolicyGraphComplete();
+          graph.requirePreparedComplete();
+          executionContext.ensureMutationPolicyGraphComplete();
           return value;
         }
         finally { this.graphMutationSession = undefined; this.activeGraph = undefined; }
@@ -848,8 +861,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       this.graphCommitActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
-      if (mutationPolicyGraphStarted) this.userContext.endMutationPolicyGraph();
-      if (fixEvidenceStarted) this.userContext.removeResource('fixTime').finishFixEvidence();
+      if (mutationPolicyGraphStarted) executionContext.endMutationPolicyGraph();
+      if (fixEvidenceStarted) executionContext.removeResource('fixTime').finishFixEvidence();
       release();
     }
     };
@@ -888,7 +901,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const schema = this.schema(mutation.entity);
       request.graphSession.captureLogBindings(this.mutationLogBindings(request, mutation, schema));
     }
-    this.userContext.recordMutationPolicyPreflight(mutation);
+    const policyMutation = request.graphSession
+      ? request.graphSession.capturePreparedMutation(request, mutation, this.preparedReferences(mutation.entity)) : mutation;
+    this.userContext.recordMutationPolicyPreflight(policyMutation);
     return mutation;
   }
 
@@ -905,6 +920,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private checkAndFixMutation(mutation: any): any {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
+    const prepared = request.graphSession?.replayPreparedMutation(request);
+    if (prepared) return prepared;
     mutation = request.mutation;
     const schema = this.schemas[String(mutation.entity)];
     // A schema-less denied operation must still reach the existing policy
@@ -947,6 +964,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     } finally {
       if (ownsFixTime) this.userContext.removeResource('fixTime').finishFixEvidence();
     }
+  }
+
+  private preparedReferences(entity: string): Readonly<Record<string, string>> {
+    const schema = this.schemas[entity];
+    return Object.fromEntries(Object.values(schema?.relations ?? {}).filter(relation => !relation.many)
+      .map(relation => [schema.columns[relation.localKey]?.modelName ?? relation.localKey, relation.targetEntity]));
   }
 
   private sealMutationVersion(mutation: any, original: EntityVersion | undefined, modeled: boolean): any {
@@ -1136,6 +1159,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
       throw new Error(`Unsupported mutation action: ${mutation.action}`);
       }));
+      request.graphSession?.recordPreparedResult(request, result);
       const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload, diagnosticBindings);
       const event = Object.freeze({
         entity: mutation.entity,

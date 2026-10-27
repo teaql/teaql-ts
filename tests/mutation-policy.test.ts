@@ -312,7 +312,8 @@ test.each(['Create', 'Update'])('generated %s preparation rejects before all pro
   expect(driver.transactions).toBe(1);
   expect(driver.commits).toBe(1);
   expect(driver.idAllocations).toBe(1);
-  expect(seenTimes).toHaveLength(2);
+  // Prepared execution replays the reviewed post-Fix values, never a second Fix.
+  expect(seenTimes).toHaveLength(1);
   expect(new Set(seenTimes).size).toBe(1);
   expect(clockCalls).toBe(2);
 });

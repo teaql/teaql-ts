@@ -152,6 +152,8 @@ export class UserContext {
 
   /** @internal Used by governed data-service graph orchestration. */
   beginMutationPolicyGraph(): void { this.mutationPolicy.beginGraph(); }
+  /** @internal Generated post-Fix snapshots are reviewed before provider work. */
+  prepareMutationPolicyGraph(rootEntity?: string): void {this.mutationPolicy.prepareGraphReview(this, rootEntity);}
   /** @internal Used by generated preflight after Checker/Fix. */
   recordMutationPolicyPreflight(mutation: unknown): void {
     this.mutationPolicy.recordPreflight(mutation);

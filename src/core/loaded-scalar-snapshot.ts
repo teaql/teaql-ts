@@ -40,6 +40,13 @@ export class LoadedScalarSnapshot {
   /** Copies prevent callers or mutable JSON/date fields from rewriting history. */
   values(): Readonly<Record<string, unknown>> { return snapshotQuery(this.#values); }
 
+  /** @internal Exact canonical top-level difference for detached preparation. */
+  changedField(values: Readonly<Record<string, unknown>>): string | undefined {
+    const fields = [...new Set([...Object.keys(this.#values), ...Object.keys(values)])].sort();
+    return fields.find(field => !Object.prototype.hasOwnProperty.call(this.#values, field)
+      || !Object.prototype.hasOwnProperty.call(values, field) || !sameValue(this.#values[field], values[field]));
+  }
+
   /** Validate even read-only nodes, before root attachment or FK normalization. */
   validateNativeIdentity(key: EntityKey, nativeID: unknown, nativeVersion: unknown): void {
     const expected = this.#identityKey;
