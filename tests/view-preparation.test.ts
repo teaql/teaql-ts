@@ -59,6 +59,34 @@ describe('ViewPreparationService', () => {
       .rejects.toMatchObject({ code: 'BLOB_SIGN_FAILED', businessState: 'committed' });
   });
 
+  test('accepts independent URL lifetimes below the document ceiling and returns their minimum', async () => {
+    const second = new BlobRef('blob_asset_2');
+    const ceiling = new Date(Date.now() + 90_000);
+    const firstExpiry = new Date(Date.now() + 20_000);
+    const secondExpiry = new Date(Date.now() + 40_000);
+    const context = new UserContext()
+      .insertResource('responseGraphAuthorizer', { authorize: async () => ({
+        presentation: { first: reference, second },
+        blobSlots: [
+          { path: ['first'], entity: 'Asset', entityId: '1', field: 'first',
+            scope: 'tenant-a', bindingVersion: 4, reference },
+          { path: ['second'], entity: 'Asset', entityId: '1', field: 'second',
+            scope: 'tenant-a', bindingVersion: 5, reference: second },
+        ],
+      }) })
+      .insertResource('blobResponseContributor', { projectBatch: async () => [
+        { url: 'https://files.example.invalid/first', expiresAt: firstExpiry },
+        { url: 'https://files.example.invalid/second', expiresAt: secondExpiry },
+      ] });
+    const prepared = await new ViewPreparationService().prepare(context, null,
+      { mode: 'ordinary', businessOutcome: 'read_only', expiresAt: ceiling });
+    expect(prepared.expiresAt).toEqual(firstExpiry);
+    expect(prepared.presentation).toEqual({
+      first: 'https://files.example.invalid/first',
+      second: 'https://files.example.invalid/second',
+    });
+  });
+
   test('rejects unlisted BlobRef and malformed trusted graph before returning a raw Key', async () => {
     const context = new UserContext().insertResource('responseGraphAuthorizer', {
       authorize: async () => ({ presentation: { document: reference }, blobSlots: [] }),
