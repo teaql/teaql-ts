@@ -188,6 +188,8 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 export interface TeaQLDataService {
   withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
   executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
+  /** Optional module SPI: the caller's physical graph transaction, guarded by its session. */
+  withGraphSqlSession<T>(graph: GraphMutationSession, work: (session: SqlSession) => Promise<T>): Promise<T>;
   preflightMutation(mutation: any): any;
   afterGraphCommit(work: () => void): void;
   afterGraphRollback(work: () => void): void;
@@ -788,6 +790,21 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     };
     return observeRuntimeOperation(this.runtimeTelemetry, { family: 'mutation', name: 'graph.save',
       attributes: { 'teaql.entity.type': 'graph', 'teaql.mutation.kind': 'graph' } }, save);
+  }
+
+  async withGraphSqlSession<T>(graph: GraphMutationSession,
+                               work: (session: SqlSession) => Promise<T>): Promise<T> {
+    const physical = this.graphMutationSession;
+    if (!physical || this.activeGraph !== graph) {
+      throw new Error('BLOB_TRANSACTION_REQUIRED');
+    }
+    const guarded: SqlSession = { query: async (sql, values) => {
+      if (this.activeGraph !== graph || this.graphMutationSession !== physical) {
+        throw new Error('BLOB_TRANSACTION_REQUIRED');
+      }
+      return physical.query(sql, values);
+    } };
+    return work(guarded);
   }
 
   afterGraphCommit(work: () => void): void {
