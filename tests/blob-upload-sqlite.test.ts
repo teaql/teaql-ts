@@ -192,6 +192,65 @@ test('additive catalog migration leaves historical completion time unknown', asy
   }
 });
 
+test('legacy TypeScript upload leases migrate without changing replay identity', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-lease-migration-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const context = new UserContext();
+  const now = 1_700_000_000_000;
+  const service = new SqliteBlobUploadService(catalog, {
+    scope: () => 'tenant-a',
+    field: () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
+    authorize: async () => true,
+    currentOnLease: async () => ({ scope: 'tenant-a',
+      field: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'), allowed: true }),
+  }, new FixturePdfVerifier(), 10_000, 60, () => now);
+  const target = { entity: 'Asset', entityId: null, field: 'document' };
+  const input = { fileName: 'report.pdf', declaredSize: 42 };
+  try {
+    await catalog.ensureSchema();
+    const created = await service.begin(context, target, input, 'before-migration');
+    const old = (await driver.query('SELECT * FROM teaql_blob_upload WHERE upload_id = ?',
+      [created.uploadId])).rows[0];
+    await driver.query('DROP TABLE teaql_blob_upload');
+    await driver.query(`CREATE TABLE teaql_blob_upload (
+      upload_id TEXT PRIMARY KEY, scope TEXT NOT NULL, replay_key TEXT NOT NULL,
+      request_hash TEXT NOT NULL, key TEXT NOT NULL UNIQUE, entity TEXT NOT NULL,
+      entity_id TEXT, field TEXT NOT NULL, file_name TEXT NOT NULL,
+      extension TEXT NOT NULL, declared_size BIGINT NOT NULL,
+      expires_at BIGINT NOT NULL, state TEXT NOT NULL,
+      written_sha256 TEXT, written_etag TEXT, UNIQUE (scope, replay_key))`);
+    await driver.query(`INSERT INTO teaql_blob_upload
+      (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
+       extension,declared_size,expires_at,state,written_sha256,written_etag)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [old.upload_id, old.scope, old.replay_key, old.request_hash, old.key, old.entity,
+      old.entity_id, old.field, old.file_name, old.extension, old.declared_size,
+      old.expires_at, old.state, old.written_sha256, old.written_etag]);
+    await expect(catalog.validateSchema()).rejects.toThrow();
+    await catalog.ensureSchema();
+    await catalog.ensureSchema();
+    await catalog.validateSchema();
+    const replay = await service.begin(context, target, input, 'before-migration');
+    expect(replay.uploadId).toBe(created.uploadId);
+    expect(replay.reference.key).toBe(created.reference.key);
+    expect(replay.expiresAt.getTime()).toBe(created.expiresAt.getTime());
+    const fresh = await service.begin(context, target, input, 'after-migration');
+    const rows = await driver.query(`SELECT upload_id,expires_ms,expires_at
+      FROM teaql_blob_upload ORDER BY upload_id`);
+    expect(rows.rows).toHaveLength(2);
+    expect(rows.rows.find(row => row.upload_id === created.uploadId)).toMatchObject({
+      expires_ms: created.expiresAt.getTime(), expires_at: created.expiresAt.getTime(),
+    });
+    expect(rows.rows.find(row => row.upload_id === fresh.uploadId)).toMatchObject({
+      expires_ms: fresh.expiresAt.getTime(), expires_at: fresh.expiresAt.getTime(),
+    });
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('an expired replay key cannot recover an upload session, while a new request can begin', async () => {
   const root = await mkdtemp(join(tmpdir(), 'teaql-blob-upload-expiry-'));
   const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));

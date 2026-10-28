@@ -59,10 +59,29 @@ var SqlBlobCatalog = class {
         request_hash TEXT NOT NULL, key TEXT NOT NULL UNIQUE,
         entity TEXT NOT NULL, entity_id TEXT, field TEXT NOT NULL,
         file_name TEXT NOT NULL, extension TEXT NOT NULL, declared_size BIGINT NOT NULL,
-        expires_at BIGINT NOT NULL, state TEXT NOT NULL CHECK (state IN ('initiated','written','completed')),
+        expires_ms BIGINT NOT NULL, expires_at BIGINT,
+        state TEXT NOT NULL CHECK (state IN ('initiated','written','completed')),
         written_sha256 TEXT, written_etag TEXT,
         UNIQUE (scope, replay_key), FOREIGN KEY (key) REFERENCES teaql_blob_catalog(key)
       )`);
+      if (this.driver.databaseKind === "sqlite") {
+        for (const column of ["expires_ms", "expires_at"]) {
+          const columns = await this.driver.query("PRAGMA table_info(teaql_blob_upload)");
+          if (columns.rows.some((row) => row.name === column)) continue;
+          try {
+            await this.driver.query(`ALTER TABLE teaql_blob_upload ADD COLUMN ${column} BIGINT`);
+          } catch {
+            const current = await this.driver.query("PRAGMA table_info(teaql_blob_upload)");
+            if (!current.rows.some((row) => row.name === column)) throw new Error("BLOB_CATALOG_FAILED");
+          }
+        }
+        await this.driver.query(`UPDATE teaql_blob_upload SET expires_ms = expires_at
+          WHERE expires_ms IS NULL AND expires_at IS NOT NULL`);
+        const incomplete = await this.driver.query(
+          "SELECT COUNT(*) AS missing FROM teaql_blob_upload WHERE expires_ms IS NULL"
+        );
+        if (Number(incomplete.rows[0]?.missing) !== 0) throw new Error("BLOB_CATALOG_FAILED");
+      }
     } catch {
       throw new Error("BLOB_CATALOG_FAILED");
     }
@@ -78,7 +97,7 @@ var SqlBlobCatalog = class {
           (c.status = 'deleting' AND (u.state IN ('initiated','written') OR
             (u.state = 'completed' AND c.upload_mode = 'server_stream')))
           OR (c.status = 'initiated' AND u.state IN ('initiated','written')
-            AND u.expires_at <= ?)
+            AND u.expires_ms <= ?)
           OR (c.status = 'uploaded_unbound' AND u.state = 'completed'
             AND c.upload_mode = 'server_stream' AND c.completed_at_ms IS NOT NULL
             AND c.unbound_retention_seconds IS NOT NULL
@@ -123,7 +142,7 @@ var SqlBlobCatalog = class {
     try {
       const rows = await this.driver.query(`SELECT c.key FROM teaql_blob_catalog c
         JOIN teaql_blob_upload u ON u.key = c.key AND u.scope = c.scope
-        WHERE c.scope = ? AND c.key > ? AND u.expires_at <= ?
+        WHERE c.scope = ? AND c.key > ? AND u.expires_ms <= ?
           AND u.state IN ('initiated','written') AND c.status IN ('initiated','deleting')
           AND NOT EXISTS (SELECT 1 FROM teaql_blob_binding b WHERE b.key = c.key)
         ORDER BY c.key LIMIT ?`, [scope, after, now, limit]);
@@ -142,7 +161,7 @@ var SqlBlobCatalog = class {
         const rows = await sql.query(`SELECT c.key,c.object_key,c.content_version,c.status,
             c.completed_at_ms,c.last_unbound_at_ms,c.policy_profile,c.upload_mode,
             c.unbound_retention_seconds,c.effective_unref_seconds,c.retention_floor_until_ms,
-            u.state,u.expires_at,u.written_etag
+            u.state,u.expires_ms,u.written_etag
           FROM teaql_blob_catalog c JOIN teaql_blob_upload u
             ON u.key = c.key AND u.scope = c.scope
           WHERE c.scope = ? AND c.key = ?`, [scope, key]);
@@ -156,7 +175,7 @@ var SqlBlobCatalog = class {
         const incomplete = row.state === "initiated" || row.state === "written";
         if (incompleteOnly && !incomplete) return void 0;
         if (incomplete) {
-          if (!Number.isSafeInteger(row.expires_at) || row.status !== "deleting" && (row.status !== "initiated" || row.expires_at > now))
+          if (!Number.isSafeInteger(row.expires_ms) || row.status !== "deleting" && (row.status !== "initiated" || row.expires_ms > now))
             return void 0;
         } else if (row.state === "completed") {
           if (row.upload_mode !== "server_stream" || typeof row.policy_profile !== "string" || !row.policy_profile || !Number.isSafeInteger(row.completed_at_ms) || row.completed_at_ms < 0 || !Number.isSafeInteger(row.unbound_retention_seconds) || row.unbound_retention_seconds < 0 || !Number.isSafeInteger(row.effective_unref_seconds) || row.effective_unref_seconds < 0 || !validDeleteVersion(row.content_version) || row.written_etag !== row.content_version) return void 0;
@@ -208,13 +227,13 @@ var SqlBlobCatalog = class {
     try {
       await this.driver.transaction(async (sql) => {
         const rows = await sql.query(`SELECT c.object_key, c.content_version, c.status,
-            u.state, u.expires_at, u.written_etag
+            u.state, u.expires_ms, u.written_etag
           FROM teaql_blob_catalog c JOIN teaql_blob_upload u
             ON u.key = c.key AND u.scope = c.scope
           WHERE c.scope = ? AND c.key = ?`, [scope, record.key]);
         const row = rows.rows[0];
         const bound = await sql.query("SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1", [record.key]);
-        if (rows.rows.length !== 1 || bound.rows.length || row.status !== "deleting" || row.object_key !== record.objectKey || !Number.isSafeInteger(Number(row.expires_at)) || Number(row.expires_at) > now || !["initiated", "written"].includes(String(row.state)) || row.written_etag && row.written_etag !== version || row.content_version && row.content_version !== version)
+        if (rows.rows.length !== 1 || bound.rows.length || row.status !== "deleting" || row.object_key !== record.objectKey || !Number.isSafeInteger(Number(row.expires_ms)) || Number(row.expires_ms) > now || !["initiated", "written"].includes(String(row.state)) || row.written_etag && row.written_etag !== version || row.content_version && row.content_version !== version)
           throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
         if (!row.content_version) {
           const changed = await sql.query(
@@ -238,7 +257,7 @@ var SqlBlobCatalog = class {
       await this.driver.transaction(async (sql) => {
         const rows = await sql.query(`SELECT c.object_key,c.content_version,c.status,
             c.upload_mode,c.policy_profile,c.completed_at_ms,c.unbound_retention_seconds,
-            c.effective_unref_seconds,u.state,u.expires_at,u.written_etag
+            c.effective_unref_seconds,u.state,u.expires_ms,u.written_etag
           FROM teaql_blob_catalog c JOIN teaql_blob_upload u
             ON u.key = c.key AND u.scope = c.scope
           WHERE c.scope = ? AND c.key = ?`, [scope, record.key]);
@@ -250,7 +269,7 @@ var SqlBlobCatalog = class {
         const bound = await sql.query("SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1", [record.key]);
         const incomplete = row.state === "initiated" || row.state === "written";
         const complete = row.state === "completed" && row.upload_mode === "server_stream" && typeof row.policy_profile === "string" && !!row.policy_profile && Number.isSafeInteger(row.completed_at_ms) && row.completed_at_ms >= 0 && Number.isSafeInteger(row.unbound_retention_seconds) && row.unbound_retention_seconds >= 0 && Number.isSafeInteger(row.effective_unref_seconds) && row.effective_unref_seconds >= 0 && row.written_etag === version;
-        if (bound.rows.length || row.status !== "deleting" || !Number.isSafeInteger(now) || now < 0 || !(incomplete && Number.isSafeInteger(row.expires_at) && row.expires_at <= now || complete))
+        if (bound.rows.length || row.status !== "deleting" || !Number.isSafeInteger(now) || now < 0 || !(incomplete && Number.isSafeInteger(row.expires_ms) && row.expires_ms <= now || complete))
           throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
         const changed = await sql.query(
           `UPDATE teaql_blob_catalog SET status = 'deleted'
@@ -441,7 +460,7 @@ var SqlBlobCatalog = class {
     try {
       await this.driver.query("SELECT key, scope, object_key, content_version, file_name, content_type, size_bytes, completed_at_ms, last_unbound_at_ms, policy_profile, upload_mode, unbound_retention_seconds, effective_unref_seconds, retention_floor_until_ms, status FROM teaql_blob_catalog WHERE 1 = 0");
       await this.driver.query("SELECT scope, entity, entity_id, field, key, version FROM teaql_blob_binding WHERE 1 = 0");
-      await this.driver.query("SELECT upload_id, scope, replay_key, request_hash, key, entity, entity_id, field, file_name, extension, declared_size, expires_at, state, written_sha256, written_etag FROM teaql_blob_upload WHERE 1 = 0");
+      await this.driver.query("SELECT upload_id, scope, replay_key, request_hash, key, entity, entity_id, field, file_name, extension, declared_size, expires_ms, state, written_sha256, written_etag FROM teaql_blob_upload WHERE 1 = 0");
       if (this.driver.databaseKind === "sqlite") {
         const columns = await this.driver.query("PRAGMA table_info(teaql_blob_binding)");
         const key = columns.rows.find((row) => row.name === "key");
@@ -516,4 +535,4 @@ function isMissingTable(error) {
 export {
   SqlBlobCatalog
 };
-//# sourceMappingURL=chunk-MEW4FLBI.js.map
+//# sourceMappingURL=chunk-JQPG7FML.js.map

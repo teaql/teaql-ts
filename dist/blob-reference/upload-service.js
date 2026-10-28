@@ -119,11 +119,11 @@ class SqliteBlobUploadService {
                 if (row.request_hash !== digest)
                     throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
                 await this.currentOnLease(context, sql, target, 'Begin', normalized, scope);
-                if (!Number.isSafeInteger(Number(row.expires_at)) ||
-                    this.now() >= Number(row.expires_at))
+                if (!Number.isSafeInteger(Number(row.expires_ms)) ||
+                    this.now() >= Number(row.expires_ms))
                     throw new Error('BLOB_UPLOAD_EXPIRED');
                 return Object.freeze({ uploadId: row.upload_id, reference: new blob_ref_1.BlobRef(row.key),
-                    expiresAt: new Date(Number(row.expires_at)) });
+                    expiresAt: new Date(Number(row.expires_ms)) });
             }
             const reference = new blob_ref_1.BlobRef(`blob_${token()}`);
             const uploadId = `bu_${token()}`;
@@ -139,9 +139,10 @@ class SqliteBlobUploadService {
                 current.policy?.unreferencedRetentionSeconds ?? null]);
             await sql.query(`INSERT INTO teaql_blob_upload
         (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
-         extension,declared_size,expires_at,state)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [uploadId, scope, replayKey, digest, reference.key, target.entity, target.entityId,
-                target.field, normalized.fileName, extension, normalized.declaredSize, expiresAt, 'initiated']);
+         extension,declared_size,expires_ms,expires_at,state)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [uploadId, scope, replayKey, digest, reference.key, target.entity, target.entityId,
+                target.field, normalized.fileName, extension, normalized.declaredSize,
+                expiresAt, expiresAt, 'initiated']);
             return Object.freeze({ uploadId, reference, expiresAt: new Date(expiresAt) });
         });
     }
@@ -164,7 +165,7 @@ class SqliteBlobUploadService {
         const row = result.rows[0];
         const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
         await this.current(context, target, action, { fileName: row.file_name, declaredSize: Number(row.declared_size) }, scope);
-        if (!Number.isSafeInteger(Number(row.expires_at)) || this.now() >= Number(row.expires_at)) {
+        if (!Number.isSafeInteger(Number(row.expires_ms)) || this.now() >= Number(row.expires_ms)) {
             throw new Error('BLOB_UPLOAD_EXPIRED');
         }
         if (!Number.isSafeInteger(Number(row.declared_size)) || Number(row.declared_size) > this.maximumBytes) {
@@ -221,7 +222,7 @@ class SqliteBlobUploadService {
         const service = this;
         const stream = { [Symbol.asyncIterator]: async function* () {
                 for await (const block of source) {
-                    if (service.now() >= Number(row.expires_at))
+                    if (service.now() >= Number(row.expires_ms))
                         throw new Error('BLOB_UPLOAD_EXPIRED');
                     if (!(block instanceof Uint8Array) || block.byteLength > Number(row.declared_size) - size) {
                         throw new Error('BLOB_SIZE_EXCEEDED');
@@ -236,13 +237,13 @@ class SqliteBlobUploadService {
             } };
         const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
         return this.catalog.driver.transaction(async (sql) => {
-            const current = await sql.query(`SELECT state, key, expires_at, written_sha256, written_etag FROM teaql_blob_upload
+            const current = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag FROM teaql_blob_upload
         WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
             const catalog = await sql.query(`SELECT object_key, status, content_version, content_type, size_bytes FROM teaql_blob_catalog
         WHERE key = ? AND scope = ?`, [row.key, row.scope]);
             if (current.rows.length !== 1 || catalog.rows.length !== 1 ||
                 current.rows[0].key !== row.key ||
-                Number(current.rows[0].expires_at) !== Number(row.expires_at) ||
+                Number(current.rows[0].expires_ms) !== Number(row.expires_ms) ||
                 catalog.rows[0].object_key !== key.value) {
                 throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
             }
@@ -262,7 +263,7 @@ class SqliteBlobUploadService {
                     throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
                 }
                 await this.currentOnLease(context, sql, target, 'Write', { fileName: row.file_name, declaredSize: Number(row.declared_size) }, row.scope);
-                if (this.now() >= Number(row.expires_at))
+                if (this.now() >= Number(row.expires_ms))
                     throw new Error('BLOB_UPLOAD_EXPIRED');
                 const replayHash = (0, node_crypto_1.createHash)('sha256');
                 let replaySize = 0;
@@ -299,7 +300,7 @@ class SqliteBlobUploadService {
                     throw new Error('BLOB_STORE_FAILED');
                 }
                 await this.currentOnLease(context, sql, target, 'Write', { fileName: row.file_name, declaredSize: replaySize }, row.scope);
-                if (this.now() >= Number(row.expires_at))
+                if (this.now() >= Number(row.expires_ms))
                     throw new Error('BLOB_UPLOAD_EXPIRED');
                 return replaySize;
             }
@@ -308,7 +309,7 @@ class SqliteBlobUploadService {
             }
             await this.currentOnLease(context, sql, target, 'Write', { fileName: row.file_name, declaredSize: Number(row.declared_size) }, row.scope);
             let now = this.now();
-            if (now >= Number(row.expires_at))
+            if (now >= Number(row.expires_ms))
                 throw new Error('BLOB_UPLOAD_EXPIRED');
             let metadata;
             let recoveredHash;
@@ -338,7 +339,7 @@ class SqliteBlobUploadService {
             }
             await this.currentOnLease(context, sql, target, 'Write', { fileName: row.file_name, declaredSize: size }, row.scope);
             now = this.now();
-            if (now >= Number(row.expires_at))
+            if (now >= Number(row.expires_ms))
                 throw new Error('BLOB_UPLOAD_EXPIRED');
             if (!consumed || metadata.size !== size || !metadata.etag || size !== Number(row.declared_size)) {
                 throw new Error('BLOB_UPLOAD_INCOMPLETE');
@@ -348,7 +349,7 @@ class SqliteBlobUploadService {
             try {
                 updated = await sql.query(`UPDATE teaql_blob_upload
         SET state = 'written', written_sha256 = ?, written_etag = ?
-        WHERE upload_id = ? AND scope = ? AND state = 'initiated' AND expires_at > ?
+        WHERE upload_id = ? AND scope = ? AND state = 'initiated' AND expires_ms > ?
           AND EXISTS (SELECT 1 FROM teaql_blob_catalog
             WHERE key = teaql_blob_upload.key AND scope = teaql_blob_upload.scope
               AND status = 'initiated')`, [hash, metadata.etag, uploadId, row.scope, now]);
@@ -391,7 +392,7 @@ class SqliteBlobUploadService {
                 throw new Error('BLOB_UPLOAD_INCOMPLETE');
             await this.current(context, { entity: row.entity, entityId: row.entity_id, field: row.field }, 'Confirm', { fileName: row.file_name, declaredSize: Number(row.declared_size),
                 declaredContentType: MIME[row.extension] }, row.scope);
-            if (this.now() >= Number(row.expires_at))
+            if (this.now() >= Number(row.expires_ms))
                 throw new Error('BLOB_UPLOAD_EXPIRED');
             return new blob_ref_1.BlobRef(row.key);
         }
@@ -402,7 +403,7 @@ class SqliteBlobUploadService {
         const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
         const writtenHash = row.written_sha256, writtenETag = row.written_etag;
         const result = await this.catalog.driver.transaction(async (sql) => {
-            const current = await sql.query(`SELECT state, key, expires_at, written_sha256, written_etag
+            const current = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag
         FROM teaql_blob_upload WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
             const catalog = await sql.query(`SELECT object_key, status FROM teaql_blob_catalog
         WHERE key = ? AND scope = ?`, [row.key, row.scope]);
@@ -411,21 +412,21 @@ class SqliteBlobUploadService {
             }
             const observed = current.rows[0];
             if (observed.state === 'completed' && observed.key === row.key &&
-                Number(observed.expires_at) === Number(row.expires_at) &&
+                Number(observed.expires_ms) === Number(row.expires_ms) &&
                 observed.written_sha256 === writtenHash && observed.written_etag === writtenETag) {
                 // Recheck catalog, generation and current permission on the normal
                 // completed-replay path after releasing this physical SQL owner.
                 return null;
             }
             if (observed.state !== 'written' || observed.key !== row.key ||
-                Number(observed.expires_at) !== Number(row.expires_at) ||
+                Number(observed.expires_ms) !== Number(row.expires_ms) ||
                 observed.written_sha256 !== writtenHash || observed.written_etag !== writtenETag ||
                 catalog.rows[0].object_key !== key.value || catalog.rows[0].status !== 'initiated') {
                 throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
             }
             await this.currentOnLease(context, sql, target, 'Confirm', { fileName: row.file_name, declaredSize: Number(row.declared_size) }, row.scope);
             let now = this.now();
-            if (now >= Number(row.expires_at))
+            if (now >= Number(row.expires_ms))
                 throw new Error('BLOB_UPLOAD_EXPIRED');
             const storage = context.objectStorage('verify Blob upload');
             const before = await storage.head(key);
@@ -464,11 +465,11 @@ class SqliteBlobUploadService {
             }
             await this.currentOnLease(context, sql, target, 'Confirm', { fileName: row.file_name, declaredSize: size, declaredContentType: verified.contentType }, row.scope);
             now = this.now();
-            if (now >= Number(row.expires_at))
+            if (now >= Number(row.expires_ms))
                 throw new Error('BLOB_UPLOAD_EXPIRED');
             const updated = await sql.query(`UPDATE teaql_blob_upload SET state = 'completed'
         WHERE upload_id = ? AND scope = ? AND state = 'written' AND written_sha256 = ?
-          AND written_etag = ? AND expires_at > ?`, [uploadId, row.scope, writtenHash, writtenETag, now]);
+          AND written_etag = ? AND expires_ms > ?`, [uploadId, row.scope, writtenHash, writtenETag, now]);
             if (updated.rowCount !== 1)
                 throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
             const promoted = await sql.query(`UPDATE teaql_blob_catalog SET content_version = ?,
