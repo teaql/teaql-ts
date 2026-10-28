@@ -57,6 +57,7 @@ export declare class SqliteBlobUploadService {
     private checkCurrent;
     private normalize;
     private digest;
+    private legacyDigest;
     begin(context: UserContext, target: BlobUploadTarget, input: BlobUploadInput, replayKey: string): Promise<BlobUploadSession>;
     private row;
     private objectKey;

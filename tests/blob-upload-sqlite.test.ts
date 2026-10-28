@@ -212,6 +212,8 @@ test('legacy TypeScript upload leases migrate without changing replay identity',
     const created = await service.begin(context, target, input, 'before-migration');
     const old = (await driver.query('SELECT * FROM teaql_blob_upload WHERE upload_id = ?',
       [created.uploadId])).rows[0];
+    const legacyHash = createHash('sha256').update(JSON.stringify(
+      ['Asset', null, 'document', 'report.pdf', 42, null])).digest('hex');
     await driver.query('DROP TABLE teaql_blob_upload');
     await driver.query(`CREATE TABLE teaql_blob_upload (
       upload_id TEXT PRIMARY KEY, scope TEXT NOT NULL, replay_key TEXT NOT NULL,
@@ -224,7 +226,7 @@ test('legacy TypeScript upload leases migrate without changing replay identity',
       (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
        extension,declared_size,expires_at,state,written_sha256,written_etag)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [old.upload_id, old.scope, old.replay_key, old.request_hash, old.key, old.entity,
+    [old.upload_id, old.scope, old.replay_key, legacyHash, old.key, old.entity,
       old.entity_id, old.field, old.file_name, old.extension, old.declared_size,
       old.expires_at, old.state, old.written_sha256, old.written_etag]);
     await expect(catalog.validateSchema()).rejects.toThrow();
@@ -236,14 +238,17 @@ test('legacy TypeScript upload leases migrate without changing replay identity',
     expect(replay.reference.key).toBe(created.reference.key);
     expect(replay.expiresAt.getTime()).toBe(created.expiresAt.getTime());
     const fresh = await service.begin(context, target, input, 'after-migration');
-    const rows = await driver.query(`SELECT upload_id,expires_ms,expires_at
+    const rows = await driver.query(`SELECT upload_id,expires_ms,expires_at,request_hash
       FROM teaql_blob_upload ORDER BY upload_id`);
     expect(rows.rows).toHaveLength(2);
     expect(rows.rows.find(row => row.upload_id === created.uploadId)).toMatchObject({
       expires_ms: created.expiresAt.getTime(), expires_at: created.expiresAt.getTime(),
+      request_hash: legacyHash,
     });
     expect(rows.rows.find(row => row.upload_id === fresh.uploadId)).toMatchObject({
       expires_ms: fresh.expiresAt.getTime(), expires_at: fresh.expiresAt.getTime(),
+      request_hash: createHash('sha256').update(JSON.stringify(
+        ['Asset', null, 'document', 'report.pdf', 42, ''])).digest('hex'),
     });
   } finally {
     await driver.close();

@@ -138,6 +138,12 @@ export class SqliteBlobUploadService {
 
   private digest(target: BlobUploadTarget, input: BlobUploadInput): string {
     const parts = [target.entity, target.entityId, target.field, input.fileName,
+      input.declaredSize, input.declaredContentType ?? ''];
+    return sha256(Buffer.from(JSON.stringify(parts), 'utf8'));
+  }
+
+  private legacyDigest(target: BlobUploadTarget, input: BlobUploadInput): string {
+    const parts = [target.entity, target.entityId, target.field, input.fileName,
       input.declaredSize, input.declaredContentType ?? null];
     return sha256(Buffer.from(JSON.stringify(parts), 'utf8'));
   }
@@ -154,7 +160,10 @@ export class SqliteBlobUploadService {
         [scope, replayKey]);
       if (existing.rows.length) {
         const row = existing.rows[0] as UploadRow & { request_hash: string };
-        if (row.request_hash !== digest) throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+        if (row.request_hash !== digest &&
+            row.request_hash !== this.legacyDigest(target, normalized)) {
+          throw new Error('BLOB_IDEMPOTENCY_CONFLICT');
+        }
         await this.currentOnLease(context, sql, target, 'Begin', normalized, scope);
         if (!Number.isSafeInteger(Number(row.expires_ms)) ||
             this.now() >= Number(row.expires_ms)) throw new Error('BLOB_UPLOAD_EXPIRED');
