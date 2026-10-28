@@ -199,6 +199,41 @@ test('Blob confirmation rolls back when object stream close fails', async () => 
   }
 });
 
+test('Blob Write rejects source iterator finalization failure before SQL promotion and replay', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-source-finalize-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const actor = new UserContext().withObjectStorage(
+    new FileObjectStorage(join(root, 'private'), randomBytes(32)))
+    .withObjectStorageObserver(() => {});
+  const service = new SqliteBlobUploadService(catalog, authority(), new FixtureVerifier(), 10_000);
+  const bytes = Buffer.from('%PDF-1.7\niterator finalization before promotion\n%%EOF');
+  const failingSource = (): ObjectByteStream => (async function* () {
+    try { yield bytes; }
+    finally { throw new Error('PRIVATE-SOURCE-FINALIZE-CANARY'); }
+  })();
+  try {
+    await catalog.ensureSchema();
+    const session = await service.begin(actor,
+      { entity: 'Asset', entityId: null, field: 'document' },
+      { fileName: 'report.pdf', declaredSize: bytes.length }, 'source-finalize');
+    await expect(service.write(actor, session.uploadId, failingSource()))
+      .rejects.toThrow(/^BLOB_STORE_FAILED$/);
+    const state = (await driver.query(`SELECT u.state,c.status FROM teaql_blob_upload u
+      JOIN teaql_blob_catalog c ON c.key=u.key WHERE u.upload_id=?`, [session.uploadId])).rows[0];
+    expect(state).toMatchObject({ state: 'initiated', status: 'initiated' });
+    expect(await service.write(actor, session.uploadId, source(bytes))).toBe(bytes.length);
+    expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
+    await expect(service.write(actor, session.uploadId, failingSource()))
+      .rejects.toThrow(/^BLOB_STORE_FAILED$/);
+    expect((await driver.query('SELECT state FROM teaql_blob_upload WHERE upload_id=?',
+      [session.uploadId])).rows[0].state).toBe('completed');
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('Blob upload reads SQL-backed current permission through its borrowed owner', async () => {
   const root = await mkdtemp(join(tmpdir(), 'teaql-blob-owner-policy-'));
   const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
