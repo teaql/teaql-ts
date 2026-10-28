@@ -4,15 +4,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BlobFieldSpec } from '../src/core/blob-ref';
 import { UserContext } from '../src/core/context';
+import { EntityRoot } from '../src/core/entity-root';
+import { MutationIntent } from '../src/core/request-intent';
+import { installRuntimeCapability } from '../src/core/runtime-capability';
 import { ObjectByteStream, ObjectContent, ObjectKey, ObjectMetadata,
   ObjectPutOptions, ObjectReadUrl, ObjectReadUrlOptions, ObjectStorageProvider,
   StorageError, StorageInvocation } from '../src/core/object-storage';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
 import { BlobRetentionPolicy } from '../src/blob-reference/retention';
+import { SqliteBlobMutationParticipant } from '../src/blob-reference/mutation-participant';
 import { SqliteBlobMaintenanceService } from '../src/blob-reference/maintenance-service';
 import { SqliteBlobUploadService } from '../src/blob-reference/upload-service';
 import { FileObjectStorage, SqliteFencedFileObjectStorage } from '../src/object-storage/file';
-import { SQLiteDriver } from '../src/sql/sqlite';
+import type { EntitySchema } from '../src/sql/core';
+import { SQLiteDriver, SQLiteTeaQLClient } from '../src/sql/sqlite';
 
 class ConditionalStore implements ObjectStorageProvider {
   readonly objects = new Map<string, { bytes: Buffer; etag: string; contentType: string }>();
@@ -357,6 +362,111 @@ test('real fenced File collects policy-backed completed and formerly bound Blobs
     expect((await f.driver.query(`SELECT status FROM teaql_blob_catalog WHERE key = ?`,
       [race.reference.key])).rows[0].status).toBe('uploaded_unbound');
   } finally { await f.close(); }
+});
+
+test('native shared-Blob graph waits for the final committed unbind before File collection', async () => {
+  const policy = new BlobRetentionPolicy('default', 'server_stream', 10, 20);
+  const f = await fixture(policy);
+  const file = new SqliteFencedFileObjectStorage(join(f.root, 'shared-blob-files'), randomBytes(32));
+  const schema: EntitySchema = { table: 'asset', columns: {
+    id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+    version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+    document: { columnName: 'document', logicalType: 'text', decode: 'string', nullable: true,
+      blob: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default') },
+  } };
+  const client = new SQLiteTeaQLClient(join(f.root, 'catalog.sqlite'), { Asset: schema });
+  const graphCatalog = new SqlBlobCatalog(f.driver, () => f.clock);
+  const actor = new UserContext().withObjectStorage(file).withObjectStorageObserver(() => {})
+    .insertResource('dataService', client);
+  installRuntimeCapability(actor, { name: 'blob.v1', assertReady: () => undefined });
+  actor.insertResource('blobMutationParticipant',
+    new SqliteBlobMutationParticipant(graphCatalog, {
+      scope: () => 'tenant-a', authorize: async () => true,
+      currentPolicyOnLease: () => policy,
+    }));
+  client.setUserContext(actor);
+  const maintenance = new SqliteBlobMaintenanceService(graphCatalog,
+    { scope: () => 'tenant-a', canMaintain: () => true }, 100, () => f.clock);
+  try {
+    await actor.ensureSchema();
+    const started = f.clock;
+    const upload = await f.upload.begin(actor, target,
+      { fileName: 'report.pdf', declaredSize: bytes.length }, 'shared-native-graph');
+    await f.upload.write(actor, upload.uploadId, (async function* () { yield bytes; })());
+    await f.upload.complete(actor, upload.uploadId);
+    const objectKey = await f.objectKey(upload.reference.key);
+    const store = actor.objectStorage('shared Blob native graph');
+    expect(await store.head(objectKey)).toBeDefined();
+
+    const ledger = new EntityRoot();
+    const firstKey = { entity: 'Asset', id: -1 };
+    const secondKey = { entity: 'Asset', id: -2 };
+    for (const key of [firstKey, secondKey]) {
+      ledger.markAsNew(key);
+      ledger.set(key, 'document', upload.reference);
+    }
+    const ids = await client.executeGraphSave(new MutationIntent('bind shared Blob in two rows'),
+      async graph => {
+        const created: string[] = [];
+        for (const key of [firstKey, secondKey]) {
+          const row = await client.executeMutation(graph.request({
+            entity: 'Asset', action: 'Create', ledgerRoot: ledger, ledgerKey: key,
+            payload: Object.freeze({ ...ledger.change(key) }),
+          }));
+          ledger.rekey(key, { entity: 'Asset', id: row.id });
+          created.push(row.id);
+        }
+        return created;
+      });
+    expect(ids).toHaveLength(2);
+    expect((await f.driver.query('SELECT key FROM teaql_blob_binding WHERE key = ?',
+      [upload.reference.key])).rows).toHaveLength(2);
+    expect((await f.driver.query('SELECT status,last_unbound_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [upload.reference.key])).rows[0]).toMatchObject({ status: 'available', last_unbound_at_ms: null });
+
+    f.clock = started + 40_000;
+    const unbind = async (id: string, rejectOuter: boolean) =>
+      client.executeGraphSave(new MutationIntent('unbind shared Blob row'), async graph => {
+        await client.executeMutation(graph.request({ entity: 'Asset', action: 'Update',
+          id, version: 1, payload: { document: null } }));
+        if (rejectOuter) throw new Error('outer owner rejected final unbind');
+      });
+    await unbind(ids[0]!, false);
+    expect((await f.driver.query('SELECT key FROM teaql_blob_binding WHERE key = ?',
+      [upload.reference.key])).rows).toHaveLength(1);
+    expect((await f.driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [upload.reference.key])).rows[0].last_unbound_at_ms).toBeNull();
+    expect((await maintenance.runBatch(actor)).outcomes).toHaveLength(0);
+    expect(await store.head(objectKey)).toBeDefined();
+
+    await expect(unbind(ids[1]!, true)).rejects.toThrow('outer owner rejected final unbind');
+    expect((await f.driver.query('SELECT document FROM asset WHERE id = ?',
+      [ids[1]])).rows[0].document).toBe(upload.reference.key);
+    expect((await f.driver.query('SELECT key FROM teaql_blob_binding WHERE key = ?',
+      [upload.reference.key])).rows).toHaveLength(1);
+    expect((await f.driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [upload.reference.key])).rows[0].last_unbound_at_ms).toBeNull();
+    expect((await maintenance.runBatch(actor)).outcomes).toHaveLength(0);
+
+    await unbind(ids[1]!, false);
+    expect((await f.driver.query('SELECT key FROM teaql_blob_binding WHERE key = ?',
+      [upload.reference.key])).rows).toHaveLength(0);
+    expect((await f.driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog WHERE key = ?',
+      [upload.reference.key])).rows[0].last_unbound_at_ms).toBe(f.clock);
+    f.clock += 19_999;
+    expect((await maintenance.runBatch(actor)).outcomes).toHaveLength(0);
+    expect(await store.head(objectKey)).toBeDefined();
+    f.clock += 1;
+    expect((await maintenance.runBatch(actor)).outcomes).toMatchObject([
+      { reference: upload.reference, status: 'deleted' },
+    ]);
+    expect(await store.head(objectKey)).toBeUndefined();
+    expect((await f.driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+      [upload.reference.key])).rows[0].status).toBe('deleted');
+  } finally {
+    await client.close();
+    await f.close();
+  }
 });
 
 test('completed File collection retries a failed receipt and fences a replacement generation', async () => {
