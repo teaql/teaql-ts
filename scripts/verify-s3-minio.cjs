@@ -273,8 +273,8 @@ async function verifyCompletedRetention(actor, storage) {
       bytes.length, lastUnbound, profile, mode, floor, status]);
     await driver.query(`INSERT INTO teaql_blob_upload
       (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
-       extension,declared_size,expires_at,state,written_etag)
-      VALUES (?,?,?,?,?,'Asset','1','document','file.pdf','pdf',?,9000,'completed',?)`,
+       extension,declared_size,expires_ms,expires_at,state,written_etag)
+      VALUES (?,?,?,?,?,'Asset','1','document','file.pdf','pdf',?,9000,9000,'completed',?)`,
     [`bu_${prefix}_${suffix}`, scope, `replay_${prefix}_${suffix}`,
       `hash_${prefix}_${suffix}`, reference, bytes.length, created.etag]);
     if (bound) await driver.query(`INSERT INTO teaql_blob_binding
