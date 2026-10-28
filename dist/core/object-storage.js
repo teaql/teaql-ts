@@ -113,12 +113,25 @@ class ObjectReadUrlOptions {
         if (!Number.isInteger(seconds) || seconds <= 0 || seconds > 604800 || disposition !== undefined && !['inline', 'attachment'].includes(disposition))
             invalid();
         if (filename !== undefined) {
-            header(filename);
-            if (!disposition || /[\/\\"]/.test(filename))
+            if (typeof filename !== 'string' || !filename || !disposition || /[\x00-\x1f\x7f-\x9f\/\\"]/.test(filename) ||
+                new TextEncoder().encode(filename).length > 1024)
                 invalid();
+            for (let i = 0; i < filename.length; i++) {
+                const c = filename.charCodeAt(i);
+                if (c >= 0xd800 && c <= 0xdbff) {
+                    const n = filename.charCodeAt(++i);
+                    if (!(n >= 0xdc00 && n <= 0xdfff))
+                        invalid();
+                }
+                else if (c >= 0xdc00 && c <= 0xdfff)
+                    invalid();
+            }
         }
         __classPrivateFieldSet(this, _ObjectReadUrlOptions_seconds, seconds, "f");
-        __classPrivateFieldSet(this, _ObjectReadUrlOptions_disposition, disposition + (filename === undefined ? '' : `; filename="${filename}"`), "f");
+        __classPrivateFieldSet(this, _ObjectReadUrlOptions_disposition, disposition + (filename === undefined ? '' :
+            [...filename].every(c => c.charCodeAt(0) <= 126) ? `; filename="${filename}"` :
+                `; filename="${[...filename].map(c => c.codePointAt(0) <= 126 ? c : '_').join('')}"; filename*=UTF-8''${[...new TextEncoder().encode(filename)].map(b => b >= 65 && b <= 90 || b >= 97 && b <= 122 || b >= 48 && b <= 57 || [45, 46, 95, 126].includes(b) ?
+                    String.fromCharCode(b) : `%${b.toString(16).toUpperCase().padStart(2, '0')}`).join('')}`), "f");
         if (disposition === undefined)
             __classPrivateFieldSet(this, _ObjectReadUrlOptions_disposition, undefined, "f");
     }

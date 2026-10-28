@@ -10,7 +10,7 @@ import {
   contextSchemaCapability,
   executeRelationFacets,
   mergeRuntimeBootstrap
-} from "./chunk-5XIEPHRP.js";
+} from "./chunk-FGLZQXRI.js";
 import {
   requireRuntimeCapabilities
 } from "./chunk-HDIMWNEB.js";
@@ -2047,4 +2047,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-5LSF6ZWQ.js.map
+//# sourceMappingURL=chunk-UJFSRA5U.js.map

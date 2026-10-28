@@ -30,6 +30,14 @@ test('object storage validates options and masks private representations',()=>{
   expect(()=>new ObjectPutOptions(0,'create_only',undefined,{'Bad Key':'value'})).toThrow('InvalidInput');
   for(const lifetime of [0,-1,0.5,604801])expect(()=>new ObjectReadUrlOptions(lifetime)).toThrow('InvalidInput');
   expect(()=>new ObjectReadUrlOptions(1,'attachment','bad\nname')).toThrow('InvalidInput');
+  expect(()=>new ObjectReadUrlOptions(1,'attachment','bad/name')).toThrow('InvalidInput');
+  expect(()=>new ObjectReadUrlOptions(1,'attachment','\ud800')).toThrow('InvalidInput');
+  expect(new ObjectReadUrlOptions(1,'inline','sample.jpg').contentDisposition)
+    .toBe('inline; filename="sample.jpg"');
+  const unicode=new ObjectReadUrlOptions(1,'inline','报告 & 📄\u2028mid\u2029x.jpg').contentDisposition!;
+  expect(unicode).toContain('filename="__ & _');
+  expect(unicode).toContain("filename*=UTF-8''%E6%8A%A5%E5%91%8A%20%26%20%F0%9F%93%84");
+  expect(unicode).not.toMatch(/[\r\n]/);
   const metadata={tag:'PRIVATE-METADATA-CANARY'},options=new ObjectPutOptions(0,'create_only',undefined,metadata);metadata.tag='changed';expect(options.metadata.tag).toBe('PRIVATE-METADATA-CANARY');expect(Object.isFrozen(options.metadata)).toBe(true);
   for(const value of [key,options,new ObjectReadUrl('PRIVATE-URL-CANARY',new Date()),new ObjectMetadata(key,0,'PRIVATE-TYPE-CANARY')])expect(inspect(value)).not.toContain('CANARY');
 });

@@ -147,11 +147,17 @@ var ObjectReadUrlOptions = class {
     __privateAdd(this, _disposition);
     if (!Number.isInteger(seconds) || seconds <= 0 || seconds > 604800 || disposition !== void 0 && !["inline", "attachment"].includes(disposition)) invalid();
     if (filename !== void 0) {
-      header(filename);
-      if (!disposition || /[\/\\"]/.test(filename)) invalid();
+      if (typeof filename !== "string" || !filename || !disposition || /[\x00-\x1f\x7f-\x9f\/\\"]/.test(filename) || new TextEncoder().encode(filename).length > 1024) invalid();
+      for (let i = 0; i < filename.length; i++) {
+        const c = filename.charCodeAt(i);
+        if (c >= 55296 && c <= 56319) {
+          const n = filename.charCodeAt(++i);
+          if (!(n >= 56320 && n <= 57343)) invalid();
+        } else if (c >= 56320 && c <= 57343) invalid();
+      }
     }
     __privateSet(this, _seconds, seconds);
-    __privateSet(this, _disposition, disposition + (filename === void 0 ? "" : `; filename="${filename}"`));
+    __privateSet(this, _disposition, disposition + (filename === void 0 ? "" : [...filename].every((c) => c.charCodeAt(0) <= 126) ? `; filename="${filename}"` : `; filename="${[...filename].map((c) => c.codePointAt(0) <= 126 ? c : "_").join("")}"; filename*=UTF-8''${[...new TextEncoder().encode(filename)].map((b) => b >= 65 && b <= 90 || b >= 97 && b <= 122 || b >= 48 && b <= 57 || [45, 46, 95, 126].includes(b) ? String.fromCharCode(b) : `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("")}`));
     if (disposition === void 0) __privateSet(this, _disposition, void 0);
   }
   get seconds() {
@@ -411,4 +417,4 @@ export {
   ObjectContent,
   ObjectStorage
 };
-//# sourceMappingURL=chunk-WMEMPDYD.js.map
+//# sourceMappingURL=chunk-3BPR3EGQ.js.map
