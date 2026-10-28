@@ -53,8 +53,21 @@ match before the verifier returns original-byte SHA and format MIME. This is
 OOXML package/XML structure verification, not a full application-level Office
 schema or malware scan.
 
-Two further extensions (`doc` and `xls`) still need production verifier adapters. A host must
-use a verifier supporting every extension it enables. No parser or storage I/O
-runs at construction. These in-process parsers do not provide a process memory
-or execution-time isolation guarantee; untrusted PDF deployments should apply
-host process limits while that guard is not built into the adapter.
+`@teaql/teaql/blob-reference/content-legacy-office` exports
+`LegacyOfficeBlobContentVerifier` for binary `doc` and `xls` on Linux. The host
+provides patched LibreOffice (`soffice`), `bwrap`, `prlimit`, the optional
+`saxes@6.0.0` parser, and a canonical owner-only (`0700`) scratch directory.
+The adapter checks CFB header and sector layout, then converts inside a
+network/PID-isolated bubblewrap namespace with read-only system mounts and
+only one per-upload writable scratch. CPU, address-space, file-size, wall-time,
+input, output and concurrency limits apply. It validates the converted
+DOCX/XLSX with the bounded Office parser, but returns original DOC/XLS byte
+SHA, length and MIME; the upload service retains the original file. Readiness
+checks tools, scratch ownership and the optional parser. This is bounded
+decodability verification, not malware or macro detection.
+
+A host must use a verifier supporting every extension it enables. No parser or
+storage I/O runs at construction. The in-process parsers do not provide a
+process memory or execution-time isolation guarantee; untrusted PDF
+deployments should apply host process limits while that guard is not built into
+the adapter.

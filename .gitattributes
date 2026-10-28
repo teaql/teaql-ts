@@ -1,1 +1,3 @@
 tests/fixtures/*.pdf binary
+tests/fixtures/reference-modules/*.doc binary
+tests/fixtures/reference-modules/*.xls binary

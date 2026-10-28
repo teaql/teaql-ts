@@ -1,7 +1,7 @@
 // Explicit local S3-compatible integration gate. Requires a disposable bucket.
 // Never print credentials, object keys or full signed URLs.
 const { createHash, randomUUID } = require('node:crypto');
-const { readFile, mkdtemp, rm } = require('node:fs/promises');
+const { readFile, mkdtemp, mkdir, rm } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { S3Client } = require('@aws-sdk/client-s3');
@@ -18,30 +18,33 @@ const { SharpBlobContentVerifier } = require('../dist/blob-reference/content-sha
 const { PdfjsBlobContentVerifier } = require('../dist/blob-reference/content-pdfjs');
 const { FfmpegBlobContentVerifier } = require('../dist/blob-reference/content-ffmpeg');
 const { OfficeBlobContentVerifier } = require('../dist/blob-reference/content-office');
+const { LegacyOfficeBlobContentVerifier } = require('../dist/blob-reference/content-legacy-office');
 const { ViewPreparationService } = require('../dist/core/view-preparation');
 const { MutationIntent } = require('../dist/core/request-intent');
 const { SQLiteDriver, SQLiteTeaQLClient } = require('../dist/sql/sqlite');
 
 async function verifyBlobUpload(actor, storage, mode = 'fixture') {
   const root = await mkdtemp(join(tmpdir(), 'teaql-s3-blob-upload-'));
+  await mkdir(join(root, 'legacy-scratch'), { mode: 0o700 });
   const filename = join(root, 'catalog.sqlite');
   const driver = new SQLiteDriver(filename);
   const client = new SQLiteTeaQLClient(filename, {});
   client.setUserContext(actor);
   const catalog = new SqlBlobCatalog(driver);
   const extension = mode === 'image' ? 'jpg' :
-    ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? mode : 'pdf';
+    ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? mode : 'pdf';
   const contentType = mode === 'image' ? 'image/jpeg' :
     mode === 'mp3' ? 'audio/mpeg' : mode === 'mp4' ? 'video/mp4' :
       mode === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
         mode === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+          mode === 'doc' ? 'application/msword' : mode === 'xls' ? 'application/vnd.ms-excel' :
           'application/pdf';
   const fileName = mode === 'image' ? 'sample.jpg' :
-    ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? `sample.${mode}` : 'report.pdf';
+    ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? `sample.${mode}` : 'report.pdf';
   const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures',
     mode === 'image' ? 'blob-sample.jpg' :
       mode === 'pdf' ? 'blob-parser-sample.pdf' :
-        ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? `reference-modules/sample.${mode}` :
+        ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? `reference-modules/sample.${mode}` :
           'blob-sample.pdf'));
   const target = { entity: 'Asset', entityId: null, field: 'document' };
   let permitted = true;
@@ -71,12 +74,16 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
   const parser = mode === 'image' ? new SharpBlobContentVerifier() :
     mode === 'pdf' ? new PdfjsBlobContentVerifier() :
       mode === 'docx' || mode === 'xlsx' ? new OfficeBlobContentVerifier() :
+      mode === 'doc' || mode === 'xls' ? new LegacyOfficeBlobContentVerifier(
+        process.env.TEAQL_SOFFICE_BIN || '/usr/bin/soffice',
+        process.env.TEAQL_BWRAP_BIN || '/usr/bin/bwrap',
+        process.env.TEAQL_PRLIMIT_BIN || '/usr/bin/prlimit', join(root, 'legacy-scratch')) :
       mode === 'mp3' || mode === 'mp4' ? new FfmpegBlobContentVerifier(
         process.env.TEAQL_FFPROBE_BIN || '/usr/bin/ffprobe',
         process.env.TEAQL_FFMPEG_BIN || '/usr/bin/ffmpeg',
         process.env.TEAQL_PRLIMIT_BIN || '/usr/bin/prlimit') : undefined;
   const label = mode === 'image' ? 'real JPEG ' : mode === 'pdf' ? 'real PDF ' :
-    ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? `real ${mode.toUpperCase()} ` : '';
+    ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? `real ${mode.toUpperCase()} ` : '';
   const verifier = parser ? { calls: 0, async verify(content, extension, maximumBytes) {
     this.calls++;
     return parser.verify(content, extension, maximumBytes);
@@ -414,6 +421,10 @@ async function main() {
       if (process.env.TEAQL_S3_TEST_REAL_OFFICE === '1') {
         await verifyBlobUpload(actor, storage, 'docx');
         await verifyBlobUpload(actor, storage, 'xlsx');
+      }
+      if (process.env.TEAQL_S3_TEST_REAL_LEGACY_OFFICE === '1') {
+        await verifyBlobUpload(actor, storage, 'doc');
+        await verifyBlobUpload(actor, storage, 'xls');
       }
     }
     if (process.env.TEAQL_S3_TEST_MAINTENANCE === '1') {
