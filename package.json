@@ -74,6 +74,11 @@
       "import": "./dist/esm/blob-reference/content-composite.js",
       "require": "./dist/blob-reference/content-composite.js"
     },
+    "./blob-reference/content-office": {
+      "types": "./dist/blob-reference/content-office.d.ts",
+      "import": "./dist/esm/blob-reference/content-office.js",
+      "require": "./dist/blob-reference/content-office.js"
+    },
     "./blob-reference/module": {
       "types": "./dist/blob-reference/module.d.ts",
       "import": "./dist/esm/blob-reference/module.js",
@@ -175,6 +180,7 @@
       "blob-reference/content-pdfjs": ["dist/blob-reference/content-pdfjs.d.ts"],
       "blob-reference/content-ffmpeg": ["dist/blob-reference/content-ffmpeg.d.ts"],
       "blob-reference/content-composite": ["dist/blob-reference/content-composite.d.ts"],
+      "blob-reference/content-office": ["dist/blob-reference/content-office.d.ts"],
       "blob-reference/module": ["dist/blob-reference/module.d.ts"],
       "secure-document-reference/round-trip-reference": ["dist/secure-document-reference/round-trip-reference.d.ts"],
       "secure-document-reference/document-round-trip": ["dist/secure-document-reference/document-round-trip.d.ts"],
@@ -257,6 +263,7 @@
     "peggy": "^5.1.0",
     "pg": "^8.12.0",
     "pg-query-stream": "^4.7.0",
+    "saxes": "6.0.0",
     "sharp": "0.35.5",
     "ts-jest": "^29.1.0",
     "typescript": "5.4.5"
@@ -285,10 +292,12 @@
     "mysql2": "^3.11.0",
     "pg": "^8.12.0",
     "pg-query-stream": "^4.7.0",
+    "saxes": "6.0.0",
     "sharp": "0.35.5",
     "pdfjs-dist": "6.4.299"
   },
   "peerDependenciesMeta": {
+    "saxes": { "optional": true },
     "sharp": { "optional": true },
     "pdfjs-dist": { "optional": true },
     "@aws-sdk/client-s3": { "optional": true },

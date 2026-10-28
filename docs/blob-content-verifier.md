@@ -1,4 +1,4 @@
-# Optional image, PDF and media content verifiers
+# Optional image, PDF, Office and media content verifiers
 
 `@teaql/teaql/blob-reference/content-sharp` exports `SharpBlobContentVerifier`,
 which implements the Blob upload service's trusted `BlobContentVerifier` interface.
@@ -41,7 +41,19 @@ It validates format, not malware safety. MP3 support requires fixed non-free
 bitrate and constant sample rate; MP4 needs a supported `ftyp` brand, `moov`
 and `mdat`.
 
-Four further extensions still need production verifier adapters. A host must
+`@teaql/teaql/blob-reference/content-office` exports
+`OfficeBlobContentVerifier` for `docx` and `xlsx`. Install `saxes@6.0.0` in the
+host application. This optional peer is loaded only at readiness or when the
+Office route verifies stored bytes. The adapter checks a complete single-disk
+ZIP central directory, expands every member with CRC checks and bounded input,
+output, part, XML element/depth and concurrency limits. A strict XML parser
+rejects DTD/entity declarations and malformed namespace structure. Main
+Office type and relationship, Word body or Excel worksheet references must
+match before the verifier returns original-byte SHA and format MIME. This is
+OOXML package/XML structure verification, not a full application-level Office
+schema or malware scan.
+
+Two further extensions (`doc` and `xls`) still need production verifier adapters. A host must
 use a verifier supporting every extension it enables. No parser or storage I/O
 runs at construction. These in-process parsers do not provide a process memory
 or execution-time isolation guarantee; untrusted PDF deployments should apply

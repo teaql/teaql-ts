@@ -17,6 +17,7 @@ const { BlobRetentionPolicy } = require('../dist/blob-reference/retention');
 const { SharpBlobContentVerifier } = require('../dist/blob-reference/content-sharp');
 const { PdfjsBlobContentVerifier } = require('../dist/blob-reference/content-pdfjs');
 const { FfmpegBlobContentVerifier } = require('../dist/blob-reference/content-ffmpeg');
+const { OfficeBlobContentVerifier } = require('../dist/blob-reference/content-office');
 const { ViewPreparationService } = require('../dist/core/view-preparation');
 const { MutationIntent } = require('../dist/core/request-intent');
 const { SQLiteDriver, SQLiteTeaQLClient } = require('../dist/sql/sqlite');
@@ -29,15 +30,18 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
   client.setUserContext(actor);
   const catalog = new SqlBlobCatalog(driver);
   const extension = mode === 'image' ? 'jpg' :
-    mode === 'mp3' || mode === 'mp4' ? mode : 'pdf';
+    ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? mode : 'pdf';
   const contentType = mode === 'image' ? 'image/jpeg' :
-    mode === 'mp3' ? 'audio/mpeg' : mode === 'mp4' ? 'video/mp4' : 'application/pdf';
+    mode === 'mp3' ? 'audio/mpeg' : mode === 'mp4' ? 'video/mp4' :
+      mode === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+        mode === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+          'application/pdf';
   const fileName = mode === 'image' ? 'sample.jpg' :
-    mode === 'mp3' || mode === 'mp4' ? `sample.${mode}` : 'report.pdf';
+    ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? `sample.${mode}` : 'report.pdf';
   const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures',
     mode === 'image' ? 'blob-sample.jpg' :
       mode === 'pdf' ? 'blob-parser-sample.pdf' :
-        mode === 'mp3' || mode === 'mp4' ? `reference-modules/sample.${mode}` :
+        ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? `reference-modules/sample.${mode}` :
           'blob-sample.pdf'));
   const target = { entity: 'Asset', entityId: null, field: 'document' };
   let permitted = true;
@@ -66,12 +70,13 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
   } };
   const parser = mode === 'image' ? new SharpBlobContentVerifier() :
     mode === 'pdf' ? new PdfjsBlobContentVerifier() :
+      mode === 'docx' || mode === 'xlsx' ? new OfficeBlobContentVerifier() :
       mode === 'mp3' || mode === 'mp4' ? new FfmpegBlobContentVerifier(
         process.env.TEAQL_FFPROBE_BIN || '/usr/bin/ffprobe',
         process.env.TEAQL_FFMPEG_BIN || '/usr/bin/ffmpeg',
         process.env.TEAQL_PRLIMIT_BIN || '/usr/bin/prlimit') : undefined;
   const label = mode === 'image' ? 'real JPEG ' : mode === 'pdf' ? 'real PDF ' :
-    mode === 'mp3' || mode === 'mp4' ? `real ${mode.toUpperCase()} ` : '';
+    ['mp3', 'mp4', 'docx', 'xlsx'].includes(mode) ? `real ${mode.toUpperCase()} ` : '';
   const verifier = parser ? { calls: 0, async verify(content, extension, maximumBytes) {
     this.calls++;
     return parser.verify(content, extension, maximumBytes);
@@ -405,6 +410,10 @@ async function main() {
       if (process.env.TEAQL_S3_TEST_REAL_MEDIA === '1') {
         await verifyBlobUpload(actor, storage, 'mp3');
         await verifyBlobUpload(actor, storage, 'mp4');
+      }
+      if (process.env.TEAQL_S3_TEST_REAL_OFFICE === '1') {
+        await verifyBlobUpload(actor, storage, 'docx');
+        await verifyBlobUpload(actor, storage, 'xlsx');
       }
     }
     if (process.env.TEAQL_S3_TEST_MAINTENANCE === '1') {
