@@ -20,6 +20,7 @@ fi
 if (( $# == 1 )); then
   candidate="$1"
   test -f "$candidate"
+  candidate="$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
 else
   package_name="$(cd "$repo_root" && npm_config_cache="$test_root/npm-cache" \
     npm pack --ignore-scripts --pack-destination "$test_root" --silent)"
@@ -116,3 +117,79 @@ for (const [name, symbol] of entries) {
 }
 NODE
 )
+
+# Install the exact tarball into fresh applications with an isolated npm cache.
+# The base/Secure app gets only production dependencies; the S3 app adds only
+# the two optional peers declared by this same candidate. No source checkout
+# node_modules or installed development dependencies are on either app's path.
+closure="$test_root/dependency-closure"
+mkdir -p "$closure/core" "$closure/s3"
+printf '{"name":"teaql-reference-core-closure","private":true,"version":"1.0.0"}\n' \
+  > "$closure/core/package.json"
+TEAQL_PACKED_METADATA="$consumer/node_modules/@teaql/teaql/package.json" \
+  TEAQL_S3_APP_PACKAGE="$closure/s3/package.json" node <<'NODE'
+const fs = require('node:fs');
+const packed = JSON.parse(fs.readFileSync(process.env.TEAQL_PACKED_METADATA, 'utf8'));
+const dependencies = {};
+for (const name of ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner']) {
+  const version = packed.peerDependencies?.[name];
+  if (!/^\d+\.\d+\.\d+$/.test(version) || !packed.peerDependenciesMeta?.[name]?.optional) {
+    throw new Error(name + ' must be an exact optional peer in the candidate');
+  }
+  dependencies[name] = version;
+}
+fs.writeFileSync(process.env.TEAQL_S3_APP_PACKAGE, JSON.stringify({
+  name: 'teaql-reference-s3-closure', private: true, version: '1.0.0', dependencies,
+}) + '\n');
+NODE
+for cell in core s3; do
+  (
+    cd "$closure/$cell"
+    env -u NODE_PATH -u NODE_OPTIONS npm_config_cache="$test_root/npm-cache" \
+      npm install --omit=dev --omit=optional --ignore-scripts --no-audit --no-fund "$candidate"
+    cmp "$consumer/node_modules/@teaql/teaql/dist/blob-reference/module.js" \
+      "node_modules/@teaql/teaql/dist/blob-reference/module.js"
+    cmp "$consumer/node_modules/@teaql/teaql/dist/secure-document-reference/document-round-trip.js" \
+      "node_modules/@teaql/teaql/dist/secure-document-reference/document-round-trip.js"
+    cmp "$consumer/node_modules/@teaql/teaql/dist/object-storage/s3.js" \
+      "node_modules/@teaql/teaql/dist/object-storage/s3.js"
+    env -u NODE_PATH -u NODE_OPTIONS TEAQL_CLOSURE_CELL="$cell" node <<'NODE'
+const cell = process.env.TEAQL_CLOSURE_CELL;
+const entries = [
+  ['@teaql/teaql/blob-reference/module', 'BlobReferenceModule'],
+  ['@teaql/teaql/secure-document-reference/document-round-trip',
+    'SecureDocumentReferenceModule'],
+];
+if (cell === 's3') entries.push(['@teaql/teaql/object-storage/s3', 'S3ObjectStorage']);
+if (typeof require('node-fetch') !== 'function') throw new Error('missing production node-fetch');
+if (cell === 'core') {
+  for (const peer of ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner']) {
+    try {
+      require.resolve(peer);
+      throw new Error('optional peer leaked into core application: ' + peer);
+    } catch (error) {
+      if (error.code !== 'MODULE_NOT_FOUND') throw error;
+    }
+  }
+}
+for (const [name, symbol] of entries) {
+  if (typeof require(name)[symbol] !== 'function') throw new Error(cell + ': ' + name);
+  console.log('PASS installed ' + cell + ' CJS ' + name);
+}
+NODE
+    env -u NODE_PATH -u NODE_OPTIONS TEAQL_CLOSURE_CELL="$cell" \
+      node --input-type=module <<'NODE'
+const cell = process.env.TEAQL_CLOSURE_CELL;
+const entries = [
+  ['@teaql/teaql/blob-reference/module', 'BlobReferenceModule'],
+  ['@teaql/teaql/secure-document-reference/document-round-trip',
+    'SecureDocumentReferenceModule'],
+];
+if (cell === 's3') entries.push(['@teaql/teaql/object-storage/s3', 'S3ObjectStorage']);
+for (const [name, symbol] of entries) {
+  if (typeof (await import(name))[symbol] !== 'function') throw new Error(cell + ': ' + name);
+  console.log('PASS installed ' + cell + ' ESM ' + name);
+}
+NODE
+  )
+done
