@@ -220,7 +220,8 @@
     "generate:query-parser": "node scripts/generate-query-parser.mjs",
     "build": "npm run generate:query-parser && tsc && node scripts/build-esm.mjs",
     "test": "jest",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "verify:reference-package": "bash scripts/verify-reference-package.sh"
   },
   "keywords": [
     "teaql",

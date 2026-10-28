@@ -22,6 +22,7 @@ jobs:
           cache: npm
       - run: npm install
       - run: npm run build
+      - run: npm run verify:reference-package
       - name: Verify optional reference protocol vectors
         run: npm test -- --runInBand tests/blob-module-assembly.test.ts tests/secure-round-trip-reference.test.ts tests/secure-document-round-trip.test.ts
       - name: Start dedicated S3 example fixture
