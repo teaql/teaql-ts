@@ -68,6 +68,14 @@ class CountingFileStore extends FileObjectStorage {
   }
 }
 
+class FailingHeadStore extends FileObjectStorage {
+  failHead = false;
+  override async head(invocation: StorageInvocation, key: ObjectKey) {
+    if (this.failHead) throw new Error('PRIVATE-HEAD-CANARY');
+    return super.head(invocation, key);
+  }
+}
+
 class LostWriteReplyDriver extends SQLiteDriver {
   loseNextCommitReply = false;
   override async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
@@ -92,6 +100,66 @@ class PausedVerifier extends FixtureVerifier {
     return result;
   }
 }
+
+test('Blob upload hides raw SQLite errors during Begin and session lookup', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-sql-error-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const actor = new UserContext();
+  const service = new SqliteBlobUploadService(catalog, authority(), new FixtureVerifier(), 10_000);
+  const target = { entity: 'Asset', entityId: null, field: 'document' };
+  const input = { fileName: 'report.pdf', declaredSize: 42 };
+  try {
+    await catalog.ensureSchema();
+    await driver.query(`CREATE TRIGGER private_begin_error BEFORE INSERT ON teaql_blob_catalog
+      BEGIN SELECT RAISE(ABORT, 'PRIVATE-SQL-CANARY'); END`);
+    await expect(service.begin(actor, target, input, 'sql-error'))
+      .rejects.toThrow(/^BLOB_CATALOG_FAILED$/);
+    expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_blob_upload')).rows[0].n).toBe(0);
+    await driver.query('DROP TRIGGER private_begin_error');
+    const session = await service.begin(actor, target, input, 'sql-error');
+    await driver.query('DROP TABLE teaql_blob_upload');
+    await expect(service.write(actor, session.uploadId, source(Buffer.alloc(42))))
+      .rejects.toThrow(/^BLOB_CATALOG_FAILED$/);
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('Blob confirmation hides private parser and provider diagnostics', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-confirm-error-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const store = new FailingHeadStore(join(root, 'private'), randomBytes(32));
+  const actor = new UserContext().withObjectStorage(store).withObjectStorageObserver(() => {});
+  const service = new SqliteBlobUploadService(catalog, authority(), new FixtureVerifier(), 10_000);
+  const unsafe = new SqliteBlobUploadService(catalog, authority(), {
+    verify: async () => { throw new Error('PRIVATE-VERIFIER-CANARY'); },
+  }, 10_000);
+  const known = new SqliteBlobUploadService(catalog, authority(), {
+    verify: async () => { throw new Error('BLOB_FORMAT_NOT_ALLOWED'); },
+  }, 10_000);
+  const bytes = Buffer.from('%PDF-1.7\nprivate diagnostics\n%%EOF');
+  try {
+    await catalog.ensureSchema();
+    const session = await service.begin(actor, { entity: 'Asset', entityId: null, field: 'document' },
+      { fileName: 'report.pdf', declaredSize: bytes.length }, 'confirm-error');
+    await service.write(actor, session.uploadId, source(bytes));
+    await expect(unsafe.complete(actor, session.uploadId))
+      .rejects.toThrow(/^BLOB_UPLOAD_INCOMPLETE$/);
+    await expect(known.complete(actor, session.uploadId))
+      .rejects.toThrow(/^BLOB_FORMAT_NOT_ALLOWED$/);
+    store.failHead = true;
+    await expect(service.complete(actor, session.uploadId))
+      .rejects.toThrow(/^BLOB_UPLOAD_INCOMPLETE$/);
+    store.failHead = false;
+    expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test('Blob upload reads SQL-backed current permission through its borrowed owner', async () => {
   const root = await mkdtemp(join(tmpdir(), 'teaql-blob-owner-policy-'));

@@ -45,6 +45,13 @@ var SqliteBlobUploadService = class {
   async validateVerifierReady() {
     await this.verifier.validateReady?.();
   }
+  async query(sql, statement, values) {
+    try {
+      return await sql.query(statement, values);
+    } catch {
+      throw new Error("BLOB_CATALOG_FAILED");
+    }
+  }
   /** A driver can commit successfully and lose only its reply. Keep business
    * errors from the callback, but never expose a raw driver/commit failure. */
   async transaction(work) {
@@ -140,7 +147,8 @@ var SqliteBlobUploadService = class {
     const digest = this.digest(target, normalized);
     const extension = normalized.fileName.slice(normalized.fileName.lastIndexOf(".") + 1).toLowerCase();
     return this.transaction(async (sql) => {
-      const existing = await sql.query(
+      const existing = await this.query(
+        sql,
         "SELECT * FROM teaql_blob_upload WHERE scope = ? AND replay_key = ?",
         [scope, replayKey]
       );
@@ -162,7 +170,7 @@ var SqliteBlobUploadService = class {
       const objectKey = `blob/${token()}`;
       const expiresAt = this.now() + this.leaseSeconds * 1e3;
       const current = await this.currentOnLease(context, sql, target, "Begin", normalized, scope);
-      await sql.query(`INSERT INTO teaql_blob_catalog
+      await this.query(sql, `INSERT INTO teaql_blob_catalog
         (key,scope,object_key,content_version,file_name,content_type,size_bytes,status,
          policy_profile,upload_mode,unbound_retention_seconds,effective_unref_seconds)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [
@@ -179,7 +187,8 @@ var SqliteBlobUploadService = class {
         current.policy?.unboundRetentionSeconds ?? null,
         current.policy?.unreferencedRetentionSeconds ?? null
       ]);
-      await sql.query(
+      await this.query(
+        sql,
         `INSERT INTO teaql_blob_upload
         (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
          extension,declared_size,expires_ms,expires_at,state)
@@ -215,7 +224,8 @@ var SqliteBlobUploadService = class {
       throw new Error("BLOB_UPLOAD_DENIED");
     }
     if (!name(scope)) throw new Error("BLOB_UPLOAD_DENIED");
-    const result = await this.catalog.driver.query(
+    const result = await this.query(
+      this.catalog.driver,
       "SELECT * FROM teaql_blob_upload WHERE scope = ? AND upload_id = ?",
       [scope, uploadId]
     );
@@ -238,14 +248,19 @@ var SqliteBlobUploadService = class {
     return row;
   }
   async objectKey(sql, row) {
-    const result = await sql.query(
+    const result = await this.query(
+      sql,
       "SELECT object_key FROM teaql_blob_catalog WHERE key = ? AND scope = ?",
       [row.key, row.scope]
     );
     if (result.rows.length !== 1 || typeof result.rows[0].object_key !== "string") {
       throw new Error("BLOB_CATALOG_FAILED");
     }
-    return new ObjectKey(result.rows[0].object_key);
+    try {
+      return new ObjectKey(result.rows[0].object_key);
+    } catch {
+      throw new Error("BLOB_CATALOG_FAILED");
+    }
   }
   async recoverExisting(store, key, row, mime, inputHash, expectedETag) {
     const mismatch = expectedETag ? "BLOB_IDEMPOTENCY_CONFLICT" : "BLOB_STORE_FAILED";
@@ -294,9 +309,9 @@ var SqliteBlobUploadService = class {
     } };
     const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
     return this.transaction(async (sql) => {
-      const current = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag FROM teaql_blob_upload
+      const current = await this.query(sql, `SELECT state, key, expires_ms, written_sha256, written_etag FROM teaql_blob_upload
         WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
-      const catalog = await sql.query(`SELECT object_key, status, content_version, content_type, size_bytes FROM teaql_blob_catalog
+      const catalog = await this.query(sql, `SELECT object_key, status, content_version, content_type, size_bytes FROM teaql_blob_catalog
         WHERE key = ? AND scope = ?`, [row.key, row.scope]);
       if (current.rows.length !== 1 || catalog.rows.length !== 1 || current.rows[0].key !== row.key || Number(current.rows[0].expires_ms) !== Number(row.expires_ms) || catalog.rows[0].object_key !== key.value) {
         throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
@@ -415,7 +430,8 @@ var SqliteBlobUploadService = class {
       const hash = recoveredHash ?? digest.digest("hex");
       let updated;
       try {
-        updated = await sql.query(
+        updated = await this.query(
+          sql,
           `UPDATE teaql_blob_upload
         SET state = 'written', written_sha256 = ?, written_etag = ?
         WHERE upload_id = ? AND scope = ? AND state = 'initiated' AND expires_ms > ?
@@ -442,9 +458,10 @@ var SqliteBlobUploadService = class {
         declaredContentType: MIME[row.extension]
       };
       return this.transaction(async (sql) => {
-        const observed = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag
+        const observed = await this.query(sql, `SELECT state, key, expires_ms, written_sha256, written_etag
           FROM teaql_blob_upload WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
-        const result2 = await sql.query(
+        const result2 = await this.query(
+          sql,
           `SELECT object_key, content_version,
           content_type, size_bytes, status FROM teaql_blob_catalog WHERE key = ? AND scope = ?`,
           [row.key, row.scope]
@@ -454,9 +471,21 @@ var SqliteBlobUploadService = class {
         if (catalog.status !== "uploaded_unbound" && catalog.status !== "available" || catalog.content_version !== row.written_etag || catalog.content_type !== MIME[row.extension] || Number(catalog.size_bytes) !== Number(row.declared_size) || typeof catalog.object_key !== "string") throw new Error("BLOB_UPLOAD_INCOMPLETE");
         await this.currentOnLease(context, sql, target2, "Confirm", input, row.scope);
         if (this.now() >= Number(row.expires_ms)) throw new Error("BLOB_UPLOAD_EXPIRED");
+        let storage;
+        try {
+          storage = context.objectStorage("recheck completed Blob upload");
+        } catch {
+          throw new Error("BLOB_STORE_FAILED");
+        }
+        let currentKey;
+        try {
+          currentKey = new ObjectKey(catalog.object_key);
+        } catch {
+          throw new Error("BLOB_UPLOAD_INCOMPLETE");
+        }
         let current;
         try {
-          current = await context.objectStorage("recheck completed Blob upload").head(new ObjectKey(catalog.object_key));
+          current = await storage.head(currentKey);
         } catch {
           throw new Error("BLOB_UPLOAD_INCOMPLETE");
         }
@@ -473,9 +502,9 @@ var SqliteBlobUploadService = class {
     const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
     const writtenHash = row.written_sha256, writtenETag = row.written_etag;
     const result = await this.transaction(async (sql) => {
-      const current = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag
+      const current = await this.query(sql, `SELECT state, key, expires_ms, written_sha256, written_etag
         FROM teaql_blob_upload WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
-      const catalog = await sql.query(`SELECT object_key, status FROM teaql_blob_catalog
+      const catalog = await this.query(sql, `SELECT object_key, status FROM teaql_blob_catalog
         WHERE key = ? AND scope = ?`, [row.key, row.scope]);
       if (current.rows.length !== 1 || catalog.rows.length !== 1) {
         throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
@@ -497,12 +526,27 @@ var SqliteBlobUploadService = class {
       );
       let now = this.now();
       if (now >= Number(row.expires_ms)) throw new Error("BLOB_UPLOAD_EXPIRED");
-      const storage = context.objectStorage("verify Blob upload");
-      const before = await storage.head(key);
+      let storage;
+      try {
+        storage = context.objectStorage("verify Blob upload");
+      } catch {
+        throw new Error("BLOB_STORE_FAILED");
+      }
+      let before;
+      try {
+        before = await storage.head(key);
+      } catch {
+        throw new Error("BLOB_UPLOAD_INCOMPLETE");
+      }
       if (!before || before.size !== Number(row.declared_size) || before.etag !== writtenETag) {
         throw new Error("BLOB_UPLOAD_INCOMPLETE");
       }
-      const content = await storage.get(key);
+      let content;
+      try {
+        content = await storage.get(key);
+      } catch {
+        throw new Error("BLOB_UPLOAD_INCOMPLETE");
+      }
       let size = 0, consumed = false;
       const hash = createHash("sha256");
       const bytes = { [Symbol.asyncIterator]: async function* () {
@@ -518,14 +562,37 @@ var SqliteBlobUploadService = class {
         if (content.metadata.size !== before.size || content.metadata.etag !== before.etag) {
           throw new Error("BLOB_UPLOAD_INCOMPLETE");
         }
-        verified = await this.verifier.verify(bytes, row.extension, this.maximumBytes);
+        try {
+          verified = await this.verifier.verify(bytes, row.extension, this.maximumBytes);
+        } catch (error) {
+          const code = error instanceof Error ? error.message : "";
+          if ([
+            "BLOB_FORMAT_NOT_ALLOWED",
+            "BLOB_SIZE_EXCEEDED",
+            "BLOB_STORE_FAILED",
+            "BLOB_VERIFICATION_BUSY",
+            "BLOB_CAPABILITY_MISSING",
+            "BLOB_POLICY_INVALID",
+            "BLOB_UPLOAD_INCOMPLETE"
+          ].includes(code)) throw error;
+          throw new Error("BLOB_UPLOAD_INCOMPLETE");
+        }
       } finally {
-        await content.close();
+        try {
+          await content.close();
+        } catch {
+          throw new Error("BLOB_UPLOAD_INCOMPLETE");
+        }
       }
       if (!consumed || size !== before.size || verified.sizeBytes !== size || !/^[0-9a-f]{64}$/.test(verified.sha256) || verified.sha256 !== hash.digest("hex") || verified.sha256 !== writtenHash || verified.contentType !== MIME[row.extension]) {
         throw new Error("BLOB_UPLOAD_INCOMPLETE");
       }
-      const after = await storage.head(key);
+      let after;
+      try {
+        after = await storage.head(key);
+      } catch {
+        throw new Error("BLOB_UPLOAD_INCOMPLETE");
+      }
       if (!after || after.size !== before.size || after.etag !== before.etag) {
         throw new Error("BLOB_UPLOAD_INCOMPLETE");
       }
@@ -539,14 +606,16 @@ var SqliteBlobUploadService = class {
       );
       now = this.now();
       if (now >= Number(row.expires_ms)) throw new Error("BLOB_UPLOAD_EXPIRED");
-      const updated = await sql.query(
+      const updated = await this.query(
+        sql,
         `UPDATE teaql_blob_upload SET state = 'completed'
         WHERE upload_id = ? AND scope = ? AND state = 'written' AND written_sha256 = ?
           AND written_etag = ? AND expires_ms > ?`,
         [uploadId, row.scope, writtenHash, writtenETag, now]
       );
       if (updated.rowCount !== 1) throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
-      const promoted = await sql.query(
+      const promoted = await this.query(
+        sql,
         `UPDATE teaql_blob_catalog SET content_version = ?,
         content_type = ?, size_bytes = ?, completed_at_ms = ?, status = 'uploaded_unbound'
         WHERE key = ? AND scope = ? AND status = 'initiated'`,
@@ -562,4 +631,4 @@ var SqliteBlobUploadService = class {
 export {
   SqliteBlobUploadService
 };
-//# sourceMappingURL=chunk-U4GL7KS6.js.map
+//# sourceMappingURL=chunk-CFCGG24P.js.map
