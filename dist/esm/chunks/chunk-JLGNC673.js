@@ -1,7 +1,4 @@
 import {
-  SQLiteDriver
-} from "./chunk-GPIDLDUP.js";
-import {
   BlobRef
 } from "./chunk-VJE6OLEA.js";
 import {
@@ -34,7 +31,7 @@ var SqliteBlobMaintenanceService = class {
     this.authorization = authorization;
     this.batchSize = batchSize;
     this.now = now;
-    if (!(catalog.driver instanceof SQLiteDriver) || !authorization || !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 1e3) {
+    if (catalog.driver.databaseKind !== "sqlite" || typeof catalog.driver.assertNoCurrentTransaction !== "function" || !authorization || !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 1e3) {
       throw new Error("BLOB_POLICY_INVALID");
     }
   }
@@ -147,4 +144,4 @@ export {
   BlobMaintenanceCursor,
   SqliteBlobMaintenanceService
 };
-//# sourceMappingURL=chunk-SUADMQTX.js.map
+//# sourceMappingURL=chunk-JLGNC673.js.map

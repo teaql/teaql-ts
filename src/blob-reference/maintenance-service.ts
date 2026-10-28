@@ -1,7 +1,7 @@
 import { BlobRef } from '../core/blob-ref';
 import type { UserContext } from '../core/context';
 import { ObjectKey, ObjectStorage } from '../core/object-storage';
-import { SQLiteDriver } from '../sql/sqlite';
+import type { SQLiteDriver } from '../sql/sqlite';
 import { SqlBlobCatalog } from './sql-catalog';
 
 export interface BlobMaintenanceAuthorization {
@@ -38,7 +38,9 @@ export class SqliteBlobMaintenanceService {
               private readonly authorization: BlobMaintenanceAuthorization,
               private readonly batchSize = 100,
               private readonly now: () => number = Date.now) {
-    if (!(catalog.driver instanceof SQLiteDriver) || !authorization ||
+    if (catalog.driver.databaseKind !== 'sqlite' ||
+        typeof (catalog.driver as SQLiteDriver).assertNoCurrentTransaction !== 'function' ||
+        !authorization ||
         !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 1000) {
       throw new Error('BLOB_POLICY_INVALID');
     }

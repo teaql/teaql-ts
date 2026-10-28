@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SqliteBlobMaintenanceService = exports.BlobMaintenanceCursor = void 0;
 const blob_ref_1 = require("../core/blob-ref");
 const object_storage_1 = require("../core/object-storage");
-const sqlite_1 = require("../sql/sqlite");
 class BlobMaintenanceCursor {
     constructor(scopeValue, afterValue) {
         this.scopeValue = scopeValue;
@@ -26,7 +25,9 @@ class SqliteBlobMaintenanceService {
         this.authorization = authorization;
         this.batchSize = batchSize;
         this.now = now;
-        if (!(catalog.driver instanceof sqlite_1.SQLiteDriver) || !authorization ||
+        if (catalog.driver.databaseKind !== 'sqlite' ||
+            typeof catalog.driver.assertNoCurrentTransaction !== 'function' ||
+            !authorization ||
             !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 1000) {
             throw new Error('BLOB_POLICY_INVALID');
         }

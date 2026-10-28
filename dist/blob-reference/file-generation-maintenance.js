@@ -4,7 +4,6 @@ exports.SqliteBlobFileGenerationSweepService = void 0;
 const blob_ref_1 = require("../core/blob-ref");
 const object_storage_1 = require("../core/object-storage");
 const file_1 = require("../object-storage/file");
-const sqlite_1 = require("../sql/sqlite");
 const maintenance_service_1 = require("./maintenance-service");
 const validScope = (value) => typeof value === 'string' && !!value.trim() && value === value.trim() &&
     Buffer.byteLength(value) <= 256 && !/[\x00-\x1f\x7f-\x9f]/.test(value);
@@ -17,7 +16,9 @@ class SqliteBlobFileGenerationSweepService {
         this.authorization = authorization;
         this.allWritersUpgraded = allWritersUpgraded;
         this.batchSize = batchSize;
-        if (!(catalog.driver instanceof sqlite_1.SQLiteDriver) || !authorization ||
+        if (catalog.driver.databaseKind !== 'sqlite' ||
+            typeof catalog.driver.assertNoCurrentTransaction !== 'function' ||
+            !authorization ||
             allWritersUpgraded !== true || !Number.isSafeInteger(batchSize) ||
             batchSize < 1 || batchSize > 1000)
             throw new Error('BLOB_POLICY_INVALID');

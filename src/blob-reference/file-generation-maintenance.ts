@@ -2,7 +2,7 @@ import { BlobRef } from '../core/blob-ref';
 import type { UserContext } from '../core/context';
 import { ObjectKey } from '../core/object-storage';
 import { SqliteFencedFileObjectStorage } from '../object-storage/file';
-import { SQLiteDriver } from '../sql/sqlite';
+import type { SQLiteDriver } from '../sql/sqlite';
 import { BlobMaintenanceAuthorization, BlobMaintenanceCursor } from './maintenance-service';
 import { SqlBlobCatalog } from './sql-catalog';
 
@@ -29,7 +29,9 @@ export class SqliteBlobFileGenerationSweepService {
               private readonly authorization: BlobMaintenanceAuthorization,
               private readonly allWritersUpgraded: boolean,
               private readonly batchSize = 100) {
-    if (!(catalog.driver instanceof SQLiteDriver) || !authorization ||
+    if (catalog.driver.databaseKind !== 'sqlite' ||
+        typeof (catalog.driver as SQLiteDriver).assertNoCurrentTransaction !== 'function' ||
+        !authorization ||
         allWritersUpgraded !== true || !Number.isSafeInteger(batchSize) ||
         batchSize < 1 || batchSize > 1000) throw new Error('BLOB_POLICY_INVALID');
   }

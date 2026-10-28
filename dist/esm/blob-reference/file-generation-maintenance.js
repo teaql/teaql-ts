@@ -3,16 +3,7 @@ import {
 } from "../chunks/chunk-QXJ5OE6I.js";
 import {
   BlobMaintenanceCursor
-} from "../chunks/chunk-SUADMQTX.js";
-import {
-  SQLiteDriver
-} from "../chunks/chunk-GPIDLDUP.js";
-import "../chunks/chunk-ZY7L4QDF.js";
-import "../chunks/chunk-UJFSRA5U.js";
-import "../chunks/chunk-LGSUBUWZ.js";
-import "../chunks/chunk-FGLZQXRI.js";
-import "../chunks/chunk-HDIMWNEB.js";
-import "../chunks/chunk-LDU2JPAZ.js";
+} from "../chunks/chunk-JLGNC673.js";
 import {
   BlobRef
 } from "../chunks/chunk-VJE6OLEA.js";
@@ -30,7 +21,7 @@ var SqliteBlobFileGenerationSweepService = class {
     this.authorization = authorization;
     this.allWritersUpgraded = allWritersUpgraded;
     this.batchSize = batchSize;
-    if (!(catalog.driver instanceof SQLiteDriver) || !authorization || allWritersUpgraded !== true || !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 1e3) throw new Error("BLOB_POLICY_INVALID");
+    if (catalog.driver.databaseKind !== "sqlite" || typeof catalog.driver.assertNoCurrentTransaction !== "function" || !authorization || allWritersUpgraded !== true || !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 1e3) throw new Error("BLOB_POLICY_INVALID");
   }
   async authorize(context, expected) {
     let scope, allowed;
