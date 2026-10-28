@@ -357,6 +357,16 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve,
       Math.max(0, ticket.expiresAt.getTime() - Date.now() + 1300)));
     if ((await fetch(ticket.url)).status !== 403) throw new Error('S3 signed URL outlived expiry');
+    const refreshed = await storage.getReadUrl(key,
+      new ObjectReadUrlOptions(30, 'attachment', 'report.pdf'));
+    if (refreshed.url === ticket.url || refreshed.expiresAt.getTime() <= Date.now()) {
+      throw new Error('S3 signed URL did not refresh after expiry');
+    }
+    const refreshedResponse = await fetch(refreshed.url, { headers: { Range: 'bytes=0-7' } });
+    if (refreshedResponse.status !== 206 ||
+        !Buffer.from(await refreshedResponse.arrayBuffer()).equals(bytes.subarray(0, 8))) {
+      throw new Error('S3 refreshed signed Range failed');
+    }
     if (process.env.TEAQL_S3_TEST_CREATE_ONLY === '1') {
       const options = new ObjectPutOptions(bytes.length, 'create_only', 'application/pdf');
       const created = await storage.putBytes(createKey, bytes, options);
@@ -431,7 +441,7 @@ async function main() {
       await verifyExpiredUploadMaintenance(actor, storage);
       await verifyCompletedRetention(actor, storage);
     }
-    console.log('PASS TypeScript real S3-compatible replace/read/signed Range/expiry');
+    console.log('PASS TypeScript real S3-compatible replace/read/signed Range/expiry/refresh');
   } finally {
     try {
       await storage.delete(key);
