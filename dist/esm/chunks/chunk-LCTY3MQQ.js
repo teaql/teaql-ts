@@ -7,7 +7,7 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "./chunk-SKL3SPB2.js";
+} from "./chunk-5LSF6ZWQ.js";
 
 // src/sql/sqlite.ts
 import Database from "better-sqlite3";
@@ -274,4 +274,4 @@ export {
   SQLiteDriver,
   SQLiteTeaQLClient
 };
-//# sourceMappingURL=chunk-6MWWWQN7.js.map
+//# sourceMappingURL=chunk-LCTY3MQQ.js.map

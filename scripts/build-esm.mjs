@@ -18,6 +18,7 @@ await build({
     'blob-reference/content-sharp': 'src/blob-reference/content-sharp.ts',
     'blob-reference/content-pdfjs': 'src/blob-reference/content-pdfjs.ts',
     'blob-reference/content-ffmpeg': 'src/blob-reference/content-ffmpeg.ts',
+    'blob-reference/content-composite': 'src/blob-reference/content-composite.ts',
     'blob-reference/module': 'src/blob-reference/module.ts',
     'secure-document-reference/round-trip-reference': 'src/secure-document-reference/round-trip-reference.ts',
     'secure-document-reference/document-round-trip': 'src/secure-document-reference/document-round-trip.ts',
