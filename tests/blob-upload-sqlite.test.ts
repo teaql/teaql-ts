@@ -43,6 +43,7 @@ test('SQLite upload records a real File write and permits binding only after ful
   const context = new UserContext().withObjectStorage(store).withObjectStorageObserver(() => {});
   const target = { entity: 'Asset', entityId: null, field: 'document' };
   let permitted = true;
+  let leasePermitted = true;
   let scope = 'tenant-a';
   let policy = new BlobRetentionPolicy('default', 'server_stream', 86400, 604800);
   const authorization: BlobUploadAuthorization = {
@@ -54,7 +55,7 @@ test('SQLite upload records a real File write and permits binding only after ful
     currentOnLease: async (_context, _lease, actual, action) => ({
       scope, field: new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default'),
       policy,
-      allowed: permitted && actual.entity === 'Asset' && actual.field === 'document' &&
+      allowed: permitted && leasePermitted && actual.entity === 'Asset' && actual.field === 'document' &&
         ['Begin', 'Write', 'Confirm'].includes(action),
     }),
   };
@@ -108,6 +109,9 @@ test('SQLite upload records a real File write and permits binding only after ful
     permitted = false;
     await expect(service.complete(context, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
     permitted = true;
+    leasePermitted = false;
+    await expect(service.complete(context, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
+    leasePermitted = true;
     expect((await driver.query('SELECT status, content_type, size_bytes FROM teaql_blob_catalog WHERE key = ?',
       [session.reference.key])).rows[0]).toMatchObject({
         status: 'uploaded_unbound', content_type: 'application/pdf', size_bytes: bytes.length,

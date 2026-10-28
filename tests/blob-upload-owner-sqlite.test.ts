@@ -102,7 +102,7 @@ test('Blob upload reads SQL-backed current permission through its borrowed owner
   const field = () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default');
   const authorization: BlobUploadAuthorization = {
     scope: () => 'tenant-a', field,
-    authorize: async () => (await driver.query('SELECT allowed FROM upload_permission')).rows[0].allowed === 1,
+    authorize: async () => true,
     currentOnLease: async (_actor, lease) => ({ scope: 'tenant-a', field: field(),
       allowed: (await lease.query('SELECT allowed FROM upload_permission')).rows[0].allowed === 1 }),
   };
@@ -115,6 +115,10 @@ test('Blob upload reads SQL-backed current permission through its borrowed owner
     const session = await service.begin(actor, { entity: 'Asset', entityId: null, field: 'document' },
       { fileName: 'report.pdf', declaredSize: bytes.length }, 'sql-policy');
     await service.write(actor, session.uploadId, source(bytes));
+    await driver.query('UPDATE upload_permission SET allowed = 0');
+    await expect(service.complete(actor, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
+    await driver.query('UPDATE upload_permission SET allowed = 1');
+    expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
     await driver.query('UPDATE upload_permission SET allowed = 0');
     await expect(service.complete(actor, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
     await driver.query('UPDATE upload_permission SET allowed = 1');
@@ -319,6 +323,49 @@ test('two SQLite drivers serialize Blob parser confirmation and replay the winne
     verifier.release.release();
     expect((await firstComplete).key).toBe(session.reference.key);
     expect((await secondComplete).key).toBe(session.reference.key);
+    expect(verifier.calls).toBe(1);
+  } finally {
+    verifier.release.release();
+    await firstDriver.close();
+    await secondDriver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('SQLite permission revocation waits for parser I/O and denies completed replay', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-owner-revocation-'));
+  const file = join(root, 'catalog.sqlite');
+  const firstDriver = new SQLiteDriver(file), secondDriver = new SQLiteDriver(file);
+  const catalog = new SqlBlobCatalog(firstDriver);
+  const actor = new UserContext().withObjectStorage(
+    new FileObjectStorage(join(root, 'private'), randomBytes(32))).withObjectStorageObserver(() => {});
+  const verifier = new PausedVerifier();
+  const field = () => new BlobFieldSpec('Asset', 'document', ['pdf'], true, 'default');
+  const authorization: BlobUploadAuthorization = {
+    scope: () => 'tenant-a', field, authorize: async () => true,
+    currentOnLease: async (_actor, lease) => ({ scope: 'tenant-a', field: field(),
+      allowed: (await lease.query('SELECT allowed FROM upload_permission')).rows[0].allowed === 1 }),
+  };
+  const service = new SqliteBlobUploadService(catalog, authorization, verifier, 10_000);
+  const bytes = Buffer.from('%PDF-1.7\nconcurrent revocation\n%%EOF');
+  try {
+    await catalog.ensureSchema();
+    await firstDriver.query('CREATE TABLE upload_permission (allowed INTEGER NOT NULL)');
+    await firstDriver.query('INSERT INTO upload_permission (allowed) VALUES (1)');
+    const session = await service.begin(actor, { entity: 'Asset', entityId: null, field: 'document' },
+      { fileName: 'report.pdf', declaredSize: bytes.length }, 'revoke-confirm-owner');
+    await service.write(actor, session.uploadId, source(bytes));
+    const confirmation = service.complete(actor, session.uploadId);
+    await verifier.entered.promise;
+    let revoked = false;
+    const revocation = secondDriver.query('UPDATE upload_permission SET allowed = 0')
+      .finally(() => { revoked = true; });
+    await new Promise(done => setTimeout(done, 30));
+    expect(revoked).toBe(false);
+    verifier.release.release();
+    expect((await confirmation).key).toBe(session.reference.key);
+    await revocation;
+    await expect(service.complete(actor, session.uploadId)).rejects.toThrow('BLOB_UPLOAD_DENIED');
     expect(verifier.calls).toBe(1);
   } finally {
     verifier.release.release();
