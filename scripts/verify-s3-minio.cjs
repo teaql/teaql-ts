@@ -10,6 +10,8 @@ const { UserContext } = require('../dist/core/context');
 const { ObjectKey, ObjectPutOptions, ObjectReadUrlOptions, StorageError } = require('../dist/core/object-storage');
 const { S3ObjectStorage } = require('../dist/object-storage/s3');
 const { SqlBlobCatalog } = require('../dist/blob-reference/sql-catalog');
+const { BlobReferenceModule } = require('../dist/blob-reference/module');
+const { SqliteBlobMutationParticipant } = require('../dist/blob-reference/mutation-participant');
 const { SqlBlobResponseContributor } = require('../dist/blob-reference/read-service');
 const { SqliteBlobUploadService } = require('../dist/blob-reference/upload-service');
 const { SqliteBlobMaintenanceService } = require('../dist/blob-reference/maintenance-service');
@@ -23,12 +25,22 @@ const { ViewPreparationService } = require('../dist/core/view-preparation');
 const { MutationIntent } = require('../dist/core/request-intent');
 const { SQLiteDriver, SQLiteTeaQLClient } = require('../dist/sql/sqlite');
 
-async function verifyBlobUpload(actor, storage, mode = 'fixture') {
+async function verifyBlobUpload(parentActor, storage, mode = 'fixture') {
   const root = await mkdtemp(join(tmpdir(), 'teaql-s3-blob-upload-'));
   await mkdir(join(root, 'legacy-scratch'), { mode: 0o700 });
   const filename = join(root, 'catalog.sqlite');
   const driver = new SQLiteDriver(filename);
-  const client = new SQLiteTeaQLClient(filename, {});
+  const client = new SQLiteTeaQLClient(filename, { Asset: { table: 'asset', columns: {
+    id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
+    version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
+    document: { columnName: 'document', logicalType: 'text', decode: 'string', nullable: true,
+      blob: new BlobFieldSpec('Asset', 'document',
+        ['doc', 'docx', 'jpeg', 'jpg', 'mp3', 'mp4', 'pdf', 'png', 'xls', 'xlsx'], true, 'default') },
+  } } });
+  const actor = new UserContext()
+    .withObjectStorage(parentActor.getResource('objectStorageProvider'))
+    .withObjectStorageObserver(() => {})
+    .insertResource('dataService', client);
   client.setUserContext(actor);
   const catalog = new SqlBlobCatalog(driver);
   const image = ['image', 'jpeg', 'png'].includes(mode);
@@ -127,7 +139,6 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
       throw new Error('Blob S3 upload catalog/object mismatch');
     }
     console.log(`PASS TypeScript ${label}Blob upload SQLite/S3 write/confirm/replay/revocation`);
-    await driver.query('CREATE TABLE asset (id TEXT PRIMARY KEY, document TEXT)');
     const bindingTarget = { entity: 'Asset', entityId: '1', field: 'document' };
     const bindingAuthorization = { scope: () => 'f4-s3-upload',
       authorize: async (_ctx, actual, previous, next, action) =>
@@ -137,32 +148,51 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
           (previous?.equals(session.reference) && next === null && action === 'Update')),
       currentPolicyOnLease: () => new BlobRetentionPolicy('default', 'server_stream', 86400, 604800),
     };
-    await client.executeGraphSave(new MutationIntent('bind S3 Blob in business graph'),
-      async graph => {
-        await client.withGraphSqlSession(graph, sql => sql.query(
-          'INSERT INTO asset(id, document) VALUES (?, ?)', ['1', session.reference.key]));
-        if (await catalog.bindInGraph(client, graph, actor,
-          { target: bindingTarget, next: session.reference, expectedVersion: 0,
-            nextVersion: 1, action: 'Create' }, bindingAuthorization) !== 1) {
-          throw new Error('Blob S3 graph bind version mismatch');
-        }
+    let readAllowed = true, bindingVersion = 1;
+    const module = new BlobReferenceModule(catalog, service,
+      new SqliteBlobMutationParticipant(catalog, bindingAuthorization),
+      new SqlBlobResponseContributor(catalog, { authorize: async () => readAllowed }, 3));
+    module.install(actor);
+    await actor.ensureSchema();
+    await module.ready(actor);
+    try {
+      await client.executeGraphSave(new MutationIntent('reject S3 Blob outer owner'), async graph => {
+        await client.executeMutation(graph.request({ entity: 'Asset', action: 'Create', id: '1',
+          payload: { document: session.reference } }));
+        throw new Error('S3 outer owner rejected');
       });
+      throw new Error('S3 outer owner rejection committed');
+    } catch (error) {
+      if (error.message !== 'S3 outer owner rejected') throw error;
+    }
+    if ((await driver.query('SELECT COUNT(*) AS n FROM asset WHERE id = ?', ['1'])).rows[0].n !== 0 ||
+        (await driver.query(`SELECT COUNT(*) AS n FROM teaql_blob_binding WHERE
+          scope=? AND entity=? AND entity_id=? AND field=?`,
+        ['f4-s3-upload', 'Asset', '1', 'document'])).rows[0].n !== 0 ||
+        (await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+          [session.reference.key])).rows[0].status !== 'uploaded_unbound' ||
+        await storage.head(objectKey) === undefined) {
+      throw new Error('Blob S3 outer owner rejection did not roll back business and binding');
+    }
+    console.log(`PASS TypeScript ${label}native module outer owner rollback`);
+    await client.executeGraphSave(new MutationIntent('bind S3 Blob in business graph'),
+      graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Create', id: '1',
+        payload: { document: session.reference } })));
     if ((await driver.query('SELECT document FROM asset WHERE id = ?', ['1'])).rows[0].document
         !== session.reference.key ||
+        Number((await driver.query(`SELECT version FROM teaql_blob_binding WHERE
+          scope=? AND entity=? AND entity_id=? AND field=?`,
+        ['f4-s3-upload', 'Asset', '1', 'document'])).rows[0].version) !== 1 ||
         (await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
           [session.reference.key])).rows[0].status !== 'available') {
       throw new Error('Blob S3 graph bind did not commit together');
     }
-    let readAllowed = true, bindingVersion = 1;
     const viewContext = actor
       .insertResource('responseGraphAuthorizer', { authorize: async () => ({
         presentation: { document: session.reference },
         blobSlots: [{ path: ['document'], ...bindingTarget, scope: 'f4-s3-upload',
           bindingVersion, reference: session.reference }],
-      }) })
-      .insertResource('blobResponseContributor', new SqlBlobResponseContributor(catalog, {
-        authorize: async () => readAllowed,
-      }, 3));
+      }) });
     const viewService = new ViewPreparationService();
     const options = { mode: 'ordinary', businessOutcome: 'read_only' };
     const prepared = await viewService.prepare(viewContext,
@@ -195,15 +225,8 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
     if (process.env.TEAQL_S3_TEST_END_TO_END_GC === '1') {
       bindingVersion = 1;
       await client.executeGraphSave(new MutationIntent('clear S3 Blob from business graph'),
-        async graph => {
-          await client.withGraphSqlSession(graph, sql => sql.query(
-            'UPDATE asset SET document = NULL WHERE id = ?', ['1']));
-          if (await catalog.bindInGraph(client, graph, actor,
-            { target: bindingTarget, next: null, expectedVersion: 1,
-              nextVersion: 2, action: 'Update' }, bindingAuthorization) !== 2) {
-            throw new Error('Blob S3 graph clear version mismatch');
-          }
-        });
+        graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Update',
+          id: '1', version: 1, payload: { document: null } })));
       const savedBinding = (await driver.query(`SELECT key,version FROM teaql_blob_binding
         WHERE scope=? AND entity=? AND entity_id=? AND field=?`,
       ['f4-s3-upload', 'Asset', '1', 'document'])).rows[0];
