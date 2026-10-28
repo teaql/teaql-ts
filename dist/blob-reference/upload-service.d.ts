@@ -52,6 +52,9 @@ export declare class SqliteBlobUploadService {
     private readonly now;
     constructor(catalog: SqlBlobCatalog, authorization: BlobUploadAuthorization, verifier: BlobContentVerifier, maximumBytes: number, leaseSeconds?: number, now?: () => number);
     validateVerifierReady(): Promise<void>;
+    /** A driver can commit successfully and lose only its reply. Keep business
+     * errors from the callback, but never expose a raw driver/commit failure. */
+    private transaction;
     private current;
     private currentOnLease;
     private checkCurrent;

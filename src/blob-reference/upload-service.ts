@@ -74,6 +74,26 @@ export class SqliteBlobUploadService {
     await this.verifier.validateReady?.();
   }
 
+  /** A driver can commit successfully and lose only its reply. Keep business
+   * errors from the callback, but never expose a raw driver/commit failure. */
+  private async transaction<T>(work: (sql: SqlSession) => Promise<T>): Promise<T> {
+    let workFailed = false;
+    let workError: unknown;
+    try {
+      return await this.catalog.driver.transaction(async sql => {
+        try { return await work(sql); }
+        catch (error) {
+          workFailed = true;
+          workError = error;
+          throw error;
+        }
+      });
+    } catch {
+      if (workFailed) throw workError;
+      throw new Error('BLOB_CATALOG_FAILED');
+    }
+  }
+
   private async current(context: UserContext, target: BlobUploadTarget,
                         action: 'Begin' | 'Write' | 'Confirm', input: BlobUploadInput,
                         expectedScope?: string): Promise<string> {
@@ -155,7 +175,7 @@ export class SqliteBlobUploadService {
     const scope = await this.current(context, target, 'Begin', normalized);
     const digest = this.digest(target, normalized);
     const extension = normalized.fileName.slice(normalized.fileName.lastIndexOf('.') + 1).toLowerCase();
-    return this.catalog.driver.transaction(async sql => {
+    return this.transaction(async sql => {
       const existing = await sql.query('SELECT * FROM teaql_blob_upload WHERE scope = ? AND replay_key = ?',
         [scope, replayKey]);
       if (existing.rows.length) {
@@ -278,7 +298,7 @@ export class SqliteBlobUploadService {
       consumed = true;
     } };
     const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
-    return this.catalog.driver.transaction(async sql => {
+    return this.transaction(async sql => {
       const current = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag FROM teaql_blob_upload
         WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
       const catalog = await sql.query(`SELECT object_key, status, content_version, content_type, size_bytes FROM teaql_blob_catalog
@@ -391,7 +411,7 @@ export class SqliteBlobUploadService {
       const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
       const input = { fileName: row.file_name, declaredSize: Number(row.declared_size),
         declaredContentType: MIME[row.extension] };
-      return this.catalog.driver.transaction(async sql => {
+      return this.transaction(async sql => {
         const observed = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag
           FROM teaql_blob_upload WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
         const result = await sql.query(`SELECT object_key, content_version,
@@ -428,7 +448,7 @@ export class SqliteBlobUploadService {
     const key = await this.objectKey(this.catalog.driver, row);
     const target = { entity: row.entity, entityId: row.entity_id, field: row.field };
     const writtenHash = row.written_sha256, writtenETag = row.written_etag;
-    const result = await this.catalog.driver.transaction(async sql => {
+    const result = await this.transaction(async sql => {
       const current = await sql.query(`SELECT state, key, expires_ms, written_sha256, written_etag
         FROM teaql_blob_upload WHERE upload_id = ? AND scope = ?`, [uploadId, row.scope]);
       const catalog = await sql.query(`SELECT object_key, status FROM teaql_blob_catalog

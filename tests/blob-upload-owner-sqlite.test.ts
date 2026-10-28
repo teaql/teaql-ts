@@ -184,11 +184,26 @@ test('committed Blob write with lost reply replays same bytes and File generatio
   const bytes = Buffer.from('%PDF-1.7\nSQL commit succeeded, reply lost\n%%EOF');
   try {
     await catalog.ensureSchema();
-    const session = await service.begin(actor, { entity: 'Asset', entityId: null, field: 'document' },
-      { fileName: 'report.pdf', declaredSize: bytes.length }, 'unknown-write');
+    const target = { entity: 'Asset', entityId: null, field: 'document' };
+    const input = { fileName: 'report.pdf', declaredSize: bytes.length };
+    driver.loseNextCommitReply = true;
+    await expect(service.begin(actor, target, input, 'unknown-write'))
+      .rejects.toThrow(/^BLOB_CATALOG_FAILED$/);
+    const begun = (await driver.query('SELECT upload_id,key,expires_ms FROM teaql_blob_upload WHERE replay_key = ?',
+      ['unknown-write'])).rows;
+    expect(begun).toHaveLength(1);
+    allowed = false;
+    await expect(service.begin(actor, target, input, 'unknown-write'))
+      .rejects.toThrow('BLOB_UPLOAD_DENIED');
+    allowed = true;
+    await expect(service.begin(actor, target, { ...input, fileName: 'changed.pdf' }, 'unknown-write'))
+      .rejects.toThrow('BLOB_IDEMPOTENCY_CONFLICT');
+    const session = await service.begin(actor, target, input, 'unknown-write');
+    expect([session.uploadId, session.reference.key, session.expiresAt.getTime()])
+      .toEqual([begun[0].upload_id, begun[0].key, begun[0].expires_ms]);
     driver.loseNextCommitReply = true;
     await expect(service.write(actor, session.uploadId, source(bytes)))
-      .rejects.toThrow('PRIVATE-COMMIT-CANARY');
+      .rejects.toThrow(/^BLOB_CATALOG_FAILED$/);
     const row = (await driver.query(`SELECT u.state, c.status, c.object_key, u.written_etag
       FROM teaql_blob_upload u JOIN teaql_blob_catalog c ON c.key=u.key WHERE u.upload_id=?`,
     [session.uploadId])).rows[0];
@@ -214,7 +229,7 @@ test('committed Blob write with lost reply replays same bytes and File generatio
     expect(store.puts).toBe(1);
     driver.loseNextCommitReply = true;
     await expect(service.complete(actor, session.uploadId))
-      .rejects.toThrow('PRIVATE-COMMIT-CANARY');
+      .rejects.toThrow(/^BLOB_CATALOG_FAILED$/);
     expect((await driver.query('SELECT state FROM teaql_blob_upload WHERE upload_id = ?',
       [session.uploadId])).rows[0].state).toBe('completed');
     allowed = false;
