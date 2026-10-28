@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BlobFieldSpec } from '../src/core/blob-ref';
 import { UserContext } from '../src/core/context';
-import { ObjectByteStream, ObjectKey, ObjectPutOptions, StorageInvocation } from '../src/core/object-storage';
+import { ObjectByteStream, ObjectContent, ObjectKey, ObjectPutOptions, StorageInvocation } from '../src/core/object-storage';
 import { FileObjectStorage } from '../src/object-storage/file';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
 import { BlobContentVerifier, BlobUploadAuthorization, SqliteBlobUploadService } from '../src/blob-reference/upload-service';
@@ -73,6 +73,17 @@ class FailingHeadStore extends FileObjectStorage {
   override async head(invocation: StorageInvocation, key: ObjectKey) {
     if (this.failHead) throw new Error('PRIVATE-HEAD-CANARY');
     return super.head(invocation, key);
+  }
+}
+
+class FailingCloseStore extends FileObjectStorage {
+  failClose = true;
+  override async get(invocation: StorageInvocation, key: ObjectKey) {
+    const content = await super.get(invocation, key);
+    return new ObjectContent(content.metadata, content.stream, async () => {
+      await content.close();
+      if (this.failClose) throw new Error('PRIVATE-OBJECT-CLOSE-CANARY');
+    });
   }
 }
 
@@ -154,6 +165,33 @@ test('Blob confirmation hides private parser and provider diagnostics', async ()
     await expect(service.complete(actor, session.uploadId))
       .rejects.toThrow(/^BLOB_UPLOAD_INCOMPLETE$/);
     store.failHead = false;
+    expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
+  } finally {
+    await driver.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('Blob confirmation rolls back when object stream close fails', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'teaql-blob-confirm-close-'));
+  const driver = new SQLiteDriver(join(root, 'catalog.sqlite'));
+  const catalog = new SqlBlobCatalog(driver);
+  const store = new FailingCloseStore(join(root, 'private'), randomBytes(32));
+  const actor = new UserContext().withObjectStorage(store).withObjectStorageObserver(() => {});
+  const service = new SqliteBlobUploadService(catalog, authority(), new FixtureVerifier(), 10_000);
+  const bytes = Buffer.from('%PDF-1.7\nclose failure must not promote\n%%EOF');
+  try {
+    await catalog.ensureSchema();
+    const session = await service.begin(actor,
+      { entity: 'Asset', entityId: null, field: 'document' },
+      { fileName: 'report.pdf', declaredSize: bytes.length }, 'close-failure');
+    await service.write(actor, session.uploadId, source(bytes));
+    await expect(service.complete(actor, session.uploadId))
+      .rejects.toThrow(/^BLOB_UPLOAD_INCOMPLETE$/);
+    const state = (await driver.query(`SELECT u.state,c.status FROM teaql_blob_upload u
+      JOIN teaql_blob_catalog c ON c.key=u.key WHERE u.upload_id=?`, [session.uploadId])).rows[0];
+    expect(state).toMatchObject({ state: 'written', status: 'initiated' });
+    store.failClose = false;
     expect((await service.complete(actor, session.uploadId)).key).toBe(session.reference.key);
   } finally {
     await driver.close();
