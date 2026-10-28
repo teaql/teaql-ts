@@ -141,6 +141,109 @@ test('allocated ledger key binds a Blob inside its outer graph and rolls back wi
   }
 });
 
+test('two allocated graph rows and three Blob fields roll back on late denial or outer rejection', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-multi-graph-'));
+  const filename = join(directory, 'runtime.sqlite');
+  const driver = new SQLiteDriver(filename);
+  const client = new SQLiteTeaQLClient(filename, { Asset: schema });
+  const catalog = new SqlBlobCatalog(driver);
+  const context = new UserContext().insertResource('dataService', client);
+  const firstDocument = new BlobRef('blob_multi_first_pdf');
+  const secondDocument = new BlobRef('blob_multi_second_pdf');
+  const secondLegacy = new BlobRef('blob_multi_second_doc');
+  let allowLegacy = true;
+  installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
+  context.insertResource('blobMutationParticipant',
+    new SqliteBlobMutationParticipant(catalog, {
+      scope: () => 'tenant-a',
+      authorize: async (_actor, target) => target.field !== 'legacy_document' || allowLegacy,
+      currentPolicyOnLease,
+    }));
+  client.setUserContext(context);
+
+  const save = async (rejectOuter: boolean) => {
+    const ledger = new EntityRoot();
+    const firstKey = { entity: 'Asset', id: -1 };
+    const secondKey = { entity: 'Asset', id: -2 };
+    ledger.markAsNew(firstKey);
+    ledger.markAsNew(secondKey);
+    ledger.set(firstKey, 'document', firstDocument);
+    ledger.set(secondKey, 'document', secondDocument);
+    ledger.set(secondKey, 'legacyDocument', secondLegacy);
+    return client.executeGraphSave(new MutationIntent('save two allocated Blob rows'), async graph => {
+      const first = await client.executeMutation(graph.request({
+        entity: 'Asset', action: 'Create', ledgerRoot: ledger, ledgerKey: firstKey,
+        payload: Object.freeze({ ...ledger.change(firstKey) }),
+      }));
+      ledger.rekey(firstKey, { entity: 'Asset', id: first.id });
+      const second = await client.executeMutation(graph.request({
+        entity: 'Asset', action: 'Create', ledgerRoot: ledger, ledgerKey: secondKey,
+        payload: Object.freeze({ ...ledger.change(secondKey) }),
+      }));
+      ledger.rekey(secondKey, { entity: 'Asset', id: second.id });
+      expect(ledger.change({ entity: 'Asset', id: second.id }))
+        .toMatchObject({ document: secondDocument, legacyDocument: secondLegacy });
+      await client.withGraphSqlSession(graph, async sql => {
+        const rows = await sql.query('SELECT key FROM teaql_blob_binding WHERE entity_id IN (?, ?)',
+          [first.id, second.id]);
+        expect(rows.rows.map(row => row.key).sort())
+          .toEqual([firstDocument.key, secondDocument.key, secondLegacy.key].sort());
+      });
+      if (rejectOuter) throw new Error('outer owner rejected multi-entity graph');
+      return { first: first.id, second: second.id };
+    });
+  };
+  const assertUncommitted = async () => {
+    expect((await driver.query('SELECT id FROM asset')).rows).toHaveLength(0);
+    expect((await driver.query('SELECT key FROM teaql_blob_binding')).rows).toHaveLength(0);
+    for (const reference of [firstDocument, secondDocument, secondLegacy]) {
+      expect((await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+        [reference.key])).rows[0].status).toBe('uploaded_unbound');
+    }
+  };
+  try {
+    await catalog.ensureSchema();
+    await context.ensureSchema();
+    for (const [reference, name, type] of [
+      [firstDocument, 'first.pdf', 'application/pdf'],
+      [secondDocument, 'second.pdf', 'application/pdf'],
+      [secondLegacy, 'second.doc', 'application/msword'],
+    ] as const) {
+      await driver.query(`INSERT INTO teaql_blob_catalog
+        (key, scope, object_key, content_version, file_name, content_type, size_bytes, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+        reference.key, 'tenant-a', `objects/${reference.key}`, 'v1', name, type, 7,
+        'uploaded_unbound',
+      ]);
+      await markPolicyBacked(driver, reference.key);
+    }
+
+    allowLegacy = false;
+    await expect(save(false)).rejects.toThrow('BLOB_BIND_DENIED');
+    await assertUncommitted();
+    allowLegacy = true;
+    await expect(save(true)).rejects.toThrow('outer owner rejected multi-entity graph');
+    await assertUncommitted();
+
+    const ids = await save(false);
+    expect((await driver.query('SELECT document FROM asset WHERE id = ?', [ids.first])).rows[0].document)
+      .toBe(firstDocument.key);
+    expect((await driver.query('SELECT document, legacy_document FROM asset WHERE id = ?',
+      [ids.second])).rows[0])
+      .toMatchObject({ document: secondDocument.key, legacy_document: secondLegacy.key });
+    expect((await driver.query('SELECT key FROM teaql_blob_binding')).rows.map(row => row.key).sort())
+      .toEqual([firstDocument.key, secondDocument.key, secondLegacy.key].sort());
+    for (const reference of [firstDocument, secondDocument, secondLegacy]) {
+      expect((await driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
+        [reference.key])).rows[0].status).toBe('available');
+    }
+  } finally {
+    await client.close();
+    await driver.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('native create/update/delete automatically maintains SQLite binding in the same graph', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-'));
   const filename = join(directory, 'runtime.sqlite');
