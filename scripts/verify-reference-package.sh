@@ -76,3 +76,43 @@ for (const [label, path, symbol, esm] of entries) {
   console.log(`PASS ${label} packed optional reference entry`);
 }
 NODE
+
+# Resolve the same extracted candidate through its public package exports from
+# a fresh application outside this checkout. This catches missing or misrouted
+# exports that absolute-path imports above cannot detect.
+consumer="$test_root/consumer"
+mkdir -p "$consumer/node_modules/@teaql"
+mv "$packed" "$consumer/node_modules/@teaql/teaql"
+(
+  cd "$consumer"
+  env -u NODE_PATH -u NODE_OPTIONS node <<'NODE'
+const entries = [
+  ['@teaql/teaql/blob-reference/module', 'BlobReferenceModule'],
+  ['@teaql/teaql/secure-document-reference/document-round-trip',
+    'SecureDocumentReferenceModule'],
+  ['@teaql/teaql/blob-reference/file-generation-maintenance',
+    'SqliteBlobFileGenerationSweepService'],
+];
+for (const [name, symbol] of entries) {
+  if (typeof require(name)[symbol] !== 'function') {
+    throw new Error(`CJS consumer: missing ${symbol} from ${name}`);
+  }
+  console.log(`PASS CJS consumer ${name}`);
+}
+NODE
+  env -u NODE_PATH -u NODE_OPTIONS node --input-type=module <<'NODE'
+const entries = [
+  ['@teaql/teaql/blob-reference/module', 'BlobReferenceModule'],
+  ['@teaql/teaql/secure-document-reference/document-round-trip',
+    'SecureDocumentReferenceModule'],
+  ['@teaql/teaql/blob-reference/file-generation-maintenance',
+    'SqliteBlobFileGenerationSweepService'],
+];
+for (const [name, symbol] of entries) {
+  if (typeof (await import(name))[symbol] !== 'function') {
+    throw new Error(`ESM consumer: missing ${symbol} from ${name}`);
+  }
+  console.log(`PASS ESM consumer ${name}`);
+}
+NODE
+)
