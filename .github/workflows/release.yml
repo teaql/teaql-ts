@@ -27,7 +27,21 @@ jobs:
       # current Node LTS used by generated TeaQL projects.
       - run: npm test -- --runInBand
       - run: npm run build
-      - run: npm run verify:reference-package
       - name: Upgrade npm for trusted publishing
         run: npm install --global npm@latest
-      - run: npm publish --access public
+      - name: Pack immutable candidate
+        id: candidate
+        run: |
+          candidate_dir="$RUNNER_TEMP/teaql-candidate"
+          mkdir -p "$candidate_dir"
+          package_name="$(npm pack --ignore-scripts --pack-destination "$candidate_dir" --silent)"
+          printf 'path=%s\n' "$candidate_dir/$package_name" >> "$GITHUB_OUTPUT"
+          sha256sum "$candidate_dir/$package_name"
+      - name: Verify exact candidate reference entries
+        env:
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: npm run verify:reference-package -- "$CANDIDATE_PATH"
+      - name: Publish verified candidate
+        env:
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: npm publish "$CANDIDATE_PATH" --access public --ignore-scripts

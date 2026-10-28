@@ -13,9 +13,19 @@ test_root="$(mktemp -d /tmp/teaql-reference-package.XXXXXX)"
 trap 'rm -rf -- "$test_root"' EXIT
 mkdir "$test_root/unpacked"
 
-package_name="$(cd "$repo_root" && npm_config_cache="$test_root/npm-cache" \
-  npm pack --ignore-scripts --pack-destination "$test_root" --silent)"
-tar -xzf "$test_root/$package_name" -C "$test_root/unpacked"
+if (( $# > 1 )); then
+  echo "Usage: verify-reference-package.sh [candidate.tgz]" >&2
+  exit 2
+fi
+if (( $# == 1 )); then
+  candidate="$1"
+  test -f "$candidate"
+else
+  package_name="$(cd "$repo_root" && npm_config_cache="$test_root/npm-cache" \
+    npm pack --ignore-scripts --pack-destination "$test_root" --silent)"
+  candidate="$test_root/$package_name"
+fi
+tar -xzf "$candidate" -C "$test_root/unpacked"
 packed="$test_root/unpacked/package"
 test ! -e "$packed/node_modules"
 
@@ -31,12 +41,19 @@ for file in \
   cmp "$repo_root/$file" "$packed/$file"
 done
 
-TEAQL_PACKED_ROOT="$packed" node --input-type=module <<'NODE'
+TEAQL_PACKED_ROOT="$packed" TEAQL_SOURCE_ROOT="$repo_root" node --input-type=module <<'NODE'
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = process.env.TEAQL_PACKED_ROOT;
+const source = process.env.TEAQL_SOURCE_ROOT;
+const packedMetadata = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+const sourceMetadata = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'));
+if (packedMetadata.name !== sourceMetadata.name || packedMetadata.version !== sourceMetadata.version) {
+  throw new Error('Packed package identity differs from the built checkout');
+}
 const require = createRequire(import.meta.url);
 const entries = [
   ['blob-cjs', 'dist/blob-reference/module.js', 'BlobReferenceModule', false],
