@@ -94,9 +94,11 @@ var SqlBlobCatalog = class {
       const rows = await this.driver.query(`SELECT c.key FROM teaql_blob_catalog c
         JOIN teaql_blob_upload u ON u.key = c.key AND u.scope = c.scope
         WHERE c.scope = ? AND c.key > ? AND (
-          (c.status = 'deleting' AND (u.state IN ('initiated','written') OR
+          (c.status = 'deleting' AND ((u.state IN ('initiated','written')
+            AND (c.upload_mode IS NULL OR c.upload_mode = 'server_stream')) OR
             (u.state = 'completed' AND c.upload_mode = 'server_stream')))
           OR (c.status = 'initiated' AND u.state IN ('initiated','written')
+            AND (c.upload_mode IS NULL OR c.upload_mode = 'server_stream')
             AND u.expires_ms <= ?)
           OR (c.status = 'uploaded_unbound' AND u.state = 'completed'
             AND c.upload_mode = 'server_stream' AND c.completed_at_ms IS NOT NULL
@@ -144,6 +146,7 @@ var SqlBlobCatalog = class {
         JOIN teaql_blob_upload u ON u.key = c.key AND u.scope = c.scope
         WHERE c.scope = ? AND c.key > ? AND u.expires_ms <= ?
           AND u.state IN ('initiated','written') AND c.status IN ('initiated','deleting')
+          AND (c.upload_mode IS NULL OR c.upload_mode = 'server_stream')
           AND NOT EXISTS (SELECT 1 FROM teaql_blob_binding b WHERE b.key = c.key)
         ORDER BY c.key LIMIT ?`, [scope, after, now, limit]);
       return rows.rows.map((row) => {
@@ -175,7 +178,7 @@ var SqlBlobCatalog = class {
         const incomplete = row.state === "initiated" || row.state === "written";
         if (incompleteOnly && !incomplete) return void 0;
         if (incomplete) {
-          if (!Number.isSafeInteger(row.expires_ms) || row.status !== "deleting" && (row.status !== "initiated" || row.expires_ms > now))
+          if (row.upload_mode !== null && row.upload_mode !== "server_stream" || !Number.isSafeInteger(row.expires_ms) || row.status !== "deleting" && (row.status !== "initiated" || row.expires_ms > now))
             return void 0;
         } else if (row.state === "completed") {
           if (row.upload_mode !== "server_stream" || typeof row.policy_profile !== "string" || !row.policy_profile || !Number.isSafeInteger(row.completed_at_ms) || row.completed_at_ms < 0 || !Number.isSafeInteger(row.unbound_retention_seconds) || row.unbound_retention_seconds < 0 || !Number.isSafeInteger(row.effective_unref_seconds) || row.effective_unref_seconds < 0 || !validDeleteVersion(row.content_version) || row.written_etag !== row.content_version) return void 0;
@@ -226,14 +229,14 @@ var SqlBlobCatalog = class {
     if (!validDeleteVersion(version)) throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
     try {
       await this.driver.transaction(async (sql) => {
-        const rows = await sql.query(`SELECT c.object_key, c.content_version, c.status,
+        const rows = await sql.query(`SELECT c.object_key, c.content_version, c.status,c.upload_mode,
             u.state, u.expires_ms, u.written_etag
           FROM teaql_blob_catalog c JOIN teaql_blob_upload u
             ON u.key = c.key AND u.scope = c.scope
           WHERE c.scope = ? AND c.key = ?`, [scope, record.key]);
         const row = rows.rows[0];
         const bound = await sql.query("SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1", [record.key]);
-        if (rows.rows.length !== 1 || bound.rows.length || row.status !== "deleting" || row.object_key !== record.objectKey || !Number.isSafeInteger(Number(row.expires_ms)) || Number(row.expires_ms) > now || !["initiated", "written"].includes(String(row.state)) || row.written_etag && row.written_etag !== version || row.content_version && row.content_version !== version)
+        if (rows.rows.length !== 1 || bound.rows.length || row.status !== "deleting" || row.upload_mode !== null && row.upload_mode !== "server_stream" || row.object_key !== record.objectKey || !Number.isSafeInteger(Number(row.expires_ms)) || Number(row.expires_ms) > now || !["initiated", "written"].includes(String(row.state)) || row.written_etag && row.written_etag !== version || row.content_version && row.content_version !== version)
           throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
         if (!row.content_version) {
           const changed = await sql.query(
@@ -267,7 +270,7 @@ var SqlBlobCatalog = class {
           throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
         if (row.status === "deleted") return;
         const bound = await sql.query("SELECT 1 FROM teaql_blob_binding WHERE key = ? LIMIT 1", [record.key]);
-        const incomplete = row.state === "initiated" || row.state === "written";
+        const incomplete = (row.state === "initiated" || row.state === "written") && (row.upload_mode === null || row.upload_mode === "server_stream");
         const complete = row.state === "completed" && row.upload_mode === "server_stream" && typeof row.policy_profile === "string" && !!row.policy_profile && Number.isSafeInteger(row.completed_at_ms) && row.completed_at_ms >= 0 && Number.isSafeInteger(row.unbound_retention_seconds) && row.unbound_retention_seconds >= 0 && Number.isSafeInteger(row.effective_unref_seconds) && row.effective_unref_seconds >= 0 && row.written_etag === version;
         if (bound.rows.length || row.status !== "deleting" || !Number.isSafeInteger(now) || now < 0 || !(incomplete && Number.isSafeInteger(row.expires_ms) && row.expires_ms <= now || complete))
           throw new Error("BLOB_IDEMPOTENCY_CONFLICT");
@@ -535,4 +538,4 @@ function isMissingTable(error) {
 export {
   SqlBlobCatalog
 };
-//# sourceMappingURL=chunk-JQPG7FML.js.map
+//# sourceMappingURL=chunk-KXZMX5ZO.js.map

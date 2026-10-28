@@ -168,6 +168,32 @@ test('maintenance is explicit, authorized, outside graph SQL, and leaves legacy 
   } finally { await f.close(); }
 });
 
+test('expired direct upload rows stay untouched until quiescence is proven', async () => {
+  const f = await fixture();
+  try {
+    for (const [name, state, status] of [
+      ['direct-initiated', 'initiated', 'initiated'],
+      ['direct-written', 'written', 'initiated'],
+      ['direct-deleting', 'initiated', 'deleting'],
+    ] as const) {
+      const upload = await f.begin(name);
+      const key = await f.objectKey(upload.reference.key);
+      f.provider.replace(key, bytes);
+      await f.driver.query('UPDATE teaql_blob_catalog SET upload_mode = ?, status = ? WHERE key = ?',
+        ['direct', status, upload.reference.key]);
+      await f.driver.query('UPDATE teaql_blob_upload SET state = ? WHERE key = ?',
+        [state, upload.reference.key]);
+    }
+    f.clock += 1_001_000;
+    expect(await f.catalog.deletionCandidates('tenant-a', '', f.clock, 100)).toEqual([]);
+    expect(await f.catalog.expiredUploadDeletionCandidates('tenant-a', '', f.clock, 100)).toEqual([]);
+    const result = await f.maintenance.runBatch(f.actor);
+    expect(result.outcomes).toEqual([]);
+    expect(f.provider.objects.size).toBe(3);
+    expect(f.provider.conditionalDeletes).toBe(0);
+  } finally { await f.close(); }
+});
+
 test('a failed catalog acknowledgement resumes without deleting a newer generation', async () => {
   const f = await fixture();
   try {
