@@ -31,18 +31,19 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
   const client = new SQLiteTeaQLClient(filename, {});
   client.setUserContext(actor);
   const catalog = new SqlBlobCatalog(driver);
-  const extension = mode === 'image' ? 'jpg' :
+  const image = ['image', 'jpeg', 'png'].includes(mode);
+  const extension = mode === 'image' ? 'jpg' : image ? mode :
     ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? mode : 'pdf';
-  const contentType = mode === 'image' ? 'image/jpeg' :
+  const contentType = image ? mode === 'png' ? 'image/png' : 'image/jpeg' :
     mode === 'mp3' ? 'audio/mpeg' : mode === 'mp4' ? 'video/mp4' :
       mode === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
         mode === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
           mode === 'doc' ? 'application/msword' : mode === 'xls' ? 'application/vnd.ms-excel' :
           'application/pdf';
-  const fileName = mode === 'image' ? 'sample.jpg' :
+  const fileName = image ? `sample.${extension}` :
     ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? `sample.${mode}` : 'report.pdf';
   const bytes = await readFile(join(__dirname, '..', 'tests', 'fixtures',
-    mode === 'image' ? 'blob-sample.jpg' :
+    image ? mode === 'png' ? 'blob-sample.png' : 'blob-sample.jpg' :
       mode === 'pdf' ? 'blob-parser-sample.pdf' :
         ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? `reference-modules/sample.${mode}` :
           'blob-sample.pdf'));
@@ -71,7 +72,7 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
     return { sizeBytes: size, sha256: createHash('sha256').update(value).digest('hex'),
       contentType: 'application/pdf' };
   } };
-  const parser = mode === 'image' ? new SharpBlobContentVerifier() :
+  const parser = image ? new SharpBlobContentVerifier() :
     mode === 'pdf' ? new PdfjsBlobContentVerifier() :
       mode === 'docx' || mode === 'xlsx' ? new OfficeBlobContentVerifier() :
       mode === 'doc' || mode === 'xls' ? new LegacyOfficeBlobContentVerifier(
@@ -82,7 +83,9 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
         process.env.TEAQL_FFPROBE_BIN || '/usr/bin/ffprobe',
         process.env.TEAQL_FFMPEG_BIN || '/usr/bin/ffmpeg',
         process.env.TEAQL_PRLIMIT_BIN || '/usr/bin/prlimit') : undefined;
-  const label = mode === 'image' ? 'real JPEG ' : mode === 'pdf' ? 'real PDF ' :
+  const label = mode === 'image' ? 'real JPEG ' :
+    mode === 'jpeg' ? 'real JPEG alias ' : mode === 'png' ? 'real PNG ' :
+    mode === 'pdf' ? 'real PDF ' :
     ['mp3', 'mp4', 'doc', 'docx', 'xls', 'xlsx'].includes(mode) ? `real ${mode.toUpperCase()} ` : '';
   const verifier = parser ? { calls: 0, async verify(content, extension, maximumBytes) {
     this.calls++;
@@ -127,9 +130,11 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
     await driver.query('CREATE TABLE asset (id TEXT PRIMARY KEY, document TEXT)');
     const bindingTarget = { entity: 'Asset', entityId: '1', field: 'document' };
     const bindingAuthorization = { scope: () => 'f4-s3-upload',
-      authorize: async (_ctx, actual, _previous, next, action) =>
+      authorize: async (_ctx, actual, previous, next, action) =>
         actual.entity === 'Asset' && actual.entityId === '1' &&
-        actual.field === 'document' && next?.equals(session.reference) && action === 'Create',
+        actual.field === 'document' &&
+        ((next?.equals(session.reference) && action === 'Create') ||
+          (previous?.equals(session.reference) && next === null && action === 'Update')),
       currentPolicyOnLease: () => new BlobRetentionPolicy('default', 'server_stream', 86400, 604800),
     };
     await client.executeGraphSave(new MutationIntent('bind S3 Blob in business graph'),
@@ -187,6 +192,53 @@ async function verifyBlobUpload(actor, storage, mode = 'fixture') {
       if (error.code !== 'BLOB_READ_DENIED' || error.businessState !== 'committed') throw error;
     }
     console.log(`PASS TypeScript ${label}Blob S3 graph bind/authorized signed view/Range/revocation`);
+    if (process.env.TEAQL_S3_TEST_END_TO_END_GC === '1') {
+      bindingVersion = 1;
+      await client.executeGraphSave(new MutationIntent('clear S3 Blob from business graph'),
+        async graph => {
+          await client.withGraphSqlSession(graph, sql => sql.query(
+            'UPDATE asset SET document = NULL WHERE id = ?', ['1']));
+          if (await catalog.bindInGraph(client, graph, actor,
+            { target: bindingTarget, next: null, expectedVersion: 1,
+              nextVersion: 2, action: 'Update' }, bindingAuthorization) !== 2) {
+            throw new Error('Blob S3 graph clear version mismatch');
+          }
+        });
+      const savedBinding = (await driver.query(`SELECT key,version FROM teaql_blob_binding
+        WHERE scope=? AND entity=? AND entity_id=? AND field=?`,
+      ['f4-s3-upload', 'Asset', '1', 'document'])).rows[0];
+      const retained = (await driver.query(`SELECT status,last_unbound_at_ms,
+        effective_unref_seconds,retention_floor_until_ms FROM teaql_blob_catalog WHERE key=?`,
+      [session.reference.key])).rows[0];
+      if ((await driver.query('SELECT document FROM asset WHERE id=?', ['1'])).rows[0].document !== null ||
+          savedBinding.key !== null || Number(savedBinding.version) !== 2 ||
+          retained.status !== 'available' ||
+          !Number.isSafeInteger(retained.last_unbound_at_ms) ||
+          retained.effective_unref_seconds !== 604800 ||
+          retained.retention_floor_until_ms === null) {
+        throw new Error('Blob S3 graph clear did not commit retention facts with business row');
+      }
+      try { await viewService.prepare(viewContext, { document: session.reference }, options);
+        throw new Error('Blob S3 cleared field projected a URL'); }
+      catch (error) { if (error.code !== 'BLOB_READ_DENIED') throw error; }
+      let sweepNow = retained.last_unbound_at_ms + 604800 * 1000 - 1;
+      const maintenance = new SqliteBlobMaintenanceService(catalog,
+        { scope: () => 'f4-s3-upload', canMaintain: async () => true }, 10, () => sweepNow);
+      if ((await maintenance.runBatch(actor)).outcomes.length !== 0 ||
+          await storage.head(objectKey) === undefined) {
+        throw new Error('Blob S3 object collected before last-unbind retention deadline');
+      }
+      sweepNow += 1;
+      const collected = await maintenance.runBatch(actor);
+      if (collected.outcomes.length !== 1 || collected.outcomes[0].status !== 'deleted' ||
+          collected.outcomes[0].reference.key !== session.reference.key ||
+          await storage.head(objectKey) !== undefined ||
+          (await driver.query('SELECT status FROM teaql_blob_catalog WHERE key=?',
+            [session.reference.key])).rows[0].status !== 'deleted') {
+        throw new Error('Blob S3 completed upload did not collect after real graph unbind');
+      }
+      console.log(`PASS TypeScript ${label}S3 upload/confirm/graph bind/authorized view/unbind/retention GC`);
+    }
   } finally {
     try { if (objectKey) await storage.delete(objectKey); }
     finally {
@@ -420,6 +472,8 @@ async function main() {
       await verifyBlobUpload(actor, storage);
       if (process.env.TEAQL_S3_TEST_REAL_IMAGE === '1') {
         await verifyBlobUpload(actor, storage, 'image');
+        await verifyBlobUpload(actor, storage, 'jpeg');
+        await verifyBlobUpload(actor, storage, 'png');
       }
       if (process.env.TEAQL_S3_TEST_REAL_PDF === '1') {
         await verifyBlobUpload(actor, storage, 'pdf');
