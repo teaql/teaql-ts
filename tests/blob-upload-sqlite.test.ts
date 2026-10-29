@@ -236,6 +236,7 @@ test('legacy TypeScript upload leases migrate without changing replay identity',
     await expect(catalog.validateSchema()).rejects.toThrow();
     await driver.query('CREATE INDEX host_owned_upload_index ON teaql_blob_upload(state)');
     await expect(catalog.ensureSchema()).rejects.toThrow('BLOB_CATALOG_FAILED');
+    await expect(catalog.validateSchema()).rejects.toThrow('BLOB_SCHEMA_MISSING');
     expect((await driver.query('SELECT upload_id FROM teaql_blob_upload')).rows[0]?.upload_id)
       .toBe(created.uploadId);
     await driver.query('DROP INDEX host_owned_upload_index');
@@ -276,6 +277,9 @@ test('legacy TypeScript upload leases migrate without changing replay identity',
     expect((await driver.query('SELECT expires_ms,expires_at FROM teaql_blob_upload WHERE upload_id = ?',
       [fresh.uploadId])).rows[0]).toMatchObject({ expires_ms: fresh.expiresAt.getTime(),
       expires_at: null });
+    await driver.query('ALTER TABLE teaql_blob_upload ADD COLUMN expires_unix_ms BIGINT NOT NULL DEFAULT 1');
+    await expect(catalog.validateSchema()).rejects.toThrow('BLOB_SCHEMA_MISSING');
+    await expect(catalog.ensureSchema()).rejects.toThrow('BLOB_CATALOG_FAILED');
   } finally {
     await driver.close();
     await rm(root, { recursive: true, force: true });

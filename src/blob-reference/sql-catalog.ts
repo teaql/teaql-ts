@@ -163,6 +163,10 @@ export class SqlBlobCatalog {
           'SELECT COUNT(*) AS missing FROM teaql_blob_upload WHERE expires_ms IS NULL');
         if (Number(incomplete.rows[0]?.missing) !== 0) throw new Error('BLOB_CATALOG_FAILED');
         await this.relaxLegacyUploadAlias();
+        const uploadColumns = await this.driver.query('PRAGMA table_info(teaql_blob_upload)');
+        if (uploadColumns.rows.some(row =>
+          ['expires_at', 'expires_unix_ms'].includes(String(row.name)) &&
+          Number(row.notnull) === 1)) throw new Error('BLOB_CATALOG_FAILED');
       }
     } catch { throw new Error('BLOB_CATALOG_FAILED'); }
   }
@@ -557,6 +561,10 @@ export class SqlBlobCatalog {
         if (!key || Number(key.notnull) !== 0 || !version || Number(version.notnull) !== 1) {
           throw new Error('BLOB_SCHEMA_MISSING');
         }
+        const uploadColumns = await this.driver.query('PRAGMA table_info(teaql_blob_upload)');
+        if (uploadColumns.rows.some(row =>
+          ['expires_at', 'expires_unix_ms'].includes(String(row.name)) &&
+          Number(row.notnull) === 1)) throw new Error('BLOB_SCHEMA_MISSING');
         const indexes = await this.driver.query('PRAGMA index_list(teaql_blob_catalog)');
         const objectKeyIndex = indexes.rows.find(row => row.name === 'teaql_blob_catalog_object_key' &&
           Number(row.unique) === 1);
