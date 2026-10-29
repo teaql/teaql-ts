@@ -46,6 +46,10 @@ export declare class SqlBlobCatalog {
     readonly driver: TeaQLSqlDriver;
     private readonly now;
     constructor(driver: TeaQLSqlDriver, now?: () => number);
+    /** The historical TS lease column was NOT NULL. Additive backfill alone leaves
+     * Python/.NET/Swift inserts (which write only expires_ms) impossible. The host
+     * runs this migration before enabling mixed-version writers. */
+    private relaxLegacyUploadAlias;
     ensureSchema(): Promise<void>;
     /** Scoped, bounded scan. Only trusted server-stream policy rows can enter
      * completed/previously-bound retention collection; claim rechecks them. */

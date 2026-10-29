@@ -234,6 +234,11 @@ test('legacy TypeScript upload leases migrate without changing replay identity',
       old.entity_id, old.field, old.file_name, old.extension, old.declared_size,
       old.expires_at, old.state, old.written_sha256, old.written_etag]);
     await expect(catalog.validateSchema()).rejects.toThrow();
+    await driver.query('CREATE INDEX host_owned_upload_index ON teaql_blob_upload(state)');
+    await expect(catalog.ensureSchema()).rejects.toThrow('BLOB_CATALOG_FAILED');
+    expect((await driver.query('SELECT upload_id FROM teaql_blob_upload')).rows[0]?.upload_id)
+      .toBe(created.uploadId);
+    await driver.query('DROP INDEX host_owned_upload_index');
     await catalog.ensureSchema();
     await catalog.ensureSchema();
     await catalog.validateSchema();
@@ -254,6 +259,23 @@ test('legacy TypeScript upload leases migrate without changing replay identity',
       request_hash: createHash('sha256').update(JSON.stringify(
         ['Asset', null, 'document', 'report.pdf', 42, ''])).digest('hex'),
     });
+    const columns = await driver.query('PRAGMA table_info(teaql_blob_upload)');
+    expect(Number(columns.rows.find(row => row.name === 'expires_at')?.notnull)).toBe(0);
+    // A Python/.NET/Swift writer uses the shared expiry column without TS's old alias.
+    const neutral = (await driver.query('SELECT * FROM teaql_blob_upload WHERE upload_id = ?',
+      [fresh.uploadId])).rows[0];
+    await driver.query('DELETE FROM teaql_blob_upload WHERE upload_id = ?', [fresh.uploadId]);
+    await driver.query(`INSERT INTO teaql_blob_upload
+      (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
+       extension,declared_size,expires_ms,state,written_sha256,written_etag)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [neutral.upload_id, neutral.scope, neutral.replay_key, neutral.request_hash, neutral.key,
+      neutral.entity, neutral.entity_id, neutral.field, neutral.file_name, neutral.extension,
+      neutral.declared_size, neutral.expires_ms, neutral.state,
+      neutral.written_sha256, neutral.written_etag]);
+    expect((await driver.query('SELECT expires_ms,expires_at FROM teaql_blob_upload WHERE upload_id = ?',
+      [fresh.uploadId])).rows[0]).toMatchObject({ expires_ms: fresh.expiresAt.getTime(),
+      expires_at: null });
   } finally {
     await driver.close();
     await rm(root, { recursive: true, force: true });

@@ -13,6 +13,65 @@ var SqlBlobCatalog = class {
     this.driver = driver;
     this.now = now;
   }
+  /** The historical TS lease column was NOT NULL. Additive backfill alone leaves
+   * Python/.NET/Swift inserts (which write only expires_ms) impossible. The host
+   * runs this migration before enabling mixed-version writers. */
+  async relaxLegacyUploadAlias() {
+    const initial = await this.driver.query("PRAGMA table_info(teaql_blob_upload)");
+    if (Number(initial.rows.find((row) => row.name === "expires_at")?.notnull) !== 1) return;
+    await this.driver.transaction(async (sql) => {
+      const columns = await sql.query("PRAGMA table_info(teaql_blob_upload)");
+      if (Number(columns.rows.find((row) => row.name === "expires_at")?.notnull) !== 1) return;
+      const expected = /* @__PURE__ */ new Set([
+        "upload_id",
+        "scope",
+        "replay_key",
+        "request_hash",
+        "key",
+        "entity",
+        "entity_id",
+        "field",
+        "file_name",
+        "extension",
+        "declared_size",
+        "expires_ms",
+        "expires_at",
+        "state",
+        "written_sha256",
+        "written_etag"
+      ]);
+      if (columns.rows.length !== expected.size || columns.rows.some((row) => !expected.has(String(row.name)))) {
+        throw new Error("BLOB_CATALOG_FAILED");
+      }
+      const custom = await sql.query(`SELECT name FROM sqlite_master
+        WHERE tbl_name = 'teaql_blob_upload' AND type IN ('index','trigger')
+          AND sql IS NOT NULL`);
+      if (custom.rows.length) throw new Error("BLOB_CATALOG_FAILED");
+      const inconsistent = await sql.query(`SELECT COUNT(*) AS n FROM teaql_blob_upload
+        WHERE expires_ms IS NULL OR expires_at IS NULL OR expires_ms <> expires_at`);
+      if (Number(inconsistent.rows[0]?.n) !== 0) throw new Error("BLOB_CATALOG_FAILED");
+      await sql.query(`CREATE TABLE teaql_blob_upload_upgrade (
+        upload_id TEXT PRIMARY KEY, scope TEXT NOT NULL, replay_key TEXT NOT NULL,
+        request_hash TEXT NOT NULL, key TEXT NOT NULL UNIQUE,
+        entity TEXT NOT NULL, entity_id TEXT, field TEXT NOT NULL,
+        file_name TEXT NOT NULL, extension TEXT NOT NULL, declared_size BIGINT NOT NULL,
+        expires_ms BIGINT NOT NULL, expires_at BIGINT,
+        state TEXT NOT NULL CHECK (state IN ('initiated','written','completed')),
+        written_sha256 TEXT, written_etag TEXT,
+        UNIQUE (scope, replay_key), FOREIGN KEY (key) REFERENCES teaql_blob_catalog(key)
+      )`);
+      await sql.query(`INSERT INTO teaql_blob_upload_upgrade
+        (upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
+         extension,declared_size,expires_ms,expires_at,state,written_sha256,written_etag)
+        SELECT upload_id,scope,replay_key,request_hash,key,entity,entity_id,field,file_name,
+          extension,declared_size,expires_ms,expires_at,state,written_sha256,written_etag
+        FROM teaql_blob_upload`);
+      await sql.query("DROP TABLE teaql_blob_upload");
+      await sql.query("ALTER TABLE teaql_blob_upload_upgrade RENAME TO teaql_blob_upload");
+      const invalid = await sql.query("PRAGMA foreign_key_check(teaql_blob_upload)");
+      if (invalid.rows.length) throw new Error("BLOB_CATALOG_FAILED");
+    });
+  }
   async ensureSchema() {
     try {
       await this.driver.query(`CREATE TABLE IF NOT EXISTS teaql_blob_catalog (
@@ -81,6 +140,7 @@ var SqlBlobCatalog = class {
           "SELECT COUNT(*) AS missing FROM teaql_blob_upload WHERE expires_ms IS NULL"
         );
         if (Number(incomplete.rows[0]?.missing) !== 0) throw new Error("BLOB_CATALOG_FAILED");
+        await this.relaxLegacyUploadAlias();
       }
     } catch {
       throw new Error("BLOB_CATALOG_FAILED");
@@ -538,4 +598,4 @@ function isMissingTable(error) {
 export {
   SqlBlobCatalog
 };
-//# sourceMappingURL=chunk-KXZMX5ZO.js.map
+//# sourceMappingURL=chunk-CT2NV3DO.js.map
