@@ -31,6 +31,7 @@ var BlobReferenceModule = class {
     this.mutation = mutation;
     this.response = response;
     this.maintenance = maintenance;
+    this.installations = /* @__PURE__ */ new WeakMap();
     this.assertCoherentAssembly();
   }
   assertCoherentAssembly() {
@@ -49,7 +50,7 @@ var BlobReferenceModule = class {
     ].some((name) => context.getResource(name))) {
       throw new Error("BLOB_CAPABILITY_MISSING");
     }
-    installRuntimeCapability(context, { name: "blob.v1", assertReady: (current) => {
+    const capability = { name: "blob.v1", assertReady: (current) => {
       this.assertCoherentAssembly();
       const owner = current.getResource("dataService");
       let compatibleOwner = false;
@@ -60,14 +61,20 @@ var BlobReferenceModule = class {
       if (current !== context || current.getResource("blobUploadService") !== this.upload || current.getResource("blobMutationParticipant") !== this.mutation || current.getResource("blobResponseContributor") !== this.response || this.maintenance !== void 0 && current.getResource("blobMaintenanceService") !== this.maintenance || !current.getResource("objectStorageProvider") || !compatibleOwner) {
         throw new Error("BLOB_CAPABILITY_MISSING");
       }
-    } });
+    } };
+    installRuntimeCapability(context, capability);
     context.insertResource("blobUploadService", this.upload);
     context.insertResource("blobMutationParticipant", this.mutation);
     context.insertResource("blobResponseContributor", this.response);
     if (this.maintenance) context.insertResource("blobMaintenanceService", this.maintenance);
+    this.installations.set(context, capability);
   }
   /** Called explicitly after the host runs its catalog migration. */
   async ready(context) {
+    const installed = this.installations.get(context);
+    if (!installed || context.getResource("teaql.runtime.capability:blob.v1") !== installed) {
+      throw new Error("BLOB_CAPABILITY_MISSING");
+    }
     requireRuntimeCapabilities(context, ["blob.v1"]);
     await this.catalog.validateSchema();
     await this.upload.validateVerifierReady();

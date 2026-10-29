@@ -142,3 +142,41 @@ test.each(['missing-owner', 'other-file', 'separate-memory'] as const)(
       await rm(root, { recursive: true, force: true });
     }
   });
+
+test.each(['foreign-module', 'synthetic-capability'] as const)(
+  'BlobReferenceModule readiness rejects %s before activating another installation', async scenario => {
+    const root = await mkdtemp(join(tmpdir(), 'teaql-blob-module-identity-'));
+    const filename = join(root, 'catalog.sqlite');
+    const driver = new SQLiteDriver(filename), client = new SQLiteTeaQLClient(filename, {});
+    const catalog = new SqlBlobCatalog(driver);
+    const verifierReady = jest.fn(async () => {});
+    const upload = new SqliteBlobUploadService(catalog, {
+      scope: () => 'tenant-a', field: () => { throw new Error('not used'); },
+      authorize: async () => false,
+      currentOnLease: async () => { throw new Error('not used'); },
+    }, { verify: async () => { throw new Error('not used'); }, validateReady: verifierReady }, 1000);
+    const assemble = () => new BlobReferenceModule(catalog, upload,
+      new SqliteBlobMutationParticipant(catalog, { scope: () => 'tenant-a', authorize: async () => false }),
+      new SqlBlobResponseContributor(catalog, { authorize: async () => false }));
+    const module = assemble(), foreign = assemble();
+    const context = new UserContext().withObjectStorage(new FileObjectStorage(join(root, 'objects'), randomBytes(32)))
+      .insertResource('dataService', client);
+    client.setUserContext(context);
+    try {
+      module.install(context);
+      await catalog.ensureSchema();
+      const capability = context.getResource('teaql.runtime.capability:blob.v1');
+      if (scenario === 'synthetic-capability')
+        context.insertResource('teaql.runtime.capability:blob.v1', { name: 'blob.v1', assertReady: () => {} });
+      await expect((scenario === 'foreign-module' ? foreign : module).ready(context))
+        .rejects.toThrow('BLOB_CAPABILITY_MISSING');
+      expect(verifierReady).not.toHaveBeenCalled();
+      context.insertResource('teaql.runtime.capability:blob.v1', capability);
+      await module.ready(context);
+      expect(verifierReady).toHaveBeenCalledTimes(1);
+    } finally {
+      await client.close();
+      await driver.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });

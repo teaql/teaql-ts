@@ -1,6 +1,7 @@
 import type { UserContext } from '../core/context';
 import type { TeaQLDataService } from '../sql/core';
 import { installRuntimeCapability, requireRuntimeCapabilities } from '../core/runtime-capability';
+import type { RuntimeCapabilityResource } from '../core/runtime-capability';
 import { SqlBlobCatalog } from './sql-catalog';
 import { SqliteBlobUploadService } from './upload-service';
 import { SqliteBlobMutationParticipant } from './mutation-participant';
@@ -9,6 +10,8 @@ import { SqliteBlobMaintenanceService } from './maintenance-service';
 
 /** Explicit assembly of the optional SQLite Blob runtime. Schema migration is a separate host action. */
 export class BlobReferenceModule {
+  private readonly installations = new WeakMap<UserContext, RuntimeCapabilityResource>();
+
   constructor(
     readonly catalog: SqlBlobCatalog,
     readonly upload: SqliteBlobUploadService,
@@ -39,7 +42,7 @@ export class BlobReferenceModule {
       'blobMaintenanceService'].some(name => context.getResource(name))) {
       throw new Error('BLOB_CAPABILITY_MISSING');
     }
-    installRuntimeCapability(context, { name: 'blob.v1', assertReady: current => {
+    const capability: RuntimeCapabilityResource = { name: 'blob.v1', assertReady: current => {
       this.assertCoherentAssembly();
       const owner = current.getResource<TeaQLDataService>('dataService');
       let compatibleOwner = false;
@@ -53,15 +56,21 @@ export class BlobReferenceModule {
           !current.getResource('objectStorageProvider') || !compatibleOwner) {
         throw new Error('BLOB_CAPABILITY_MISSING');
       }
-    } });
+    } };
+    installRuntimeCapability(context, capability);
     context.insertResource('blobUploadService', this.upload);
     context.insertResource('blobMutationParticipant', this.mutation);
     context.insertResource('blobResponseContributor', this.response);
     if (this.maintenance) context.insertResource('blobMaintenanceService', this.maintenance);
+    this.installations.set(context, capability);
   }
 
   /** Called explicitly after the host runs its catalog migration. */
   async ready(context: UserContext): Promise<void> {
+    const installed = this.installations.get(context);
+    if (!installed || context.getResource('teaql.runtime.capability:blob.v1') !== installed) {
+      throw new Error('BLOB_CAPABILITY_MISSING');
+    }
     requireRuntimeCapabilities(context, ['blob.v1']);
     await this.catalog.validateSchema();
     await this.upload.validateVerifierReady();

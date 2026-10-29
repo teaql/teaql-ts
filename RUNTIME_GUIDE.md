@@ -15,8 +15,12 @@ wrappers over that driver are allowed. A service connected to a different
 driver is rejected with `BLOB_CAPABILITY_MISSING` before installation or I/O.
 
 Install the business data service and object-storage provider in `UserContext`
-before calling `module.ready(context)`. Readiness also checks that the business
-data service uses the catalog's SQLite database. The Node `SQLiteTeaQLClient`
+before calling `module.ready(context)`. Readiness checks that the context still
+holds the capability installed by this module instance. A
+separately constructed module or a replaced capability is rejected before
+schema or verifier activation. The same module may be installed in separate
+contexts; each context retains its own installation identity. The business
+data service must also use the catalog's SQLite database. The Node `SQLiteTeaQLClient`
 proves this through its established file connection gate; two independent
 `:memory:` connections are distinct resources. Custom data services must provide
 the trusted `usesSqlDatabase(driver)` identity SPI to prove compatibility. A

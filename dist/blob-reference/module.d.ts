@@ -11,6 +11,7 @@ export declare class BlobReferenceModule {
     readonly mutation: SqliteBlobMutationParticipant;
     readonly response: SqlBlobResponseContributor;
     readonly maintenance?: SqliteBlobMaintenanceService | undefined;
+    private readonly installations;
     constructor(catalog: SqlBlobCatalog, upload: SqliteBlobUploadService, mutation: SqliteBlobMutationParticipant, response: SqlBlobResponseContributor, maintenance?: SqliteBlobMaintenanceService | undefined);
     private assertCoherentAssembly;
     install(context: UserContext): void;
