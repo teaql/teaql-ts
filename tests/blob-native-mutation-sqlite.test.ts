@@ -32,6 +32,66 @@ const schema: EntitySchema = { table: 'asset', columns: {
     blob: new BlobFieldSpec('Asset', 'legacy_document', ['doc'], true, 'default') },
 } };
 
+test('an unloaded Blob field survives an ordinary-field ledger update without rebinding', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-unloaded-'));
+  const filename = join(directory, 'runtime.sqlite');
+  const driver = new SQLiteDriver(filename);
+  const client = new SQLiteTeaQLClient(filename, { Asset: { ...schema, columns: {
+    ...schema.columns,
+    caption: { columnName: 'caption', logicalType: 'text', decode: 'string', nullable: true },
+  } } });
+  const catalog = new SqlBlobCatalog(driver);
+  const context = new UserContext().insertResource('dataService', client);
+  const reference = new BlobRef('blob_native_unloaded');
+  const authorize = jest.fn(async () => true);
+  installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
+  context.insertResource('blobMutationParticipant', new SqliteBlobMutationParticipant(catalog, {
+    scope: () => 'tenant-a', authorize, currentPolicyOnLease,
+  }));
+  client.setUserContext(context);
+  try {
+    await catalog.ensureSchema();
+    await context.ensureSchema();
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key, scope, object_key, content_version, file_name, content_type, size_bytes, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [reference.key, 'tenant-a', 'objects/unloaded',
+      'v1', 'unloaded.pdf', 'application/pdf', 7, 'uploaded_unbound']);
+    await markPolicyBacked(driver, reference.key);
+    await client.executeGraphSave(new MutationIntent('create asset with Blob'),
+      graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Create',
+        id: '1', payload: { document: reference, caption: 'before' } })));
+    const binding = (await driver.query('SELECT * FROM teaql_blob_binding')).rows;
+    const object = (await driver.query('SELECT * FROM teaql_blob_catalog')).rows;
+    authorize.mockClear();
+
+    const ledger = new EntityRoot();
+    const key = { entity: 'Asset', id: '1' };
+    ledger.set(key, 'caption', 'after');
+    expect(ledger.change(key)).toEqual({ caption: 'after' });
+    await client.executeGraphSave(new MutationIntent('update caption with unloaded Blob'),
+      graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Update',
+        id: '1', version: 1, ledgerRoot: ledger, ledgerKey: key,
+        payload: Object.freeze({ ...ledger.change(key) }) })));
+
+    expect((await driver.query('SELECT document, caption, version FROM asset')).rows)
+      .toEqual([{ document: reference.key, caption: 'after', version: 2 }]);
+    expect((await driver.query('SELECT * FROM teaql_blob_binding')).rows).toEqual(binding);
+    expect((await driver.query('SELECT * FROM teaql_blob_catalog')).rows).toEqual(object);
+    expect(authorize).not.toHaveBeenCalled();
+
+    await client.executeGraphSave(new MutationIntent('explicitly clear loaded Blob'),
+      graph => client.executeMutation(graph.request({ entity: 'Asset', action: 'Update',
+        id: '1', version: 2, payload: { document: null } })));
+    expect(authorize).toHaveBeenCalledTimes(1);
+    expect((await driver.query('SELECT key, version FROM teaql_blob_binding')).rows[0])
+      .toMatchObject({ key: null, version: 3 });
+  } finally {
+    await client.close();
+    await driver.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('native binding keeps canonical model field when the TS member differs', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-name-'));
   const filename = join(directory, 'runtime.sqlite');
