@@ -12,6 +12,7 @@ export declare class BlobReferenceModule {
     readonly response: SqlBlobResponseContributor;
     readonly maintenance?: SqliteBlobMaintenanceService | undefined;
     constructor(catalog: SqlBlobCatalog, upload: SqliteBlobUploadService, mutation: SqliteBlobMutationParticipant, response: SqlBlobResponseContributor, maintenance?: SqliteBlobMaintenanceService | undefined);
+    private assertCoherentAssembly;
     install(context: UserContext): void;
     /** Called explicitly after the host runs its catalog migration. */
     ready(context: UserContext): Promise<void>;

@@ -10,6 +10,8 @@ export declare class SqlBlobResponseContributor implements BlobResponseContribut
     private readonly authorization;
     private readonly maximumUrlSeconds;
     constructor(catalog: SqlBlobCatalog, authorization: BlobReadAuthorization, maximumUrlSeconds?: number);
+    /** Assembly identity check; wrappers may share the same physical driver. */
+    usesCatalog(catalog: SqlBlobCatalog): boolean;
     projectBatch(context: UserContext, graph: AuthorizedResponseGraph, expiresAt?: Date): Promise<readonly Readonly<{
         url: string;
         expiresAt: Date;

@@ -35,6 +35,10 @@ var SqliteBlobMaintenanceService = class {
       throw new Error("BLOB_POLICY_INVALID");
     }
   }
+  /** Assembly identity check; wrappers may share the same physical driver. */
+  usesCatalog(catalog) {
+    return this.catalog.driver === catalog.driver;
+  }
   async authorize(context, expected) {
     let scope, allowed;
     try {
@@ -144,4 +148,4 @@ export {
   BlobMaintenanceCursor,
   SqliteBlobMaintenanceService
 };
-//# sourceMappingURL=chunk-JLGNC673.js.map
+//# sourceMappingURL=chunk-NJY2M2JN.js.map

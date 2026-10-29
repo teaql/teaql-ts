@@ -10,6 +10,11 @@ export class SqliteBlobMutationParticipant implements BlobMutationParticipant {
     if (catalog.driver.databaseKind !== 'sqlite') throw new Error('BLOB_CAPABILITY_MISSING');
   }
 
+  /** Assembly identity check; wrappers may share the same physical driver. */
+  usesCatalog(catalog: SqlBlobCatalog): boolean {
+    return this.catalog.driver === catalog.driver;
+  }
+
   async apply(context: Parameters<BlobMutationParticipant['apply']>[0],
               owner: Parameters<BlobMutationParticipant['apply']>[1],
               graph: Parameters<BlobMutationParticipant['apply']>[2],

@@ -7,6 +7,24 @@ Current published versions and acceptance status are tracked in
 [TeaQL Conformance](https://github.com/teaql/teaql-conformance). Individual
 verification notes below describe their own scope, not all-provider parity.
 
+## Blob module assembly and readiness
+
+`BlobReferenceModule` requires its upload, mutation, response and optional
+maintenance services to borrow the same catalog driver. Separate catalog
+wrappers over that driver are allowed. A service connected to a different
+driver is rejected with `BLOB_CAPABILITY_MISSING` before installation or I/O.
+
+Install the business data service and object-storage provider in `UserContext`
+before calling `module.ready(context)`. Readiness also checks that the business
+data service uses the catalog's SQLite database. The Node `SQLiteTeaQLClient`
+proves this through its established file connection gate; two independent
+`:memory:` connections are distinct resources. Custom data services must provide
+the trusted `usesSqlDatabase(driver)` identity SPI to prove compatibility. A
+missing or incompatible owner is rejected before schema and verifier checks.
+These checks also run when the installed capability is required. Schema
+migration remains an explicit host action; installation does not migrate,
+upload, parse content or start maintenance.
+
 ## Request intent and version compatibility
 
 The 0.3.0 runtime provides validated, request-owned `QueryIntent` and

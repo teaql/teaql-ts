@@ -186,6 +186,8 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 }
 
 export interface TeaQLDataService {
+  /** Trusted optional-module resource identity check; it does not execute SQL. */
+  usesSqlDatabase?(driver: TeaQLSqlDriver): boolean;
   withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
   executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>): Promise<T>;
   /** Optional module SPI: the caller's physical graph transaction, guarded by its session. */

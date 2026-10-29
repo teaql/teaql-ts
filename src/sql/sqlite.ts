@@ -86,6 +86,12 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     }
   }
 
+  /** Same established file gate, or the exact same in-memory connection.
+   * Separate :memory: connections deliberately have different gates. */
+  sharesDatabase(driver: TeaQLSqlDriver): boolean {
+    return driver instanceof SQLiteDriver && this.gate === driver.gate;
+  }
+
   private async withConnection<T>(work: () => Promise<T> | T): Promise<T> {
     const owner = transactionOwner.getStore();
     if (owner === this && this.transactionActive) return work();
@@ -284,5 +290,9 @@ export class SQLiteTeaQLClient extends AbstractSQLTeaQLClient {
   constructor(filename: string, schemas: Record<string, EntitySchema>) {
     super(new SQLiteDriver(filename), schemas);
     this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
+  }
+
+  usesSqlDatabase(driver: TeaQLSqlDriver): boolean {
+    return this.driver instanceof SQLiteDriver && this.driver.sharesDatabase(driver);
   }
 }

@@ -7,17 +7,17 @@ import {
 } from "../chunks/chunk-VO5ICQHI.js";
 import {
   SqliteBlobMutationParticipant
-} from "../chunks/chunk-6E4S7465.js";
+} from "../chunks/chunk-OVOYPDF7.js";
 import {
   SqlBlobResponseContributor
-} from "../chunks/chunk-GIN46L7P.js";
+} from "../chunks/chunk-POR4V4RW.js";
 import {
   SqliteBlobUploadService
-} from "../chunks/chunk-CFCGG24P.js";
+} from "../chunks/chunk-YT2ARN4Y.js";
 import "../chunks/chunk-I5BWLNYV.js";
 import {
   SqliteBlobMaintenanceService
-} from "../chunks/chunk-JLGNC673.js";
+} from "../chunks/chunk-NJY2M2JN.js";
 import "../chunks/chunk-VJE6OLEA.js";
 import "../chunks/chunk-3BPR3EGQ.js";
 import "../chunks/chunk-WEYNFMW2.js";
@@ -31,11 +31,15 @@ var BlobReferenceModule = class {
     this.mutation = mutation;
     this.response = response;
     this.maintenance = maintenance;
-    if (!(catalog instanceof SqlBlobCatalog) || catalog.driver.databaseKind !== "sqlite" || !(upload instanceof SqliteBlobUploadService) || !(mutation instanceof SqliteBlobMutationParticipant) || !(response instanceof SqlBlobResponseContributor) || maintenance !== void 0 && !(maintenance instanceof SqliteBlobMaintenanceService)) {
+    this.assertCoherentAssembly();
+  }
+  assertCoherentAssembly() {
+    if (!(this.catalog instanceof SqlBlobCatalog) || this.catalog.driver.databaseKind !== "sqlite" || !(this.upload instanceof SqliteBlobUploadService) || !(this.mutation instanceof SqliteBlobMutationParticipant) || !(this.response instanceof SqlBlobResponseContributor) || !this.upload.usesCatalog(this.catalog) || !this.mutation.usesCatalog(this.catalog) || !this.response.usesCatalog(this.catalog) || this.maintenance !== void 0 && (!(this.maintenance instanceof SqliteBlobMaintenanceService) || !this.maintenance.usesCatalog(this.catalog))) {
       throw new Error("BLOB_CAPABILITY_MISSING");
     }
   }
   install(context) {
+    this.assertCoherentAssembly();
     if (!context || [
       "teaql.runtime.capability:blob.v1",
       "blobUploadService",
@@ -46,7 +50,14 @@ var BlobReferenceModule = class {
       throw new Error("BLOB_CAPABILITY_MISSING");
     }
     installRuntimeCapability(context, { name: "blob.v1", assertReady: (current) => {
-      if (current !== context || current.getResource("blobUploadService") !== this.upload || current.getResource("blobMutationParticipant") !== this.mutation || current.getResource("blobResponseContributor") !== this.response || this.maintenance !== void 0 && current.getResource("blobMaintenanceService") !== this.maintenance || !current.getResource("objectStorageProvider")) {
+      this.assertCoherentAssembly();
+      const owner = current.getResource("dataService");
+      let compatibleOwner = false;
+      try {
+        compatibleOwner = owner?.usesSqlDatabase?.(this.catalog.driver) === true;
+      } catch {
+      }
+      if (current !== context || current.getResource("blobUploadService") !== this.upload || current.getResource("blobMutationParticipant") !== this.mutation || current.getResource("blobResponseContributor") !== this.response || this.maintenance !== void 0 && current.getResource("blobMaintenanceService") !== this.maintenance || !current.getResource("objectStorageProvider") || !compatibleOwner) {
         throw new Error("BLOB_CAPABILITY_MISSING");
       }
     } });

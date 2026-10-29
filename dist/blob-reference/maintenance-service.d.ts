@@ -30,6 +30,8 @@ export declare class SqliteBlobMaintenanceService {
     private readonly batchSize;
     private readonly now;
     constructor(catalog: SqlBlobCatalog, authorization: BlobMaintenanceAuthorization, batchSize?: number, now?: () => number);
+    /** Assembly identity check; wrappers may share the same physical driver. */
+    usesCatalog(catalog: SqlBlobCatalog): boolean;
     private authorize;
     private requireStandalone;
     private time;

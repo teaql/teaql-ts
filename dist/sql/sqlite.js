@@ -80,6 +80,11 @@ class SQLiteDriver {
             fileGates.set(this.gateKey, { gate: this.gate, users: 1 });
         }
     }
+    /** Same established file gate, or the exact same in-memory connection.
+     * Separate :memory: connections deliberately have different gates. */
+    sharesDatabase(driver) {
+        return driver instanceof SQLiteDriver && this.gate === driver.gate;
+    }
     async withConnection(work) {
         const owner = transactionOwner.getStore();
         if (owner === this && this.transactionActive)
@@ -266,6 +271,9 @@ class SQLiteTeaQLClient extends core_1.AbstractSQLTeaQLClient {
     constructor(filename, schemas) {
         super(new SQLiteDriver(filename), schemas);
         this.attachStandardTelemetryStartup((0, standard_node_1.startStandardNodeTelemetry)());
+    }
+    usesSqlDatabase(driver) {
+        return this.driver instanceof SQLiteDriver && this.driver.sharesDatabase(driver);
     }
 }
 exports.SQLiteTeaQLClient = SQLiteTeaQLClient;

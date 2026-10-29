@@ -7,7 +7,7 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-UJFSRA5U.js";
+} from "../chunks/chunk-5EPFCR2I.js";
 import "../chunks/chunk-LGSUBUWZ.js";
 import "../chunks/chunk-FGLZQXRI.js";
 import "../chunks/chunk-HDIMWNEB.js";
@@ -63,7 +63,7 @@ var SQLiteAsyncGate = class {
 };
 var fileGates = /* @__PURE__ */ new Map();
 var transactionOwner = new AsyncLocalStorage();
-var SQLiteDriver = class {
+var SQLiteDriver = class _SQLiteDriver {
   constructor(filename) {
     this.databaseKind = "sqlite";
     this.topNRelationPlanPolicy = "alwaysProbe";
@@ -90,6 +90,11 @@ var SQLiteDriver = class {
     if (transactionOwner.getStore()?.gate === this.gate) {
       throw new Error("SQLITE_TRANSACTION_REENTRY");
     }
+  }
+  /** Same established file gate, or the exact same in-memory connection.
+   * Separate :memory: connections deliberately have different gates. */
+  sharesDatabase(driver) {
+    return driver instanceof _SQLiteDriver && this.gate === driver.gate;
   }
   async withConnection(work) {
     const owner = transactionOwner.getStore();
@@ -275,6 +280,9 @@ var SQLiteTeaQLClient = class extends AbstractSQLTeaQLClient {
   constructor(filename, schemas) {
     super(new SQLiteDriver(filename), schemas);
     this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
+  }
+  usesSqlDatabase(driver) {
+    return this.driver instanceof SQLiteDriver && this.driver.sharesDatabase(driver);
   }
 };
 export {

@@ -74,6 +74,11 @@ export class SqliteBlobUploadService {
     await this.verifier.validateReady?.();
   }
 
+  /** Assembly identity check; wrappers may share the same physical driver. */
+  usesCatalog(catalog: SqlBlobCatalog): boolean {
+    return this.catalog.driver === catalog.driver;
+  }
+
   private async query(sql: SqlSession, statement: string, values?: any[]): Promise<SqlQueryResult> {
     try { return await sql.query(statement, values); }
     catch { throw new Error('BLOB_CATALOG_FAILED'); }

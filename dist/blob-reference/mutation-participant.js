@@ -10,6 +10,10 @@ class SqliteBlobMutationParticipant {
         if (catalog.driver.databaseKind !== 'sqlite')
             throw new Error('BLOB_CAPABILITY_MISSING');
     }
+    /** Assembly identity check; wrappers may share the same physical driver. */
+    usesCatalog(catalog) {
+        return this.catalog.driver === catalog.driver;
+    }
     async apply(context, owner, graph, session, application) {
         if (!Number.isSafeInteger(application.version) || application.version === 0) {
             throw new Error('BLOB_REFERENCE_INVALID');

@@ -46,6 +46,11 @@ export class SqliteBlobMaintenanceService {
     }
   }
 
+  /** Assembly identity check; wrappers may share the same physical driver. */
+  usesCatalog(catalog: SqlBlobCatalog): boolean {
+    return this.catalog.driver === catalog.driver;
+  }
+
   private async authorize(context: UserContext, expected?: string): Promise<string> {
     let scope: string, allowed: boolean;
     try {

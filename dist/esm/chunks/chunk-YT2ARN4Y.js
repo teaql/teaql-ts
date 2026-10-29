@@ -45,6 +45,10 @@ var SqliteBlobUploadService = class {
   async validateVerifierReady() {
     await this.verifier.validateReady?.();
   }
+  /** Assembly identity check; wrappers may share the same physical driver. */
+  usesCatalog(catalog) {
+    return this.catalog.driver === catalog.driver;
+  }
   async query(sql, statement, values) {
     try {
       return await sql.query(statement, values);
@@ -631,4 +635,4 @@ var SqliteBlobUploadService = class {
 export {
   SqliteBlobUploadService
 };
-//# sourceMappingURL=chunk-CFCGG24P.js.map
+//# sourceMappingURL=chunk-YT2ARN4Y.js.map

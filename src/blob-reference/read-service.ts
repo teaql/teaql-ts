@@ -17,6 +17,11 @@ export class SqlBlobResponseContributor implements BlobResponseContributor {
     }
   }
 
+  /** Assembly identity check; wrappers may share the same physical driver. */
+  usesCatalog(catalog: SqlBlobCatalog): boolean {
+    return this.catalog.driver === catalog.driver;
+  }
+
   async projectBatch(context: UserContext, graph: AuthorizedResponseGraph,
                      expiresAt?: Date): Promise<readonly Readonly<{ url: string; expiresAt: Date }>[]> {
     const results: Array<Readonly<{ url: string; expiresAt: Date }>> = [];

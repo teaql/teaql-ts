@@ -13,6 +13,10 @@ var SqlBlobResponseContributor = class {
       throw new TypeError("BLOB_POLICY_INVALID");
     }
   }
+  /** Assembly identity check; wrappers may share the same physical driver. */
+  usesCatalog(catalog) {
+    return this.catalog.driver === catalog.driver;
+  }
   async projectBatch(context, graph, expiresAt) {
     const results = [];
     for (const slot of graph.blobSlots) {
@@ -39,4 +43,4 @@ var SqlBlobResponseContributor = class {
 export {
   SqlBlobResponseContributor
 };
-//# sourceMappingURL=chunk-GIN46L7P.js.map
+//# sourceMappingURL=chunk-POR4V4RW.js.map

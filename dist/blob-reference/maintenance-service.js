@@ -32,6 +32,10 @@ class SqliteBlobMaintenanceService {
             throw new Error('BLOB_POLICY_INVALID');
         }
     }
+    /** Assembly identity check; wrappers may share the same physical driver. */
+    usesCatalog(catalog) {
+        return this.catalog.driver === catalog.driver;
+    }
     async authorize(context, expected) {
         let scope, allowed;
         try {
