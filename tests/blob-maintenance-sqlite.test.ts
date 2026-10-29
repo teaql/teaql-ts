@@ -2,20 +2,24 @@ import { createHash, randomBytes } from 'node:crypto';
 import { mkdtemp, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { S3Client } from '@aws-sdk/client-s3';
 import { BlobFieldSpec } from '../src/core/blob-ref';
 import { UserContext } from '../src/core/context';
 import { EntityRoot } from '../src/core/entity-root';
 import { MutationIntent } from '../src/core/request-intent';
-import { installRuntimeCapability } from '../src/core/runtime-capability';
+import { ViewPreparationService } from '../src/core/view-preparation';
 import { ObjectByteStream, ObjectContent, ObjectKey, ObjectMetadata,
   ObjectPutOptions, ObjectReadUrl, ObjectReadUrlOptions, ObjectStorageProvider,
   StorageError, StorageInvocation } from '../src/core/object-storage';
 import { SqlBlobCatalog } from '../src/blob-reference/sql-catalog';
+import { BlobReferenceModule } from '../src/blob-reference/module';
+import { SqlBlobResponseContributor } from '../src/blob-reference/read-service';
 import { BlobRetentionPolicy } from '../src/blob-reference/retention';
 import { SqliteBlobMutationParticipant } from '../src/blob-reference/mutation-participant';
 import { SqliteBlobMaintenanceService } from '../src/blob-reference/maintenance-service';
 import { SqliteBlobUploadService } from '../src/blob-reference/upload-service';
 import { FileObjectStorage, SqliteFencedFileObjectStorage } from '../src/object-storage/file';
+import { S3ObjectStorage } from '../src/object-storage/s3';
 import type { EntitySchema } from '../src/sql/core';
 import { SQLiteDriver, SQLiteTeaQLClient } from '../src/sql/sqlite';
 
@@ -364,10 +368,28 @@ test('real fenced File collects policy-backed completed and formerly bound Blobs
   } finally { await f.close(); }
 });
 
-test('native shared-Blob graph waits for the final committed unbind before File collection', async () => {
+test('native shared-Blob graph waits for the final committed unbind before File collection',
+  async () => runNativeSharedBlobFinalUnbind(false));
+
+const sharedS3Test = process.env.TEAQL_S3_TEST_SHARED_BLOB === '1' ? test : test.skip;
+sharedS3Test('native shared-Blob graph waits for final committed unbind on real S3',
+  async () => runNativeSharedBlobFinalUnbind(true), 120_000);
+
+async function runNativeSharedBlobFinalUnbind(realS3: boolean): Promise<void> {
   const policy = new BlobRetentionPolicy('default', 'server_stream', 10, 20);
   const f = await fixture(policy);
-  const file = new SqliteFencedFileObjectStorage(join(f.root, 'shared-blob-files'), randomBytes(32));
+  const endpoint = process.env.TEAQL_S3_TEST_ENDPOINT;
+  const bucket = process.env.TEAQL_S3_TEST_BUCKET;
+  const accessKeyId = process.env.TEAQL_S3_TEST_ACCESS_KEY;
+  const secretAccessKey = process.env.TEAQL_S3_TEST_SECRET_KEY;
+  if (realS3 && !(endpoint && bucket && accessKeyId && secretAccessKey)) {
+    throw new Error('explicit S3 test configuration required');
+  }
+  const s3Client = realS3 ? new S3Client({ region: 'us-east-1', endpoint,
+    forcePathStyle: true, requestChecksumCalculation: 'WHEN_REQUIRED',
+    credentials: { accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! } }) : undefined;
+  const provider = s3Client ? new S3ObjectStorage(s3Client, bucket!) :
+    new SqliteFencedFileObjectStorage(join(f.root, 'shared-blob-files'), randomBytes(32));
   const schema: EntitySchema = { table: 'asset', columns: {
     id: { columnName: 'id', logicalType: 'integer', decode: 'string' },
     version: { columnName: 'version', logicalType: 'integer', decode: 'number' },
@@ -376,25 +398,29 @@ test('native shared-Blob graph waits for the final committed unbind before File 
   } };
   const client = new SQLiteTeaQLClient(join(f.root, 'catalog.sqlite'), { Asset: schema });
   const graphCatalog = new SqlBlobCatalog(f.driver, () => f.clock);
-  const actor = new UserContext().withObjectStorage(file).withObjectStorageObserver(() => {})
+  const actor = new UserContext().withObjectStorage(provider).withObjectStorageObserver(() => {})
     .insertResource('dataService', client);
-  installRuntimeCapability(actor, { name: 'blob.v1', assertReady: () => undefined });
-  actor.insertResource('blobMutationParticipant',
+  let readAllowed = true;
+  const module = new BlobReferenceModule(graphCatalog, f.upload,
     new SqliteBlobMutationParticipant(graphCatalog, {
       scope: () => 'tenant-a', authorize: async () => true,
       currentPolicyOnLease: () => policy,
-    }));
+    }), new SqlBlobResponseContributor(graphCatalog,
+      { authorize: async () => readAllowed }, 3));
+  module.install(actor);
   client.setUserContext(actor);
   const maintenance = new SqliteBlobMaintenanceService(graphCatalog,
     { scope: () => 'tenant-a', canMaintain: () => true }, 100, () => f.clock);
+  let objectKey: ObjectKey | undefined;
   try {
     await actor.ensureSchema();
+    await module.ready(actor);
     const started = f.clock;
     const upload = await f.upload.begin(actor, target,
       { fileName: 'report.pdf', declaredSize: bytes.length }, 'shared-native-graph');
     await f.upload.write(actor, upload.uploadId, (async function* () { yield bytes; })());
     await f.upload.complete(actor, upload.uploadId);
-    const objectKey = await f.objectKey(upload.reference.key);
+    objectKey = await f.objectKey(upload.reference.key);
     const store = actor.objectStorage('shared Blob native graph');
     expect(await store.head(objectKey)).toBeDefined();
 
@@ -439,6 +465,30 @@ test('native shared-Blob graph waits for the final committed unbind before File 
     expect((await maintenance.runBatch(actor)).outcomes).toHaveLength(0);
     expect(await store.head(objectKey)).toBeDefined();
 
+    let viewService: ViewPreparationService | undefined;
+    if (realS3) {
+      actor.insertResource('responseGraphAuthorizer', { authorize: async () => ({
+        presentation: { document: upload.reference },
+        blobSlots: [{ path: ['document'], entity: 'Asset', entityId: ids[1]!,
+          field: 'document', scope: 'tenant-a', bindingVersion: 1,
+          reference: upload.reference }],
+      }) });
+      viewService = new ViewPreparationService();
+      const view = await viewService.prepare(actor, { document: upload.reference },
+        { mode: 'ordinary', businessOutcome: 'read_only' });
+      const url = (view.presentation as { document: string }).document;
+      expect(url.startsWith('http')).toBe(true);
+      expect(view.cacheControl).toBe('private, no-store');
+      const response = await fetch(url, { headers: { Range: 'bytes=0-7' } });
+      expect(response.status).toBe(206);
+      expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes.subarray(0, 8));
+      readAllowed = false;
+      await expect(viewService.prepare(actor, { document: upload.reference },
+        { mode: 'ordinary', businessOutcome: 'read_only' }))
+        .rejects.toMatchObject({ code: 'BLOB_READ_DENIED' });
+      readAllowed = true;
+    }
+
     await expect(unbind(ids[1]!, true)).rejects.toThrow('outer owner rejected final unbind');
     expect((await f.driver.query('SELECT document FROM asset WHERE id = ?',
       [ids[1]])).rows[0].document).toBe(upload.reference.key);
@@ -453,6 +503,11 @@ test('native shared-Blob graph waits for the final committed unbind before File 
       [upload.reference.key])).rows).toHaveLength(0);
     expect((await f.driver.query('SELECT last_unbound_at_ms FROM teaql_blob_catalog WHERE key = ?',
       [upload.reference.key])).rows[0].last_unbound_at_ms).toBe(f.clock);
+    if (viewService) {
+      await expect(viewService.prepare(actor, { document: upload.reference },
+        { mode: 'ordinary', businessOutcome: 'read_only' }))
+        .rejects.toMatchObject({ code: 'BLOB_READ_DENIED' });
+    }
     f.clock += 19_999;
     expect((await maintenance.runBatch(actor)).outcomes).toHaveLength(0);
     expect(await store.head(objectKey)).toBeDefined();
@@ -463,11 +518,16 @@ test('native shared-Blob graph waits for the final committed unbind before File 
     expect(await store.head(objectKey)).toBeUndefined();
     expect((await f.driver.query('SELECT status FROM teaql_blob_catalog WHERE key = ?',
       [upload.reference.key])).rows[0].status).toBe('deleted');
+    if (realS3) console.log('PASS TypeScript shared S3 native graph/final unbind/authorized Range/retention GC');
   } finally {
+    if (realS3 && objectKey) {
+      await actor.objectStorage('clean shared S3 Blob').delete(objectKey);
+    }
     await client.close();
     await f.close();
+    s3Client?.destroy();
   }
-});
+}
 
 test('completed File collection retries a failed receipt and fences a replacement generation', async () => {
   const f = await fixture(new BlobRetentionPolicy('default', 'server_stream', 1, 2));
