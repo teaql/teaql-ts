@@ -445,6 +445,7 @@ test('SQLite secure document open, accept and replay use current permission and 
         .rows[0].status).toBe('uploaded_unbound');
       expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_document_command_receipt'))
         .rows[0].n).toBe(3);
+      await driver.query("ALTER TABLE document_order ADD COLUMN hidden_note TEXT NOT NULL DEFAULT 'server-only'");
       const beforeUnknown = mutations;
       const unknownOpen = await service.open(context, openRequest);
       const unknownCommand = { businessId: 'ORD-10', documentToken: unknownOpen.documentToken,
@@ -474,6 +475,8 @@ test('SQLite secure document open, accept and replay use current permission and 
         WHERE command_id = ?`, ['command-commit-unknown'])).rows).toEqual(durableReceipt);
       expect((await driver.query('SELECT * FROM teaql_blob_binding ORDER BY entity,entity_id,field')).rows)
         .toEqual(durableBindings);
+      expect((await driver.query('SELECT hidden_note FROM document_order')).rows[0].hidden_note)
+        .toBe('server-only');
     } finally {
       await client.close();
       await rm(directory, { recursive: true, force: true });

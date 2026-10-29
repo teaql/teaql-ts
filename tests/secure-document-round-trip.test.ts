@@ -122,3 +122,98 @@ describe('tqd1/tqd2/tqs1 document protocol', () => {
     });
   });
 });
+
+
+describe('issued projection surface and governed URL ceiling', () => {
+  test.each(['writable-unloaded', 'duplicate-row', 'orphan-relation', 'duplicate-relation-row',
+    'readonly-relation-mutation', 'binding-unloaded', 'binding-readonly', 'binding-foreign-entity',
+    'duplicate-binding'])('rejects inconsistent snapshot: %s', scenario => {
+    const d = { ...structuredClone(document), snapshot: { ...structuredClone(document.snapshot) } };
+    const row = { ...d.snapshot.entities[0] };
+    const relation = { ...d.snapshot.relations[0] };
+    const binding = { ...d.bindings[0] };
+    switch (scenario) {
+      case 'writable-unloaded': row.writableFields = ['attachment', 'hidden']; break;
+      case 'duplicate-row': d.snapshot.entities = [row, row]; break;
+      case 'orphan-relation': relation.rowKeys = ['absent']; break;
+      case 'duplicate-relation-row': relation.rowKeys = ['item:0', 'item:0']; break;
+      case 'readonly-relation-mutation': relation.writable = false; break;
+      case 'binding-unloaded': row.loadedFields = ['quantity']; row.writableFields = ['quantity'];
+        binding.writable = false; break;
+      case 'binding-readonly': row.writableFields = ['quantity']; break;
+      case 'binding-foreign-entity': binding.entityType = 'OtherItem'; break;
+      case 'duplicate-binding': d.bindings = [binding, binding]; break;
+    }
+    if (scenario !== 'duplicate-row') d.snapshot.entities = [row];
+    d.snapshot.relations = [relation];
+    if (scenario !== 'duplicate-binding') d.bindings = [binding];
+    expect(() => module().issueBoundDocumentSnapshot(alice, d, 60))
+      .toThrow('DOCUMENT_PROJECTION_VIOLATION');
+  });
+
+  test.each(['readonly-existing', 'hidden-existing', 'partial-child', 'readonly-child', 'no-create-child'])
+    ('preserves metadata and refuses selection outside %s surface', scenario => {
+      const d = { ...structuredClone(document), snapshot: { ...structuredClone(document.snapshot) } };
+      const target = { ...claim.target };
+      if (scenario === 'readonly-existing') {
+        d.snapshot.entities = [{ ...d.snapshot.entities[0], writableFields: ['quantity'] }];
+        d.bindings = [{ ...d.bindings[0], writable: false }];
+      } else if (scenario === 'hidden-existing') target.canonicalField = 'hidden_attachment';
+      else {
+        target.kind = 'NEW_CLIENT_KEY'; target.targetKey = 'client-hidden';
+        d.snapshot.relations = [{ ...d.snapshot.relations[0],
+          ...(scenario === 'partial-child' ? { completeness: 'PARTIAL' as const } :
+            scenario === 'readonly-child' ? { writable: false, allowedMutations: [] } :
+              { allowedMutations: ['REMOVE_CHILD' as const] }) }];
+      }
+      const r = module();
+      const token = r.issueBoundDocumentSnapshot(alice, d, 60);
+      const decoded = r.consumeBoundDocumentSnapshot(alice, token, 'Order', 'edit-order').document;
+      expect(decoded.snapshot.entities[0].loadedFields).toEqual(d.snapshot.entities[0].loadedFields);
+      expect(decoded.snapshot.entities[0].writableFields).toEqual(d.snapshot.entities[0].writableFields);
+      expect(decoded.snapshot.entities[0].allowedMutations).toEqual(d.snapshot.entities[0].allowedMutations);
+      expect(decoded.snapshot.relations).toEqual(d.snapshot.relations);
+      expect(decoded.bindings).toEqual(d.bindings);
+      expect(() => r.issueBlobSelection(alice, token, { ...claim, target }, 30))
+        .toThrow('DOCUMENT_PROJECTION_VIOLATION');
+    });
+
+  test('projects only the authorized visible Blob and refuses a URL beyond the actual document deadline', async () => {
+    const now = Date.now();
+    const deadline = new Date(Math.floor(now / 1000) * 1000 + 60_000);
+    const visible = new BlobRef('blob_A'); const hidden = new BlobRef('blob_hidden');
+    const source = { attachment: visible, hidden_attachment: hidden };
+    const graph = { presentation: { attachment: visible }, blobSlots: [{ path: ['attachment'],
+      entity: 'OrderItem', entityId: '20', field: 'attachment', scope: 'tenant-a',
+      bindingVersion: 4, reference: visible }] };
+    const projectedKeys: string[] = [];
+    let late = false;
+    const context = new UserContext().insertResource('responseGraphAuthorizer', {
+      authorize: async () => graph,
+    }).insertResource('blobResponseContributor', {
+      projectBatch: async (_context: UserContext, authorized: typeof graph, ceiling?: Date) => {
+        expect(ceiling).toEqual(deadline);
+        projectedKeys.push(...authorized.blobSlots.map(slot => slot.reference.key));
+        return [{ url: 'https://files.example.invalid/asset',
+          expiresAt: new Date(deadline.getTime() + (late ? 1 : -5_000)) }];
+      },
+    });
+    const live = new SecureDocumentReferenceModule('order-service', 'test', keys,
+      () => {}, () => new Date(now), () => Buffer.alloc(12, 0x33));
+    live.install(context, { principal: () => alice, snapshot: async () => ({
+      document: { ...document, bindings: [{ ...document.bindings[0], bindingVersion: 4 }] },
+      lifetimeSeconds: 60,
+    }) });
+    const options = { mode: 'governed' as const, businessOutcome: 'committed' as const,
+      expiresAt: new Date(now + 120_000) };
+    const view = await new ViewPreparationService().prepare(context, source, options);
+    expect(view.presentation).toEqual({ attachment: 'https://files.example.invalid/asset' });
+    expect(view.expiresAt).toEqual(new Date(deadline.getTime() - 5_000));
+    expect(projectedKeys).toEqual(['blob_A']); expect(source.hidden_attachment).toBe(hidden);
+    late = true;
+    await expect(new ViewPreparationService().prepare(context, source, options)).rejects.toMatchObject({
+      code: 'BLOB_SIGN_FAILED', businessState: 'committed', retry: 'read',
+    });
+    expect(projectedKeys).toEqual(['blob_A', 'blob_A']);
+  });
+});
