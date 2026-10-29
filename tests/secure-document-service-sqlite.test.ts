@@ -13,14 +13,32 @@ import { SqliteSecureDocumentService, SqliteDocumentHost } from
   '../src/secure-document-reference/sqlite-document-service';
 import { StaticReferenceKeyProvider, TrustedReferencePrincipal } from
   '../src/secure-document-reference/round-trip-reference';
-import { SQLiteDriver, SQLiteTeaQLClient } from '../src/sql/sqlite';
+import { SQLiteDriver } from '../src/sql/sqlite';
+import { AbstractSQLTeaQLClient, SqlSession, TeaQLSqlDriver } from '../src/sql/core';
+
+class LostDocumentCommitReplyDriver extends SQLiteDriver {
+  loseNextCommitReply = false;
+  override async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
+    const result = await super.transaction(work);
+    if (this.loseNextCommitReply) {
+      this.loseNextCommitReply = false;
+      throw new Error('document commit acknowledgement unavailable');
+    }
+    return result;
+  }
+}
+
+class DocumentTestClient extends AbstractSQLTeaQLClient {
+  constructor(private readonly sqlite: LostDocumentCommitReplyDriver) { super(sqlite, {}); }
+  usesSqlDatabase(driver: TeaQLSqlDriver): boolean { return this.sqlite.sharesDatabase(driver); }
+}
 
 test('SQLite secure document open, accept and replay use current permission and one business transaction',
   async () => {
     const directory = await mkdtemp(join(tmpdir(), 'teaql-secure-document-'));
     const filename = join(directory, 'document.sqlite');
-    const driver = new SQLiteDriver(filename);
-    const client = new SQLiteTeaQLClient(filename, {});
+    const driver = new LostDocumentCommitReplyDriver(filename);
+    const client = new DocumentTestClient(driver);
     const context = new UserContext();
     client.setUserContext(context);
     const principal: TrustedReferencePrincipal = {
@@ -427,9 +445,37 @@ test('SQLite secure document open, accept and replay use current permission and 
         .rows[0].status).toBe('uploaded_unbound');
       expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_document_command_receipt'))
         .rows[0].n).toBe(3);
+      const beforeUnknown = mutations;
+      const unknownOpen = await service.open(context, openRequest);
+      const unknownCommand = { businessId: 'ORD-10', documentToken: unknownOpen.documentToken,
+        commandId: 'command-commit-unknown', body: { number: 'ORD-10', quantity: 8 } };
+      const unknownRequest = { aggregateType: 'Order', purpose: 'edit-order', submitted: unknownCommand };
+      driver.loseNextCommitReply = true;
+      await expect(service.accept(context, unknownRequest)).rejects.toThrow('commit acknowledgement unavailable');
+      expect((await driver.query('SELECT version,quantity FROM document_order')).rows[0])
+        .toMatchObject({ version: 5, quantity: 8 });
+      expect((await driver.query('SELECT COUNT(*) AS n FROM teaql_document_command_receipt')).rows[0].n)
+        .toBe(4);
+      expect(mutations).toBe(beforeUnknown + 1);
+      const durableReceipt = (await driver.query(`SELECT * FROM teaql_document_command_receipt
+        WHERE command_id = ?`, ['command-commit-unknown'])).rows;
+      const durableBindings = (await driver.query('SELECT * FROM teaql_blob_binding ORDER BY entity,entity_id,field')).rows;
+      await driver.query("UPDATE document_permission SET can_edit=0 WHERE subject='alice'");
+      await expect(service.accept(context, unknownRequest)).rejects.toThrow('DOCUMENT_AUTHORIZATION_REQUIRED');
+      await driver.query("UPDATE document_permission SET can_edit=1 WHERE subject='alice'");
+      await expect(service.accept(context, { ...unknownRequest,
+        submitted: { ...unknownCommand, body: { number: 'ORD-10', quantity: 7 } } }))
+        .rejects.toThrow('DOCUMENT_REPLAY_CONFLICT');
+      const recoveredUnknown = await service.accept(context, unknownRequest);
+      expect(recoveredUnknown.replayed).toBe(true);
+      expect(recoveredUnknown.newRevision).toBe(5);
+      expect(mutations).toBe(beforeUnknown + 1);
+      expect((await driver.query(`SELECT * FROM teaql_document_command_receipt
+        WHERE command_id = ?`, ['command-commit-unknown'])).rows).toEqual(durableReceipt);
+      expect((await driver.query('SELECT * FROM teaql_blob_binding ORDER BY entity,entity_id,field')).rows)
+        .toEqual(durableBindings);
     } finally {
       await client.close();
-      await driver.close();
       await rm(directory, { recursive: true, force: true });
     }
   });
