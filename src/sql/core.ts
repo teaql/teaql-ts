@@ -214,6 +214,7 @@ export interface BlobMutationParticipant {
           schema: EntitySchema;
           assigned: Readonly<Record<string, unknown>>;
           persisted: Readonly<Record<string, unknown>>;
+          previous?: Readonly<Record<string, unknown>>;
           id: string;
           version: number;
         }>): Promise<void>;
@@ -865,7 +866,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private async applyBlobMutation(request: MutationRequest<any>, session: SqlSession,
                                   schema: EntitySchema, assigned: Record<string, unknown>,
                                   persisted: Record<string, unknown>, id: string,
-                                  version: number, action: 'Create' | 'Update' | 'Delete'): Promise<void> {
+                                  version: number, action: 'Create' | 'Update' | 'Delete',
+                                  previous?: Record<string, unknown>): Promise<void> {
     if (!Object.values(schema.columns).some(column => column.blob)) return;
     const participant = this.userContext.getResource<BlobMutationParticipant>('blobMutationParticipant');
     if (!participant || typeof participant.apply !== 'function') {
@@ -875,7 +877,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     try {
       await participant.apply(this.userContext, this, request.graphSession, session,
         { action, entity: String(request.mutation.entity), schema, assigned,
-          persisted, id, version });
+          persisted, previous, id, version });
     } catch (error) {
       this.graphSqlRollbackOnly = true;
       throw error;
@@ -1033,6 +1035,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
           `WHERE ${predicates.join(' AND ')}`;
         const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'update', String(mutation.id), diagnosticBindings);
+        const beforeBlob = Object.entries(schema.columns).some(([field, column]) =>
+          column.blob && Object.prototype.hasOwnProperty.call(mutationRecord, field))
+          ? await this.readBeforeBlobRecord(session, schema, String(mutation.id), intent,
+            sql, values, statements)
+          : undefined;
         const result = await this.executeLoggedSQL('update', sql, values, intent, () => session.query(sql, values), undefined, statements);
         if (result.rowCount !== 1) {
           throw new Error(
@@ -1043,7 +1050,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           session, schema, String(mutation.id), intent, sql, values, statements,
         );
         await this.applyBlobMutation(request, session, schema, mutationRecord, persistedRecord,
-          String(mutation.id), Number(persistedRecord.version), 'Update');
+          String(mutation.id), Number(persistedRecord.version), 'Update', beforeBlob);
         return {
           success: true,
           id: String(mutation.id),
@@ -1069,6 +1076,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
           `WHERE ${predicates.join(' AND ')}`;
         const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id), diagnosticBindings);
+        const beforeBlob = Object.values(schema.columns).some(column => column.blob)
+          ? await this.readBeforeBlobRecord(session, schema, String(mutation.id), intent,
+            sql, values, statements)
+          : undefined;
         const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values), undefined, statements);
         if (result.rowCount !== 1) {
           throw new Error(
@@ -1079,7 +1090,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           session, schema, String(mutation.id), intent, sql, values, statements,
         );
         await this.applyBlobMutation(request, session, schema, mutationRecord, persistedRecord,
-          String(mutation.id), Number(persistedRecord.version), 'Delete');
+          String(mutation.id), Number(persistedRecord.version), 'Delete', beforeBlob);
         return {
           success: true,
           id: String(mutation.id),
@@ -1136,6 +1147,26 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     intent: SQLLogIntent, writeSQL: string, writeValues: any[],
     statements: SQLExecutionMetadata[],
   ): Promise<Record<string, unknown>> {
+    const record = await this.readSnapshotRecord(session, schema, id, intent,
+      writeSQL, writeValues, statements, 'verify persisted mutation result');
+    if (!record) throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
+    return record;
+  }
+
+  private async readBeforeBlobRecord(
+    session: SqlSession, schema: EntitySchema, id: string,
+    intent: SQLLogIntent, writeSQL: string, writeValues: any[],
+    statements: SQLExecutionMetadata[],
+  ): Promise<Record<string, unknown> | undefined> {
+    return this.readSnapshotRecord(session, schema, id, intent,
+      writeSQL, writeValues, statements, 'verify prior Blob values');
+  }
+
+  private async readSnapshotRecord(
+    session: SqlSession, schema: EntitySchema, id: string,
+    intent: SQLLogIntent, writeSQL: string, writeValues: any[],
+    statements: SQLExecutionMetadata[], purpose: string,
+  ): Promise<Record<string, unknown> | undefined> {
     const projection = Object.entries(schema.columns).map(([field, column]) =>
       `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`,
     ).join(', ');
@@ -1152,19 +1183,21 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       parameterLogPolicies: this.bindLogPolicies.get(writeValues), sqlOrigin: 'generated' };
     const root = intent.tracePath?.find(node => node.kind === 'operation')?.name ?? 'unknown';
     const path = canonicalSQLTracePath([
-      ...queryTraceSource(root, intent.auditReason!, 'verify persisted mutation result'),
+      ...queryTraceSource(root, intent.auditReason!, purpose),
       ...(intent.tracePath ?? []).filter(node => node.kind === 'relation'),
     ], this.driver.databaseKind, 'select');
     const readIntent = { ...intent, tracePath: sqlTraceFrames(path.tracePath),
-      comment: intent.auditReason, purpose: 'verify persisted mutation result' };
+      comment: intent.auditReason, purpose };
     const recordReadback = (outcome: SQLExecutionOutcome) => statements.push(
       this.recordSQL('select', sql, values, startedAt, result?.rowCount, undefined, readIntent, outcome, inherited, scope.correlation?.()));
-    let record: Record<string, unknown>;
+    let record: Record<string, unknown> | undefined;
     try {
       result = await (scope.run ? scope.run(() => session.query(sql, values)) : session.query(sql, values));
       scope.success({ attributes: { 'teaql.result.cardinality': result.rowCount } });
-      if (result.rowCount !== 1) throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
-      record = this.decodeRowForSchema(schema, result.rows[0]);
+      if (result.rowCount > 1 || result.rowCount === 0 && purpose !== 'verify prior Blob values') {
+        throw new Error(`Persisted ${schema.table}(${id}) could not be read back`);
+      }
+      if (result.rowCount === 1) record = this.decodeRowForSchema(schema, result.rows[0]);
     } catch (error) {
       if (!result) scope.failure(error);
       // Write success remains a separate statement fact. A snapshot validation

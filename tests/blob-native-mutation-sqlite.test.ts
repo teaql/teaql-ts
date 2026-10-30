@@ -135,6 +135,61 @@ test('native binding keeps canonical model field when the TS member differs', as
   }
 });
 
+test('legacy nullable Blob rows require old business values to match binding facts', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-legacy-before-'));
+  const filename = join(directory, 'runtime.sqlite');
+  const driver = new SQLiteDriver(filename);
+  const client = new SQLiteTeaQLClient(filename, { Asset: schema });
+  const catalog = new SqlBlobCatalog(driver);
+  const context = new UserContext().insertResource('dataService', client);
+  installRuntimeCapability(context, { name: 'blob.v1', assertReady: () => undefined });
+  context.insertResource('blobMutationParticipant',
+    new SqliteBlobMutationParticipant(catalog, {
+      scope: () => 'tenant-a', authorize: async () => true, currentPolicyOnLease,
+    }));
+  client.setUserContext(context);
+  try {
+    await catalog.ensureSchema();
+    await context.ensureSchema();
+    for (const [id, key] of [['10', null], ['11', 'blob_old_orphan'],
+                             ['12', null], ['13', 'blob_business_old']] as const) {
+      await driver.query('INSERT INTO asset(id,version,document) VALUES (?,?,?)', [id, 1, key]);
+    }
+    await driver.query(`INSERT INTO teaql_blob_catalog
+      (key,scope,object_key,content_version,file_name,content_type,size_bytes,status)
+      VALUES (?,?,?,?,?,?,?,?)`, ['blob_catalog_other', 'tenant-a', 'objects/catalog-other',
+      'v1', 'other.pdf', 'application/pdf', 7, 'available']);
+    await driver.query(`INSERT INTO teaql_blob_binding
+      (scope,entity,entity_id,field,key,version) VALUES (?,?,?,?,?,?)`,
+    ['tenant-a', 'Asset', '13', 'document', 'blob_catalog_other', 1]);
+    const save = (action: 'Update' | 'Delete', id: string) =>
+      client.executeGraphSave(new MutationIntent('legacy nullable Blob mutation'),
+        graph => client.executeMutation(graph.request({ entity: 'Asset', action, id,
+          version: 1, ...(action === 'Update' ? { payload: { document: null } } : {}) })));
+
+    await expect(save('Update', '11')).rejects.toThrow('BLOB_BIND_DENIED');
+    await expect(save('Delete', '11')).rejects.toThrow('BLOB_BIND_DENIED');
+    await expect(save('Update', '13')).rejects.toThrow('BLOB_BIND_DENIED');
+    expect((await driver.query('SELECT id,version,document FROM asset WHERE id IN (?,?)',
+      ['11', '13'])).rows).toEqual([
+      { id: 11, version: 1, document: 'blob_old_orphan' },
+      { id: 13, version: 1, document: 'blob_business_old' },
+    ]);
+    expect((await driver.query('SELECT key,version FROM teaql_blob_binding')).rows)
+      .toEqual([{ key: 'blob_catalog_other', version: 1 }]);
+
+    await save('Update', '12');
+    expect((await driver.query('SELECT key,version FROM teaql_blob_binding WHERE entity_id = ?',
+      ['12'])).rows).toEqual([]);
+    await save('Delete', '10');
+    expect((await driver.query('SELECT id FROM asset WHERE id = ?', ['10'])).rows).toHaveLength(1);
+  } finally {
+    await client.close();
+    await driver.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('allocated ledger key binds a Blob inside its outer graph and rolls back with the owner', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'teaql-native-blob-ledger-'));
   const filename = join(directory, 'runtime.sqlite');

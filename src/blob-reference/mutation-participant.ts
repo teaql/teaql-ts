@@ -65,6 +65,18 @@ export class SqliteBlobMutationParticipant implements BlobMutationParticipant {
       const prior = rows.rows[0] as { key: unknown; version: unknown } | undefined;
       const expectedVersion = prior ? Number(prior.version) : 0;
       const previousReference = prior?.key == null ? null : BlobRef.fromSQL(prior.key);
+      if (application.action !== 'Create') {
+        if (!application.previous ||
+            !Object.prototype.hasOwnProperty.call(application.previous, field)) {
+          throw new Error('BLOB_BIND_DENIED');
+        }
+        const previous = application.previous[field];
+        if (previous !== null && !(previous instanceof BlobRef) ||
+            !(previous === null ? previousReference === null :
+              previousReference instanceof BlobRef && previousReference.equals(previous))) {
+          throw new Error('BLOB_BIND_DENIED');
+        }
+      }
       if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0 ||
           application.action === 'Create' && prior ||
           application.action === 'Delete' &&

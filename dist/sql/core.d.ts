@@ -99,6 +99,7 @@ export interface BlobMutationParticipant {
         schema: EntitySchema;
         assigned: Readonly<Record<string, unknown>>;
         persisted: Readonly<Record<string, unknown>>;
+        previous?: Readonly<Record<string, unknown>>;
         id: string;
         version: number;
     }>): Promise<void>;
@@ -245,6 +246,8 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private checkAndFixMutation;
     executeMutation(mutation: any): Promise<MutationResult>;
     private readPersistedRecord;
+    private readBeforeBlobRecord;
+    private readSnapshotRecord;
     private decodeRowForSchema;
     private compileExpression;
     private filters;

@@ -68,6 +68,18 @@ class SqliteBlobMutationParticipant {
             const prior = rows.rows[0];
             const expectedVersion = prior ? Number(prior.version) : 0;
             const previousReference = prior?.key == null ? null : blob_ref_1.BlobRef.fromSQL(prior.key);
+            if (application.action !== 'Create') {
+                if (!application.previous ||
+                    !Object.prototype.hasOwnProperty.call(application.previous, field)) {
+                    throw new Error('BLOB_BIND_DENIED');
+                }
+                const previous = application.previous[field];
+                if (previous !== null && !(previous instanceof blob_ref_1.BlobRef) ||
+                    !(previous === null ? previousReference === null :
+                        previousReference instanceof blob_ref_1.BlobRef && previousReference.equals(previous))) {
+                    throw new Error('BLOB_BIND_DENIED');
+                }
+            }
             if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0 ||
                 application.action === 'Create' && prior ||
                 application.action === 'Delete' &&
