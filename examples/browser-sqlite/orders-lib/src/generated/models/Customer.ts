@@ -222,9 +222,9 @@ export class Customer {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("customer_order_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
     }
@@ -258,9 +258,9 @@ export class Customer {
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("customer_order_list").index(index);
-                    throw new CheckException(error.violations.map(violation => ({
+                    throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                         ...violation, location: violation.location.prefixedBy(prefix),
-                    })));
+                    }))));
                 }
             }
             return this;
@@ -309,9 +309,9 @@ export class Customer {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("customer_order_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
         service.afterGraphCommit(() => {

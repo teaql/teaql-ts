@@ -81,6 +81,7 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
     };
     await badChild('nested-required', undefined, '10.00', 'required', 'product_name');
     await badChild('nested-max-length', 'x'.repeat(81), '10.00', 'max_length', 'product_name');
+    context.setLocaleCode('zh-CN');
     await badChild('nested-min', 'Synthetic Widget', '0', 'min', 'unit_price');
     await badChild('nested-max', 'Synthetic Widget', '1000001', 'max', 'unit_price');
     expect(observations).toHaveLength(8);
@@ -88,6 +89,9 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
       for (const violation of observation.violations) {
         expect(violation.entityType).toBe(observation.entityType);
         expect(violation.message).toBeTruthy();
+        if (violation.ruleId !== 'invalid_type') {
+          expect(violation.message).toContain(violation.location.nativePath());
+        }
         for (const profile of profiles) {
           const wire = checkResultToWire(violation, profile);
           expect(wire.entityType).toBe(observation.entityType);
@@ -129,6 +133,7 @@ export async function verifyFileCheckerMetadata(filename: string): Promise<void>
       for (const violation of failure!.violations) expect(violation.entityType).toBe(entityType);
       process.stdout.write('CORE_FILE_CHECKER_METADATA_CASE=' + JSON.stringify({scenario, entityType,
         results: failure!.violations.map(result => checkResultToWire(result)), persistCalls: 0, auditEvents: 0}) + '\n');
+      for (const violation of failure!.violations) expect(violation.message).toContain(violation.location.nativePath());
     };
     await invalid('create-required', () => owner().auditAs('Reject a file-backed required-field omission').save(context), 'PurchaseOrder');
     await invalid('create-max-length', () => owner().updateContactPhone('x'.repeat(33))

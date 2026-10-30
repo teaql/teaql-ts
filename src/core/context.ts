@@ -121,12 +121,16 @@ export class UserContext {
     return this.insertResource('idSetPaginationStore', store);
   }
   translateCheckResults(results: CheckResult[], declaringEntityType?: string): CheckResult[] {
-    return results.map(result => {
+    for (let index = 0; index < results.length; index++) {
+      // Checkers may reuse immutable results. Own the presentation snapshot so
+      // relocation or a later locale cannot rewrite a previously returned error.
+      const result = {...results[index]};
       // Bind the declaring checker before localization. Nested/custom checkers
       // may already identify a more specific type; never replace that identity.
       if (declaringEntityType && !result.entityType?.trim()) result.entityType = declaringEntityType;
-      return this.i18nCatalog.translate(result, this.locale);
-    });
+      results[index] = this.i18nCatalog.translate(result, this.locale);
+    }
+    return results;
   }
 
   withMutationPolicyRegistry(registry: MutationPolicyRegistry): this {

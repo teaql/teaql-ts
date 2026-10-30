@@ -2,18 +2,18 @@
   "schema": "teaql.generated-example-fixture/v1",
   "language": "typescript",
   "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762",
-  "generatedManifestSha256": "2efc1aaefd9d38357f11dc33d4dcd505de077d2b5971d04b90620a2501526ce5",
-  "producerReceiptSha256": "803e97523bee053f60f28b532344e5d900afedc969cf899668b281dbaa3edfc2",
+  "generatedManifestSha256": "859fc923175ba5b8be45e5355821f091c688e5eb2210104d5570187ab6287d8f",
+  "producerReceiptSha256": "f56349c496ecce31ce48c807a28230aae19327067363ce2c38e520b00c63d5c8",
   "producerSource": {
-    "commit": "65330ee18ab94658fb90552307b6fc9f93eaca98",
-    "diff": "2972d9d4135aa1f294dd49ff3de83f79d3f368971ed0d20022c50c52aa92c93b",
-    "status": "db0357d18721a88fd70ed38af1bf55ebca635c254d277a67700118631a0f933f",
-    "sourceContentsSha256": "a81354b75bf9daa69bdfadf6a272b3ddd26103b8bb638e3f8cd330d5540f3d1c",
+    "commit": "106b34a531ce6620d1291d2c0711c2166a6a3da7",
+    "diff": "c0b5f2afdfd55e039162a63895a7d9fc68c380bb05724a41e482b23e018a0328",
+    "status": "9480bcdf998f4a262f142c6d3ac936176a13eedcfcb92df30c6bba1f3fde723a",
+    "sourceContentsSha256": "0892a6c7a910f7c5fd0972a5b1a0417c5d81d05e2fce9df6096ad1eaa130bca7",
     "pairedTypescript": {
       "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "7e542aec8067c47fdac4fb16e48c3e6b32ba31c8",
-      "diff": "0b5dec9435aa106047787cd29fba095322f48dedbf4b09063b5c3f15daca6129",
-      "sourceContentsSha256": "c48919ec1e4a5beda5f8c0774ec2e341b79f8b285b0e2a16b9396cbdbe77c25f"
+      "commit": "8bd6f968be0ae5c2226fbe78e5e8ea8542e985b5",
+      "diff": "1bfebecc9d14656a59cd51306c6d11befdb8e05119b3f50d5f848c0c7299d1d3",
+      "sourceContentsSha256": "1c66923173d2df1b769634f7f6685823db02d5d1f4aed7f11fabb87d13c93cf4"
     },
     "retainedModels": [
       {
@@ -94,7 +94,7 @@
   "evaluationErrors": 0,
   "evaluationWarnings": 0,
   "files": {
-    "src/generated/models/TypePlatform.ts": "90032535ea90996dd5676515fbf8c3585523ff2cc449d4100141332b250dcba0",
+    "src/generated/models/TypePlatform.ts": "9d0cb0df0521c038862dbfaf490bc7ae9d1f9dff42aea5ec6fa333859ba2d29b",
     "src/generated/models/ScalarTypeProbe.ts": "a3bb3b54d9d8ae55dd56e91089a85d1435f4a86bc730f4e75df75c122c75e1f1",
     "src/generated/requests/TypePlatformRequest.ts": "550de9ffdde4deaa2481c6c2cb4b9a92b32db4bbc667127bbbab6f52b833d79e",
     "src/generated/requests/ScalarTypeProbeRequest.ts": "4aef008eda2d9c4681efe68303fec593edca5c6f22d3f8ed7f0ed1a3437cd4be",

@@ -252,9 +252,9 @@ export class Tenant {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("purchase_order_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
         for (const [index, child] of (this as any)._orderItemList.entries()) {
@@ -267,9 +267,9 @@ export class Tenant {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_item_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
     }
@@ -303,9 +303,9 @@ export class Tenant {
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("purchase_order_list").index(index);
-                    throw new CheckException(error.violations.map(violation => ({
+                    throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                         ...violation, location: violation.location.prefixedBy(prefix),
-                    })));
+                    }))));
                 }
             }
             for (const [index, child] of (this as any)._orderItemList.entries()) {
@@ -318,9 +318,9 @@ export class Tenant {
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("order_item_list").index(index);
-                    throw new CheckException(error.violations.map(violation => ({
+                    throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                         ...violation, location: violation.location.prefixedBy(prefix),
-                    })));
+                    }))));
                 }
             }
             return this;
@@ -369,9 +369,9 @@ export class Tenant {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("purchase_order_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
         for (const [index, child] of (this as any)._orderItemList.entries()) {
@@ -384,9 +384,9 @@ export class Tenant {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_item_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
         service.afterGraphCommit(() => {

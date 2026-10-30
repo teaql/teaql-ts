@@ -255,9 +255,9 @@ export class Platform {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_type_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
         for (const [index, child] of (this as any)._schoolList.entries()) {
@@ -270,9 +270,9 @@ export class Platform {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
     }
@@ -306,9 +306,9 @@ export class Platform {
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("school_type_list").index(index);
-                    throw new CheckException(error.violations.map(violation => ({
+                    throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                         ...violation, location: violation.location.prefixedBy(prefix),
-                    })));
+                    }))));
                 }
             }
             for (const [index, child] of (this as any)._schoolList.entries()) {
@@ -321,9 +321,9 @@ export class Platform {
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("school_list").index(index);
-                    throw new CheckException(error.violations.map(violation => ({
+                    throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                         ...violation, location: violation.location.prefixedBy(prefix),
-                    })));
+                    }))));
                 }
             }
             return this;
@@ -372,9 +372,9 @@ export class Platform {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_type_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
         for (const [index, child] of (this as any)._schoolList.entries()) {
@@ -387,9 +387,9 @@ export class Platform {
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("school_list").index(index);
-                throw new CheckException(error.violations.map(violation => ({
+                throw new CheckException(context.translateCheckResults(error.violations.map(violation => ({
                     ...violation, location: violation.location.prefixedBy(prefix),
-                })));
+                }))));
             }
         }
         service.afterGraphCommit(() => {

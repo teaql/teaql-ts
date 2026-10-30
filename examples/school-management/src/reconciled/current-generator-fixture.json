@@ -2,17 +2,17 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "896c579f3c9dded55c9728cb4af23cc8b920776e93ddcb95c8b0e95efdbcb451",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "803e97523bee053f60f28b532344e5d900afedc969cf899668b281dbaa3edfc2",
+  "producerReceiptSha256": "f56349c496ecce31ce48c807a28230aae19327067363ce2c38e520b00c63d5c8",
   "producerSource": {
-    "commit": "65330ee18ab94658fb90552307b6fc9f93eaca98",
-    "diff": "2972d9d4135aa1f294dd49ff3de83f79d3f368971ed0d20022c50c52aa92c93b",
-    "status": "db0357d18721a88fd70ed38af1bf55ebca635c254d277a67700118631a0f933f",
-    "sourceContentsSha256": "a81354b75bf9daa69bdfadf6a272b3ddd26103b8bb638e3f8cd330d5540f3d1c",
+    "commit": "106b34a531ce6620d1291d2c0711c2166a6a3da7",
+    "diff": "c0b5f2afdfd55e039162a63895a7d9fc68c380bb05724a41e482b23e018a0328",
+    "status": "9480bcdf998f4a262f142c6d3ac936176a13eedcfcb92df30c6bba1f3fde723a",
+    "sourceContentsSha256": "0892a6c7a910f7c5fd0972a5b1a0417c5d81d05e2fce9df6096ad1eaa130bca7",
     "pairedTypescript": {
       "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "7e542aec8067c47fdac4fb16e48c3e6b32ba31c8",
-      "diff": "0b5dec9435aa106047787cd29fba095322f48dedbf4b09063b5c3f15daca6129",
-      "sourceContentsSha256": "c48919ec1e4a5beda5f8c0774ec2e341b79f8b285b0e2a16b9396cbdbe77c25f"
+      "commit": "8bd6f968be0ae5c2226fbe78e5e8ea8542e985b5",
+      "diff": "1bfebecc9d14656a59cd51306c6d11befdb8e05119b3f50d5f848c0c7299d1d3",
+      "sourceContentsSha256": "1c66923173d2df1b769634f7f6685823db02d5d1f4aed7f11fabb87d13c93cf4"
     },
     "retainedModels": [
       {
@@ -90,8 +90,8 @@
     "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
   },
   "files": {
-    "generated/models/Platform.ts": "6666819ac17be4cf4b2a3dd9b4ef48f0dd62b0fa27e2216c543ce19846126c79",
-    "generated/models/SchoolType.ts": "06e01ef729428fdf0058c5c283171af8868d06f2f474cad8cccc0cf8eaf54e1e",
+    "generated/models/Platform.ts": "65e39c3eeb7d4f7c147a21282499530afb0b97ad5d82cb11b0c8f450c175f30f",
+    "generated/models/SchoolType.ts": "096cd0d7701ca3d02494a3128378638cd2a81d0fef27fd10c62d781136ee9d30",
     "generated/models/School.ts": "34496a6f8849e7a6b9121fd3956127746d58d496af56f700b08db62c7db29ef6",
     "generated/requests/PlatformRequest.ts": "2cf29a04ac38258292e5290485bf53fa05c06f58d7aed129125280178540da3f",
     "generated/requests/SchoolTypeRequest.ts": "3ba24192b1b91a36584b62b0fe43ebc0ef13094638194a603f11022807c03e26",

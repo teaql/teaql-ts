@@ -2,17 +2,17 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "95502038a66686580e7399dc4252df51f95cc0dc10a54657f5779dc2a5dd1e76",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "803e97523bee053f60f28b532344e5d900afedc969cf899668b281dbaa3edfc2",
+  "producerReceiptSha256": "f56349c496ecce31ce48c807a28230aae19327067363ce2c38e520b00c63d5c8",
   "producerSource": {
-    "commit": "65330ee18ab94658fb90552307b6fc9f93eaca98",
-    "diff": "2972d9d4135aa1f294dd49ff3de83f79d3f368971ed0d20022c50c52aa92c93b",
-    "status": "db0357d18721a88fd70ed38af1bf55ebca635c254d277a67700118631a0f933f",
-    "sourceContentsSha256": "a81354b75bf9daa69bdfadf6a272b3ddd26103b8bb638e3f8cd330d5540f3d1c",
+    "commit": "106b34a531ce6620d1291d2c0711c2166a6a3da7",
+    "diff": "c0b5f2afdfd55e039162a63895a7d9fc68c380bb05724a41e482b23e018a0328",
+    "status": "9480bcdf998f4a262f142c6d3ac936176a13eedcfcb92df30c6bba1f3fde723a",
+    "sourceContentsSha256": "0892a6c7a910f7c5fd0972a5b1a0417c5d81d05e2fce9df6096ad1eaa130bca7",
     "pairedTypescript": {
       "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "7e542aec8067c47fdac4fb16e48c3e6b32ba31c8",
-      "diff": "0b5dec9435aa106047787cd29fba095322f48dedbf4b09063b5c3f15daca6129",
-      "sourceContentsSha256": "c48919ec1e4a5beda5f8c0774ec2e341b79f8b285b0e2a16b9396cbdbe77c25f"
+      "commit": "8bd6f968be0ae5c2226fbe78e5e8ea8542e985b5",
+      "diff": "1bfebecc9d14656a59cd51306c6d11befdb8e05119b3f50d5f848c0c7299d1d3",
+      "sourceContentsSha256": "1c66923173d2df1b769634f7f6685823db02d5d1f4aed7f11fabb87d13c93cf4"
     },
     "retainedModels": [
       {
@@ -90,10 +90,10 @@
     "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
   },
   "files": {
-    "src/generated/models/Platform.ts": "3c08ddab662bfdfe8ad4951ef3831645960c3a8229dc820da17373e53ebe096a",
-    "src/generated/models/CustomerOrder.ts": "175e724e830c0d937ebbf506ed19531375ec745c651cd4121253972e8428e397",
+    "src/generated/models/Platform.ts": "ce98046b0e44d86a2be6bbbc594e93b5d8eff99924c68c1b72c59a2e88d7a7a4",
+    "src/generated/models/CustomerOrder.ts": "5eea89896ef0a3fb1c8c584674a91061507be2044823ff9667723952eb04ff41",
     "src/generated/models/OrderItem.ts": "81baa32ff9c7e47f06e66136048d6d53e8a883fc9606a782364deaadca7f24af",
-    "src/generated/models/Payment.ts": "3d193b8077778caf1ae9e5c7401a024cd88584895a8d8679dacef3e5815d9ea1",
+    "src/generated/models/Payment.ts": "680b14093656e85a0ceca5f25c7a368a1dc94264cfec46477f5d25b80e143e9a",
     "src/generated/models/PaymentAttempt.ts": "84e1dc1cd04c5706fe65346d1917004ec1c1cbbae907589de8f73b898bd6e962",
     "src/generated/models/Shipment.ts": "73c9db6ef32142ec19e7e016285eda02635e6212943f30b53920d6f7c2359aed",
     "src/generated/requests/PlatformRequest.ts": "a404634943261d700950fdfe35dd6164eaacdd6e0e2dee3648350c9415ad1cdf",
