@@ -6,7 +6,7 @@ import {createReadStream} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Readable} from 'node:stream';
-import {ObjectStorageProvider,StorageInvocation,ObjectKey,ObjectByteStream,ObjectPutOptions,ObjectMetadata,ObjectContent,ObjectReadUrlOptions,ObjectReadUrl,StorageError} from '../core/object-storage';
+import {ObjectStorageProvider,StorageInvocation,ObjectKey,ObjectByteStream,ObjectPutOptions,ObjectMetadata,ObjectContent,ObjectReadUrlOptions,ObjectReadUrl,ObjectConditionalDeleteResult,StorageError} from '../core/object-storage';
 
 function translate(error:unknown):StorageError{
   if(error instanceof StorageError)return error;
@@ -54,6 +54,27 @@ export class S3ObjectStorage implements ObjectStorageProvider {
     catch(error){const safeError=translate(error);throw safeError.code==='NotFound'?new StorageError('Unavailable'):safeError;}
   }
   async delete(_:StorageInvocation,key:ObjectKey):Promise<void>{try{await this.#client.send(new DeleteObjectCommand({Bucket:this.#bucket,Key:key.value}));}catch(error){throw translate(error);}}
+  async deleteIfVersion(invocation:StorageInvocation,key:ObjectKey,
+                        contentVersion:string):Promise<ObjectConditionalDeleteResult>{
+    if(typeof contentVersion!=='string'||!contentVersion||
+       contentVersion.length>256||contentVersion.trim()!==contentVersion||
+       /[\x00-\x1f\x7f-\x9f]/.test(contentVersion)||
+       contentVersion==='*')throw new StorageError('InvalidInput');
+    try{
+      await this.#client.send(new DeleteObjectCommand({
+        Bucket:this.#bucket,Key:key.value,IfMatch:contentVersion,
+      }));
+      return 'deleted';
+    }catch(error){
+      const safe=translate(error);
+      if(safe.code==='NotFound'||(safe.code==='Conflict'&&
+          (error as {$metadata?:{httpStatusCode?:number}})?.$metadata?.httpStatusCode===412)){
+        const current=await this.head(invocation,key);
+        return current?'version_mismatch':'already_missing';
+      }
+      throw safe;
+    }
+  }
   async getReadUrl(_:StorageInvocation,key:ObjectKey,options:ObjectReadUrlOptions):Promise<ObjectReadUrl>{
     const date=new Date();
     try{const url=await getSignedUrl(this.#client,new GetObjectCommand({Bucket:this.#bucket,Key:key.value,ResponseContentDisposition:options.contentDisposition}),{expiresIn:options.seconds,signingDate:date});

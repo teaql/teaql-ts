@@ -57,11 +57,13 @@ export type StorageInvocation = Readonly<{
     context: UserContext;
     comment: string;
 }>;
+export type ObjectConditionalDeleteResult = 'deleted' | 'already_missing' | 'version_mismatch';
 export interface ObjectStorageProvider {
     put(invocation: StorageInvocation, key: ObjectKey, content: ObjectByteStream, options: ObjectPutOptions): Promise<ObjectMetadata>;
     get(invocation: StorageInvocation, key: ObjectKey): Promise<ObjectContent>;
     head(invocation: StorageInvocation, key: ObjectKey): Promise<ObjectMetadata | undefined>;
     delete(invocation: StorageInvocation, key: ObjectKey): Promise<void>;
+    deleteIfVersion?(invocation: StorageInvocation, key: ObjectKey, contentVersion: string): Promise<ObjectConditionalDeleteResult>;
     getReadUrl(invocation: StorageInvocation, key: ObjectKey, options: ObjectReadUrlOptions): Promise<ObjectReadUrl>;
 }
 export type ObjectStorageEvent = Readonly<{
@@ -91,6 +93,8 @@ export declare class ObjectStorage {
     head(key: ObjectKey): Promise<ObjectMetadata | undefined>;
     exists(key: ObjectKey): Promise<boolean>;
     delete(key: ObjectKey): Promise<void>;
+    supportsVersionConditionalDelete(): boolean;
+    deleteIfVersion(key: ObjectKey, contentVersion: string): Promise<ObjectConditionalDeleteResult>;
     getReadUrl(key: ObjectKey, options?: ObjectReadUrlOptions): Promise<ObjectReadUrl>;
 }
 export {};

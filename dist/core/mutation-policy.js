@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MutationPolicyRuntimeState = exports.DelegatingMutationGovernanceSink = exports.DelegatingMutationPolicyApprovalProvider = exports.DelegatingMutationPolicyRegistry = exports.MutationPolicyError = exports.MISSING_MUTATION_POLICY_APPROVAL = exports.MISSING_MUTATION_POLICY = void 0;
 /** Governed application policy for complete mutation graphs. */
 const request_intent_1 = require("./request-intent");
+const blob_ref_1 = require("./blob-ref");
 exports.MISSING_MUTATION_POLICY = 'MUTATION-POLICY-001';
 exports.MISSING_MUTATION_POLICY_APPROVAL = 'MUTATION-POLICY-002';
 class MutationPolicyError extends Error {
@@ -286,6 +287,8 @@ function freezePlan(plan) {
     });
 }
 function cloneAndFreeze(value, ancestors = new WeakSet()) {
+    if (value instanceof blob_ref_1.BlobRef)
+        return value;
     if (value === null || value === undefined || typeof value === 'string'
         || typeof value === 'number' || typeof value === 'boolean'
         || typeof value === 'bigint')
@@ -335,6 +338,8 @@ function operationMatchKey(mutation, operation) {
     return `operation:${operationSignature(operation)}`;
 }
 function canonicalJSON(value) {
+    if (value instanceof blob_ref_1.BlobRef)
+        return JSON.stringify({ blobKey: value.key });
     if (typeof value === 'bigint')
         return JSON.stringify(`${value.toString()}n`);
     if (value === undefined)

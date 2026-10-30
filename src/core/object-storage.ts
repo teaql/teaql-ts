@@ -53,8 +53,22 @@ export class ObjectReadUrlOptions {
   #seconds:number;#disposition?:string;
   constructor(seconds=300,disposition?:'inline'|'attachment',filename?:string){
     if(!Number.isInteger(seconds)||seconds<=0||seconds>604800||disposition!==undefined&&!['inline','attachment'].includes(disposition))invalid();
-    if(filename!==undefined){header(filename);if(!disposition||/[\/\\"]/.test(filename))invalid();}
-    this.#seconds=seconds;this.#disposition=disposition+(filename===undefined?'':`; filename="${filename}"`);
+    if(filename!==undefined){
+      if(typeof filename!=='string'||!filename||!disposition||/[\x00-\x1f\x7f-\x9f\/\\"]/.test(filename)||
+         new TextEncoder().encode(filename).length>1024)invalid();
+      for(let i=0;i<filename.length;i++){
+        const c=filename.charCodeAt(i);
+        if(c>=0xd800&&c<=0xdbff){const n=filename.charCodeAt(++i);if(!(n>=0xdc00&&n<=0xdfff))invalid();}
+        else if(c>=0xdc00&&c<=0xdfff)invalid();
+      }
+    }
+    this.#seconds=seconds;
+    this.#disposition=disposition+(filename===undefined?'':
+      [...filename].every(c=>c.charCodeAt(0)<=126)?`; filename="${filename}"`:
+      `; filename="${[...filename].map(c=>c.codePointAt(0)!<=126?c:'_').join('')}"; filename*=UTF-8''${
+        [...new TextEncoder().encode(filename)].map(b=>
+          b>=65&&b<=90||b>=97&&b<=122||b>=48&&b<=57||[45,46,95,126].includes(b)?
+            String.fromCharCode(b):`%${b.toString(16).toUpperCase().padStart(2,'0')}`).join('')}`);
     if(disposition===undefined)this.#disposition=undefined;
   }
   get seconds():number{return this.#seconds;}get contentDisposition():string|undefined{return this.#disposition;}
@@ -68,11 +82,14 @@ export class ObjectReadUrl {
 }
 export type ObjectByteStream = AsyncIterable<Uint8Array>;
 export type StorageInvocation = Readonly<{context:UserContext;comment:string}>;
+export type ObjectConditionalDeleteResult = 'deleted' | 'already_missing' | 'version_mismatch';
 export interface ObjectStorageProvider {
   put(invocation:StorageInvocation,key:ObjectKey,content:ObjectByteStream,options:ObjectPutOptions):Promise<ObjectMetadata>;
   get(invocation:StorageInvocation,key:ObjectKey):Promise<ObjectContent>;
   head(invocation:StorageInvocation,key:ObjectKey):Promise<ObjectMetadata|undefined>;
   delete(invocation:StorageInvocation,key:ObjectKey):Promise<void>;
+  deleteIfVersion?(invocation:StorageInvocation,key:ObjectKey,
+    contentVersion:string):Promise<ObjectConditionalDeleteResult>;
   getReadUrl(invocation:StorageInvocation,key:ObjectKey,options:ObjectReadUrlOptions):Promise<ObjectReadUrl>;
 }
 export type ObjectStorageEvent = Readonly<{operation:string;comment:string;traceId:string;outcome:string;elapsedMs:number}>;
@@ -128,5 +145,19 @@ export class ObjectStorage {
   head(key:ObjectKey):Promise<ObjectMetadata|undefined>{return this.#call('head',()=>this.#provider.head(this.#invocation,key));}
   async exists(key:ObjectKey):Promise<boolean>{return (await this.head(key))!==undefined;}
   delete(key:ObjectKey):Promise<void>{return this.#call('delete',()=>this.#provider.delete(this.#invocation,key));}
+  supportsVersionConditionalDelete():boolean{return typeof this.#provider.deleteIfVersion==='function';}
+  async deleteIfVersion(key:ObjectKey,contentVersion:string):Promise<ObjectConditionalDeleteResult>{
+    if(typeof contentVersion!=='string'||!contentVersion||
+       contentVersion.length>256||contentVersion.trim()!==contentVersion||
+       /[\x00-\x1f\x7f-\x9f]/.test(contentVersion)||contentVersion==='*')invalid();
+    const deleteIfVersion=this.#provider.deleteIfVersion;
+    if(!deleteIfVersion)throw new StorageError('Unsupported');
+    return this.#call('delete_if_version',async()=>{
+      const result=await deleteIfVersion.call(this.#provider,this.#invocation,key,contentVersion);
+      if(result!=='deleted'&&result!=='already_missing'&&result!=='version_mismatch')
+        throw new StorageError('Unavailable');
+      return result;
+    });
+  }
   getReadUrl(key:ObjectKey,options=new ObjectReadUrlOptions()):Promise<ObjectReadUrl>{return this.#call('read_url',()=>this.#provider.getReadUrl(this.#invocation,key,options));}
 }

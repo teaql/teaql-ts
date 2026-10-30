@@ -47,11 +47,13 @@ export class RuntimeModule {
   readonly schemas: Readonly<Record<string, EntitySchema>>;
   readonly checkers: Readonly<Record<string, EntityChecker>>;
   readonly bootstrap: RuntimeBootstrap;
+  readonly requiredCapabilities: readonly string[];
 
   constructor(
     schemas: Record<string, EntitySchema> = {},
     checkers: Record<string, EntityChecker> = {},
     bootstrap: RuntimeBootstrap = {},
+    requiredCapabilities: readonly string[] = [],
   ) {
     this.schemas = Object.freeze({ ...schemas });
     this.checkers = Object.freeze({ ...checkers });
@@ -60,6 +62,17 @@ export class RuntimeModule {
       constants: Object.freeze([...(bootstrap.constants ?? [])]),
       ensure: bootstrap.ensure,
     });
+    for (const capability of requiredCapabilities) {
+      if (typeof capability !== 'string' || !capability.trim() || capability !== capability.trim()) {
+        throw new TypeError('Invalid runtime capability');
+      }
+    }
+    this.requiredCapabilities = Object.freeze([...new Set(requiredCapabilities)].sort());
+  }
+
+  withRequiredCapabilities(...capabilities: string[]): RuntimeModule {
+    return new RuntimeModule({ ...this.schemas }, { ...this.checkers }, this.bootstrap,
+      [...this.requiredCapabilities, ...capabilities]);
   }
 
   and(other: RuntimeModule): RuntimeModule {
@@ -67,6 +80,7 @@ export class RuntimeModule {
       { ...this.schemas, ...other.schemas },
       { ...this.checkers, ...other.checkers },
       mergeRuntimeBootstrap(this.bootstrap, other.bootstrap),
+      [...this.requiredCapabilities, ...other.requiredCapabilities],
     );
   }
 }

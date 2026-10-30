@@ -7,14 +7,22 @@ import {ObjectKey,ObjectPutOptions,ObjectReadUrlOptions,ObjectReadUrl,ObjectMeta
 import {S3ObjectStorage} from '../src/object-storage/s3';
 
 class Stub implements ObjectStorageProvider {
-  size=3;error?:StorageError;seen?:StorageInvocation;closes=0;
+  size=3;error?:StorageError;seen?:StorageInvocation;closes=0;deletes=0;
   async put(i:StorageInvocation,key:ObjectKey,_:AsyncIterable<Uint8Array>,o:ObjectPutOptions):Promise<ObjectMetadata>{this.seen=i;return new ObjectMetadata(key,o.size);}
   async head(i:StorageInvocation):Promise<undefined>{this.seen=i;if(this.error)throw this.error;return undefined;}
   async get(_:StorageInvocation,key:ObjectKey):Promise<ObjectContent>{return new ObjectContent(new ObjectMetadata(key,this.size),(async function*(){yield new Uint8Array([1,2,3]);})(),async()=>{this.closes++;});}
-  async delete():Promise<void>{}
+  async delete():Promise<void>{this.deletes++;}
   async getReadUrl():Promise<ObjectReadUrl>{throw new StorageError('Unsupported');}
 }
 const key=new ObjectKey('PRIVATE-KEY-CANARY');
+test('conditional deletion fails closed when a provider only offers blind deletion',async()=>{
+  const provider=new Stub();
+  const storage=new UserContext().withObjectStorage(provider)
+    .withObjectStorageObserver(()=>{}).objectStorage('collect old Blob generation');
+  await expect(storage.deleteIfVersion(key,'version-one')).rejects.toMatchObject({code:'Unsupported'});
+  await expect(storage.deleteIfVersion(key,'*')).rejects.toMatchObject({code:'InvalidInput'});
+  expect(provider.deletes).toBe(0);
+});
 test('object storage validates options and masks private representations',()=>{
   for(const value of ['', 'x'.repeat(1025),'bad\nkey','\ud800'])expect(()=>new ObjectKey(value)).toThrow(StorageError);
   expect(()=>new ObjectPutOptions(MAX_OBJECT_PUT_SIZE+1,'create_only')).toThrow('TooLarge');
@@ -22,6 +30,14 @@ test('object storage validates options and masks private representations',()=>{
   expect(()=>new ObjectPutOptions(0,'create_only',undefined,{'Bad Key':'value'})).toThrow('InvalidInput');
   for(const lifetime of [0,-1,0.5,604801])expect(()=>new ObjectReadUrlOptions(lifetime)).toThrow('InvalidInput');
   expect(()=>new ObjectReadUrlOptions(1,'attachment','bad\nname')).toThrow('InvalidInput');
+  expect(()=>new ObjectReadUrlOptions(1,'attachment','bad/name')).toThrow('InvalidInput');
+  expect(()=>new ObjectReadUrlOptions(1,'attachment','\ud800')).toThrow('InvalidInput');
+  expect(new ObjectReadUrlOptions(1,'inline','sample.jpg').contentDisposition)
+    .toBe('inline; filename="sample.jpg"');
+  const unicode=new ObjectReadUrlOptions(1,'inline','报告 & 📄\u2028mid\u2029x.jpg').contentDisposition!;
+  expect(unicode).toContain('filename="__ & _');
+  expect(unicode).toContain("filename*=UTF-8''%E6%8A%A5%E5%91%8A%20%26%20%F0%9F%93%84");
+  expect(unicode).not.toMatch(/[\r\n]/);
   const metadata={tag:'PRIVATE-METADATA-CANARY'},options=new ObjectPutOptions(0,'create_only',undefined,metadata);metadata.tag='changed';expect(options.metadata.tag).toBe('PRIVATE-METADATA-CANARY');expect(Object.isFrozen(options.metadata)).toBe(true);
   for(const value of [key,options,new ObjectReadUrl('PRIVATE-URL-CANARY',new Date()),new ObjectMetadata(key,0,'PRIVATE-TYPE-CANARY')])expect(inspect(value)).not.toContain('CANARY');
 });

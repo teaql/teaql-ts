@@ -1,7 +1,6 @@
 name: Publish TypeScript package
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - "typescript-v*"
@@ -20,13 +19,47 @@ jobs:
           node-version: "24"
           registry-url: https://registry.npmjs.org
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: npm ci
       - name: Verify tag matches package version
         run: test "${GITHUB_REF_NAME#typescript-v}" = "$(node -p 'require("./package.json").version')"
+      - name: Require a verified signed release tag
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify_signed_release_tag.py
+      - name: Test signed release tag verifier
+        run: python3 scripts/test_verify_signed_release_tag.py
+      - name: Test npm release integrity verifier
+        run: python3 scripts/test_verify_public_release_integrity.py
       # Keep native SQLite lifecycle coverage deterministic and verify the
       # current Node LTS used by generated TeaQL projects.
       - run: npm test -- --runInBand
       - run: npm run build
       - name: Upgrade npm for trusted publishing
         run: npm install --global npm@latest
-      - run: npm publish --access public
+      - name: Pack immutable candidate
+        id: candidate
+        run: |
+          candidate_dir="$RUNNER_TEMP/teaql-candidate"
+          mkdir -p "$candidate_dir"
+          package_name="$(npm pack --ignore-scripts --pack-destination "$candidate_dir" --silent)"
+          printf 'path=%s\n' "$candidate_dir/$package_name" >> "$GITHUB_OUTPUT"
+          sha256sum "$candidate_dir/$package_name"
+      - name: Verify exact candidate reference entries
+        env:
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: npm run verify:reference-package -- "$CANDIDATE_PATH"
+      - name: Refuse an occupied npm version
+        env:
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: python3 scripts/verify_public_release_integrity.py --absent "$CANDIDATE_PATH"
+      - name: Publish verified candidate
+        env:
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: npm publish "$CANDIDATE_PATH" --access public --ignore-scripts
+      - name: Verify exact public npm tarball bytes
+        env:
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: python3 scripts/verify_public_release_integrity.py --published "$CANDIDATE_PATH"

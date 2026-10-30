@@ -9,10 +9,105 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./object-storage/file": {
+      "types": "./dist/object-storage/file.d.ts",
+      "import": "./dist/esm/object-storage/file.js",
+      "require": "./dist/object-storage/file.js"
+    },
     "./object-storage/s3": {
       "types": "./dist/object-storage/s3.d.ts",
       "import": "./dist/esm/object-storage/s3.js",
       "require": "./dist/object-storage/s3.js"
+    },
+    "./blob-reference/sql-catalog": {
+      "types": "./dist/blob-reference/sql-catalog.d.ts",
+      "import": "./dist/esm/blob-reference/sql-catalog.js",
+      "require": "./dist/blob-reference/sql-catalog.js"
+    },
+    "./blob-reference/mutation-participant": {
+      "types": "./dist/blob-reference/mutation-participant.d.ts",
+      "import": "./dist/esm/blob-reference/mutation-participant.js",
+      "require": "./dist/blob-reference/mutation-participant.js"
+    },
+    "./blob-reference/read-service": {
+      "types": "./dist/blob-reference/read-service.d.ts",
+      "import": "./dist/esm/blob-reference/read-service.js",
+      "require": "./dist/blob-reference/read-service.js"
+    },
+    "./blob-reference/upload-service": {
+      "types": "./dist/blob-reference/upload-service.d.ts",
+      "import": "./dist/esm/blob-reference/upload-service.js",
+      "require": "./dist/blob-reference/upload-service.js"
+    },
+    "./blob-reference/maintenance-service": {
+      "types": "./dist/blob-reference/maintenance-service.d.ts",
+      "import": "./dist/esm/blob-reference/maintenance-service.js",
+      "require": "./dist/blob-reference/maintenance-service.js"
+    },
+    "./blob-reference/file-generation-maintenance": {
+      "types": "./dist/blob-reference/file-generation-maintenance.d.ts",
+      "import": "./dist/esm/blob-reference/file-generation-maintenance.js",
+      "require": "./dist/blob-reference/file-generation-maintenance.js"
+    },
+    "./blob-reference/retention": {
+      "types": "./dist/blob-reference/retention.d.ts",
+      "import": "./dist/esm/blob-reference/retention.js",
+      "require": "./dist/blob-reference/retention.js"
+    },
+    "./blob-reference/content-sharp": {
+      "types": "./dist/blob-reference/content-sharp.d.ts",
+      "import": "./dist/esm/blob-reference/content-sharp.js",
+      "require": "./dist/blob-reference/content-sharp.js"
+    },
+    "./blob-reference/content-pdfjs": {
+      "types": "./dist/blob-reference/content-pdfjs.d.ts",
+      "import": "./dist/esm/blob-reference/content-pdfjs.js",
+      "require": "./dist/blob-reference/content-pdfjs.js"
+    },
+    "./blob-reference/content-ffmpeg": {
+      "types": "./dist/blob-reference/content-ffmpeg.d.ts",
+      "import": "./dist/esm/blob-reference/content-ffmpeg.js",
+      "require": "./dist/blob-reference/content-ffmpeg.js"
+    },
+    "./blob-reference/content-composite": {
+      "types": "./dist/blob-reference/content-composite.d.ts",
+      "import": "./dist/esm/blob-reference/content-composite.js",
+      "require": "./dist/blob-reference/content-composite.js"
+    },
+    "./blob-reference/content-office": {
+      "types": "./dist/blob-reference/content-office.d.ts",
+      "import": "./dist/esm/blob-reference/content-office.js",
+      "require": "./dist/blob-reference/content-office.js"
+    },
+    "./blob-reference/content-legacy-office": {
+      "types": "./dist/blob-reference/content-legacy-office.d.ts",
+      "import": "./dist/esm/blob-reference/content-legacy-office.js",
+      "require": "./dist/blob-reference/content-legacy-office.js"
+    },
+    "./blob-reference/module": {
+      "types": "./dist/blob-reference/module.d.ts",
+      "import": "./dist/esm/blob-reference/module.js",
+      "require": "./dist/blob-reference/module.js"
+    },
+    "./secure-document-reference/round-trip-reference": {
+      "types": "./dist/secure-document-reference/round-trip-reference.d.ts",
+      "import": "./dist/esm/secure-document-reference/round-trip-reference.js",
+      "require": "./dist/secure-document-reference/round-trip-reference.js"
+    },
+    "./secure-document-reference/document-round-trip": {
+      "types": "./dist/secure-document-reference/document-round-trip.d.ts",
+      "import": "./dist/esm/secure-document-reference/document-round-trip.js",
+      "require": "./dist/secure-document-reference/document-round-trip.js"
+    },
+    "./secure-document-reference/sqlite-command-journal": {
+      "types": "./dist/secure-document-reference/sqlite-command-journal.d.ts",
+      "import": "./dist/esm/secure-document-reference/sqlite-command-journal.js",
+      "require": "./dist/secure-document-reference/sqlite-command-journal.js"
+    },
+    "./secure-document-reference/sqlite-document-service": {
+      "types": "./dist/secure-document-reference/sqlite-document-service.d.ts",
+      "import": "./dist/esm/secure-document-reference/sqlite-document-service.js",
+      "require": "./dist/secure-document-reference/sqlite-document-service.js"
     },
     ".": {
       "types": "./dist/index.d.ts",
@@ -77,7 +172,24 @@
   },
   "typesVersions": {
     "*": {
+      "object-storage/file": ["dist/object-storage/file.d.ts"],
       "object-storage/s3": ["dist/object-storage/s3.d.ts"],
+      "blob-reference/sql-catalog": ["dist/blob-reference/sql-catalog.d.ts"],
+      "blob-reference/mutation-participant": ["dist/blob-reference/mutation-participant.d.ts"],
+      "blob-reference/read-service": ["dist/blob-reference/read-service.d.ts"],
+      "blob-reference/upload-service": ["dist/blob-reference/upload-service.d.ts"],
+      "blob-reference/maintenance-service": ["dist/blob-reference/maintenance-service.d.ts"],
+      "blob-reference/file-generation-maintenance": ["dist/blob-reference/file-generation-maintenance.d.ts"],
+      "blob-reference/retention": ["dist/blob-reference/retention.d.ts"],
+      "blob-reference/content-sharp": ["dist/blob-reference/content-sharp.d.ts"],
+      "blob-reference/content-pdfjs": ["dist/blob-reference/content-pdfjs.d.ts"],
+      "blob-reference/content-ffmpeg": ["dist/blob-reference/content-ffmpeg.d.ts"],
+      "blob-reference/content-composite": ["dist/blob-reference/content-composite.d.ts"],
+      "blob-reference/content-office": ["dist/blob-reference/content-office.d.ts"],
+      "blob-reference/content-legacy-office": ["dist/blob-reference/content-legacy-office.d.ts"],
+      "blob-reference/module": ["dist/blob-reference/module.d.ts"],
+      "secure-document-reference/round-trip-reference": ["dist/secure-document-reference/round-trip-reference.d.ts"],
+      "secure-document-reference/document-round-trip": ["dist/secure-document-reference/document-round-trip.d.ts"],
       "sql/core": [
         "dist/sql/core.d.ts"
       ],
@@ -108,7 +220,8 @@
     "generate:query-parser": "node scripts/generate-query-parser.mjs",
     "build": "npm run generate:query-parser && tsc && node scripts/build-esm.mjs",
     "test": "jest",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "verify:reference-package": "bash scripts/verify-reference-package.sh"
   },
   "keywords": [
     "teaql",
@@ -153,9 +266,12 @@
     "jest": "^29.5.0",
     "jest-util": "^29.7.0",
     "mysql2": "^3.11.0",
+    "pdfjs-dist": "6.4.299",
     "peggy": "^5.1.0",
     "pg": "^8.12.0",
     "pg-query-stream": "^4.7.0",
+    "saxes": "6.0.0",
+    "sharp": "0.35.5",
     "ts-jest": "^29.1.0",
     "typescript": "5.4.5"
   },
@@ -182,9 +298,15 @@
     "expo-sqlite": "*",
     "mysql2": "^3.11.0",
     "pg": "^8.12.0",
-    "pg-query-stream": "^4.7.0"
+    "pg-query-stream": "^4.7.0",
+    "saxes": "6.0.0",
+    "sharp": "0.35.5",
+    "pdfjs-dist": "6.4.299"
   },
   "peerDependenciesMeta": {
+    "saxes": { "optional": true },
+    "sharp": { "optional": true },
+    "pdfjs-dist": { "optional": true },
     "@aws-sdk/client-s3": { "optional": true },
     "@aws-sdk/s3-request-presigner": { "optional": true },
     "@opentelemetry/otlp-transformer": { "optional": true },

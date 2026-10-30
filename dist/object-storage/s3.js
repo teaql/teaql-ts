@@ -170,6 +170,28 @@ class S3ObjectStorage {
     catch (error) {
         throw translate(error);
     } }
+    async deleteIfVersion(invocation, key, contentVersion) {
+        if (typeof contentVersion !== 'string' || !contentVersion ||
+            contentVersion.length > 256 || contentVersion.trim() !== contentVersion ||
+            /[\x00-\x1f\x7f-\x9f]/.test(contentVersion) ||
+            contentVersion === '*')
+            throw new object_storage_1.StorageError('InvalidInput');
+        try {
+            await __classPrivateFieldGet(this, _S3ObjectStorage_client, "f").send(new client_s3_1.DeleteObjectCommand({
+                Bucket: __classPrivateFieldGet(this, _S3ObjectStorage_bucket, "f"), Key: key.value, IfMatch: contentVersion,
+            }));
+            return 'deleted';
+        }
+        catch (error) {
+            const safe = translate(error);
+            if (safe.code === 'NotFound' || (safe.code === 'Conflict' &&
+                error?.$metadata?.httpStatusCode === 412)) {
+                const current = await this.head(invocation, key);
+                return current ? 'version_mismatch' : 'already_missing';
+            }
+            throw safe;
+        }
+    }
     async getReadUrl(_, key, options) {
         const date = new Date();
         try {

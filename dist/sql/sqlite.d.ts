@@ -3,8 +3,17 @@ export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
     readonly databaseKind: "sqlite";
     readonly topNRelationPlanPolicy: "alwaysProbe";
     private readonly database;
+    private readonly gate;
+    private readonly gateKey;
+    private transactionActive;
     private soundexRegistered;
+    /** Maintenance must never cross the object-store boundary inside a graph SQL owner. */
+    assertNoCurrentTransaction(): void;
     constructor(filename: string);
+    /** Same established file gate, or the exact same in-memory connection.
+     * Separate :memory: connections deliberately have different gates. */
+    sharesDatabase(driver: TeaQLSqlDriver): boolean;
+    private withConnection;
     identifier(value: string): string;
     placeholder(_index: number): string;
     encode(value: any, column?: ColumnSchema): any;
@@ -21,5 +30,6 @@ export declare class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
 }
 export declare class SQLiteTeaQLClient extends AbstractSQLTeaQLClient {
     constructor(filename: string, schemas: Record<string, EntitySchema>);
+    usesSqlDatabase(driver: TeaQLSqlDriver): boolean;
 }
 //# sourceMappingURL=sqlite.d.ts.map

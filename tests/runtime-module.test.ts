@@ -20,6 +20,7 @@ describe('RuntimeModule', () => {
       { entity: 'AState', id: '1001', values: { name: 'Reconciled' } },
       { entity: 'BState', id: '2001' },
     ]);
+    expect(combined.requiredCapabilities).toEqual([]);
   });
 
   test('rejects composition with different Default Domain Roots', () => {
@@ -30,5 +31,15 @@ describe('RuntimeModule', () => {
       defaultDomainRoot: { entity: 'Organization', id: '1' },
     });
     expect(() => first.and(second)).toThrow('different Default Domain Roots');
+  });
+
+  test('unions immutable required capabilities without installing services', () => {
+    const blob = new RuntimeModule().withRequiredCapabilities('blob.v1');
+    const secure = new RuntimeModule().withRequiredCapabilities('secure_document.v1', 'blob.v1');
+    const both = blob.and(secure);
+    expect(both.requiredCapabilities).toEqual(['blob.v1', 'secure_document.v1']);
+    expect(Object.isFrozen(both.requiredCapabilities)).toBe(true);
+    expect(blob.requiredCapabilities).toEqual(['blob.v1']);
+    expect(() => new RuntimeModule({}, {}, {}, [' blob.v1'])).toThrow();
   });
 });
