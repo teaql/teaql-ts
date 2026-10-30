@@ -288,6 +288,7 @@ export class TeaQLClient implements TeaQLDataService {
         }
         const originalVersion = this.checkedMutationVersion(mutation);
         mutation = { ...mutation, payload: { ...(mutation?.payload || {}) } };
+        request.bindCheckerLoadedValues(mutation);
         Object.defineProperty(mutation, "comment", { value: request.comment, enumerable: true });
         const declaringEntityType = String(mutation.entity);
         const checker = this.checkers[declaringEntityType];

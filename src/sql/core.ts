@@ -938,6 +938,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // The ledger exposes immutable snapshots. Fixers receive a mutable working
     // payload and every derived value is copied back into the graph ledger.
     mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+    request.bindCheckerLoadedValues(mutation);
     Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
     const declaringEntityType = String(mutation.entity);
     const checker = this.checkers[declaringEntityType];

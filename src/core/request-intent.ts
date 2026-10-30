@@ -283,6 +283,15 @@ export class MutationRequest<T extends object = MutationQuery> {
   /** @internal Does not become part of the write payload or policy input. */
   loadedValues(): Readonly<Record<string, unknown>> { return mutationSnapshots.get(this)?.values() ?? {}; }
 
+  /** @internal Checker-only detached provenance, not caller input or write payload. */
+  bindCheckerLoadedValues<M extends object>(mutation: M): M {
+    Object.defineProperty(mutation, 'loadedValues', {
+      value: Object.freeze({...this.loadedValues()}),
+      enumerable: false, writable: false, configurable: false,
+    });
+    return mutation;
+  }
+
   /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
   get graphSession(): GraphMutationSession | undefined { return graphRequests.get(this)?.session; }
 

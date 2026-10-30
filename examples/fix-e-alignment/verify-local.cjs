@@ -31,6 +31,7 @@ const {createOwnedRunner, ownedBytes} = require('./owned-command.cjs'), runner =
 async function main() {
 try {
   const manifest = fingerprint(); report.modelSha256 = manifest.modelSha256;
+  report.contextRootApplicationSha256 = sha(fs.readFileSync(path.join(example, 'context-root-probe.ts')));
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
   const tsconfig = path.join(scratch, "tsconfig.json"), config = path.join(scratch, "jest.cjs");
   fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, "tsconfig.json"), compilerOptions: {
@@ -53,13 +54,15 @@ try {
     if (result.status !== 0) process.exitCode = result.status || 1;
     assert.equal(result.status, 0, fs.readFileSync(log, "utf8").slice(-12000));
     const lines = fs.readFileSync(log, "utf8").split(/\r?\n/);
-    for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA=", "CORE_TS_E_BOUNDARY_RESULT="]) {
+    for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA=", "CORE_TS_E_BOUNDARY_RESULT=", "CORE_TS_ROOT_RESULT=", "CORE_TS_ROOT_FILE_RESULT="]) {
       const values = lines.filter(line => line.startsWith(marker)).map(line => JSON.parse(line.slice(marker.length)));
       assert.equal(values.length, 1, marker); assert.equal(values[0].passed, true, marker);
     }
     assert.deepEqual(fingerprint(), manifest);
   }
   report.databaseSha256 = sha(fs.readFileSync(path.join(evidence, "fixture.sqlite")));
+  report.contextRootDatabase = {file: 'fixture.sqlite.context-root.sqlite',
+    sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.context-root.sqlite')))};
   report.passed = true;
   console.log("PASS TypeScript retained Fix/E/loading/ownership example twice on one database");
 } catch (error) { console.error(error.stack); process.exitCode ||= 1; }

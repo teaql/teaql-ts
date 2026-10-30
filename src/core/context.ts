@@ -43,7 +43,7 @@ export type FixEvidence = Readonly<{
 
 export class ContextRootError extends Error {
   constructor(
-    public readonly reason: 'missing' | 'type_mismatch',
+    public readonly reason: 'missing' | 'type_mismatch' | 'invalid_id',
     public readonly expectedType: string,
     public readonly activeRoot?: ContextEntityRef,
   ) {
@@ -243,6 +243,13 @@ export class UserContext {
     const root = this.getResource<ContextEntityRef>('activeRoot');
     if (!root) throw new ContextRootError('missing', expectedType);
     if (root.entity !== expectedType) throw new ContextRootError('type_mismatch', expectedType, root);
+    // A request root must identify a persisted object, never an unset/temporary
+    // key or a rounded JS number. Exact wide strings/bigints keep their type;
+    // the provider remains responsible for its supported numeric range.
+    const id = root.id;
+    const valid = typeof id === 'number' ? Number.isSafeInteger(id) && id > 0
+      : typeof id === 'bigint' ? id > 0n : typeof id === 'string' && /^[1-9][0-9]*$/.test(id);
+    if (!valid) throw new ContextRootError('invalid_id', expectedType, root);
     return root;
   }
 

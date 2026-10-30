@@ -8,6 +8,19 @@ import { verifyOwnership } from './ownership-probe';
 import Database from 'better-sqlite3';
 import { verifyCheckerMetadata, verifyFileCheckerMetadata } from './checker-metadata-probe';
 import { verifyExpressionBoundaries } from './expression-boundary-probe';
+import { verifyContextRoot, verifyFileContextRoot } from './context-root-probe';
+
+test('the file-backed generated client protects loaded root ownership too', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('retained file path required for file-backed root verification');
+  await verifyFileContextRoot(filename + '.context-root.json');
+});
+
+test('generated audited graph saves reject invalid or mismatched context roots before provider work', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('retained SQLite database required for root identity verification');
+  await verifyContextRoot(filename + '.context-root.sqlite');
+});
 
 test('generated E boundaries preserve NotLoaded, absence, native terminals and state without I/O', async () => {
   const filename = process.env.TEAQL_FIX_E_DB;

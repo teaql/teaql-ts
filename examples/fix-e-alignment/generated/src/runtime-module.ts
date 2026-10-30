@@ -69,10 +69,12 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
           context.recordFixEvidence({ entityType: "PurchaseOrder", modelPath: "tenant", source: "context", sourceLabel: "activeRoot:Tenant" });
         }
         else if (String(supplied) !== String(root.id)) results.push({ ruleId: "context_root_mismatch", location: ObjectLocation.property("tenant"), inputValue: supplied, systemValue: root.id });
-      } else if (mutation.action === "Update" && mutation.payload["tenant"] != null) {
+      } else if (mutation.action === "Update" || mutation.action === "Delete" || mutation.action === "Recover") {
         const root = context.requireActiveRoot("Tenant");
         const supplied = mutation.payload["tenant"]?.id ?? mutation.payload["tenant"];
-        if (String(supplied) !== String(root.id)) results.push({ ruleId: "context_root_mismatch", location: ObjectLocation.property("tenant"), inputValue: supplied, systemValue: root.id });
+        const original = mutation.loadedValues?.["tenant"]?.id ?? mutation.loadedValues?.["tenant"];
+        if (original == null) results.push({ ruleId: "invalid_type", location: ObjectLocation.property("tenant"), message: "Mutation requires a loaded context-bound root" });
+        else if (String(original) !== String(root.id) || (supplied != null && String(supplied) !== String(root.id))) results.push({ ruleId: "context_root_mismatch", location: ObjectLocation.property("tenant"), inputValue: supplied ?? original, systemValue: root.id });
       }
 
 
@@ -118,10 +120,12 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
           context.recordFixEvidence({ entityType: "OrderItem", modelPath: "tenant", source: "context", sourceLabel: "activeRoot:Tenant" });
         }
         else if (String(supplied) !== String(root.id)) results.push({ ruleId: "context_root_mismatch", location: ObjectLocation.property("tenant"), inputValue: supplied, systemValue: root.id });
-      } else if (mutation.action === "Update" && mutation.payload["tenant"] != null) {
+      } else if (mutation.action === "Update" || mutation.action === "Delete" || mutation.action === "Recover") {
         const root = context.requireActiveRoot("Tenant");
         const supplied = mutation.payload["tenant"]?.id ?? mutation.payload["tenant"];
-        if (String(supplied) !== String(root.id)) results.push({ ruleId: "context_root_mismatch", location: ObjectLocation.property("tenant"), inputValue: supplied, systemValue: root.id });
+        const original = mutation.loadedValues?.["tenant"]?.id ?? mutation.loadedValues?.["tenant"];
+        if (original == null) results.push({ ruleId: "invalid_type", location: ObjectLocation.property("tenant"), message: "Mutation requires a loaded context-bound root" });
+        else if (String(original) !== String(root.id) || (supplied != null && String(supplied) !== String(root.id))) results.push({ ruleId: "context_root_mismatch", location: ObjectLocation.property("tenant"), inputValue: supplied ?? original, systemValue: root.id });
       }
 
 
