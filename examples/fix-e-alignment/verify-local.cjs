@@ -53,7 +53,7 @@ try {
     if (result.status !== 0) process.exitCode = result.status || 1;
     assert.equal(result.status, 0, fs.readFileSync(log, "utf8").slice(-12000));
     const lines = fs.readFileSync(log, "utf8").split(/\r?\n/);
-    for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA="]) {
+    for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA=", "CORE_TS_E_BOUNDARY_RESULT="]) {
       const values = lines.filter(line => line.startsWith(marker)).map(line => JSON.parse(line.slice(marker.length)));
       assert.equal(values.length, 1, marker); assert.equal(values[0].passed, true, marker);
     }

@@ -7,6 +7,13 @@ import { verifyLoading } from './loading-probe';
 import { verifyOwnership } from './ownership-probe';
 import Database from 'better-sqlite3';
 import { verifyCheckerMetadata, verifyFileCheckerMetadata } from './checker-metadata-probe';
+import { verifyExpressionBoundaries } from './expression-boundary-probe';
+
+test('generated E boundaries preserve NotLoaded, absence, native terminals and state without I/O', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('retained SQLite database required for E boundary verification');
+  await verifyExpressionBoundaries(filename + '.expression-boundaries.sqlite');
+});
 
 test('generated Checker violations retain their declaring entity and wire locations', async () => {
   const filename = process.env.TEAQL_FIX_E_DB;
