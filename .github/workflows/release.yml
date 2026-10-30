@@ -1,7 +1,6 @@
 name: Publish TypeScript package
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - "typescript-v*"
@@ -20,9 +19,18 @@ jobs:
           node-version: "24"
           registry-url: https://registry.npmjs.org
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: npm ci
       - name: Verify tag matches package version
         run: test "${GITHUB_REF_NAME#typescript-v}" = "$(node -p 'require("./package.json").version')"
+      - name: Require a verified signed release tag
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify_signed_release_tag.py
+      - name: Test signed release tag verifier
+        run: python3 scripts/test_verify_signed_release_tag.py
       # Keep native SQLite lifecycle coverage deterministic and verify the
       # current Node LTS used by generated TeaQL projects.
       - run: npm test -- --runInBand
