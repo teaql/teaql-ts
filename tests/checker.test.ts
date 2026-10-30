@@ -23,6 +23,66 @@ class Client extends AbstractSQLTeaQLClient {
   constructor(driver: Driver) { super(driver, {}); }
 }
 
+test.each([undefined, '', '  '])('checker binds an absent declaring type (%p) before localization without SQL', async entityType => {
+  const driver = new Driver();
+  const context = new UserContext();
+  const violation: CheckResult = {ruleId: 'required', entityType,
+    location: ObjectLocation.property('contact_phone'), sourceInstancePath: '/legacy~1phone~0',
+    inputValue: null, systemValue: 'required'};
+  const translated: CheckResult[] = [];
+  const translate = context.i18nCatalog.translate.bind(context.i18nCatalog);
+  // Do not mutate the shared built-in catalog while observing the boundary.
+  context.installI18nCatalog({translate: (result: CheckResult, locale: any) => {
+    expect(result.entityType).toBe('Task'); translated.push({...result});
+    return translate(result, locale);
+  }} as any);
+  const client = new Client(driver).setUserContext(context).install(new RuntimeModule({
+    Task: {table: 'task', columns: {}},
+  }, {Task: {checkAndFix: (_ctx, _mutation, results) => { results.push({...violation}); }}}));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let failure: CheckException | undefined;
+    try { await client.executeMutation({entity: 'Task', action: 'Create', payload: {}, comment: 'Require Checker identity'}); }
+    catch (error) { if (!(error instanceof CheckException)) throw error; failure = error; }
+    expect(failure).toBeInstanceOf(CheckException);
+    expect(failure!.violations).toHaveLength(1);
+    expect(failure!.violations[0]).toMatchObject({...violation, entityType: 'Task'});
+    expect(failure!.violations[0].message).toContain('contactPhone');
+    expect(context.getResource('fixTime')).toBeUndefined();
+  }
+  expect(translated).toHaveLength(2);
+  expect(violation.entityType).toBe(entityType);
+  expect(driver.transactions).toBe(0); expect(driver.statements).toEqual([]);
+});
+
+test('checker preserves a specialized nested type, canonical indices and submitted pointer', async () => {
+  const driver = new Driver();
+  const context = new UserContext();
+  const location = ObjectLocation.property('order_item_list').index(1).property('product_name');
+  const result: CheckResult = {ruleId: 'required', entityType: 'SpecialOrderItem', location,
+    sourceInstancePath: '/old~1items/1/old~0name', inputValue: null, systemValue: 'required'};
+  const client = new Client(driver).setUserContext(context).install(new RuntimeModule({
+    Task: {table: 'task', columns: {}},
+  }, {Task: {checkAndFix: (_ctx, _mutation, results) => { results.push({...result}); }}}));
+  let failure: CheckException | undefined;
+  try { await client.executeMutation({entity: 'Task', action: 'Create', payload: {}, comment: 'Preserve the child Checker type'}); }
+  catch (error) { if (!(error instanceof CheckException)) throw error; failure = error; }
+  expect(failure).toBeInstanceOf(CheckException);
+  expect(failure!.violations[0]).toMatchObject(result);
+  expect(failure!.violations[0].location).toBe(location);
+  expect(failure!.message).toContain('orderItemList[1].productName');
+  expect(driver.transactions).toBe(0); expect(driver.statements).toEqual([]);
+});
+
+test('independent declaring types do not leak through a shared Context', () => {
+  const context = new UserContext();
+  const result = (): CheckResult => ({ruleId: 'required', location: ObjectLocation.property('name')});
+  const first = context.translateCheckResults([result()], 'First')[0];
+  const second = context.translateCheckResults([result()], 'Second')[0];
+  const unknown = context.translateCheckResults([result()])[0];
+  expect(first.entityType).toBe('First'); expect(second.entityType).toBe('Second');
+  expect(unknown.entityType).toBeUndefined();
+});
+
 test('checker failure is structured, save scoped, and runs before SQL transaction', async () => {
   const driver = new Driver();
   const context = new UserContext();

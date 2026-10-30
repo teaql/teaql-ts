@@ -156,7 +156,7 @@ export class ScalarTypeProbe {
             nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "typePlatform", canonical: "type_platform" }, { member: "requiredString", canonical: "required_string" }, { member: "optionalString", canonical: "optional_string" }, { member: "largeText", canonical: "large_text" }, { member: "requiredBoolean", canonical: "required_boolean" }, { member: "optionalBoolean", canonical: "optional_boolean" }, { member: "requiredInteger", canonical: "required_integer" }, { member: "optionalInteger", canonical: "optional_integer" }, { member: "requiredLong", canonical: "required_long" }, { member: "optionalLong", canonical: "optional_long" }, { member: "requiredDecimal", canonical: "required_decimal" }, { member: "optionalDecimal", canonical: "optional_decimal" }, { member: "requiredFloat", canonical: "required_float" }, { member: "optionalFloat", canonical: "optional_float" }, { member: "requiredDouble", canonical: "required_double" }, { member: "optionalDouble", canonical: "optional_double" }, { member: "requiredDate", canonical: "required_date" }, { member: "optionalDate", canonical: "optional_date" }, { member: "requiredTime", canonical: "required_time" }, { member: "optionalTime", canonical: "optional_time" }, { member: "requiredDatetime", canonical: "required_datetime" }, { member: "optionalDatetime", canonical: "optional_datetime" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
-                if (notLoaded) throw new CheckException([{ruleId: "invalid_type", location: ObjectLocation.property(notLoaded.canonical),
+                if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "ScalarTypeProbe", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
         }
@@ -177,6 +177,7 @@ export class ScalarTypeProbe {
             if (notLoaded) {
                 throw new CheckException([{
                     ruleId: "invalid_type",
+                    entityType: "ScalarTypeProbe",
                     location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity",
                 }]);

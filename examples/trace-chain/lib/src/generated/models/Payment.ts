@@ -165,7 +165,7 @@ export class Payment {
             nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
-                if (notLoaded) throw new CheckException([{ruleId: "invalid_type", location: ObjectLocation.property(notLoaded.canonical),
+                if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "Payment", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
         }
@@ -194,6 +194,7 @@ export class Payment {
             if (notLoaded) {
                 throw new CheckException([{
                     ruleId: "invalid_type",
+                    entityType: "Payment",
                     location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity",
                 }]);

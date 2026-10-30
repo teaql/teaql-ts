@@ -120,7 +120,14 @@ export class UserContext {
     if (!store) throw new Error('ID set pagination store is required');
     return this.insertResource('idSetPaginationStore', store);
   }
-  translateCheckResults(results: CheckResult[]): CheckResult[] { return results.map(result=>this.i18nCatalog.translate(result,this.locale)); }
+  translateCheckResults(results: CheckResult[], declaringEntityType?: string): CheckResult[] {
+    return results.map(result => {
+      // Bind the declaring checker before localization. Nested/custom checkers
+      // may already identify a more specific type; never replace that identity.
+      if (declaringEntityType && !result.entityType?.trim()) result.entityType = declaringEntityType;
+      return this.i18nCatalog.translate(result, this.locale);
+    });
+  }
 
   withMutationPolicyRegistry(registry: MutationPolicyRegistry): this {
     if (!registry || typeof registry.resolve !== 'function') {

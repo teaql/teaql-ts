@@ -176,7 +176,7 @@ export class CustomerOrder {
             nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "customer", canonical: "customer" }, { member: "status", canonical: "status" }, { member: "orderNumber", canonical: "order_number" }, { member: "orderDate", canonical: "order_date" }, { member: "totalAmount", canonical: "total_amount" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
-                if (notLoaded) throw new CheckException([{ruleId: "invalid_type", location: ObjectLocation.property(notLoaded.canonical),
+                if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "CustomerOrder", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
         }
@@ -205,6 +205,7 @@ export class CustomerOrder {
             if (notLoaded) {
                 throw new CheckException([{
                     ruleId: "invalid_type",
+                    entityType: "CustomerOrder",
                     location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity",
                 }]);

@@ -289,7 +289,8 @@ export class TeaQLClient implements TeaQLDataService {
         const originalVersion = this.checkedMutationVersion(mutation);
         mutation = { ...mutation, payload: { ...(mutation?.payload || {}) } };
         Object.defineProperty(mutation, "comment", { value: request.comment, enumerable: true });
-        const checker = this.checkers[String(mutation.entity)];
+        const declaringEntityType = String(mutation.entity);
+        const checker = this.checkers[declaringEntityType];
         if (!checker) return this.sealMutationVersion(mutation, originalVersion);
         const results: any[] = [];
         const ownsFixTime = this.userContext.getResource("fixTime") === undefined;
@@ -299,7 +300,7 @@ export class TeaQLClient implements TeaQLDataService {
             if (mutation.action !== request.mutation.action || this.checkedMutationVersion(mutation) !== originalVersion)
                 throw new MutationVersionError("invalid_type");
             if (mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
-            this.userContext.translateCheckResults(results);
+            this.userContext.translateCheckResults(results, declaringEntityType);
             if (results.length) throw new CheckException(results);
             return this.sealMutationVersion(mutation, originalVersion);
         } finally { if (ownsFixTime) this.userContext.removeResource("fixTime").finishFixEvidence(); }

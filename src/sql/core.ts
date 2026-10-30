@@ -939,7 +939,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     // payload and every derived value is copied back into the graph ledger.
     mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
     Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
-    const checker = this.checkers[String(mutation.entity)];
+    const declaringEntityType = String(mutation.entity);
+    const checker = this.checkers[declaringEntityType];
     if (!checker) { this.validateFloatingMutation(mutation); return this.sealMutationVersion(mutation, schema ? originalVersion : undefined, Boolean(schema)); }
     const results: import('../core/i18n').CheckResult[] = [];
     const ownsFixTime = this.userContext.getResource<Date>('fixTime') === undefined;
@@ -955,7 +956,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
         }
       }
-      this.userContext.translateCheckResults(results);
+      this.userContext.translateCheckResults(results, declaringEntityType);
       if (results.length) throw new CheckException(results);
       // This same path runs in generated graph preparation, before transaction,
       // ID allocation or provider calls. Encoding alone would reject too late.

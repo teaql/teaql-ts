@@ -6,6 +6,14 @@ import { RuntimeOperation, RuntimeOperationCompletion } from '../../src/core/tel
 import { verifyLoading } from './loading-probe';
 import { verifyOwnership } from './ownership-probe';
 import Database from 'better-sqlite3';
+import { verifyCheckerMetadata, verifyFileCheckerMetadata } from './checker-metadata-probe';
+
+test('generated Checker violations retain their declaring entity and wire locations', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('retained SQLite database required for Checker metadata');
+  await verifyCheckerMetadata(filename);
+  await verifyFileCheckerMetadata(filename + '.checker-file.json');
+});
 
 test('unmodified generated Q/E and audited SQLite saves consume the local Business Clock', async () => {
   const first = new Date('2032-02-29T10:15:30.000Z');
