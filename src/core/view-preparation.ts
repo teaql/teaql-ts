@@ -156,6 +156,10 @@ export class ViewPreparationService {
         if (projected.length !== slots.length) throw new Error('BLOB_SIGN_FAILED');
         for (let index = 0; index < slots.length; index += 1) {
           const { url, expiresAt: issuedExpiry } = projected[index];
+          // URL parsing strips or encodes raw whitespace; never return those original bytes.
+          if (typeof url !== 'string' || /[\s\x00-\x1f\x7f-\x9f]/u.test(url)) {
+            throw new Error('BLOB_SIGN_FAILED');
+          }
           let parsed: URL;
           try { parsed = new URL(url); } catch { throw new Error('BLOB_SIGN_FAILED'); }
           if (!['http:', 'https:'].includes(parsed.protocol) ||

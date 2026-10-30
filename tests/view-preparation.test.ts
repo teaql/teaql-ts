@@ -59,6 +59,30 @@ describe('ViewPreparationService', () => {
       .rejects.toMatchObject({ code: 'BLOB_SIGN_FAILED', businessState: 'committed' });
   });
 
+  test('rejects a provider URL containing raw whitespace or control characters', async () => {
+    const context = new UserContext().insertResource('responseGraphAuthorizer', {
+      authorize: async () => graph(),
+    });
+    let suppliedUrl = '';
+    context.insertResource('blobResponseContributor', { projectBatch: async () => [{
+      url: suppliedUrl, expiresAt: new Date(Date.now() + 30_000),
+    }] });
+    const service = new ViewPreparationService();
+    for (const invalid of [
+      ' https://files.example.invalid/read',
+      'https://files.example.invalid/read file',
+      'https://files.example.invalid/read\n',
+      'https://files.example.invalid/\tread',
+      'https://files.example.invalid/read\u2028next',
+      'https://files.example.invalid/read\u2029next',
+    ]) {
+      suppliedUrl = invalid;
+      await expect(service.prepare(context, graph().presentation,
+        { mode: 'ordinary', businessOutcome: 'committed' }))
+        .rejects.toMatchObject({ code: 'BLOB_SIGN_FAILED', businessState: 'committed' });
+    }
+  });
+
   test('accepts independent URL lifetimes below the document ceiling and returns their minimum', async () => {
     const second = new BlobRef('blob_asset_2');
     const ceiling = new Date(Date.now() + 90_000);

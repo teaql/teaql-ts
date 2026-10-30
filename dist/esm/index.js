@@ -745,6 +745,9 @@ var ViewPreparationService = class {
         if (projected.length !== slots.length) throw new Error("BLOB_SIGN_FAILED");
         for (let index = 0; index < slots.length; index += 1) {
           const { url, expiresAt: issuedExpiry } = projected[index];
+          if (typeof url !== "string" || /[\s\x00-\x1f\x7f-\x9f]/u.test(url)) {
+            throw new Error("BLOB_SIGN_FAILED");
+          }
           let parsed;
           try {
             parsed = new URL(url);
