@@ -63,6 +63,8 @@ try {
   report.databaseSha256 = sha(fs.readFileSync(path.join(evidence, "fixture.sqlite")));
   report.contextRootDatabase = {file: 'fixture.sqlite.context-root.sqlite',
     sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.context-root.sqlite')))};
+  report.contextRootFile = {file: 'fixture.sqlite.context-root.json',
+    sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.context-root.json')))};
   report.passed = true;
   console.log("PASS TypeScript retained Fix/E/loading/ownership example twice on one database");
 } catch (error) { console.error(error.stack); process.exitCode ||= 1; }
