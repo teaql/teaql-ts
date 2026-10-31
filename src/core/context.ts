@@ -2,6 +2,7 @@ import { SelectQuery } from './ast';
 import { BusinessClock, SystemBusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
+import { prepareCheckerResults } from './checker-privacy';
 import {
   contextSchemaCapability,
   InternalContextSchemaExecutor,
@@ -121,16 +122,13 @@ export class UserContext {
     return this.insertResource('idSetPaginationStore', store);
   }
   translateCheckResults(results: CheckResult[], declaringEntityType?: string): CheckResult[] {
-    for (let index = 0; index < results.length; index++) {
-      // Checkers may reuse immutable results. Own the presentation snapshot so
-      // relocation or a later locale cannot rewrite a previously returned error.
-      const result = {...results[index]};
-      // Bind the declaring checker before localization. Nested/custom checkers
-      // may already identify a more specific type; never replace that identity.
-      if (declaringEntityType && !result.entityType?.trim()) result.entityType = declaringEntityType;
-      results[index] = this.i18nCatalog.translate(result, this.locale);
-    }
-    return results;
+    if (!results.length) return results;
+    const scope = prepareCheckerResults(results, declaringEntityType);
+    try {
+      const translated = scope.values.map(result => this.i18nCatalog.translate(result, this.locale));
+      results.splice(0, results.length, ...scope.finish(translated));
+      return results;
+    } finally { scope.close(); }
   }
 
   withMutationPolicyRegistry(registry: MutationPolicyRegistry): this {

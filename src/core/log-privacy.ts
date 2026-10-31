@@ -1,60 +1,11 @@
 import type { SQLExecutionMetadata } from '../sql/core';
 import { renderSQL, sqlLiteral, SQLParameterLogPolicy } from '../sql/log-rendering';
-
-export const PLAINTEXT_LOG_ENV = 'TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS';
-export const PLAINTEXT_LOG_ACK = 'I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK';
+import { businessMask, credentialName, hasCredentials, logValueStrings, plaintextLogsEnabled, scrubLogText } from './value-privacy';
+export { PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK, maskAuditValue, credentialName,
+  hasCredentials, logValueStrings, plaintextLogsEnabled, scrubLogText } from './value-privacy';
 const redacted = '[REDACTED]';
 const redactedSQL = '[REDACTED SQL; NOT REPLAYABLE]';
 const debugLabel = '-- TeaQL DEBUG PLAINTEXT; EXPLICIT OPT-IN\n';
-let warned = false;
-
-/** Business-field masking; credentials always need complete redaction instead. */
-export function maskAuditValue(value: string): string {
-  const scalars = Array.from(value);
-  if (scalars.length < 8 || /^[0-9]+$/.test(value)) return '*'.repeat(scalars.length);
-  return scalars.slice(0, 2).join('') + '*'.repeat(scalars.length - 4) + scalars.slice(-2).join('');
-}
-
-export function plaintextLogsEnabled(): boolean {
-  // Browsers have no trusted process environment: remain redacted there.
-  const environment = (globalThis as typeof globalThis & {
-    process?: { env?: Record<string, string | undefined> };
-  }).process?.env;
-  const enabled = environment?.[PLAINTEXT_LOG_ENV] === PLAINTEXT_LOG_ACK;
-  if (enabled && !warned) {
-    warned = true;
-    console.warn('TeaQL: sensitive plaintext logging enabled; application data may be written to disk. Authentication secrets remain redacted.');
-  }
-  return enabled;
-}
-
-export function credentialName(name: string): boolean {
-  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return ['password', 'passwd', 'passphrase', 'privatekey', 'secret', 'accesstoken',
-    'refreshtoken', 'idtoken', 'apikey', 'authorization', 'credential', 'sessiontoken',
-    'magiclinktoken'].some(word => normalized.includes(word));
-}
-
-export function hasCredentials(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(hasCredentials);
-  if (value && typeof value === 'object') {
-    return Object.entries(value).some(([key, child]) => credentialName(key) || hasCredentials(child));
-  }
-  return false;
-}
-
-export function logValueStrings(value: unknown): string[] {
-  if (value === undefined || value === null || value === '') return [];
-  if (Array.isArray(value)) return value.flatMap(logValueStrings);
-  if (value instanceof Date) return [value.toISOString()];
-  if (typeof value === 'object') return Object.values(value).flatMap(logValueStrings);
-  return [String(value)];
-}
-
-export function scrubLogText(text: string | undefined, values: readonly string[]): string | undefined {
-  return [...new Set(values)].sort((a,b) => b.length - a.length)
-    .reduce((result, value) => result?.split(value).join(redacted), text);
-}
 
 const projections = new WeakMap<SQLExecutionMetadata, boolean>();
 // A debug record can later reach a sink after debug is disabled. Keep only its
@@ -117,16 +68,6 @@ export function inheritSQLLogBindings(source: SQLLogBindingSource, inherited?: S
     parameters: Object.freeze(sources.flatMap(item => item.parameters.map(copyLogValue))),
     parameterLogPolicies: Object.freeze(sources.flatMap(bindingPolicies)),
   });
-}
-
-function businessMask(value: unknown): unknown {
-  if (value === null || value === undefined) return null;
-  if (Array.isArray(value)) return value.map(businessMask);
-  if (value && typeof value === 'object' && 'type' in value) {
-    return businessMask((value as { value?: unknown }).value);
-  }
-  if (typeof value === 'object' && !(value instanceof Date)) return redacted;
-  return maskAuditValue(value instanceof Date ? value.toISOString() : String(value));
 }
 
 export function projectSQLLog(metadata: SQLExecutionMetadata, inherited?: SQLLogBindingSource,

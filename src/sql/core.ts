@@ -6,6 +6,7 @@ import {
   startRuntimeOperation,
 } from '../core/telemetry';
 import { CheckException, EntityChecker } from '../core/checker';
+import { translateCheckerResults } from '../core/checker-privacy';
 import { MutationFieldLayout } from '../core/mutation-field-layout';
 import { UserContext } from '../core/context';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
@@ -352,6 +353,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly bindOperandSources = new WeakMap<readonly unknown[], SQLLogBindingSource>();
   private readonly derivedQueryBindings = new WeakMap<object, SQLLogBindingSource>();
   private readonly derivedRelationAssembly = new WeakMap<object, RelationAssembly>();
+  private readonly checkerPrivacyPolicy = (entity: string | undefined, field: string): 'masked' | 'credential' | undefined => {
+    const schema = entity ? this.schemas[entity] : undefined;
+    if (!schema) return undefined;
+    const native = Object.keys(schema.columns).find(name => name === field
+      || schema.columns[name].modelName === field || schema.columns[name].columnName === field) ?? field;
+    const policy = this.fieldLogPolicy(schema, native);
+    return policy === 'masked' || policy === 'credential' ? policy : undefined;
+  };
 
   private fieldLogPolicy(schema: EntitySchema, field: string): SQLParameterLogPolicy {
     const column = schema.columns[field];
@@ -957,7 +966,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
         }
       }
-      this.userContext.translateCheckResults(results, declaringEntityType);
+      translateCheckerResults(this.userContext, results, declaringEntityType, this.checkerPrivacyPolicy,
+        [request.loadedValues(), request.mutation.payload ?? {}, mutation.payload ?? {}]);
       if (results.length) throw new CheckException(results);
       // This same path runs in generated graph preparation, before transaction,
       // ID allocation or provider calls. Encoding alone would reject too late.

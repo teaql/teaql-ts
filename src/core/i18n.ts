@@ -1,5 +1,6 @@
 import builtinJson from './builtin-messages-v1.json';
 import { JsonFieldNamingProfile, ObjectLocation, ObjectLocationSegment } from './object-location';
+import { checkerInputLength, checkerTemplateLiteral, markCheckerRendering } from './checker-privacy';
 
 export const locales = ['en','zh-CN','zh-TW','ja','ko','de','fr','es','pt','ar','th','id','fil','uk','vi'] as const;
 export type Locale = typeof locales[number];
@@ -23,10 +24,15 @@ export class I18nCatalog{
   // while the canonical location still carries the full relocated path.
   if(template===key&&result.message?.trim())return result;
   const input=String(result.inputValue);
-  const length=typeof result.inputValue==='string'?[...result.inputValue].length:0;
-  result.message=template.split('{location}').join(result.location.nativePath())
-   .split('{system}').join(String(result.systemValue)).split('{input}').join(input)
-   .split('{input_len}').join(String(length));
+  const values:Record<string,string>={'{location}':result.location.nativePath(),'{system}':String(result.systemValue),
+   '{input}':input,'{input_len}':String(checkerInputLength(result))};
+  const publicTemplate=template===I18nCatalog.builtin.message(locale,key);
+  // Scrub literal/customer template text separately from typed substitutions.
+  // A credential such as "1" must not rewrite the numeric bound 12 or a true
+  // validation length merely because the same digit appears there.
+  result.message=template.split(/(\{(?:location|system|input|input_len)\})/g)
+   .map(part=>Object.prototype.hasOwnProperty.call(values,part)?values[part]:publicTemplate?part:checkerTemplateLiteral(result,part)).join('');
+  markCheckerRendering(result);
   return result;
  }
 }
