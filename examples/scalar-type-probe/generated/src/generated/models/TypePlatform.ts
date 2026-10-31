@@ -107,6 +107,8 @@ export class TypePlatform {
             graph.sealPreparedGraph();
         }, (graph) => {
             this.teaqlValidateLoadedIdentities();
+            this.teaqlDiscardRestoredGraph(graph);
+            this.teaqlAdmitGraph();
             this.teaqlNormalizeGraph(graph);
             return this.teaqlAdmitGraph();
         });
@@ -125,6 +127,15 @@ export class TypePlatform {
                 throw new CheckException(error.violations.map(violation => ({ ...violation, location: violation.location.prefixedBy(prefix) })));
             }
         }
+    }
+
+    /** @internal Cancel known no-ops across the graph before any derived FK edits. */
+    private teaqlDiscardRestoredGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (seen.has(this)) return;
+        seen.add(this);
+        graph.discardRestoredFields(TypePlatform.teaqlMutationFields,
+            (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
+        for (const child of (this as any)._scalarTypeProbeList) child.teaqlDiscardRestoredGraph(graph, seen);
     }
 
     /** @internal Model-key admission precedes restoration; only intended edits may normalize FKs. */

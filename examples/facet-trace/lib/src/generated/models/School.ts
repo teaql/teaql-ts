@@ -126,6 +126,8 @@ export class School {
             graph.sealPreparedGraph();
         }, (graph) => {
             this.teaqlValidateLoadedIdentities();
+            this.teaqlDiscardRestoredGraph(graph);
+            this.teaqlAdmitGraph();
             this.teaqlNormalizeGraph(graph);
             return this.teaqlAdmitGraph();
         });
@@ -136,6 +138,14 @@ export class School {
         if (seen.has(this)) return;
         seen.add(this);
         LoadedScalarSnapshot.forEntity(this)?.validateNativeIdentity(this.teaqlEntityKey(), this.id, this.version);
+    }
+
+    /** @internal Cancel known no-ops across the graph before any derived FK edits. */
+    private teaqlDiscardRestoredGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (seen.has(this)) return;
+        seen.add(this);
+        graph.discardRestoredFields(School.teaqlMutationFields,
+            (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
     }
 
     /** @internal Model-key admission precedes restoration; only intended edits may normalize FKs. */
