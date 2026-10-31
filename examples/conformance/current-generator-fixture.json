@@ -2,17 +2,17 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "eff1b8cceb0a2c6fa34782731c420c0422c2824289708d7f8184790a5b11ab04",
+  "producerReceiptSha256": "d358d608b685dc2e076ac365a9030f18c140e95e66fbffa65d79f0ea8957f982",
   "producerSource": {
-    "commit": "f3c96057a15fda74140c5e3a304bfb971573d68e",
-    "diff": "7aa6004ca1682aaae8f14d7c23d85259f90426f087a5bdd2e7f748f940e6a331",
-    "status": "dc6ba64ca26b4188caaab184cc7e722cf31a69b56bca218cb8e27cf8722efd5c",
-    "sourceContentsSha256": "0b7e0336be5f430177c21716f9d44b1404627d1a5a4a9f9b0471834454bb96de",
+    "commit": "55a23e374c57eeb303609cfcef2de6eaf42d0ed1",
+    "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sourceContentsSha256": "4f89af9c2ab44e34450a1f9b2ab625ad3b23d71407e254454ce3f53cae94ed0f",
     "pairedTypescript": {
       "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "d1142cebb301db17231513fb7c8033a365a04853",
-      "diff": "ecc7bf98a8021f5f4d3f53e45a96223f4791dba1c76fb6ff96694be77ce51d73",
-      "sourceContentsSha256": "964c6db0b21a0cbeded5600cb41a0696342fb59781d862b2d25486c3ae36e7aa"
+      "commit": "c973e4a2fd9cf8e994f649359eb73d70ffeebc08",
+      "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceContentsSha256": "13d49a89d69a949715d16ec19c9b9c40991c378a1596fe1083be68b83ff0d2bc"
     },
     "retainedModels": [
       {
@@ -90,8 +90,8 @@
     "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
   },
   "files": {
-    "src/generated/models/Platform.ts": "0523329876aed641355fadb64394a3654782c10582dd68120c915d4242eb9097",
-    "src/generated/models/WorkItem.ts": "0521f089f6d46e10f4e5cd76066252542a94e37b215240f7f4783c173a233fd2",
+    "src/generated/models/Platform.ts": "016e9b537e124b79a11321fcbcf37155d46e028cf6d77c04406a8a379313c0e5",
+    "src/generated/models/WorkItem.ts": "8ae5221919f4ad99a7d1ae0a2f785173ab5bc2624b6bc9ed283368239965f30b",
     "src/generated/requests/PlatformRequest.ts": "4fe45fd10d7bf6c127774989f079ee5d7afa8e40668eb0c65232ed871a76906a",
     "src/generated/requests/WorkItemRequest.ts": "1b029dc2e742b133cd8021e5d6d64e67faf21301aa6eb18224d2f78f71acbca2",
     "src/generated/Q.ts": "4e7f90a3b34385ab94a44d1bdf84a91c1294d5a51784588bd3da22b983bd3027",
