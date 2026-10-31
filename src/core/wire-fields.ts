@@ -19,7 +19,7 @@ export interface WireEntityMetadata {
 export interface NormalizedWireInput {
   /** Values keyed only by canonical KSML property names. */
   readonly values: Readonly<Record<string, unknown>>;
-  /** Exact submitted RFC 6901 pointer, retained only for accepted aliases. */
+  /** Exact submitted RFC 6901 pointer for aliases and nested input boundaries. */
   readonly sourceInstancePaths: Readonly<Record<string, string>>;
 }
 
@@ -102,7 +102,9 @@ export function normalizeWireInput(
     }
     submitted.set(field.canonicalName, submittedName);
     values[field.canonicalName] = value;
-    if (submittedName !== field.wireName) {
+    // A standard child spelling still needs provenance when an ancestor's
+    // submitted path differs. The caller supplies the already-escaped boundary.
+    if (submittedName !== field.wireName || parentPointer !== '') {
       sourceInstancePaths[field.canonicalName] = pointer;
     }
   }

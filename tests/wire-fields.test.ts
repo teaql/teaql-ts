@@ -92,6 +92,33 @@ describe('generated wire-field metadata reference adapter', () => {
     expect(prefixed.sourceInstancePath).toBe('/legacy~1items/2/legacy~0name');
   });
 
+  test.each(['camelCase', 'snake_case', 'PascalCase'] as const)(
+    'retains an ancestor alias when the child uses its standard %s spelling', profile => {
+      const parent = createWireEntityMetadata('Order', ['order_item_list'], 'camelCase', {
+        order_item_list: ['legacy/items~'],
+      });
+      const child = createWireEntityMetadata('OrderItem', ['product_name', 'unit_count'], profile);
+      const fieldName = child.fields.product_name.wireName;
+      for (const value of [null, 'submitted item']) {
+        const childObject = {[fieldName]: value};
+        const parentInput = normalizeWireInput({'legacy/items~': [{}, {}, childObject]}, parent);
+        const boundary = `${parentInput.sourceInstancePaths.order_item_list}/2`;
+        const normalized = normalizeWireInput(childObject, child, boundary);
+        expect(normalized.values).toEqual({product_name: value});
+        expect(normalized.sourceInstancePaths).toEqual({product_name: `${boundary}/${fieldName}`});
+        const original = {ruleId: 'required', entityType: 'OrderItem', location: ObjectLocation.property('product_name')};
+        const leaf = retainSubmittedPaths([original], normalized)[0];
+        const location = ObjectLocation.property('order_item_list').index(2).property('product_name');
+        const result = retainSubmittedPaths([{...leaf, location}], parentInput)[0];
+        expect(result.sourceInstancePath).toBe(`/legacy~1items~0/2/${fieldName}`);
+        expect(result.location).toBe(location);
+        expect(original).not.toHaveProperty('sourceInstancePath');
+      }
+      // No ancestor or leaf alias: keep the existing sparse root-level map.
+      expect(normalizeWireInput({[fieldName]: null}, child).sourceInstancePaths).toEqual({});
+    },
+  );
+
   it('does not invent a leaf pointer from a parent-only alias map', () => {
     const parent = createWireEntityMetadata('Order', ['order_item_list'], 'camelCase', {
       order_item_list: ['legacy/items'],
