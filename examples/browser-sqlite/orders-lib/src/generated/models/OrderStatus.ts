@@ -72,7 +72,9 @@ export class OrderStatus {
         { const error = integer32Error(this.displayOrder, "OrderStatus", "display_order"); if (error) throw error; }
 
 
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("customerOrderList")) result["customerOrderList"] = (this as any)._customerOrderList;
+        return result;
     }
 
     isLoaded(field: string): boolean {

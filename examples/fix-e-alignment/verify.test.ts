@@ -9,6 +9,13 @@ import Database from 'better-sqlite3';
 import { verifyCheckerMetadata, verifyFileCheckerMetadata } from './checker-metadata-probe';
 import { verifyExpressionBoundaries } from './expression-boundary-probe';
 import { verifyContextRoot, verifyFileContextRoot } from './context-root-probe';
+import { verifyPartialAncestors } from './partial-ancestors-probe';
+
+test('only modified objects need completeness through two untouched partial ancestors', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('retained SQLite path required for partial-ancestor verification');
+  await verifyPartialAncestors(filename + '.partial-ancestors.sqlite');
+});
 
 test('the file-backed generated client protects loaded root ownership too', async () => {
   const filename = process.env.TEAQL_FIX_E_DB;

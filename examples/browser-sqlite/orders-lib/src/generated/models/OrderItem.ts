@@ -59,7 +59,8 @@ export class OrderItem {
 
 
 
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        return result;
     }
 
     isLoaded(field: string): boolean {

@@ -92,7 +92,11 @@ export class CustomerOrder {
     }
 
     toJSON(): Record<string, unknown> {
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("orderItemList")) result["orderItemList"] = (this as any)._orderItemList;
+        if (this.isLoaded("paymentList")) result["paymentList"] = (this as any)._paymentList;
+        if (this.isLoaded("shipmentList")) result["shipmentList"] = (this as any)._shipmentList;
+        return result;
     }
 
     isLoaded(field: string): boolean {

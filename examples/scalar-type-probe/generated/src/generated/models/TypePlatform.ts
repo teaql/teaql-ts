@@ -55,7 +55,9 @@ export class TypePlatform {
     }
 
     toJSON(): Record<string, unknown> {
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("scalarTypeProbeList")) result["scalarTypeProbeList"] = (this as any)._scalarTypeProbeList;
+        return result;
     }
 
     isLoaded(field: string): boolean {

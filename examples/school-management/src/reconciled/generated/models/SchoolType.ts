@@ -65,7 +65,9 @@ export class SchoolType {
     }
 
     toJSON(): Record<string, unknown> {
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("schoolList")) result["schoolList"] = (this as any)._schoolList;
+        return result;
     }
 
     isLoaded(field: string): boolean {

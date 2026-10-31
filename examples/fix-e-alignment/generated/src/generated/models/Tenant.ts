@@ -69,7 +69,10 @@ export class Tenant {
     }
 
     toJSON(): Record<string, unknown> {
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("purchaseOrderList")) result["purchaseOrderList"] = (this as any)._purchaseOrderList;
+        if (this.isLoaded("orderItemList")) result["orderItemList"] = (this as any)._orderItemList;
+        return result;
     }
 
     isLoaded(field: string): boolean {

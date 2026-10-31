@@ -55,7 +55,9 @@ export class Platform {
     }
 
     toJSON(): Record<string, unknown> {
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("workItemList")) result["workItemList"] = (this as any)._workItemList;
+        return result;
     }
 
     isLoaded(field: string): boolean {

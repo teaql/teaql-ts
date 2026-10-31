@@ -69,7 +69,10 @@ export class Platform {
     }
 
     toJSON(): Record<string, unknown> {
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("orderStatusList")) result["orderStatusList"] = (this as any)._orderStatusList;
+        if (this.isLoaded("customerList")) result["customerList"] = (this as any)._customerList;
+        return result;
     }
 
     isLoaded(field: string): boolean {

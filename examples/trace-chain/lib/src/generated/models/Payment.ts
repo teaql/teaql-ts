@@ -63,7 +63,9 @@ export class Payment {
     }
 
     toJSON(): Record<string, unknown> {
-        return Object.fromEntries(Object.entries(this));
+        const result = Object.fromEntries(Object.entries(this));
+        if (this.isLoaded("paymentAttemptList")) result["paymentAttemptList"] = (this as any)._paymentAttemptList;
+        return result;
     }
 
     isLoaded(field: string): boolean {
