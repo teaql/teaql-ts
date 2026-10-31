@@ -134,7 +134,11 @@ export function retainSubmittedPaths(
   normalized: NormalizedWireInput,
 ): CheckResult[] {
   return results.map(result => {
-    const firstProperty = result.location.segments.find(segment => segment.kind === 'property');
+    // This map describes one object, not its descendants. A child boundary's
+    // complete pointer must survive graph prefixing; a parent alias alone
+    // cannot identify the offending leaf.
+    if (result.location.segments.length !== 1) return { ...result };
+    const firstProperty = result.location.segments[0];
     if (!firstProperty || firstProperty.kind !== 'property') return { ...result };
     const sourceInstancePath = normalized.sourceInstancePaths[firstProperty.name];
     return sourceInstancePath === undefined ? { ...result } : { ...result, sourceInstancePath };

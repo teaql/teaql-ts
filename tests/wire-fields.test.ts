@@ -71,4 +71,56 @@ describe('generated wire-field metadata reference adapter', () => {
       'Collision', ['user_url', 'legacy'], 'camelCase', { legacy: ['userUrl'] },
     )).toThrow("maps to both 'user_url' and 'legacy'");
   });
+
+  it('preserves the complete child alias pointer after canonical graph prefixing', () => {
+    const parent = createWireEntityMetadata('Order', ['order_item_list'], 'camelCase', {
+      order_item_list: ['legacy/items'],
+    });
+    const child = createWireEntityMetadata('OrderItem', ['product_name'], 'camelCase', {
+      product_name: ['legacy~name'],
+    });
+    const parentInput = normalizeWireInput({'legacy/items': [{}, {}, {'legacy~name': null}]}, parent);
+    const childInput = normalizeWireInput({'legacy~name': null}, child, '/legacy~1items/2');
+    const leaf = retainSubmittedPaths([{
+      ruleId: 'required', entityType: 'OrderItem', location: ObjectLocation.property('product_name'),
+    }], childInput)[0];
+    const prefixed = {...leaf, location: leaf.location.prefixedBy(ObjectLocation.property('order_item_list').index(2))};
+    const actual = retainSubmittedPaths([prefixed], parentInput)[0];
+    expect(actual.sourceInstancePath).toBe('/legacy~1items/2/legacy~0name');
+    expect(actual.location.instancePath()).toBe('/orderItemList/2/productName');
+    expect(actual.entityType).toBe('OrderItem');
+    expect(prefixed.sourceInstancePath).toBe('/legacy~1items/2/legacy~0name');
+  });
+
+  it('does not invent a leaf pointer from a parent-only alias map', () => {
+    const parent = createWireEntityMetadata('Order', ['order_item_list'], 'camelCase', {
+      order_item_list: ['legacy/items'],
+    });
+    const normalized = normalizeWireInput({'legacy/items': [{}]}, parent);
+    const location = ObjectLocation.property('order_item_list').index(0).property('product_name');
+    const actual = retainSubmittedPaths([{ruleId: 'required', location}], normalized)[0];
+    expect(actual.sourceInstancePath).toBeUndefined();
+    expect(actual.location).toBe(location);
+  });
+
+  it('does not treat an indexed descendant as the current object property', () => {
+    const metadata = createWireEntityMetadata('OrderItem', ['product_name'], 'camelCase', {
+      product_name: ['legacy~name'],
+    });
+    const normalized = normalizeWireInput({'legacy~name': null}, metadata);
+    const location = ObjectLocation.root().index(2).property('product_name');
+    expect(retainSubmittedPaths([{ruleId: 'required', location}], normalized)[0].sourceInstancePath)
+      .toBeUndefined();
+  });
+
+  it('still annotates an error on the entire current-level collection', () => {
+    const parent = createWireEntityMetadata('Order', ['order_item_list'], 'camelCase', {
+      order_item_list: ['legacy/items'],
+    });
+    const normalized = normalizeWireInput({'legacy/items': null}, parent);
+    const actual = retainSubmittedPaths([{
+      ruleId: 'required', location: ObjectLocation.property('order_item_list'), sourceInstancePath: '/stale',
+    }], normalized)[0];
+    expect(actual.sourceInstancePath).toBe('/legacy~1items');
+  });
 });
