@@ -1,5 +1,5 @@
 import {
-    CheckException, EntityChecker, RuntimeModule,
+    CheckException, EntityChecker, RuntimeModule, ContextSchemaProvider,
     SelectQuery as RuntimeSelectQuery, UserContext,
     GraphCommittedError, executeRelationFacets, QueryRequest, MutationIntent, MutationRequest, GraphMutationSession, MutationFieldLayout,
     EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, compareLongs, ModeledInteger32Layout,
@@ -62,7 +62,7 @@ export interface TeaQLDataService {
     close?(): Promise<void>;
 }
 
-export class TeaQLClient implements TeaQLDataService {
+export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataService {
     private data: Record<string, Record<string, any>> = {};
     private nextIds: Record<string, number> = {};
     private readonly checkers: Record<string, EntityChecker> = {};
@@ -79,6 +79,7 @@ export class TeaQLClient implements TeaQLDataService {
     private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
 
     constructor(private storagePath?: string) {
+        super();
         if (storagePath) {
             const fs = require("fs");
             if (fs.existsSync(storagePath)) {
@@ -91,9 +92,21 @@ export class TeaQLClient implements TeaQLDataService {
 
     /** Installs passive generated metadata. It never mutates storage. */
     install(module: RuntimeModule): this {
+        this.installBootstrap(module.bootstrap);
         Object.assign(this.checkers, module.checkers);
         Object.assign(this.schemas, module.schemas);
         return this;
+    }
+
+    protected enterSchemaContext(context: UserContext): () => void {
+        const previous = this.userContext;
+        this.userContext = context;
+        return () => { this.userContext = previous; };
+    }
+
+    protected async ensurePhysicalSchema(_context: UserContext): Promise<void> {
+        // JSON/in-memory storage has no physical DDL. The runtime still requires
+        // the explicit Context invocation before running generated bootstrap.
     }
 
     private storagePayload(entity: string, payload: Record<string, any>): Record<string, any> {
@@ -325,7 +338,7 @@ export class TeaQLClient implements TeaQLDataService {
         if (mutation.action === "Create") {
             const id = mutation.id ?? String(this.nextIds[mutation.entity] || 1);
             if (table[String(id)]) throw new Error(`${mutation.entity}(${id}) already exists`);
-            this.nextIds[mutation.entity] = Number(id) + 1;
+            this.nextIds[mutation.entity] = Math.max(this.nextIds[mutation.entity] || 1, Number(id) + 1);
             const record = { ...payload, id: String(id), version: nextVersion };
             table[String(id)] = record;
             if (!this.graphSaveActive) this.persist();
@@ -355,7 +368,10 @@ export class TeaQLClient implements TeaQLDataService {
             id: result.id, version: result.version,
             ...request.auditProjection({ entity: mutation.entity, id: result.id }, mutation.payload),
             changedFields: Object.freeze(Object.keys(mutation.payload || {}).sort()),
-            mutationGovernance, recordedAt: new Date().toISOString() });
+            mutationGovernance,
+            actor: this.userContext.getResource("bootstrapActor"),
+            category: this.userContext.getResource("bootstrapCategory"),
+            recordedAt: (this.userContext.getResource<Date>("fixTime") ?? new Date()).toISOString() });
         const publish = async () => {
             this.mutationGovernanceEvents.push(mutationGovernance);
             this.auditEvents.push(event);

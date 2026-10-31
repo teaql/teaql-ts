@@ -39,18 +39,7 @@ for(const backend of ['sqlite','file'] as const)test(`generated Integer32 ${back
  const cases:Array<{name:string;passed:true;zeroEffects?:boolean;fixCalls?:number}>=[],prefix=`integer32-${backend}-round-${round}`;
  const record=(name:string,other:Record<string,unknown>={})=>cases.push({name,passed:true,...other});
  try{
-  if(backend==='sqlite')await context.ensureSchema();
-  else{
-   // The legacy file provider does not implement the internal schema capability.
-   // This is explicit generated-Mutation fixture setup, NOT bootstrap acceptance.
-   let root=await Q.typePlatforms().limit(1).comment('reuse explicit file fixture root').purpose('prepare file Integer acceptance without claiming automatic bootstrap').executeForOne(context);
-   if(!root){
-    root=Q.typePlatforms().comment('prepare explicit file fixture root').purpose('exercise file save admission independently of unsupported bootstrap').newEntity(context)
-     .updateName('Integer32 file fixture root');
-    await root.auditAs('prepare file-provider fixture through generated Mutation').save(context);
-   }
-   context.withActiveRoot({entity:'TypePlatform',id:root.id!});
-  }
+  await context.ensureSchema();
   let control=await prepare(context,prefix+'-control');await control.auditAs('persist a complete generated width control').save(context);
   const id=control.id!;
   const providers=backend==='sqlite'?[jest.spyOn(native.driver,'query'),jest.spyOn(native.driver,'transaction'),jest.spyOn(native.driver,'nextId'),jest.spyOn(native.driver,'ensureIdFloor')]
@@ -124,6 +113,6 @@ for(const backend of ['sqlite','file'] as const)test(`generated Integer32 ${back
    expect(()=>E.scalarTypeProbe(projected!).requiredInteger().eval()).toThrow(TeaQLNotLoadedError);record(`legacy-projection-${fault.field}-${fault.fault}`);
   }
   process.stdout.write('TYPESCRIPT_INTEGER32='+JSON.stringify({language:'typescript',backend,round,passed:true,id,cases,legacy,controlVersion:2,controlLong:'9223372036854775807',file,
-   bootstrapMode:backend==='sqlite'?'context.ensureSchema':'explicit-generated-mutation-fixture',automaticBootstrapAccepted:backend==='sqlite'})+'\n');
+   bootstrapMode:'context.ensureSchema',automaticBootstrapAccepted:true})+'\n');
  }finally{if(backend==='sqlite')await (client as SQLiteTeaQLClient).close();}
 },30000);
