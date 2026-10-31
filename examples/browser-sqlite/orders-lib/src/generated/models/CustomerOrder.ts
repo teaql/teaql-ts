@@ -1,4 +1,4 @@
-import { CheckException, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Customer } from './Customer';
 import { OrderStatus } from './OrderStatus';
 import { OrderItem } from './OrderItem';
@@ -70,6 +70,10 @@ export class CustomerOrder {
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): CustomerOrder {
         const entity = new CustomerOrder(record as Partial<CustomerOrder>);
         return root ? entity.teaqlAttachRoot(root, true) : entity;
+    }
+
+    toJSON(): Record<string, unknown> {
+        return Object.fromEntries(Object.entries(this));
     }
 
     isLoaded(field: string): boolean {

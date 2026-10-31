@@ -1,4 +1,4 @@
-import { CheckException, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { CustomerOrder } from './CustomerOrder';
 
 export class OrderItem {
@@ -13,6 +13,10 @@ export class OrderItem {
         version?: EntityVersion;
 
     constructor(init?: Partial<OrderItem>) {
+        { const error = integer32Error(init?.quantity, "OrderItem", "quantity"); if (error) throw error; }
+
+
+
         Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
         Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
@@ -48,6 +52,14 @@ export class OrderItem {
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): OrderItem {
         const entity = new OrderItem(record as Partial<OrderItem>);
         return root ? entity.teaqlAttachRoot(root, true) : entity;
+    }
+
+    toJSON(): Record<string, unknown> {
+        { const error = integer32Error(this.quantity, "OrderItem", "quantity"); if (error) throw error; }
+
+
+
+        return Object.fromEntries(Object.entries(this));
     }
 
     isLoaded(field: string): boolean {

@@ -1,7 +1,7 @@
 import type { Decimal, Long, LocalTime, EntityVersion } from 'teaql-ts';
 import { TypePlatform } from './models/TypePlatform';
 import { ScalarTypeProbe } from './models/ScalarTypeProbe';
-import { ExpressionPath, TeaQLNotLoadedError } from '../teaql-ts';
+import { CheckException, integer32Error, ExpressionPath, TeaQLNotLoadedError } from '../teaql-ts';
 export { TeaQLNotLoadedError } from '../teaql-ts';
 
 export class ValueExpression<T> {
@@ -9,6 +9,7 @@ export class ValueExpression<T> {
         private readonly value: T | null | undefined,
         private readonly present = true,
         private readonly notLoaded?: TeaQLNotLoadedError,
+        private readonly invalidValue?: CheckException,
     ) {}
 
     static missing<T>(): ValueExpression<T> {
@@ -19,18 +20,25 @@ export class ValueExpression<T> {
         return new ValueExpression<T>(undefined, false, error);
     }
 
+    static invalid<T>(error: CheckException): ValueExpression<T> {
+        return new ValueExpression<T>(undefined, false, undefined, error);
+    }
+
     eval(): T | null | undefined {
         if (this.notLoaded) throw this.notLoaded.terminal('eval()');
+        if (this.invalidValue) throw this.invalidValue;
         return this.present ? this.value : undefined;
     }
 
     isPresent(): boolean {
         if (this.notLoaded) throw this.notLoaded.terminal('isPresent()');
+        if (this.invalidValue) throw this.invalidValue;
         return this.present;
     }
 
     orElse(fallback: T): T {
         if (this.notLoaded) throw this.notLoaded.terminal('orElse(<fallback>)');
+        if (this.invalidValue) throw this.invalidValue;
         const value = this.value;
         return this.present && value != null ? value : fallback;
     }
@@ -197,6 +205,8 @@ export class ScalarTypeProbeExpression {
                 new TeaQLNotLoadedError(path.markMissing(), 'required_integer'),
             );
         }
+        const error = integer32Error(this.value.requiredInteger, 'ScalarTypeProbe', 'required_integer');
+        if (error) return ValueExpression.invalid<number>(error);
         return new ValueExpression<number>(this.value.requiredInteger);
     }
 
@@ -209,6 +219,8 @@ export class ScalarTypeProbeExpression {
                 new TeaQLNotLoadedError(path.markMissing(), 'optional_integer'),
             );
         }
+        const error = integer32Error(this.value.optionalInteger, 'ScalarTypeProbe', 'optional_integer');
+        if (error) return ValueExpression.invalid<number | null>(error);
         return new ValueExpression<number | null>(this.value.optionalInteger);
     }
 

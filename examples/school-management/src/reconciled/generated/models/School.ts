@@ -1,4 +1,4 @@
-import { CheckException, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 import { SchoolType } from './SchoolType';
 
@@ -19,6 +19,12 @@ export class School {
         version?: EntityVersion;
 
     constructor(init?: Partial<School>) {
+        { const error = integer32Error(init?.studentCapacity, "School", "student_capacity"); if (error) throw error; }
+
+
+
+
+
         Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
         Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
@@ -60,6 +66,16 @@ export class School {
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): School {
         const entity = new School(record as Partial<School>);
         return root ? entity.teaqlAttachRoot(root, true) : entity;
+    }
+
+    toJSON(): Record<string, unknown> {
+        { const error = integer32Error(this.studentCapacity, "School", "student_capacity"); if (error) throw error; }
+
+
+
+
+
+        return Object.fromEntries(Object.entries(this));
     }
 
     isLoaded(field: string): boolean {

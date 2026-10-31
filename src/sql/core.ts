@@ -29,6 +29,7 @@ import { decimal } from '../core/decimal';
 import { long } from '../core/long';
 import {EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, VersionOperation} from '../core/mutation-version';
 import { localTime } from '../core/local-time';
+import {ModeledInteger32Layout, validateInteger32Schemas} from '../core/modeled-integer32';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -48,6 +49,8 @@ export type ColumnSchema = {
   logicalType: LogicalColumnType;
   decode: 'string' | 'number' | 'decimal' | 'long' | 'time' | 'date' | 'native';
   nullable?: boolean;
+  /** Trusted model Integer domain; never applied to Long/ID/version/FK. */
+  integer32?: boolean;
   /** Trusted model/application log policy, never taken from a query payload. */
   logPolicy?: SQLParameterLogPolicy;
 };
@@ -411,7 +414,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   protected constructor(
     protected readonly driver: TeaQLSqlDriver,
     schemas: Record<string, EntitySchema>,
-  ) { this.schemas = { ...schemas }; }
+  ) { validateInteger32Schemas(schemas); this.schemas = { ...schemas }; }
 
   /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module: import('../core/runtime-module').RuntimeModule): this {
@@ -490,11 +493,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private decodeRow(entity: string, row: any, aggregateNames: Array<{ name: string; exactDecimal: boolean }> = []): any {
     const schema = this.schema(entity);
     const result = { ...row };
+    const width = new ModeledInteger32Layout(entity,schema);
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === undefined) continue;
       if (field === 'version') { result[field] = entityVersion(value); continue; }
-      if (column.decode === 'number') result[field] = Number(value);
+      if (column.decode === 'number') result[field] = Number(aggregateNames.some(a=>a.name===field) ? value : width.read(field,value));
       this.requireFiniteFloatingPoint(result[field], column);
       if (column.decode === 'string') result[field] = String(value);
       if (column.decode === 'decimal') {
@@ -950,8 +954,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     request.bindCheckerLoadedValues(mutation);
     Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
     const declaringEntityType = String(mutation.entity);
+    const width = new ModeledInteger32Layout(declaringEntityType,schema);
     const checker = this.checkers[declaringEntityType];
-    if (!checker) { this.validateFloatingMutation(mutation); return this.sealMutationVersion(mutation, schema ? originalVersion : undefined, Boolean(schema)); }
+    if (!checker) {
+      const violations = width.checkMutation(mutation.payload || {});
+      if (violations.length) throw new CheckException(violations);
+      this.validateFloatingMutation(mutation); return this.sealMutationVersion(mutation, schema ? originalVersion : undefined, Boolean(schema));
+    }
     const results: import('../core/i18n').CheckResult[] = [];
     const ownsFixTime = this.userContext.getResource<Date>('fixTime') === undefined;
     if (ownsFixTime) this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
@@ -961,17 +970,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         || this.checkedMutationVersion(mutation) !== originalVersion)) {
         throw new MutationVersionError('invalid_type');
       }
-      if (mutation.ledgerKey && mutation.ledgerRoot) {
-        for (const [field, value] of Object.entries(mutation.payload || {})) {
-          mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
-        }
-      }
+      width.checkMutation(mutation.payload || {},results);
       translateCheckerResults(this.userContext, results, declaringEntityType, this.checkerPrivacyPolicy,
         [request.loadedValues(), request.mutation.payload ?? {}, mutation.payload ?? {}]);
       if (results.length) throw new CheckException(results);
       // This same path runs in generated graph preparation, before transaction,
       // ID allocation or provider calls. Encoding alone would reject too late.
       this.validateFloatingMutation(mutation);
+      if (mutation.ledgerKey && mutation.ledgerRoot) {
+        for (const [field, value] of Object.entries(mutation.payload || {})) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+      }
       return this.sealMutationVersion(mutation, originalVersion, Boolean(schema));
     } finally {
       if (ownsFixTime) this.userContext.removeResource('fixTime').finishFixEvidence();
@@ -1260,11 +1268,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   private decodeRowForSchema(schema: EntitySchema, row: any): Record<string, unknown> {
     const result = { ...row };
+    const entityType = Object.keys(this.schemas).find(name=>this.schemas[name]===schema) ?? 'Unknown';
+    const width = new ModeledInteger32Layout(entityType,schema);
     for (const [field, column] of Object.entries(schema.columns)) {
       const value = result[field];
       if (value === null || value === undefined) continue;
       if (field === 'version') { result[field] = entityVersion(value); continue; }
-      if (column.decode === 'number') result[field] = Number(value);
+      if (column.decode === 'number') result[field] = Number(width.read(field,value));
       this.requireFiniteFloatingPoint(result[field], column);
       if (column.decode === 'string') result[field] = String(value);
       if (column.decode === 'decimal') {

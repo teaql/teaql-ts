@@ -1,6 +1,7 @@
 import type { EntitySchema } from '../sql/core';
 import type { EntityChecker } from './checker';
 import type { UserContext } from './context';
+import {validateInteger32Schemas} from './modeled-integer32';
 
 export type BootstrapEntity = Readonly<{
   entity: string;
@@ -53,6 +54,7 @@ export class RuntimeModule {
     checkers: Record<string, EntityChecker> = {},
     bootstrap: RuntimeBootstrap = {},
   ) {
+    validateInteger32Schemas(schemas);
     this.schemas = Object.freeze({ ...schemas });
     this.checkers = Object.freeze({ ...checkers });
     this.bootstrap = Object.freeze({

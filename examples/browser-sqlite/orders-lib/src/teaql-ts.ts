@@ -2,7 +2,7 @@ import {
     CheckException, EntityChecker, RuntimeModule,
     SelectQuery as RuntimeSelectQuery, UserContext,
     GraphCommittedError, executeRelationFacets, QueryRequest, MutationIntent, MutationRequest, GraphMutationSession, MutationFieldLayout,
-    EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, compareLongs,
+    EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, compareLongs, ModeledInteger32Layout,
 } from "teaql-ts";
 
 export { CheckException, EntityRoot, ObjectLocation, SmartList, UserContext, executeRelationFacets, MutationIntent } from "teaql-ts";
@@ -11,6 +11,7 @@ export type { Decimal } from "teaql-ts";
 export { long, compareLongs, localTime } from "teaql-ts";
 export type { Long, LocalTime } from "teaql-ts";
 export { entityVersion, nextEntityVersion } from "teaql-ts";
+export { integer32Error } from "teaql-ts";
 export type { EntityVersion } from "teaql-ts";
 export { GraphCommittedError, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationTraceScope, QueryIntent, QueryRequest, RequestIntentError } from "teaql-ts";
 export { ExpressionPath, TeaQLNotLoadedError } from "teaql-ts";
@@ -291,8 +292,13 @@ export class TeaQLClient implements TeaQLDataService {
         request.bindCheckerLoadedValues(mutation);
         Object.defineProperty(mutation, "comment", { value: request.comment, enumerable: true });
         const declaringEntityType = String(mutation.entity);
+        const width = new ModeledInteger32Layout(declaringEntityType, schema);
         const checker = this.checkers[declaringEntityType];
-        if (!checker) return this.sealMutationVersion(mutation, originalVersion);
+        if (!checker) {
+            const violations = width.checkMutation(mutation.payload || {});
+            if (violations.length) throw new CheckException(violations);
+            return this.sealMutationVersion(mutation, originalVersion);
+        }
         const results: any[] = [];
         const ownsFixTime = this.userContext.getResource("fixTime") === undefined;
         if (ownsFixTime) this.userContext.insertResource("fixTime", this.userContext.businessTime()).beginFixEvidence();
@@ -300,9 +306,10 @@ export class TeaQLClient implements TeaQLDataService {
             checker.checkAndFix(this.userContext, mutation, results);
             if (mutation.action !== request.mutation.action || this.checkedMutationVersion(mutation) !== originalVersion)
                 throw new MutationVersionError("invalid_type");
-            if (mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+            width.checkMutation(mutation.payload || {}, results);
             this.userContext.translateCheckResults(results, declaringEntityType);
             if (results.length) throw new CheckException(results);
+            if (mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
             return this.sealMutationVersion(mutation, originalVersion);
         } finally { if (ownsFixTime) this.userContext.removeResource("fixTime").finishFixEvidence(); }
     }
@@ -435,6 +442,8 @@ export class TeaQLClient implements TeaQLDataService {
             rows = rows.map((row: any) => Object.fromEntries(
                 Object.entries(row).filter(([field]) => selections.has(field))));
         }
+        const width = new ModeledInteger32Layout(query.entity, this.schemas[query.entity]);
+        for (const row of rows) for (const field of Object.keys(row)) row[field] = width.read(field, row[field]);
         return rows;
     }
     async executeCount(query: any, countAlias?: string, operation?: QueryOperation): Promise<number> {

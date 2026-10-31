@@ -30,7 +30,7 @@ async function main() {
       paths: {'teaql-ts': [path.join(repo, 'src/index.ts')], 'teaql-ts/*': [path.join(repo, 'src/*')],
         'scalar-lib/*': [path.join(__dirname, 'generated/src/*')]}}}));
     fs.writeFileSync(config, 'module.exports = ' + JSON.stringify({rootDir: repo, roots: [__dirname], testEnvironment: 'node',
-      testMatch: ['**/examples/scalar-type-probe/main.test.ts'], moduleNameMapper: {'^teaql-ts$': path.join(repo, 'src/index.ts'),
+      testMatch: ['**/examples/scalar-type-probe/*.test.ts'], moduleNameMapper: {'^teaql-ts$': path.join(repo, 'src/index.ts'),
         '^teaql-ts/(.*)$': path.join(repo, 'src/$1'), '^scalar-lib/(.*)$': path.join(__dirname, 'generated/src/$1')},
       transform: {'^.+\\.tsx?$': ['ts-jest', {tsconfig}]}}) + ';\n');
     for (const round of [1, 2]) {
@@ -38,7 +38,7 @@ async function main() {
         '--runInBand', '--cacheDirectory', path.join(scratch, 'jest')];
       const log = path.join(evidence, `round-${round}.log`), fd = fs.openSync(log, 'wx'); let result;
       try {result = await runner.run(command, {cwd: repo, timeout: 120000,
-        env: {...process.env, TEAQL_FULL_SCALAR_DB: path.join(evidence, 'fixture.sqlite')}, stdio: ['ignore', fd, fd]});}
+        env: {...process.env, TEAQL_FULL_SCALAR_DB: path.join(evidence, 'fixture.sqlite'), TEAQL_INTEGER32_ROUND: String(round)}, stdio: ['ignore', fd, fd]});}
       finally {fs.closeSync(fd);}
       const bytes = fs.readFileSync(log), text = bytes.toString();
       report.rounds.push({command, exitCode: result.status, signal: result.signal, logSha256: sha(bytes)});
@@ -48,6 +48,9 @@ async function main() {
         assert.equal(records.length, 1, prefix); assert.equal(records[0].passed, true);
       }
       const rejected = text.split(/\r?\n/).filter(line => line.startsWith('CORE_NONFINITE_REJECTED=')); assert.equal(rejected.length, 6);
+      const width=text.split(/\r?\n/).filter(line=>line.startsWith('TYPESCRIPT_INTEGER32=')).map(line=>JSON.parse(line.slice('TYPESCRIPT_INTEGER32='.length)));
+      assert.equal(width.length,2);assert.deepEqual(width.map(r=>r.backend).sort(),['file','sqlite']);
+      for(const r of width){assert.equal(r.round,round);assert.equal(r.passed,true);assert.equal(r.cases.length,55);assert(r.cases.every(c=>c.passed));assert.equal(r.legacy.length,8);}
       assert.deepEqual(fingerprint(), manifest);
     }
     report.databaseSha256 = sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite'))); report.passed = true;

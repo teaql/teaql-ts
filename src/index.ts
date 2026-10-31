@@ -2,6 +2,7 @@ export * from './core/value';
 export * from './core/decimal';
 export * from './core/long';
 export * from './core/mutation-version';
+export * from './core/modeled-integer32';
 export * from './core/local-time';
 export * from './core/context';
 export * from './core/business-clock';

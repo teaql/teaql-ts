@@ -2,18 +2,18 @@
   "schema": "teaql.generated-example-fixture/v1",
   "language": "typescript",
   "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762",
-  "generatedManifestSha256": "0ed5ba9ffed17c793afedb16bd5c4af46a9eb0d8e02cf49a76d23e43a8a7441d",
-  "producerReceiptSha256": "e919571a221d6e3b29fbca162dfd9024c8bc4ad52d8fd890eceb6505c609ebdf",
+  "generatedManifestSha256": "faa02d97bff18e217665aa8ac5dbfb69862376acadd631bb31acdc7bb76db3d9",
+  "producerReceiptSha256": "b6ded9cd3bf61eda0c91f481c7f44400125f03bee2b70b8aca7f9abec6fa6ab4",
   "producerSource": {
-    "commit": "05334976be070c1f922fc81651aabc8d26e06a59",
-    "diff": "bbedb83dee7071567be25a8ca6713f8a49ceee7b5a15a5e8b371a98df09c9224",
-    "status": "ecc6f4b39a465d3af524a93b9a3e38b68353011c27515291d739d1918502bcbc",
-    "sourceContentsSha256": "197fea824a25561dc0fbfb17ea1f0e2873e1871eb7ea0aa712ac72885b94e5b2",
+    "commit": "62e73486f1770dfee4b777896b9cdde8e7047636",
+    "diff": "f87154a9aef812b6511ecf8598c0fa688c63988ceda7b91ef595a82b3bc78008",
+    "status": "df7409f8ce742ce54bc11a78d8c314f3afa88a52fafd249e20f4697f851be432",
+    "sourceContentsSha256": "4ad328310ececf373d35a2e6bf7e53d844f0b8f49bc87405838364d9ee7d206a",
     "pairedTypescript": {
       "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "462b3f0f417fdb65380b53306a749341fbe15727",
-      "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sourceContentsSha256": "483b65012b2e4e493dfe09bffc71ac7f4c9c93c12a3cead615c318162e7bf859"
+      "commit": "1490002cce95ff321a52640bd1de5d772cb14b54",
+      "diff": "6f8b2d5b7c69c503c53b84dbaf2fdaaacff3d7819aa694f7920c263c5b104218",
+      "sourceContentsSha256": "d354d1d4d006ca33316541b34276cb0765c238b17e304c065b3d9061c90446a7"
     },
     "retainedModels": [
       {
@@ -94,21 +94,20 @@
   "evaluationErrors": 0,
   "evaluationWarnings": 0,
   "files": {
-    "src/generated/Q.ts": "e9c654d67ae27c4fdb1fbb38cfdb99a4a89b88fdeeac3de2ae862358bae3b143",
-    "src/generated/models/TypePlatform.ts": "9d0cb0df0521c038862dbfaf490bc7ae9d1f9dff42aea5ec6fa333859ba2d29b",
-    "src/generated/models/ScalarTypeProbe.ts": "a3bb3b54d9d8ae55dd56e91089a85d1435f4a86bc730f4e75df75c122c75e1f1",
+    "src/generated/models/TypePlatform.ts": "634e2295042de68e4121b0bbc135cedce26f69f44ede67ad624b8eafbd73f264",
+    "src/generated/models/ScalarTypeProbe.ts": "656ed6dd535f730cf5678c5e5a25844b31a84c09162b10ac6cb510deeb02082d",
     "src/generated/requests/TypePlatformRequest.ts": "550de9ffdde4deaa2481c6c2cb4b9a92b32db4bbc667127bbbab6f52b833d79e",
     "src/generated/requests/ScalarTypeProbeRequest.ts": "4aef008eda2d9c4681efe68303fec593edca5c6f22d3f8ed7f0ed1a3437cd4be",
     "teaql-i18n.json": "a2b6c40ece22b6c1c4b0231036e6859c294494c3ed6db8d24d57f08448457163",
-    "src/generated/E.ts": "44bab6e0c5f3481ee6ca8fa55d3042e7a867a0af9ca5956e0194a4c82425616e",
+    "src/generated/Q.ts": "e9c654d67ae27c4fdb1fbb38cfdb99a4a89b88fdeeac3de2ae862358bae3b143",
+    "src/generated/E.ts": "c96e60f771a2477dc64ece64a860c117a63d79790f229683f375aae1f89ac14f",
     "package.json": "c857608f78461bfe1a63095fd2e0d04ead1669c415de8e7a1f8fb4c216c73558",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
-    "src/teaql-ts.ts": "b460abd384e7ebb4d50e97278b6e762daee3358dd66e587a40795b4f1ce7495a",
+    "src/teaql-ts.ts": "9d92a36f51b8564e1d1a658fd89743dc40b0f0edd90cf9ed22747f0b87a8ebf2",
     "src/generated-search-models.ts": "25be59abce5f53f0434f3cb781ff29930118e08d851e2c7f8930a447e6b34956",
-    "src/teaql-node-sql.ts": "79a0b0e5120f598d3581f239ae1661221d154661ffba09b66ccc8b9f29e9a6a4",
+    "src/teaql-node-sql.ts": "6061936d57cb9f57cdf2a60acb10aeb84ab839e5d927b0f14fe64ae47156ebd6",
     "src/runtime-module.ts": "b8898eecf41ea135ba72efe960cfda1eede40ec5cc1afba5a077ba4c6b8dfcf5",
     "src/generated-bootstrap.ts": "92184f41b0a04ce3661a14deab06b2ee99a1bf644641dfe280b89dad416ed63e",
     "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c"
-  },
-  "previousFixtureManifestSha256": "6fcd19318d3f15d5dde84f57ed2fee373ff6c7f7f22e97aee3590f131082dec5"
+  }
 }

@@ -2,17 +2,17 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "95502038a66686580e7399dc4252df51f95cc0dc10a54657f5779dc2a5dd1e76",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "f56349c496ecce31ce48c807a28230aae19327067363ce2c38e520b00c63d5c8",
+  "producerReceiptSha256": "b6ded9cd3bf61eda0c91f481c7f44400125f03bee2b70b8aca7f9abec6fa6ab4",
   "producerSource": {
-    "commit": "106b34a531ce6620d1291d2c0711c2166a6a3da7",
-    "diff": "c0b5f2afdfd55e039162a63895a7d9fc68c380bb05724a41e482b23e018a0328",
-    "status": "9480bcdf998f4a262f142c6d3ac936176a13eedcfcb92df30c6bba1f3fde723a",
-    "sourceContentsSha256": "0892a6c7a910f7c5fd0972a5b1a0417c5d81d05e2fce9df6096ad1eaa130bca7",
+    "commit": "62e73486f1770dfee4b777896b9cdde8e7047636",
+    "diff": "f87154a9aef812b6511ecf8598c0fa688c63988ceda7b91ef595a82b3bc78008",
+    "status": "df7409f8ce742ce54bc11a78d8c314f3afa88a52fafd249e20f4697f851be432",
+    "sourceContentsSha256": "4ad328310ececf373d35a2e6bf7e53d844f0b8f49bc87405838364d9ee7d206a",
     "pairedTypescript": {
       "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "8bd6f968be0ae5c2226fbe78e5e8ea8542e985b5",
-      "diff": "1bfebecc9d14656a59cd51306c6d11befdb8e05119b3f50d5f848c0c7299d1d3",
-      "sourceContentsSha256": "1c66923173d2df1b769634f7f6685823db02d5d1f4aed7f11fabb87d13c93cf4"
+      "commit": "1490002cce95ff321a52640bd1de5d772cb14b54",
+      "diff": "6f8b2d5b7c69c503c53b84dbaf2fdaaacff3d7819aa694f7920c263c5b104218",
+      "sourceContentsSha256": "d354d1d4d006ca33316541b34276cb0765c238b17e304c065b3d9061c90446a7"
     },
     "retainedModels": [
       {
@@ -90,12 +90,12 @@
     "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
   },
   "files": {
-    "src/generated/models/Platform.ts": "ce98046b0e44d86a2be6bbbc594e93b5d8eff99924c68c1b72c59a2e88d7a7a4",
-    "src/generated/models/CustomerOrder.ts": "5eea89896ef0a3fb1c8c584674a91061507be2044823ff9667723952eb04ff41",
-    "src/generated/models/OrderItem.ts": "81baa32ff9c7e47f06e66136048d6d53e8a883fc9606a782364deaadca7f24af",
-    "src/generated/models/Payment.ts": "680b14093656e85a0ceca5f25c7a368a1dc94264cfec46477f5d25b80e143e9a",
-    "src/generated/models/PaymentAttempt.ts": "84e1dc1cd04c5706fe65346d1917004ec1c1cbbae907589de8f73b898bd6e962",
-    "src/generated/models/Shipment.ts": "73c9db6ef32142ec19e7e016285eda02635e6212943f30b53920d6f7c2359aed",
+    "src/generated/models/Platform.ts": "3770910aa65bdb24951d376f56f3b04fd90f9bc8426335c12bd887733b8486c3",
+    "src/generated/models/CustomerOrder.ts": "f003bcbcea6f0df92ca922c72e939223bdd4a3143c8b6bbd0e06d984eec5b651",
+    "src/generated/models/OrderItem.ts": "a8b5e060c4b911aba3597ca74e52f4fcaabf278fc9cfec3a0ff0bacfc4ff52a3",
+    "src/generated/models/Payment.ts": "1509062db287e76d862f9bad172e2c02b884645f361f724259a0c7f3fd1e2d5c",
+    "src/generated/models/PaymentAttempt.ts": "01e8a96ff6704737ba3dd926e0cb1d5debd67c4cd0b4cd1409c6e6c814491e41",
+    "src/generated/models/Shipment.ts": "2174e3c5e3a143c4221afe294dd15ebe872663c021a7cb8a20b994fdf4106e70",
     "src/generated/requests/PlatformRequest.ts": "a404634943261d700950fdfe35dd6164eaacdd6e0e2dee3648350c9415ad1cdf",
     "src/generated/requests/CustomerOrderRequest.ts": "2fc4934365ca804fb98f242c4b2b6bbbc7d2d67c5e8bf53a0d7a2424214bdf1b",
     "src/generated/requests/OrderItemRequest.ts": "dd87bfad0287176c23f152d148c76d8731b7e7edcd0c83ea0c83cb8a7a73c96d",
@@ -103,8 +103,8 @@
     "src/generated/requests/PaymentAttemptRequest.ts": "32b650043a3fc8286aef63ec95c22fe63d27fb5efb33de48a69df5811bf06762",
     "src/generated/requests/ShipmentRequest.ts": "2ae7b4bb74fbb68ea1379bf70428aa5df9df99cc0a8f915e21b7eaad3db0ad93",
     "src/generated/Q.ts": "ec633c6c5c488e3a2f0dd77a2c9cc5b40cece976f8439caf6782bb9f5cd49833",
-    "src/generated/E.ts": "5300d71d0d3830b8d8f13b6843addec670743c2e10f38ddeda840b809aada9e2",
-    "src/teaql-ts.ts": "0989db2bf346f4489a8971c66d0924d89df3029c029f8ff5b85e72fd7df19dcd",
+    "src/generated/E.ts": "5b2dd375da6ee57c91fd4c752e6ec27aa2372ec5abd639f702d5c32b3053bee0",
+    "src/teaql-ts.ts": "9d92a36f51b8564e1d1a658fd89743dc40b0f0edd90cf9ed22747f0b87a8ebf2",
     "src/generated-search-models.ts": "b2793ced879531ebf0b7d1a87fbbe0357bad746f43b9d8fc900dce458dc07820",
     "src/teaql-schemas.ts": "bf09100425eaa11c09ae3a412cea5706c2c60dcb0e4ed05effc5158b78a6e8a8",
     "src/runtime-module.ts": "e47fcc695cd64599ee5314950b29bfbb278b5499060634643e2850c43a5f9d33",
