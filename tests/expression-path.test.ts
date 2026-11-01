@@ -1,5 +1,29 @@
 import { ExpressionPath, TeaQLNotLoadedError } from '../src';
 
+test('literal punctuation and indices preserve canonical identity in all wire profiles', () => {
+  for (const [profile, pointer] of [
+    ['camelCase', '/schoolType/2/a~0~1b.c'],
+    ['snake_case', '/school_type/2/a~0~1b.c'],
+    ['PascalCase', '/SchoolType/2/A~0~1b.c'],
+  ] as const) {
+    const path = ExpressionPath.root('E.node(<root>)', profile).member('school_type', 'schoolType')
+      .index(2).member('a~/b.c', 'safeField').markMissing();
+    const wire = new TeaQLNotLoadedError(path, 'a~/b.c').terminal('eval()').toWire();
+    expect(wire.instancePath).toBe(pointer);
+    expect(wire.attemptedInstancePath).toBe(pointer);
+    expect(wire.location).toEqual([{ kind: 'property', name: 'school_type' },
+      { kind: 'index', index: 2 }, { kind: 'property', name: 'a~/b.c' }]);
+    expect(wire.attemptedLocation).toEqual(wire.location);
+    expect(wire.suggestedFix.location).toEqual(wire.location);
+    expect(wire.breakPointIndex).toBe(2);
+    expect(wire.breakPoint).toBe('a~/b.c');
+    expect(wire.expressionWithBrokenPoint).toBe('E.node(<root>).schoolType().get(2).safeField()<broken>.eval()');
+    const record = JSON.stringify({ language: 'typescript', profile, wire });
+    console.log('E_POINTER_PROFILE_CASE=' + record);
+    if (process.env.TEAQL_POINTER_PROFILE_EVIDENCE) require('node:fs').appendFileSync(process.env.TEAQL_POINTER_PROFILE_EVIDENCE, record + '\n');
+  }
+});
+
 test('early repeated relation failure retains the full native chain and exactly one marker', () => {
   const parent = ExpressionPath.root('E.node(<root>)').member('parent', 'parent').markMissing();
   const full = parent.member('parent', 'parent').member('user_url', 'userUrl');
