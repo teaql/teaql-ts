@@ -3,10 +3,16 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const {createOwnedRunner,ownedBytes}=require('../fix-e-alignment/owned-command.cjs');
 const EXAMPLE=__dirname,REPO=path.resolve(EXAMPLE,'../..'),PROFILES=['camelCase','snake_case','PascalCase'],LANGUAGE="typescript";
+const ORIGIN=path.resolve(process.env.TEAQL_TYPESCRIPT_EXAMPLE_SOURCE_ROOT||REPO);
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex'),digest=f=>sha(fs.readFileSync(f));
 function sourceHash(root=REPO){
- const names=[...new Set(cp.execFileSync('git',['-C',REPO,'ls-files','-z','--cached','--others','--exclude-standard']).toString().split('\0').filter(Boolean))].sort(),h=crypto.createHash('sha256');
- for(const n of names){const f=path.join(root,n);h.update(n+'\0');if(!fs.existsSync(f)){h.update('deleted\0');continue;}const s=fs.lstatSync(f);h.update(String(s.mode)+'\0');h.update(s.isSymbolicLink()?fs.readlinkSync(f):fs.readFileSync(f));h.update('\0');}return h.digest('hex');
+ assert.equal(fs.realpathSync(root),root,'source root cannot be a symlink alias');
+ const names=[...new Set(cp.execFileSync('git',['-C',ORIGIN,'ls-files','-z','--cached','--others','--exclude-standard']).toString().split('\0').filter(Boolean))].sort(),h=crypto.createHash('sha256');
+ for(const n of names){assert(!path.isAbsolute(n)&&!n.split('/').includes('..'));const f=path.join(root,n);h.update(n+'\0');assert.equal(fs.realpathSync(f),f);const s=fs.lstatSync(f);assert(s.isFile()&&!s.isSymbolicLink());h.update(String(s.mode)+'\0');h.update(fs.readFileSync(f));h.update('\0');}return h.digest('hex');
+}
+function sourceIdentity(){
+ const body=sourceHash();assert.equal(body,sourceHash(ORIGIN),'isolated runtime must match its real Git origin before execution');
+ return{commit:cp.execFileSync('git',['-C',ORIGIN,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),sourceContentsSha256:body};
 }
 function fixture(){
  const root=path.join(EXAMPLE,'generated'),manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'))),provenance=JSON.parse(fs.readFileSync(path.join(EXAMPLE,'provenance.json')));
@@ -23,7 +29,7 @@ async function main(){
  let scratch,runner;
  try{
   const disk=fs.statfsSync(os.tmpdir());assert(disk.bavail*disk.bsize>8*1024**3);
-  report.sourceBefore={commit:cp.execFileSync('git',['-C',REPO,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),sourceContentsSha256:sourceHash()};report.fixture=fixture();report.controllerSha256=digest(__filename);
+  report.sourceBefore=sourceIdentity();report.executionSource={path:REPO,origin:ORIGIN,sourceContentsSha256:report.sourceBefore.sourceContentsSha256};report.fixture=fixture();report.controllerSha256=digest(__filename);
   scratch=fs.mkdtempSync(path.join(os.tmpdir(),'teaql-'+LANGUAGE+'-expression-build-'));runner=createOwnedRunner();
   const env={...process.env,TMPDIR:scratch};
   async function run(profile,name,command,cwd,timeout=300000){
@@ -39,9 +45,9 @@ async function main(){
    report.applicationSha256=digest(path.join(EXAMPLE,'main.test.ts'));
    const runtime=path.join(scratch,'source'),example=path.join(runtime,'examples/expression-profiles');
    if(profile==='camelCase'){
-    const names=[...new Set(cp.execFileSync('git',['-C',REPO,'ls-files','-z','--cached','--others','--exclude-standard']).toString().split('\0').filter(Boolean))];
+    const names=[...new Set(cp.execFileSync('git',['-C',ORIGIN,'ls-files','-z','--cached','--others','--exclude-standard']).toString().split('\0').filter(Boolean))];
     for(const n of names){const from=path.join(REPO,n);if(!fs.existsSync(from))continue;assert(fs.lstatSync(from).isFile());const to=path.join(runtime,n);fs.mkdirSync(path.dirname(to),{recursive:true});fs.copyFileSync(from,to);fs.chmodSync(to,fs.statSync(from).mode&0o777);}
-    assert.equal(sourceHash(runtime),report.sourceBefore.sourceContentsSha256);report.runtimeSourceCopy={path:runtime,sourceContentsSha256:sourceHash(runtime)};
+    assert.equal(sourceHash(runtime),report.sourceBefore.sourceContentsSha256);report.runtimeSourceCopy={path:runtime,origin:REPO,sourceContentsSha256:sourceHash(runtime)};
     await run(profile,'dependencies',['npm','ci','--offline','--no-audit','--fund=false'],runtime);
     assert.equal(sourceHash(runtime),report.sourceBefore.sourceContentsSha256);
    }
@@ -58,7 +64,7 @@ async function main(){
 
    state.databaseSha256=digest(env.TEAQL_EXPRESSION_DB);assert.deepEqual(fixture(),report.fixture);assert.equal(sourceHash(),report.sourceBefore.sourceContentsSha256);assert.equal(sourceHash(runtime),report.sourceBefore.sourceContentsSha256);
   }
-  report.passed=true;
+  assert.deepEqual(sourceIdentity(),report.sourceBefore);report.passed=true;
  }catch(error){report.error=error.stack;console.error(error.stack);process.exitCode=1;}
  finally{
   const safe=!runner||runner.safeToClean;report.cleanup={scratchRemoved:false,disposedOwnedBytes:safe&&scratch?ownedBytes(scratch):0,sharedCachesDeleted:false,databasesDeleted:false};
@@ -67,3 +73,4 @@ async function main(){
  }
 }
 if(require.main===module)main().catch(e=>{console.error(e.stack);process.exitCode=1;});
+module.exports={sourceHash,sourceIdentity,ORIGIN,REPO};

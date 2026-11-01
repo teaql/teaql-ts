@@ -10,6 +10,13 @@ import { verifyCheckerMetadata, verifyFileCheckerMetadata } from './checker-meta
 import { verifyExpressionBoundaries } from './expression-boundary-probe';
 import { verifyContextRoot, verifyFileContextRoot } from './context-root-probe';
 import { verifyPartialAncestors } from './partial-ancestors-probe';
+import { verifyPartialRoot } from './partial-root-probe';
+
+test('a complete modified leaf retains root admission through two untouched partial ancestors', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('retained SQLite path required for managed partial-root verification');
+  await verifyPartialRoot(filename + '.partial-root.sqlite');
+});
 
 test('only modified objects need completeness through two untouched partial ancestors', async () => {
   const filename = process.env.TEAQL_FIX_E_DB;
