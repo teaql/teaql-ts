@@ -27,6 +27,7 @@ async function main() {
     const manifest = fingerprint(); report.modelSha256 = manifest.modelSha256;
     const tsconfig = path.join(scratch, 'tsconfig.json'), config = path.join(scratch, 'jest.cjs');
     fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, 'tsconfig.json'), compilerOptions: {baseUrl: repo,
+      types: ['node', 'jest'], typeRoots: [path.join(repo, 'node_modules/@types')], lib: ['ES2022', 'DOM'],
       paths: {'teaql-ts': [path.join(repo, 'src/index.ts')], 'teaql-ts/*': [path.join(repo, 'src/*')],
         'scalar-lib/*': [path.join(__dirname, 'generated/src/*')]}}}));
     fs.writeFileSync(config, 'module.exports = ' + JSON.stringify({rootDir: repo, roots: [__dirname], testEnvironment: 'node',
