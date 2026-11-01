@@ -16,21 +16,24 @@ trap finish_verification EXIT
 example_evidence="${TEAQL_EXAMPLES_EVIDENCE_DIR:-$(mktemp -d -t teaql-ts-example-evidence.XXXXXXXX)}"
 mkdir -p "$example_evidence"
 echo "Retained TypeScript example evidence: $example_evidence"
-# file: dependencies resolve the package's dist entry points, not TypeScript source.
-# Rebuild here so examples can never silently validate stale checked-in output.
-(cd "$repo" && npm run build)
-bash "$repo/examples/object-storage/verify.sh"
-(cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
-mkdir -p "$repo/.local"
 expected=(browser-sqlite conformance ensure-schema-bootstrap expression-profiles facet-trace fix-e-alignment object-storage order-management scalar-type-probe school-management task-board trace-chain)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2
   exit 1
 fi
-node "$repo/examples/fix-e-alignment/verify-local.cjs"
+# Bind the complete source snapshot before the build replaces tracked dist chunks.
+# Profiles compile repository source in their own isolated copy; no source guard
+# is weakened to accommodate generated build output.
 TEAQL_GENERATED_E_PROFILE_EVIDENCE_DIR="$example_evidence/expression-profiles" \
   node "$repo/examples/expression-profiles/verify-local.cjs"
+# file: dependencies resolve dist entry points. Rebuild before those consumers
+# so they cannot silently validate stale checked-in output.
+(cd "$repo" && npm run build)
+bash "$repo/examples/object-storage/verify.sh"
+(cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
+mkdir -p "$repo/.local"
+node "$repo/examples/fix-e-alignment/verify-local.cjs"
 node "$repo/examples/scalar-type-probe/verify-local.cjs"
 TEAQL_FILE_BOOTSTRAP_OUTPUT="$example_evidence/file-bootstrap" node "$repo/examples/school-management/verify-file-bootstrap.cjs"
 if rg -n --glob '*.ts' --glob '!**/node_modules/**' --glob '!**/dist/**' \
