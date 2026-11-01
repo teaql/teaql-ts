@@ -1,12 +1,13 @@
 {
   "name": "teaql-order-management-example",
   "private": true,
+  "engines": { "node": ">=22" },
   "workspaces": [
     "typescript-node-lib-core",
     "typescript-app-console"
   ],
   "overrides": {
-    "better-sqlite3": "^12.10.0"
+    "better-sqlite3": "^13.0.3"
   },
   "scripts": {
     "build": "npm run build --workspace order-management-example",

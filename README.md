@@ -282,6 +282,14 @@ final execution report. It is a workflow, not a guarantee of unattended correctn
 
 Node.js/npm for the repository examples. Browser SQLite runs in a Web Worker with SQLite/WASM. From a checkout of this repository:
 
+The Node SQLite adapter and its examples require **Node 22+** and
+**better-sqlite3 13.0.3+ (13.x)**. Version 13 uses N-API; the older 12.x binding can
+abort during allocation-driven garbage collection on Node 24.19.0 even when a
+manual `global.gc()` check passes. The repository regression executes 300,000
+prepared queries in a separate real Node process twice. This native-provider
+requirement does not apply to browser SQLite/WASM or Expo SQLite, and does not
+raise the runtime core's Node requirement for unrelated providers.
+
 ```bash
 cd examples/school-management
 npm install
