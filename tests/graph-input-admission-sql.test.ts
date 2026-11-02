@@ -83,3 +83,63 @@ test('whole-input admission runs inside the serialized save queue, not before a 
     release(); await first; await rejected; expect(clocks()).toBe(0);
   } finally {release(); await client.close();}
 });
+
+test('rejected Context ownership cannot replace an existing graph clock or Fix evidence', async () => {
+  const {context, client} = await fixture();
+  let clockCalls = 0;
+  context.withBusinessClock({now: () => {clockCalls++; return new Date('2040-01-01');}});
+  const instant = new Date('2032-02-29T10:15:30Z');
+  context.insertResource('fixTime', instant).beginFixEvidence().recordFixEvidence({
+    entityType: 'Probe', modelPath: 'create_time', source: 'clock', sourceLabel: 'graphClock',
+  });
+  const evidence = context.getResource('fixEvidenceCurrent');
+  context.beginMutationPolicyGraph();
+  const query = jest.spyOn(client.database, 'query'), transaction = jest.spyOn(client.database, 'transaction');
+  try {
+    await expect(client.executeGraphSave(intent(), async () => {throw new Error('rejected owner entered work');}))
+      .rejects.toThrow('mutation policy graph is already active');
+    expect(clockCalls).toBe(0); expect(query).not.toHaveBeenCalled(); expect(transaction).not.toHaveBeenCalled();
+    expect(context.getResource('fixTime')).toBe(instant);
+    expect(context.getResource('fixEvidenceCurrent')).toBe(evidence);
+    expect(context.lastFixEvidence()).toHaveLength(0);
+  } finally {
+    context.endMutationPolicyGraph(); context.removeResource('fixTime').finishFixEvidence(); await client.close();
+  }
+});
+
+test('another SQL client rejected on a shared Context cannot change the admitted graph snapshot', async () => {
+  const {context, client} = await fixture();
+  const other = new Client(new SQLiteDriver(':memory:')).setUserContext(context).setDiagnosticSQLLogSink(undefined);
+  let tick = 1000, release!: () => void, entered!: () => void;
+  context.withBusinessClock({now: () => new Date(tick++)});
+  const ready = new Promise<void>(resolve => {entered = resolve;}), hold = new Promise<void>(resolve => {release = resolve;});
+  const first = client.executeGraphSave(intent(), async () => {
+    expect(context.requireResource<Date>('fixTime').getTime()).toBe(1000);
+    context.recordFixEvidence({entityType: 'Probe', modelPath: 'create_time', source: 'clock', sourceLabel: 'graphClock'});
+    const evidence = context.getResource('fixEvidenceCurrent'); entered(); await hold;
+    expect(context.requireResource<Date>('fixTime').getTime()).toBe(1000);
+    expect(context.getResource('fixEvidenceCurrent')).toBe(evidence);
+  });
+  try {
+    await ready;
+    await expect(other.executeGraphSave(intent(), async () => {throw new Error('competing client entered work');}))
+      .rejects.toThrow('mutation policy graph is already active');
+    expect(tick).toBe(1001);
+    release(); await first;
+    expect(context.getResource('fixTime')).toBeUndefined(); expect(context.getResource('fixEvidenceCurrent')).toBeUndefined();
+    expect(context.lastFixEvidence()).toEqual([{entityType: 'Probe', modelPath: 'create_time', source: 'clock', sourceLabel: 'graphClock'}]);
+  } finally {release(); await first; await client.close(); await other.close();}
+});
+
+test('a clock failure after graph ownership admission releases that ownership and preserves the original error', async () => {
+  const {context, client} = await fixture();
+  const original = new Error('clock provider unavailable');
+  context.withBusinessClock({now: () => {throw original;}});
+  const transaction = jest.spyOn(client.database, 'transaction');
+  try {
+    await expect(client.executeGraphSave(intent(), async () => {throw new Error('failed clock entered work');})).rejects.toBe(original);
+    expect(transaction).not.toHaveBeenCalled(); expect(context.getResource('fixTime')).toBeUndefined();
+    expect(context.getResource('fixEvidenceCurrent')).toBeUndefined();
+    context.beginMutationPolicyGraph(); context.endMutationPolicyGraph();
+  } finally {await client.close();}
+});

@@ -823,11 +823,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         graph.sealPreparedGraph(); this.activeGraph = graph;
         try {return await work(graph);} finally {this.activeGraph = undefined;}
       }
+      // Admission can reject another client sharing this Context. It must
+      // happen before capturing time or replacing the admitted graph's evidence.
+      executionContext.beginMutationPolicyGraph();
+      mutationPolicyGraphStarted = true;
       executionContext.insertResource('fixTime', executionContext.businessTime());
       executionContext.beginFixEvidence();
       fixEvidenceStarted = true;
-      executionContext.beginMutationPolicyGraph();
-      mutationPolicyGraphStarted = true;
       // Generated Checker/Fix is a preparation phase, not provider work. Keep
       // the same graph capability and captured clock for the transaction, but
       // reject invalid required values before opening it or allocating IDs.

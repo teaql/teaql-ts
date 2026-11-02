@@ -9,6 +9,7 @@ import { SQLiteTeaQLClient } from "./teaql-node-sqlite";
 import { verifyMaskingLifecycle } from './masking-verification';
 import { LocalCache } from 'teaql-ts';
 import { verifyOperationalClock } from './operational-clock-verification';
+import { verifyFixOwnerAdmission } from './fix-owner-verification';
 
 async function main(): Promise<void> {
   const orderKey = { entity: "Order", id: 1 } as const;
@@ -85,6 +86,7 @@ async function main(): Promise<void> {
   console.log("PASS TypeScript minimum runtime conformance: 8/8");
   await verifyMaskingLifecycle();
   console.log('TYPESCRIPT_OPERATIONAL_CLOCK_EXAMPLE=' + JSON.stringify(await verifyOperationalClock(new UserContext(), new LocalCache())));
+  await verifyFixOwnerAdmission();
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
