@@ -166,14 +166,20 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
       record('post-fix-' + mode, {effects: rejected.effects, wire: checkResultToWire(rejected.result),
         originalInputRetained: true, checkerCalls: rejected.checkerCalls}); fix = 'none';
     }
-    const repaired = owner(), repairedChild = item(false); repaired.orderItemList().push(repairedChild); fix = 'repair'; reset();
+    const repaired = owner(), repairedChild = item(false);
+    const originalChild = (repairedChild as any)._root.change({entity: 'OrderItem', id: (repairedChild as any)._ledgerId});
+    expect(originalChild).not.toHaveProperty('product_name');
+    expect(String(E.orderItem(repairedChild).unitPrice().eval())).toBe('0');
+    repaired.orderItemList().push(repairedChild); fix = 'repair'; reset();
     await repaired.auditAs('Persist only the repaired required and range values').save(context); fix = 'none';
     expect(effects()).toMatchObject({transactions: 1, begins: 1, commits: 1, rollbacks: 0, allocations: 2, mutations: 2, audits: 2});
+    const repairedEffects = effects();
     const repairedRows = (await Q.orderItems().withIdIs(repairedChild.id!).limit(1)
       .comment('Read the actual repaired business values').purpose('Verify customer Fix reaches persistence').executeForList(context));
     expect(E.orderItem(repairedRows[0]).productName().eval()).toBe('Fixed child');
     expect(String(E.orderItem(repairedRows[0]).unitPrice().eval())).toBe('12.34');
-    record('post-fix-repair', {parentID: Number(repaired.id), childID: Number(repairedChild.id), storedName: 'Fixed child', storedPrice: '12.34'});
+    record('post-fix-repair', {parentID: Number(repaired.id), childID: Number(repairedChild.id), storedName: 'Fixed child', storedPrice: '12.34',
+      originalMissingRequired: true, originalPrice: '0', effects: repairedEffects});
 
     // The runtime's public object-local adapter, then an explicit generated setter
     // allow-list and save. This is not a recursive HTTP/TFP adapter test.
