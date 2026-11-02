@@ -11,6 +11,13 @@ import { verifyExpressionBoundaries } from './expression-boundary-probe';
 import { verifyContextRoot, verifyFileContextRoot } from './context-root-probe';
 import { verifyPartialAncestors } from './partial-ancestors-probe';
 import { verifyPartialRoot } from './partial-root-probe';
+import { unchangedViewCases, verifyUnchangedView } from './unchanged-views-probe';
+
+test.each(unchangedViewCases)('unchanged view and rollback contract: %s', async scenario => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('Retained SQLite path required for view restoration verification');
+  await verifyUnchangedView(filename + '.unchanged.' + scenario + '.sqlite', scenario);
+});
 
 test('a complete modified leaf retains root admission through two untouched partial ancestors', async () => {
   const filename = process.env.TEAQL_FIX_E_DB;

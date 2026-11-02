@@ -37,3 +37,17 @@ The runtime does not define a tenant policy here: `Tenant` is this model's
 declared root type. This save-boundary test does not establish query
 authorization, untrusted-hydration authorization, full loading conformance, or
 private/public package acceptance.
+
+`unchanged-views-probe.ts` exercises three no-op views: selected null and a
+sparse forward edge; a complete owner with another independently pending view;
+and an explicitly loaded empty reverse list. Eleven positively calibrated
+side-effect counters must remain zero. The same default verifier also injects
+two transaction faults, **after a real UPDATE** and immediately before COMMIT.
+It checks the uncommitted version, the independently observed rollback, retained
+view geometry and optimistic baseline, and a successful retry of the same
+object without another query. A genuine commit must advance only the changed
+row and use the configured Business Clock. Both rounds retain their SQLite
+files; no handwritten business INSERT/UPDATE is used.
+
+This does not claim typed dynamic-property schemas, persistent dynamic fields,
+an application-owned outer transaction, all-provider behavior or performance.

@@ -34,6 +34,7 @@ try {
   report.contextRootApplicationSha256 = sha(fs.readFileSync(path.join(example, 'context-root-probe.ts')));
   report.partialAncestorApplicationSha256 = sha(fs.readFileSync(path.join(example, 'partial-ancestors-probe.ts')));
   report.partialRootApplicationSha256 = sha(fs.readFileSync(path.join(example, 'partial-root-probe.ts')));
+  report.unchangedViewsApplicationSha256 = sha(fs.readFileSync(path.join(example, 'unchanged-views-probe.ts')));
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
   const tsconfig = path.join(scratch, "tsconfig.json"), config = path.join(scratch, "jest.cjs");
   fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, "tsconfig.json"), compilerOptions: {
@@ -51,12 +52,19 @@ try {
     const log = path.join(evidence, "round-" + round + ".log"), fd = fs.openSync(log, "w");
     let result;
     try { result = await runner.run([process.execPath, ...command], {cwd: repo, timeout: 120000,
-      env: {...process.env, TEAQL_FIX_E_DB: path.join(evidence, "fixture.sqlite")}, stdio: ["ignore", fd, fd]}); }
+      env: {...process.env, TEAQL_FIX_E_DB: path.join(evidence, "fixture.sqlite"), TEAQL_FIX_E_ROUND: String(round)}, stdio: ["ignore", fd, fd]}); }
     finally { fs.closeSync(fd); }
     report.rounds.push({command, exitCode: result.status, signal: result.signal, logSha256: sha(fs.readFileSync(log))});
     if (result.status !== 0) process.exitCode = result.status || 1;
     assert.equal(result.status, 0, fs.readFileSync(log, "utf8").slice(-12000));
     const lines = fs.readFileSync(log, "utf8").split(/\r?\n/);
+    const viewCases = lines.filter(line => line.startsWith('CORE_TS_UNCHANGED_VIEW_CASE='))
+      .map(line => JSON.parse(line.slice('CORE_TS_UNCHANGED_VIEW_CASE='.length)));
+    assert.deepEqual(viewCases.map(value => value.scenario).sort(), [
+      'sparse-null-forward', 'complete-independent-other', 'empty-reverse', 'rollback-after-write', 'rollback-before-commit',
+    ].sort());
+    for (const value of viewCases) {assert.equal(value.passed, true); assert.equal(value.round, round);}
+    report.rounds[report.rounds.length - 1].unchangedViewCases = viewCases;
     for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA=", "CORE_TS_E_BOUNDARY_RESULT=", "CORE_TS_ROOT_RESULT=", "CORE_TS_ROOT_FILE_RESULT=", "CORE_TS_PARTIAL_ANCESTORS_RESULT=", "CORE_TS_PARTIAL_ROOT_RESULT="]) {
       const values = lines.filter(line => line.startsWith(marker)).map(line => JSON.parse(line.slice(marker.length)));
       assert.equal(values.length, 1, marker); assert.equal(values[0].passed, true, marker);
