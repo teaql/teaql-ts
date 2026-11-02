@@ -51,3 +51,14 @@ files; no handwritten business INSERT/UPDATE is used.
 
 This does not claim typed dynamic-property schemas, persistent dynamic fields,
 an application-owned outer transaction, all-provider behavior or performance.
+
+`checker-boundaries-probe.ts` adds required parent relations, independently omitted
+business fields (while ownership stays loaded), untouched partial targets, and
+customer Fix values rejected or repaired before generated save. It also installs
+Checkers in a separate schema-free store and exercises the public object-local
+JSON normalizer with declared aliases, escaped pointers and equal/unequal
+collisions in both submitted orders under three profiles. Explicit generated
+setters form the input allow-list; this is not recursive HTTP/TFP acceptance.
+Each round records 32 cases plus independently read physical rows. The default
+verifier runs both rounds without deleting either SQLite store and checks that
+generated implementations remain unchanged.

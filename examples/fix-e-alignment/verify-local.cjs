@@ -35,6 +35,7 @@ try {
   report.partialAncestorApplicationSha256 = sha(fs.readFileSync(path.join(example, 'partial-ancestors-probe.ts')));
   report.partialRootApplicationSha256 = sha(fs.readFileSync(path.join(example, 'partial-root-probe.ts')));
   report.unchangedViewsApplicationSha256 = sha(fs.readFileSync(path.join(example, 'unchanged-views-probe.ts')));
+  report.checkerBoundaryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'checker-boundaries-probe.ts')));
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
   const tsconfig = path.join(scratch, "tsconfig.json"), config = path.join(scratch, "jest.cjs");
   fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, "tsconfig.json"), compilerOptions: {
@@ -65,6 +66,15 @@ try {
     ].sort());
     for (const value of viewCases) {assert.equal(value.passed, true); assert.equal(value.round, round);}
     report.rounds[report.rounds.length - 1].unchangedViewCases = viewCases;
+    const checkerCases = lines.filter(line => line.startsWith('CORE_TS_CHECKER_BOUNDARY_CASE='))
+      .map(line => JSON.parse(line.slice('CORE_TS_CHECKER_BOUNDARY_CASE='.length)));
+    assert.equal(checkerCases.length, 32);
+    for (const value of checkerCases) {assert.equal(value.passed, true); assert.equal(value.round, round);}
+    const checkerSummary = lines.filter(line => line.startsWith('CORE_TS_CHECKER_BOUNDARY_RESULT='))
+      .map(line => JSON.parse(line.slice('CORE_TS_CHECKER_BOUNDARY_RESULT='.length)));
+    assert.equal(checkerSummary.length, 1); assert.equal(checkerSummary[0].passed, true);
+    assert.equal(checkerSummary[0].round, round); assert.equal(checkerSummary[0].observations, 32);
+    report.rounds[report.rounds.length - 1].checkerBoundaryCases = checkerCases;
     for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA=", "CORE_TS_E_BOUNDARY_RESULT=", "CORE_TS_ROOT_RESULT=", "CORE_TS_ROOT_FILE_RESULT=", "CORE_TS_PARTIAL_ANCESTORS_RESULT=", "CORE_TS_PARTIAL_ROOT_RESULT="]) {
       const values = lines.filter(line => line.startsWith(marker)).map(line => JSON.parse(line.slice(marker.length)));
       assert.equal(values.length, 1, marker); assert.equal(values[0].passed, true, marker);
@@ -80,6 +90,8 @@ try {
     sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.partial-ancestors.sqlite')))};
   report.partialRootDatabase = {file: 'fixture.sqlite.partial-root.sqlite',
     sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.partial-root.sqlite')))};
+  report.checkerBoundaryDatabases = ['fixture.sqlite.checker-boundaries.sqlite', 'fixture.sqlite.checker-boundaries.sqlite.no-schema.sqlite']
+    .map(file => ({file, sha256: sha(fs.readFileSync(path.join(evidence, file)))}));
   report.passed = true;
   console.log("PASS TypeScript retained Fix/E/loading/ownership example twice on one database");
 } catch (error) { console.error(error.stack); process.exitCode ||= 1; }

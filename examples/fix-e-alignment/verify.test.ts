@@ -12,6 +12,13 @@ import { verifyContextRoot, verifyFileContextRoot } from './context-root-probe';
 import { verifyPartialAncestors } from './partial-ancestors-probe';
 import { verifyPartialRoot } from './partial-root-probe';
 import { unchangedViewCases, verifyUnchangedView } from './unchanged-views-probe';
+import { verifyCheckerBoundaries } from './checker-boundaries-probe';
+
+test('Checker admission covers required relations, exact completeness, post-Fix values and object-local wire inputs', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('Retained SQLite path required for Checker boundary verification');
+  await verifyCheckerBoundaries(filename + '.checker-boundaries.sqlite');
+});
 
 test.each(unchangedViewCases)('unchanged view and rollback contract: %s', async scenario => {
   const filename = process.env.TEAQL_FIX_E_DB;
