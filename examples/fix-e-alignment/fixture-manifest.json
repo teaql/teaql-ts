@@ -2,18 +2,18 @@
   "schema": "teaql.generated-example-fixture/v1",
   "language": "typescript",
   "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7",
-  "generatedManifestSha256": "08e9ff1c405a72ce566bd73e130365641839f11846dac94e331eb7cabd3e850e",
-  "producerReceiptSha256": "d358d608b685dc2e076ac365a9030f18c140e95e66fbffa65d79f0ea8957f982",
+  "generatedManifestSha256": "8442bab6ceaa100778cb03feeae5074ab5533371ff23b90365cec682f617e285",
+  "producerReceiptSha256": "80957fd5cd6b67aee4f598a2fb15d586a981504aeb0800f4a9f257774622361e",
   "producerSource": {
-    "commit": "55a23e374c57eeb303609cfcef2de6eaf42d0ed1",
+    "commit": "554a1b7fa1e5c053e52290c3ee48925901cebe00",
     "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sourceContentsSha256": "4f89af9c2ab44e34450a1f9b2ab625ad3b23d71407e254454ce3f53cae94ed0f",
+    "sourceContentsSha256": "030ea893182a7bd47993656ef9d2d4f0c4f5774d3d6240fbbff2350e10d4a8e8",
     "pairedTypescript": {
       "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "c973e4a2fd9cf8e994f649359eb73d70ffeebc08",
+      "commit": "b7673ff32ef72acf62c6520b3d91e2228ac63c51",
       "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sourceContentsSha256": "13d49a89d69a949715d16ec19c9b9c40991c378a1596fe1083be68b83ff0d2bc"
+      "sourceContentsSha256": "4525128ea583281b6fd31effe7a6fcae903b27da0b55c216376a96b51bca8191"
     },
     "retainedModels": [
       {
@@ -94,22 +94,23 @@
   "evaluationErrors": 0,
   "evaluationWarnings": 4,
   "files": {
-    "src/generated/models/Tenant.ts": "d861b87530563aa869583329dfa407dcb4dc85b1fc21839cbaa6a0b432523fd8",
-    "src/generated/models/PurchaseOrder.ts": "563a5463e2d6dc84c46d16153af806cd9322b7ef6fa3931736ee74417d33bd96",
-    "src/generated/models/OrderItem.ts": "53592879b3e693aaa4271339c62bc2a05572ab507628b0d0f4a314704fb0211f",
     "src/generated/requests/TenantRequest.ts": "5bd1546ffbfd59a896db64ed05012f8b50f6b55f4376ae464d17352afc9c219c",
     "src/generated/requests/PurchaseOrderRequest.ts": "da4084b111bf82fad0d8e1b93c346755cee2fad0afdf6d6e097f4ed8576581b2",
     "src/generated/requests/OrderItemRequest.ts": "9a00963e30169b4023002f8f285ee7f07fe54116211c6c246837149cd7bb7261",
     "teaql-i18n.json": "c8229ce36ed92393409dd95a5e6a6bd72c9818c95520d5d2e3656ac6f7c0f014",
-    "src/generated/Q.ts": "05ce50d75c5cfb3603168bc18d8d915de16b76781d706447b7f766b20a73ed87",
-    "src/generated/E.ts": "717cc96e91be5ed57279712fe82c4e5831d3bda037258c8597e268c50baed54b",
-    "package.json": "ecffe1548961c73221820aa426ea156897c61aac9c66af14cba31b99622f5fad",
+    "package.json": "9d6bff3b787abb3c141211704048ab53cc06d366aab436790120074b7ebcb1c9",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
     "src/teaql-ts.ts": "463ac354f44a3c66cbefde57a0a4ab77f514bd87aa0750ff0299a6a9a221920d",
     "src/generated-search-models.ts": "f7be71e619617cb1ff0011791d82f0bcd6ef9e3f94ce6f8159f283d3d160aef6",
     "src/teaql-node-sql.ts": "dabe21ab06bc85ee8ae2ca76440ef7fe7f8c3212fa2cd82ebdb838d549a276a3",
     "src/runtime-module.ts": "d665f68c46986a5f62fcf21cf4153b99ac98e4cfe5ef2e755df0902306923e51",
     "src/generated-bootstrap.ts": "f16c9576076922c99fab0b88ab36c7c21b1560dce451d99d44b281bbedc5c237",
-    "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c"
-  }
+    "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
+    "src/generated/Q.ts": "05ce50d75c5cfb3603168bc18d8d915de16b76781d706447b7f766b20a73ed87",
+    "src/generated/E.ts": "717cc96e91be5ed57279712fe82c4e5831d3bda037258c8597e268c50baed54b",
+    "src/generated/models/Tenant.ts": "bdc1b6e69b8593c8a7de6450cb4b1292649d6b80d4b9034fc03339e2e79d5e03",
+    "src/generated/models/PurchaseOrder.ts": "c6ec4940a11168fcb5d70c0e86c0fd3f51e63f0bc49bf4f6f7d8298d934ffc44",
+    "src/generated/models/OrderItem.ts": "0bb2988fcf5db1d3006d175d20b094d1d57b063644a643c8a65e62c2d0e1f33e"
+  },
+  "previousFixtureManifestSha256": "d03ddefec41d2f2aabb138447cebf68de3a2c6b7494daba1cb6ae023954021e5"
 }

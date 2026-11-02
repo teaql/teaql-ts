@@ -217,7 +217,7 @@ export class OrderItem {
             throw new Error("Mutation did not return the authoritative persisted record");
         }
         const rollbackState = {
-            payload: this.teaqlMutationPayload(),
+            ownProperties: Object.getOwnPropertyDescriptors(this),
             ledgerId: (this as any)._ledgerId,
             action: (this as any)._action,
             loadedFields: new Set((this as any)._loadedFields),
@@ -232,7 +232,10 @@ export class OrderItem {
         const committedSnapshot = this.teaqlScalarSnapshot();
         const activeScope = request.scopeFor(newKey);
         service.afterGraphRollback(() => {
-            Object.assign(this, rollbackState.payload);
+            for (const name of Object.getOwnPropertyNames(this)) {
+                if (!Object.prototype.hasOwnProperty.call(rollbackState.ownProperties, name)) delete (this as any)[name];
+            }
+            Object.defineProperties(this, rollbackState.ownProperties);
             (this as any)._ledgerId = rollbackState.ledgerId;
             (this as any)._action = rollbackState.action;
             (this as any)._loadedFields = rollbackState.loadedFields;
