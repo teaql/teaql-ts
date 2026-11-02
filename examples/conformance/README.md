@@ -8,4 +8,15 @@ npm run build
 npm start
 ```
 
-The generated workspace targets `@teaql/teaql` 0.1.17. Regenerate it with the local code generator's `typescript-app-console` target before checking a new generator/runtime combination.
+The example's `file:../..` dependency uses this repository's local runtime, not
+an old public package. Generated model inputs retain their evaluated manifest;
+this example does not hand-edit generated implementations.
+
+`operational-clock-verification.ts` additionally checks real LocalCache TTL
+expiry with a positively calibrated, then unavailable Business Clock. Moving
+the business calendar forwards/backwards cannot expire or revive entries;
+zero/false/empty/null values and zero/omitted TTL retain their existing meaning.
+The emitted `TYPESCRIPT_OPERATIONAL_CLOCK_EXAMPLE` contains no cached values.
+Companion native tests cover local pagination-state TTLs and telemetry deadlines.
+These tests do not add security-reference or local-lock APIs, which are outside
+this runtime's current frontend-oriented scope.
