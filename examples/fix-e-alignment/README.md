@@ -62,3 +62,15 @@ setters form the input allow-list; this is not recursive HTTP/TFP acceptance.
 Each round records 32 cases plus independently read physical rows. The default
 verifier runs both rounds without deleting either SQLite store and checks that
 generated implementations remain unchanged.
+
+`graph-fix-idempotence.test.ts` saves a graph with the same child instance
+referenced twice. Each object is fixed and persisted once per invocation, using
+one Business Clock snapshot; a later update advances both versions exactly
+once. Separate contexts can overlap without sharing their Fix snapshots or
+receipts. Two distinct modified views of the same ID remain a conflict and are
+rejected before provider work. All three cases run twice on retained databases.
+
+`fixture-manifest.json` records the qualified generator revision, all 17 exported
+file hashes and the previous manifest hash. The four updated generated files are
+unmodified export bytes. The raw collector's ordering failure remains recorded
+separately from the successful native tests and ordered-file qualification.

@@ -214,11 +214,12 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
             if (admit && typeof pending !== "boolean") throw new Error("GRAPH_ADMISSION_RESULT_REQUIRED");
             graph.captureInputSources();
             if (pending === false) { graph.sealPreparedGraph(); return await work(graph); }
+            // Reject a competing Context owner before changing its Fix resources.
+            executionContext.beginMutationPolicyGraph();
+            mutationPolicyGraphStarted = true;
             executionContext.insertResource("fixTime", executionContext.businessTime());
             executionContext.beginFixEvidence();
             fixEvidenceStarted = true;
-            executionContext.beginMutationPolicyGraph();
-            mutationPolicyGraphStarted = true;
             await prepare?.(graph);
             if (prepare && !graph.isPreparedSealed) graph.sealPreparedGraph();
             executionContext.prepareMutationPolicyGraph(graph.preparedRootEntity);

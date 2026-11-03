@@ -202,8 +202,10 @@ export class PurchaseOrder {
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return;
+        seen.add(this);
         const action = (this as any)._action;
         graph.discardRestoredFields(PurchaseOrder.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
@@ -238,7 +240,7 @@ export class PurchaseOrder {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("purchaseOrder") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updatePurchaseOrder(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_item_list").index(index);
@@ -250,8 +252,10 @@ export class PurchaseOrder {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<PurchaseOrder> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<PurchaseOrder> {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return this;
+        seen.add(this);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -274,7 +278,7 @@ export class PurchaseOrder {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("purchaseOrder") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updatePurchaseOrder(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("order_item_list").index(index);
@@ -328,7 +332,7 @@ export class PurchaseOrder {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("purchaseOrder") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updatePurchaseOrder(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_item_list").index(index);

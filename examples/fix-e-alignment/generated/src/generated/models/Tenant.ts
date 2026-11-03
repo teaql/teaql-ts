@@ -231,8 +231,10 @@ export class Tenant {
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return;
+        seen.add(this);
         const action = (this as any)._action;
         graph.discardRestoredFields(Tenant.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
@@ -267,7 +269,7 @@ export class Tenant {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("tenant") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.teaqlSetTenant(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("purchase_order_list").index(index);
@@ -282,7 +284,7 @@ export class Tenant {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("tenant") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.teaqlSetTenant(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_item_list").index(index);
@@ -294,8 +296,10 @@ export class Tenant {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<Tenant> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<Tenant> {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return this;
+        seen.add(this);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -318,7 +322,7 @@ export class Tenant {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("tenant") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.teaqlSetTenant(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("purchase_order_list").index(index);
@@ -333,7 +337,7 @@ export class Tenant {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("tenant") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.teaqlSetTenant(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("order_item_list").index(index);
@@ -387,7 +391,7 @@ export class Tenant {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("tenant") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.teaqlSetTenant(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("purchase_order_list").index(index);
@@ -402,7 +406,7 @@ export class Tenant {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("tenant") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.teaqlSetTenant(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_item_list").index(index);

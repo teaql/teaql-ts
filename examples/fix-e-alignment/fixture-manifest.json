@@ -2,115 +2,52 @@
   "schema": "teaql.generated-example-fixture/v1",
   "language": "typescript",
   "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7",
-  "generatedManifestSha256": "8442bab6ceaa100778cb03feeae5074ab5533371ff23b90365cec682f617e285",
-  "producerReceiptSha256": "80957fd5cd6b67aee4f598a2fb15d586a981504aeb0800f4a9f257774622361e",
+  "generatedManifestSha256": "1317a7d1ae7685ad015a22dee19a5b765ba2d1af9f06e07e771581b11b085d5e",
+  "producerReceiptSha256": "5965c66974955daa87dbd47b67c55d5ef1caf9019890e8ae396e527d7443bbce",
+  "producerReceiptSchema": "teaql.typescript-graph-fix-generation-qualified/v1",
   "producerSource": {
-    "commit": "554a1b7fa1e5c053e52290c3ee48925901cebe00",
-    "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sourceContentsSha256": "030ea893182a7bd47993656ef9d2d4f0c4f5774d3d6240fbbff2350e10d4a8e8",
-    "pairedTypescript": {
-      "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "b7673ff32ef72acf62c6520b3d91e2228ac63c51",
-      "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sourceContentsSha256": "4525128ea583281b6fd31effe7a6fcae903b27da0b55c216376a96b51bca8191"
-    },
-    "retainedModels": [
-      {
-        "id": "conformance",
-        "model": "examples/conformance/model.xml",
-        "target": "examples/conformance",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7"
-      },
-      {
-        "id": "trace-chain",
-        "model": "examples/trace-chain/model.xml",
-        "target": "examples/trace-chain/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "95502038a66686580e7399dc4252df51f95cc0dc10a54657f5779dc2a5dd1e76"
-      },
-      {
-        "id": "facet-trace",
-        "model": "examples/facet-trace/model.xml",
-        "target": "examples/facet-trace/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "9fc6724c828e10aca8cea9f53b65460f26577f74ba5396f04376ad4f20ddc30e"
-      },
-      {
-        "id": "school-management",
-        "model": "examples/school-management/model.xml",
-        "target": "examples/school-management",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4"
-      },
-      {
-        "id": "school-reconciled",
-        "model": "examples/school-management/model-reconciled.xml",
-        "target": "examples/school-management/src/reconciled",
-        "sourceOnly": "true",
-        "stripPrefix": "src/",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "896c579f3c9dded55c9728cb4af23cc8b920776e93ddcb95c8b0e95efdbcb451"
-      },
-      {
-        "id": "browser-orders",
-        "model": "examples/browser-sqlite/order-model.xml",
-        "target": "examples/browser-sqlite/orders-lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "44d20c0d236de9c79f767054deba773e11aa6ae4eaed1ede98cf7c6ed8d18495"
-      },
-      {
-        "id": "fix-e-alignment",
-        "model": "examples/fix-e-alignment/model.xml",
-        "target": "examples/fix-e-alignment/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7"
-      },
-      {
-        "id": "scalar-type-probe",
-        "model": "examples/scalar-type-probe/model.xml",
-        "target": "examples/scalar-type-probe/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762"
-      }
-    ],
-    "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
+    "commit": "b627e705051badd319ad9a50fb2b4ec71914f865",
+    "sourceContentsSha256": "161e72c95363abc5dccb2544e7f8ea2a197232cad6a6ac4b591b69c74f60e6ea"
   },
   "evaluatedScope": "typescript-node-lib-core",
   "evaluationErrors": 0,
   "evaluationWarnings": 4,
   "files": {
-    "src/generated/requests/TenantRequest.ts": "5bd1546ffbfd59a896db64ed05012f8b50f6b55f4376ae464d17352afc9c219c",
-    "src/generated/requests/PurchaseOrderRequest.ts": "da4084b111bf82fad0d8e1b93c346755cee2fad0afdf6d6e097f4ed8576581b2",
-    "src/generated/requests/OrderItemRequest.ts": "9a00963e30169b4023002f8f285ee7f07fe54116211c6c246837149cd7bb7261",
+    "src/generated/Q.ts": "05ce50d75c5cfb3603168bc18d8d915de16b76781d706447b7f766b20a73ed87",
+    "src/generated/models/Tenant.ts": "28a88dcc5ba25868c25a4c5272399c68adb0212f05e7b80d361ae8369bb5a6fe",
+    "src/generated/models/PurchaseOrder.ts": "41b9ac0181d86bed7f4b2f906419121e7864a3c93b9774e54496dd57be09e72f",
+    "src/generated/models/OrderItem.ts": "118f25c6fe94574e58cf2b449ff6747da77bd5b0d1360337728eeb48e0708d57",
+    "src/generated/E.ts": "717cc96e91be5ed57279712fe82c4e5831d3bda037258c8597e268c50baed54b",
     "teaql-i18n.json": "c8229ce36ed92393409dd95a5e6a6bd72c9818c95520d5d2e3656ac6f7c0f014",
     "package.json": "9d6bff3b787abb3c141211704048ab53cc06d366aab436790120074b7ebcb1c9",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
-    "src/teaql-ts.ts": "463ac354f44a3c66cbefde57a0a4ab77f514bd87aa0750ff0299a6a9a221920d",
+    "src/teaql-ts.ts": "7a227a81e9d7750ac81a96d40df45e94d8a17d0100ccc8a4fc35d1e97fe01a79",
     "src/generated-search-models.ts": "f7be71e619617cb1ff0011791d82f0bcd6ef9e3f94ce6f8159f283d3d160aef6",
     "src/teaql-node-sql.ts": "dabe21ab06bc85ee8ae2ca76440ef7fe7f8c3212fa2cd82ebdb838d549a276a3",
     "src/runtime-module.ts": "d665f68c46986a5f62fcf21cf4153b99ac98e4cfe5ef2e755df0902306923e51",
     "src/generated-bootstrap.ts": "f16c9576076922c99fab0b88ab36c7c21b1560dce451d99d44b281bbedc5c237",
     "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
-    "src/generated/Q.ts": "05ce50d75c5cfb3603168bc18d8d915de16b76781d706447b7f766b20a73ed87",
-    "src/generated/E.ts": "717cc96e91be5ed57279712fe82c4e5831d3bda037258c8597e268c50baed54b",
-    "src/generated/models/Tenant.ts": "bdc1b6e69b8593c8a7de6450cb4b1292649d6b80d4b9034fc03339e2e79d5e03",
-    "src/generated/models/PurchaseOrder.ts": "c6ec4940a11168fcb5d70c0e86c0fd3f51e63f0bc49bf4f6f7d8298d934ffc44",
-    "src/generated/models/OrderItem.ts": "0bb2988fcf5db1d3006d175d20b094d1d57b063644a643c8a65e62c2d0e1f33e"
+    "src/generated/requests/TenantRequest.ts": "5bd1546ffbfd59a896db64ed05012f8b50f6b55f4376ae464d17352afc9c219c",
+    "src/generated/requests/PurchaseOrderRequest.ts": "da4084b111bf82fad0d8e1b93c346755cee2fad0afdf6d6e097f4ed8576581b2",
+    "src/generated/requests/OrderItemRequest.ts": "9a00963e30169b4023002f8f285ee7f07fe54116211c6c246837149cd7bb7261"
   },
-  "previousFixtureManifestSha256": "d03ddefec41d2f2aabb138447cebf68de3a2c6b7494daba1cb6ae023954021e5"
+  "previousFixtureManifestSha256": "6d9d0eedbfae6379a0b5ce60c0b6a52d3d720a0efa47e0f7056c7451d3408e6c",
+  "regeneration": {
+    "repository": "teaql/teaql-conformance",
+    "qualifiedReceipt": "evidence/2026-10-25-core-p0-p1/generator-typescript-graph-fix-idempotence-ordered/report.json",
+    "rawDonor": {
+      "label": "generator-typescript-graph-fix-idempotence",
+      "reportSha256": "2a629d568ad37a9a5925df4bf94fc7c7bbcd158deee99cd2c9ceefbc29b7b2c2",
+      "nativeGenerationPassed": true,
+      "originalCollectorAccepted": false
+    },
+    "originalCollectorAccepted": false,
+    "qualification": "Five native generator tests passed; ordered-file-set qualifier rejects the original collector result and independently checks every generated hash.",
+    "changedFiles": [
+      "src/generated/models/OrderItem.ts",
+      "src/generated/models/PurchaseOrder.ts",
+      "src/generated/models/Tenant.ts",
+      "src/teaql-ts.ts"
+    ]
+  }
 }

@@ -36,6 +36,7 @@ try {
   report.partialRootApplicationSha256 = sha(fs.readFileSync(path.join(example, 'partial-root-probe.ts')));
   report.unchangedViewsApplicationSha256 = sha(fs.readFileSync(path.join(example, 'unchanged-views-probe.ts')));
   report.checkerBoundaryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'checker-boundaries-probe.ts')));
+  report.graphFixApplicationSha256 = sha(fs.readFileSync(path.join(example, 'graph-fix-idempotence.test.ts')));
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
   const tsconfig = path.join(scratch, "tsconfig.json"), config = path.join(scratch, "jest.cjs");
   fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, "tsconfig.json"), compilerOptions: {
@@ -43,7 +44,7 @@ try {
     baseUrl: repo, paths: {"teaql-ts": [path.join(repo, "src/index.ts")], "teaql-ts/*": [path.join(repo, "src/*")],
       "generated/*": [path.join(example, "generated/src/*")]}}}));
   fs.writeFileSync(config, "module.exports = " + JSON.stringify({rootDir: repo, roots: [example], testEnvironment: "node",
-    testMatch: ["**/examples/fix-e-alignment/verify.test.ts"],
+    testMatch: ["**/examples/fix-e-alignment/verify.test.ts", "**/examples/fix-e-alignment/graph-fix-idempotence.test.ts"],
     moduleNameMapper: {"^teaql-ts$": path.join(repo, "src/index.ts"), "^teaql-ts/(.*)$": path.join(repo, "src/$1"),
       "^generated/(.*)$": path.join(example, "generated/src/$1")},
     transform: {"^.+\\.tsx?$": ["ts-jest", {tsconfig}]}}) + ";\n");
@@ -75,6 +76,13 @@ try {
     assert.equal(checkerSummary.length, 1); assert.equal(checkerSummary[0].passed, true);
     assert.equal(checkerSummary[0].round, round); assert.equal(checkerSummary[0].observations, 32);
     report.rounds[report.rounds.length - 1].checkerBoundaryCases = checkerCases;
+    const graphCases = lines.filter(line => line.startsWith('TYPESCRIPT_GRAPH_FIX_IDEMPOTENCE='))
+      .map(line => JSON.parse(line.slice('TYPESCRIPT_GRAPH_FIX_IDEMPOTENCE='.length)));
+    assert.deepEqual(graphCases.map(value => value.case).sort(), [
+      'duplicate-create', 'duplicate-update', 'independent-real-graphs', 'distinct-views-same-id-rejected',
+    ].sort());
+    for (const value of graphCases) assert.equal(value.facts.round, round);
+    report.rounds[report.rounds.length - 1].graphFixCases = graphCases;
     for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA=", "CORE_TS_E_BOUNDARY_RESULT=", "CORE_TS_ROOT_RESULT=", "CORE_TS_ROOT_FILE_RESULT=", "CORE_TS_PARTIAL_ANCESTORS_RESULT=", "CORE_TS_PARTIAL_ROOT_RESULT="]) {
       const values = lines.filter(line => line.startsWith(marker)).map(line => JSON.parse(line.slice(marker.length)));
       assert.equal(values.length, 1, marker); assert.equal(values[0].passed, true, marker);
@@ -92,11 +100,14 @@ try {
     sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.partial-root.sqlite')))};
   report.checkerBoundaryDatabases = ['fixture.sqlite.checker-boundaries.sqlite', 'fixture.sqlite.checker-boundaries.sqlite.no-schema.sqlite']
     .map(file => ({file, sha256: sha(fs.readFileSync(path.join(evidence, file)))}));
+  report.graphFixDatabases = ['', '.first.sqlite', '.second.sqlite', '.identity.sqlite']
+    .map(suffix => {const file = 'fixture.sqlite.idempotence.sqlite' + suffix;
+      return {file, sha256: sha(fs.readFileSync(path.join(evidence, file)))};});
   report.passed = true;
   console.log("PASS TypeScript retained Fix/E/loading/ownership example twice on one database");
 } catch (error) { console.error(error.stack); process.exitCode ||= 1; }
 finally {
-  // spawnSync has reaped the only owned child before cache/config cleanup.
+  // The awaited runner reaps its owned process group before cache/config cleanup.
   report.disposedOwnedBytes = runner.safeToClean ? ownedBytes(scratch) : 0;
   if (runner.safeToClean) fs.rmSync(scratch, {recursive: true});
   else report.unsafeBuildRetention = {path: scratch, processGroup: runner.unsafeGroup};
