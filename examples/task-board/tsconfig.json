@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "commonjs",
     "moduleResolution": "node",
     "resolveJsonModule": true,
@@ -8,5 +8,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["app-dynamic/src/**/*.ts", "app-native/src/**/*.ts", "ts-lib-core/src/**/*.ts"]
+  "include": ["verify.ts", "app-dynamic/src/**/*.ts", "app-native/src/**/*.ts", "ts-lib-core/src/**/*.ts"]
 }

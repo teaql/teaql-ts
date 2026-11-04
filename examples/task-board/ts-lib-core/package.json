@@ -1,0 +1,18 @@
+{
+  "name": "robot-task-board-service-lib",
+  "version": "1.0.0",
+  "description": "Generated typescript library",
+  "engines": { "node": ">=22" },
+  "main": "src/generated/Q.ts",
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "teaql-ts": "npm:@teaql/teaql@0.3.1",
+    "better-sqlite3": "^13.0.3"},
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^22.0.0",
+    "@types/better-sqlite3": "^7.6.12"}
+}

@@ -1,15 +1,20 @@
 {
-  "name": "teaql-task-board-federation-examples",
+  "name": "teaql-task-board-examples",
   "private": true,
   "scripts": {
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "verify": "node verify-local.cjs",
+    "demo:native": "ts-node app-native/src/main.ts",
+    "demo:dynamic": "ts-node app-dynamic/src/main.ts"
   },
   "dependencies": {
-    "node-fetch": "^2.7.0",
+    "better-sqlite3": "^13.0.3",
     "teaql-ts": "file:../.."
   },
   "devDependencies": {
-    "@types/node-fetch": "^2.6.12",
-    "typescript": "^5.0.0"
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "ts-node": "10.9.2",
+    "typescript": "5.4.5"
   }
 }

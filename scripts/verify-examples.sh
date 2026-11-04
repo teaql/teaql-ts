@@ -55,7 +55,8 @@ for example in conformance ensure-schema-bootstrap school-management; do
   )
 done
 (cd "$repo/examples/order-management" && npm install && npm run build && npm start)
-(cd "$repo/examples/task-board" && npm install && npm run build)
+(cd "$repo/examples/task-board" && npm install && npm run build && \
+  TEAQL_TASK_BOARD_EVIDENCE_DIR="$example_evidence/task-board" npm run verify)
 (cd "$repo/examples/browser-sqlite" && npm install && npm run build && npm run smoke && \
   TEAQL_BROWSER_ORDER_EVIDENCE="$example_evidence/browser-orders.json" npm run smoke:orders)
 (

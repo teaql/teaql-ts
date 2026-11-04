@@ -1,0 +1,51 @@
+{
+  "schema": "teaql.typescript-task-board-fixture/v1",
+  "modelSha256": "4a1ec513cb362e4c25a5bc9479fe27a2034558633a9e5760245919af7c601856",
+  "manifestSha256": "d3df51e67323e4add6eb482dbc7c48fdc5df7cdc6fcab44ab361cd912dca8e2f",
+  "generationReport": {
+    "label": "typescript-task-board-generator-v3",
+    "sha256": "606f4ec6d012bb12930aaab04d4f0aec9bf51701c300a497c61d2ad1cb55d811"
+  },
+  "generatorCommit": "de780e915d274b235ea87cbaab7551f48e10ed8f",
+  "evaluatedScope": "typescript-node-lib-core",
+  "evaluationErrors": 0,
+  "files": {
+    "package.json": "cec0438794e240d1a2d2a39db0880030dc61c5b565092e00084ac74ad3d6c2a8",
+    "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
+    "src/teaql-ts.ts": "463ac354f44a3c66cbefde57a0a4ab77f514bd87aa0750ff0299a6a9a221920d",
+    "src/generated-search-models.ts": "bc43fc08c6bea764e4e180f51e90d1fea7a476415b1297c6c9cc431dda369a9c",
+    "src/teaql-node-sql.ts": "7229a80a16b0ec20289a84602455c05a19cfa728832eadadea379f75550345e8",
+    "src/runtime-module.ts": "fb475de7f11541e425a5ad6818fd09a1e4d6733dfc857f5da3b2cbdb513250b1",
+    "src/generated-bootstrap.ts": "89796bbdfdcf09c31cffbd64c654853a163b66511776b996594fe5cbf7c5ab01",
+    "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
+    "teaql-i18n.json": "79b420e04edf1c1e1b9f4d04ddfc0ec8a6e2a2458e6a337a8c046bacb64c3a8d",
+    "src/generated/requests/PlatformRequest.ts": "74e7e89c9628e462268551226c3b34c46c0b988ac43b7fed28b2e7ed9da372f5",
+    "src/generated/requests/TaskStatusRequest.ts": "79c733d9e18279e2a2986e3a1e8bc21e085cd15fde48b83f420eddf44c6c0e8c",
+    "src/generated/requests/TaskRequest.ts": "3e7956f57f551643c047307f2d9e527133bae8cdad85716e14e72f37c8256c08",
+    "src/generated/requests/TaskExecutionLogRequest.ts": "791f8b0ec35c5748cb6d9890c23ddc2cf9177033490c608c7278d9457ae03e2a",
+    "src/generated/models/Platform.ts": "cca8e25990b1f2d43b66f57e66dcea7d1fe7efad98625d9c85b32b140400a879",
+    "src/generated/models/TaskStatus.ts": "78a0c364552769d9f256351c987a7b85a711d9591cd2784472c737ddf102d221",
+    "src/generated/models/Task.ts": "acf3dc1e14e8fef8b6ae533215763669445cc5ede669e11f38521111a2e78da4",
+    "src/generated/models/TaskExecutionLog.ts": "822f3b1aaa7c7e9a0ed1f009fa29b5e5a6921b0eb93de1144b96b33c7809da25",
+    "src/generated/E.ts": "69183b57505edf1c81b52c9134e1ea684e9c20b14bc3d625e1f0c4c5214852d7",
+    "src/generated/Q.ts": "2d2440b92789bffc20f29bc07c8a47b8f968028b26cd41c71ff3d4b1dc3a2fb7"
+  },
+  "assist": {
+    "query/task.md": "6f99a202ad68381ffc852ed4501eac7be6194a81548850326219866fa856f9fe",
+    "query/task.status.md": "872774d3e3581fba58c57d5dc44cff58c7622cfb11d4da7233a28a4f41792ef4",
+    "query/task.name.md": "4fb7e7850b255421d55cf492132a0ca62679f5d42dff064d5fed3cc549628c41",
+    "query/task.task_execution_log_list.md": "1cc26492cf73ed75c5da580ffbc6b07384040356f179c06fca8dd418efba912b",
+    "create/task.md": "2234793a6c617ffdeb45a3d915fd6947ed9fe25c8f6a444817ae63d9af84909c",
+    "update/task.md": "0b5d1112589194f63315c8870f81a95aead57f1a45d730e9ef53cfabdba715bc",
+    "delete/task.md": "c6224e940d802fd6effa2571dc79677e061bae8cefdf1acbebbe4066423da910",
+    "expression/task.md": "7f215920d1eb7c00b078ed56a0d5bd2264528a3d66c4078ec1e0adaced727d48",
+    "expression/task_status.md": "3a2ad50910b2b656ea66156be2c26f66411b48382f4e105607dd7a3dd9b468a0",
+    "expression/task_execution_log.md": "11ab48e064804bb253f6543c085519ca6dd00b4c5cd59ae90fae909cfb85a4f4",
+    "create/task_execution_log.md": "884caa4f0c0c3db5194056fa7a2014c1203bc13d1cb739309ac5773d42b70885",
+    "query/task_execution_log.md": "7942681172082053820be0f583e3fef63f7682c73aa390361ed83f41061ec4c3",
+    "query/task_status.md": "f0076bfcfb1e67fa745eb3c02fc1a065ee1bb02974e627d5aeb388d1c85ba0b6",
+    "query/platform.md": "f27fa3606997cc8312c42ec570ff42f008beeb7d1207420c4d190b30962ca211"
+  },
+  "generatedImplementationHandEdited": false,
+  "runtimeProductionChanged": false
+}

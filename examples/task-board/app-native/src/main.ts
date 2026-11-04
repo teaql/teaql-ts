@@ -1,75 +1,29 @@
-import fetch from 'node-fetch';
-import { TeaQLClient } from '../../../../src';
+import { TeaQLClient, UserContext } from 'teaql-ts';
 import { Q } from '../../ts-lib-core/src/generated/Q';
-import { Task } from '../../ts-lib-core/src/generated/models/Task';
 
-// 1. Initialize TFP Client, pointing to the Rust backend
-const client = new TeaQLClient({
-  baseUrl: 'http://127.0.0.1:3001',
-  fetch: fetch as any
-});
-
-// 2. Prepare request context
-const ctx = { client };
-
-async function runNativeExamples() {
-  try {
-    console.log("=== Native TypeScript Query Examples ===");
-
-    // Example A: Strongly-typed chained calls (Conditional filtering)
-    console.log("[Execution]: Q.tasks().withNameContaining('bug').purpose('find bugs')");
-    const filterResult = await Q.tasks()
-      .withNameContaining("bug")
-      .purpose("find bugs")
-      .executeForList(ctx);
-      
-    console.log("Result:", filterResult);
-
-    // Example B: Strongly-typed chained calls (Aggregation and Grouping)
-    console.log("\n[Execution]: Q.taskStatuses().groupByDisplayOrder().avgProgress().purpose('calc average')");
-    const aggResult = await Q.taskStatuses()
-      .groupByDisplayOrder()
-      .avgProgress()
-      .purpose("calc average")
-      .executeForList(ctx);
-      
-    console.log("Result:", aggResult);
-
-    // Example C: Strongly-typed chained calls (Nested Facet panel aggregation)
-    console.log("\n[Execution]: Q.tasks().facetByStatusAs('statusFacet', Q.taskStatuses().count()).purpose('dashboard render')");
-    const facetResult = await Q.tasks()
-      .facetByStatusAs("statusFacet", Q.taskStatuses().count())
-      .purpose("dashboard render")
-      .executeForList(ctx);
-      
-    console.log("Main data (Tasks):", facetResult.data);
-    console.log("Statistics panel (Facets):", facetResult.facets);
-
-    // Example D: Data Mutations
-    console.log("\n[Execution]: Create Task");
-    const task = new Task({ name: 'New Bug Task', status: 1001 });
-    const saveResult = await task.auditAs("Create a new bug").save(ctx);
-    console.log("Create Result:", JSON.stringify(saveResult, null, 2));
-
-    const newId = saveResult.data[0].saved_data.id;
-    const newVersion = saveResult.data[0].saved_data.version;
-    console.log(`Retrieved newly created Task ID: ${newId}, Version: ${newVersion}`);
-
-    console.log(`\n[Execution]: Update Task (ID: ${newId})`);
-    const updateTask = new Task({ id: newId, name: 'New Bug Task (Fixed)', status: 1004, version: newVersion });
-    const updateResult = await updateTask.auditAs("Fix the bug").save(ctx);
-    console.log("Update Result:", JSON.stringify(updateResult, null, 2));
-
-    const updatedVersion = updateResult.data[0].saved_data.version;
-
-    console.log(`\n[Execution]: Delete Task (ID: ${newId})`);
-    const taskToDelete = new Task({ id: newId, version: updatedVersion });
-    const deleteResult = await taskToDelete.markForDeletion().auditAs("Clean up the bug").save(ctx);
-    console.log("Delete Result:", JSON.stringify(deleteResult, null, 2));
-
-  } catch (err) {
-    console.error("Query execution failed:", err);
-  }
+/** The same query can run on local SQLite or an explicitly configured HTTP client. */
+export async function runNativeExamples(context: UserContext) {
+  const tasks = await Q.tasks().withNameContaining('bug-')
+    .selectStatusWith(Q.taskStatuses().comment('load task status'))
+    .selectTaskExecutionLogListWith(Q.taskExecutionLogs().orderByIdAscending().limit(10)
+      .comment('load bounded execution history'))
+    .orderByIdAscending().limit(20)
+    .comment('load bug tasks with status and history')
+    .purpose('render the task board').executeForList(context);
+  const facets = await Q.tasksWithMinimalFields().selectName().withNameContaining('bug-')
+    .facetByStatusAs('statusFacet', Q.taskStatuses().countAs('taskCount').orderByIdAscending().limit(10)
+      .comment('count tasks by status'), true)
+    .orderByIdAscending().limit(20)
+    .comment('load task status facets').purpose('render task board counters').executeForList(context);
+  return {tasks, facets};
 }
 
-runNativeExamples();
+if (require.main === module) {
+  const baseUrl = process.env.TEAQL_TASK_BOARD_BACKEND;
+  if (!baseUrl) throw new Error('Set TEAQL_TASK_BOARD_BACKEND for the optional HTTP demo; npm run verify uses local SQLite.');
+  const client = new TeaQLClient({baseUrl});
+  const context = new UserContext().insertResource('dataService', client);
+  runNativeExamples(context).then(result => console.log(result)).catch(error => {
+    console.error(error); process.exitCode = 1;
+  });
+}
