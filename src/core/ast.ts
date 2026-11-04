@@ -89,6 +89,7 @@ export class SelectQuery {
   public properties: string[] = [];
   public joins: any[] = [];
   public groupByItems: string[] = [];
+  public groupByAliases?: Record<string, string>;
   public aggregateItems: any[] = [];
   public aggregationCache?: AggregationCacheOptions;
   public facets: FacetRequest[] = [];
@@ -314,7 +315,14 @@ export class SelectQuery {
     return this;
   }
 
-  groupBy(item: string): this {
+  groupBy(item: string, alias?: string): this {
+    if (alias !== undefined) {
+      if (typeof alias !== 'string' || !alias.trim()) throw new TypeError('Group alias must be a non-empty string');
+      const existing = this.groupByAliases?.[item];
+      if (existing !== undefined && existing !== alias) throw new Error('Grouping field already has a different alias');
+      this.groupByAliases ??= Object.create(null) as Record<string, string>;
+      this.groupByAliases[item] = alias;
+    }
     this.groupByItems.push(item);
     return this;
   }

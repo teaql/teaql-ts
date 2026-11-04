@@ -1,6 +1,16 @@
 import { SelectQuery, SortDirection, OrderBy, MutationQuery } from '../src/core/ast';
 
 describe('AST Classes', () => {
+  it('keeps legacy group fields and snapshots named group aliases independently', () => {
+    const query=new SelectQuery('Task').groupBy('status','bucket');
+    expect(query.groupByItems).toEqual(['status']);expect(query.groupByAliases).toEqual({status:'bucket'});
+    const copy=query.clone();copy.groupBy('active','enabled');
+    expect(query.groupByAliases).toEqual({status:'bucket'});
+    expect(copy.groupByAliases).toEqual({status:'bucket',active:'enabled'});
+    expect(()=>query.groupBy('status','different')).toThrow('different alias');
+    expect(()=>query.groupBy('active','')).toThrow('non-empty');
+    expect(new SelectQuery('Task').groupBy('status').groupByAliases).toBeUndefined();
+  });
   it('keeps continuous page optimization local and validates it', () => {
     const query = new SelectQuery('Order').optimizeForContinuousPageFetchWith('orders', 30);
     expect(query.localContinuousPageOptions()).toEqual({ namespace: 'orders', ttlSeconds: 30 });
