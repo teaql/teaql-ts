@@ -1,11 +1,12 @@
-import { QueryParser, TeaQLClient, UserContext } from 'teaql-ts';
+import { QueryParser, SmartList, TeaQLClient, UserContext } from 'teaql-ts';
 import { Q } from '../../ts-lib-core/src/generated/Q';
+import { Task } from '../../ts-lib-core/src/generated/models/Task';
 
 export const taskQuery = 'Q.tasksWithMinimalFields().selectName().withNameContaining("bug-")'
   + '.orderByIdAscending().limit(20).comment("load dynamic bug task list").purpose("render the task board")';
 
 /** The controlled parser builds a request; it never evaluates JavaScript. */
-export async function runDynamicExamples(context: UserContext) {
+export async function runDynamicExamples(context: UserContext): Promise<SmartList<Task>> {
   return QueryParser.parse(taskQuery, Q).executeForList(context);
 }
 

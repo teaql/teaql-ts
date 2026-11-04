@@ -30,11 +30,11 @@ async function main() {
     const invalid = Q.tasks().comment('prepare invalid task').purpose('verify Checker').newEntity(context)
       .updatePlatform('1').updateStatusToPlanned().updateName('');
     const beforeInvalid = client.sqlTrace.length;
-    await assert.rejects(() => invalid.auditAs('reject blank task name').save(context), CheckException);
+    await assert.rejects(async () => invalid.auditAs('reject blank task name').save(context), CheckException);
     assert.equal(client.sqlTrace.length, beforeInvalid, 'Checker rejection must precede business SQL');
     const missingAudit = Q.tasks().comment('prepare unaudited task').purpose('verify audit gate').newEntity(context)
       .updatePlatform('1').updateStatusToPlanned().updateName('rejected audit fixture');
-    await assert.rejects(() => missingAudit.auditAs('').save(context), RequestIntentError);
+    await assert.rejects(async () => missingAudit.auditAs('').save(context), RequestIntentError);
 
     let seeded = 0, renamed = 0;
     for (const channel of ['native', 'dynamic']) {
@@ -79,9 +79,9 @@ async function main() {
     const sparse = await Q.tasksWithMinimalFields().selectName().limit(1)
       .comment('load name-only task projection').purpose('verify E loaded-state safety').executeForList(context);
     assert.equal(sparse.length, 1); assert.throws(() => E.task(sparse[0]).status().eval(), TeaQLNotLoadedError);
-    assert.throws(() => E.task(sparse[0]).status().orElse(statuses[0]), TeaQLNotLoadedError);
+    assert.throws(() => E.task(sparse[0]).status().code().orElse('fallback'), TeaQLNotLoadedError);
     assert.throws(() => QueryParser.parse('globalThis.process.exit()', Q));
-    await assert.rejects(() => Q.tasks().limit(1).comment('').purpose('verify query intent').executeForList(context), RequestIntentError);
+    await assert.rejects(async () => Q.tasks().limit(1).comment('').purpose('verify query intent').executeForList(context), RequestIntentError);
 
     const transient = Q.tasks().comment('initialize deletion fixture').purpose('demonstrate staged deletion').newEntity(context)
       .updatePlatform('1').updateStatusToReady().updateName('temporary-task-' + round);
