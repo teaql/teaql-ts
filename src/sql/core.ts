@@ -982,7 +982,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       // This same path runs in generated graph preparation, before transaction,
       // ID allocation or provider calls. Encoding alone would reject too late.
       this.validateFloatingMutation(mutation);
-      if (mutation.ledgerKey && mutation.ledgerRoot) {
+      // Delete carries a loaded record for validation/audit, not field writes.
+      // Copying it into pending intent would make a rolled-back deletion look
+      // like an illegal id/version edit on the next graph-save attempt.
+      if (mutation.action !== 'Delete' && mutation.ledgerKey && mutation.ledgerRoot) {
         for (const [field, value] of Object.entries(mutation.payload || {})) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
       }
       return this.sealMutationVersion(mutation, originalVersion, Boolean(schema));
