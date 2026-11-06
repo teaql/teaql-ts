@@ -37,6 +37,7 @@ try {
   report.unchangedViewsApplicationSha256 = sha(fs.readFileSync(path.join(example, 'unchanged-views-probe.ts')));
   report.checkerBoundaryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'checker-boundaries-probe.ts')));
   report.graphFixApplicationSha256 = sha(fs.readFileSync(path.join(example, 'graph-fix-idempotence.test.ts')));
+  report.concurrentQueryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'concurrent-query-probe.ts')));
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
   const tsconfig = path.join(scratch, "tsconfig.json"), config = path.join(scratch, "jest.cjs");
   fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, "tsconfig.json"), compilerOptions: {
@@ -83,6 +84,11 @@ try {
     ].sort());
     for (const value of graphCases) assert.equal(value.facts.round, round);
     report.rounds[report.rounds.length - 1].graphFixCases = graphCases;
+    const concurrent = lines.filter(line => line.startsWith('TYPESCRIPT_CONCURRENT_QUERY='))
+      .map(line => JSON.parse(line.slice('TYPESCRIPT_CONCURRENT_QUERY='.length)));
+    assert.equal(concurrent.length, 1); assert(concurrent[0].passed && concurrent[0].observation.round === round);
+    assert(concurrent[0].observation.bothLive && concurrent[0].observation.sameContext && concurrent[0].observation.distinctRoots);
+    report.rounds[report.rounds.length - 1].concurrentQuery = concurrent[0].observation;
     for (const marker of ["FIX_E_EXAMPLE=", "CORE_LOAD_EXAMPLE=", "CORE_MUTATION_OWNERSHIP=", "CORE_MUTATION_PAGING=", "CORE_CHECKER_METADATA=", "CORE_FILE_CHECKER_METADATA=", "CORE_TS_E_BOUNDARY_RESULT=", "CORE_TS_ROOT_RESULT=", "CORE_TS_ROOT_FILE_RESULT=", "CORE_TS_PARTIAL_ANCESTORS_RESULT=", "CORE_TS_PARTIAL_ROOT_RESULT="]) {
       const values = lines.filter(line => line.startsWith(marker)).map(line => JSON.parse(line.slice(marker.length)));
       assert.equal(values.length, 1, marker); assert.equal(values[0].passed, true, marker);
@@ -103,6 +109,8 @@ try {
   report.graphFixDatabases = ['', '.first.sqlite', '.second.sqlite', '.identity.sqlite']
     .map(suffix => {const file = 'fixture.sqlite.idempotence.sqlite' + suffix;
       return {file, sha256: sha(fs.readFileSync(path.join(evidence, file)))};});
+  report.concurrentQueryDatabase = {file: 'fixture.sqlite.concurrent-query.sqlite',
+    sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.concurrent-query.sqlite')))};
   report.passed = true;
   console.log("PASS TypeScript retained Fix/E/loading/ownership example twice on one database");
 } catch (error) { console.error(error.stack); process.exitCode ||= 1; }

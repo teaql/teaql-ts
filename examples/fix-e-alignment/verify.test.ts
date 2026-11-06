@@ -13,6 +13,13 @@ import { verifyPartialAncestors } from './partial-ancestors-probe';
 import { verifyPartialRoot } from './partial-root-probe';
 import { unchangedViewCases, verifyUnchangedView } from './unchanged-views-probe';
 import { verifyCheckerBoundaries } from './checker-boundaries-probe';
+import { verifyConcurrentQuery } from './concurrent-query-probe';
+
+test('concurrent generated queries retain independent live request ownership on one Context', async () => {
+  const filename = process.env.TEAQL_FIX_E_DB;
+  if (!filename) throw new Error('Retained SQLite path required for concurrent-query verification');
+  await verifyConcurrentQuery(filename + '.concurrent-query.sqlite');
+}, 15000);
 
 test('Checker admission covers required relations, exact completeness, post-Fix values and object-local wire inputs', async () => {
   const filename = process.env.TEAQL_FIX_E_DB;
