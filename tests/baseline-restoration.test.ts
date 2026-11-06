@@ -113,6 +113,51 @@ const schemas: Record<string, EntitySchema> = {Payment: {table: 'payment', colum
 }}};
 class Client extends AbstractSQLTeaQLClient { constructor(driver: SQLiteDriver) { super(driver, schemas); } }
 
+test('failed Delete preparation keeps lifecycle intent without copying loaded identity into the ledger', async () => {
+  const driver = new SQLiteDriver(':memory:'), client = new Client(driver).setDiagnosticSQLLogSink(undefined);
+  client.setUserContext(new UserContext());
+  const root = new EntityRoot(), sibling = {entity: 'Payment', id: '2'};
+  root.setOriginalVersion(key, 3); root.markAsDeleted(key); root.set(sibling, 'display_name', 'pending sibling');
+  const original = {id: '1', version: 3, display_name: 'loaded name'};
+  const snapshot = new LoadedScalarSnapshot(original, key, 3);
+  const strict = new MutationFieldLayout('Payment', ['id', 'version', 'display_name'],
+    {id: 'immutable_field', version: 'immutable_field'});
+  const checker = jest.fn(); (client as any).checkers.Payment = {checkAndFix: checker};
+  const mutation = {entity: 'Payment', action: 'Delete', id: '1', version: 3,
+    payload: original, ledgerKey: key, ledgerRoot: root};
+  try {
+    await expect(client.executeGraphSave(new MutationIntent('prepare a retryable deletion'),
+      async () => {throw new Error('injected graph failure');}, session => {
+        client.preflightMutation(session.request(mutation).withLoadedSnapshot(snapshot));
+      })).rejects.toThrow('injected graph failure');
+    expect(checker).toHaveBeenCalledTimes(1);
+    expect(root.change(key)).toEqual({});
+    expect(root.isDeleted(key)).toBe(true); expect(root.originalVersion(key)).toBe(3);
+    expect(root.change(sibling)).toEqual({display_name: 'pending sibling'});
+    expect(() => graph().discardRestoredFields(strict, root, key, snapshot)).not.toThrow();
+    expect(original).toEqual({id: '1', version: 3, display_name: 'loaded name'});
+    expect(client.auditTrace).toHaveLength(0);
+  } finally {await client.close();}
+});
+
+test('Update preparation still copies checker-derived values into pending field intent', async () => {
+  const driver = new SQLiteDriver(':memory:'), client = new Client(driver).setDiagnosticSQLLogSink(undefined);
+  client.setUserContext(new UserContext());
+  const root = new EntityRoot(); root.setOriginalVersion(key, 3); root.set(key, 'display_name', 'input');
+  (client as any).checkers.Payment = {checkAndFix: (_context: unknown, mutation: any) => {
+    mutation.payload.display_name = 'fixed';
+  }};
+  try {
+    await expect(client.executeGraphSave(new MutationIntent('retain checker fix for retry'),
+      async () => {throw new Error('injected graph failure');}, session => {
+        client.preflightMutation(session.request({entity: 'Payment', action: 'Update', id: '1', version: 3,
+          payload: root.change(key), ledgerKey: key, ledgerRoot: root}));
+      })).rejects.toThrow('injected graph failure');
+    expect(root.change(key)).toEqual({display_name: 'fixed'});
+    expect(root.originalVersion(key)).toBe(3); expect(root.isDeleted(key)).toBe(false);
+  } finally {await client.close();}
+});
+
 test('only a sealed complete empty graph skips transactions, and rejects unplanned mutations', async () => {
   const driver = new SQLiteDriver(':memory:'), client = new Client(driver).setDiagnosticSQLLogSink(undefined);
   const context = new UserContext(); client.setUserContext(context);
