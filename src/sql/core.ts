@@ -490,36 +490,39 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     for (const [field, value] of Object.entries(record)) this.requireFiniteFloatingPoint(value, schema.columns[field]);
   }
 
-  private decodeRow(entity: string, row: any, aggregateNames: Array<{ name: string; exactDecimal: boolean }> = []): any {
+  private decodeRow(entity: string, row: any, aggregateNames: Array<{ name: string; exactDecimal: boolean }> = [], groupAliases?: Record<string, string>): any {
     const schema = this.schema(entity);
     const result = { ...row };
     const width = new ModeledInteger32Layout(entity,schema);
     for (const [field, column] of Object.entries(schema.columns)) {
-      const value = result[field];
+      if (groupAliases && !Object.prototype.hasOwnProperty.call(groupAliases, field)) continue;
+      const output = groupAliases?.[field] ?? field;
+      if (aggregateNames.some(aggregate => aggregate.name === output)) continue;
+      const value = result[output];
       if (value === null || value === undefined) continue;
-      if (field === 'version') { result[field] = entityVersion(value); continue; }
-      if (column.decode === 'number') result[field] = Number(aggregateNames.some(a=>a.name===field) ? value : width.read(field,value));
-      this.requireFiniteFloatingPoint(result[field], column);
-      if (column.decode === 'string') result[field] = String(value);
+      if (field === 'version') { result[output] = entityVersion(value); continue; }
+      if (column.decode === 'number') result[output] = Number(width.read(field,value));
+      this.requireFiniteFloatingPoint(result[output], column);
+      if (column.decode === 'string') result[output] = String(value);
       if (column.decode === 'decimal') {
         if (typeof value !== 'string') throw new TypeError(`Inexact Decimal readback for ${field}`);
-        result[field] = decimal(value);
+        result[output] = decimal(value);
       }
       if (column.decode === 'long') {
         if (typeof value !== 'string' && typeof value !== 'bigint') {
           throw new TypeError(`Inexact Long readback for ${field}`);
         }
-        result[field] = long(value);
+        result[output] = long(value);
       }
-      if (column.decode === 'time') result[field] = localTime(value);
+      if (column.decode === 'time') result[output] = localTime(value);
       if (column.decode === 'date') {
-        if (value instanceof Date) result[field] = column.logicalType === 'date'
+        if (value instanceof Date) result[output] = column.logicalType === 'date'
           ? value.toISOString().slice(0, 10) : value.toISOString();
         else if (column.logicalType === 'datetime' && typeof value === 'number') {
-          result[field] = new Date(value).toISOString();
+          result[output] = new Date(value).toISOString();
         }
       }
-      if (column.logicalType === 'boolean') result[field] = Boolean(value);
+      if (column.logicalType === 'boolean') result[output] = Boolean(value);
     }
     for (const aggregate of aggregateNames) {
       const value = result[aggregate.name];
@@ -1509,12 +1512,33 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     sql: string;
     values: any[];
     aggregateNames: Array<{ name: string; exactDecimal: boolean }>;
+    groupAliases?: Record<string, string>;
   }> {
     // Internal execution changes query shape/limits, never the intent contract.
     new QueryIntent(query?.commentText ?? query?._comment, query?.purposeText ?? query?._purpose);
     const schema = this.schema(query.entity);
     const values: any[] = [];
-    const groupProperties = this.groupBy(query);
+    const groupProperties = [...new Set(this.groupBy(query))];
+    const aggregates = this.aggregates(query);
+    const aliases = query.groupByAliases;
+    if (aliases !== undefined) {
+      if (aliases === null || typeof aliases !== 'object' || Array.isArray(aliases)) throw new Error('Invalid group aliases');
+      for (const [field, alias] of Object.entries(aliases)) {
+        if (!groupProperties.includes(field)) throw new Error('Group alias refers to an ungrouped field');
+        if (typeof alias !== 'string' || !alias.trim()) throw new Error('Group alias must be a non-empty string');
+      }
+    }
+    const groupAliases = aggregates.length || groupProperties.length
+      ? Object.fromEntries(groupProperties.map(field => [field,
+        aliases && Object.prototype.hasOwnProperty.call(aliases, field) ? aliases[field] : field]))
+      : undefined;
+    const outputNames = [...Object.values(groupAliases ?? {}), ...aggregates.map(item => item.retName)];
+    const outputs = new Set<string>();
+    for (const name of outputNames) {
+      this.driver.identifier(name);
+      if (outputs.has(name)) throw new Error('Duplicate grouped or aggregate output alias');
+      outputs.add(name);
+    }
     const groupFields = groupProperties.map(field => {
       if (!schema.columns[field]) throw new Error(`Unknown group field: ${field}`);
       const column = schema.columns[field];
@@ -1531,7 +1555,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     });
     const groupProjection = groupProperties.map(field =>
       `${this.driver.identifier(schema.columns[field].columnName)} AS ` +
-      this.driver.identifier(field),
+      this.driver.identifier(groupAliases![field]),
     );
     const aggregateNames: Array<{ name: string; exactDecimal: boolean }> = [];
     const requestedFields = Array.isArray(query.selectItems) && query.selectItems.length
@@ -1556,8 +1580,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const column = schema.columns[field];
       return this.fieldProjection(field, column);
     }).join(', ');
-    const aggregates = this.aggregates(query);
-    if (aggregates.length) {
+    if (aggregates.length || groupProperties.length) {
       const aggregateProjection = aggregates.map(aggregate => {
         if (!schema.columns[aggregate.field]) {
           throw new Error(`Unknown aggregate field: ${aggregate.field}`);
@@ -1655,7 +1678,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       sql += ` OFFSET ${this.driver.placeholder(values.length)}`;
     }
     if (recordTrace) this.sqlTrace.push(sql);
-    return { sql, values, aggregateNames };
+    return { sql, values, aggregateNames, groupAliases };
   }
 
   async executeQuery<T = any>(query: any): Promise<T[]> {
@@ -1714,6 +1737,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         const facetValueQuery = facet.query.clone();
         facetValueQuery.aggregateItems = [];
         facetValueQuery.groupByItems = [];
+        facetValueQuery.groupByAliases = undefined;
         stack.push(facetValueQuery);
       }
     }
@@ -1739,12 +1763,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const idSetPrepared = internal ? { query, execution: undefined } : await this.prepareIdSetPage(query, inherited);
     const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
     query = new QueryRequest(query).withQuery(prepared.query).query;
-    const { sql, values, aggregateNames } = await this.compileQuery(query, true, assembly ? [assembly.field] : []);
+    const { sql, values, aggregateNames, groupAliases } = await this.compileQuery(query, true, assembly ? [assembly.field] : []);
     inherited = await this.queryTreeBindings(query, sql, values, inherited);
     const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query),
       () => this.driver.query(sql, values), inherited);
     const rows = result.rows.map(row =>
-      this.decodeRow(query.entity, row, aggregateNames),
+      this.decodeRow(query.entity, row, aggregateNames, groupAliases),
     );
     if (idSetPrepared.execution?.pageIds) {
       const positions = new Map<string, number>(
@@ -1903,6 +1927,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     query.limitValue = 0;
     query.selectItems = [];
     query.groupByItems = [relationName];
+    query.groupByAliases = undefined;
     query.aggregateItems = aggregates.map(aggregate => ({ ...aggregate }));
     (query as any)[this.internalQueryToken] = true;
     const rows = await this.executeQuery<Record<string, unknown>>(query);
@@ -2006,7 +2031,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if (Array.isArray(query.facets) && query.facets.length > 0) {
       throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
     }
-    const { sql, values, aggregateNames } = await this.compileQuery(query);
+    const { sql, values, aggregateNames, groupAliases } = await this.compileQuery(query);
     const inherited = await this.queryTreeBindings(query, sql, values);
     const queryScope = startRuntimeOperation(this.runtimeTelemetry, { family: 'query',
       name: `${String(query.entity)}.stream`, attributes: { 'teaql.entity.type': String(query.entity) } });
@@ -2027,7 +2052,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       while (true) {
         const next = await (providerScope.run ? providerScope.run(() => iterator.next()) : iterator.next());
         if (next.done) break;
-        chunk.push(this.decodeRow(query.entity, next.value, aggregateNames));
+        chunk.push(this.decodeRow(query.entity, next.value, aggregateNames, groupAliases));
         if (chunk.length === chunkSize) {
           await this.enhanceQueryRows(chunk, query, descendantBindings);
           delivered += chunk.length;
