@@ -38,6 +38,7 @@ try {
   report.checkerBoundaryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'checker-boundaries-probe.ts')));
   report.graphFixApplicationSha256 = sha(fs.readFileSync(path.join(example, 'graph-fix-idempotence.test.ts')));
   report.concurrentQueryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'concurrent-query-probe.ts')));
+  report.deleteRetryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'delete-retry.test.ts')));
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
   const tsconfig = path.join(scratch, "tsconfig.json"), config = path.join(scratch, "jest.cjs");
   fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, "tsconfig.json"), compilerOptions: {
@@ -45,7 +46,7 @@ try {
     baseUrl: repo, paths: {"teaql-ts": [path.join(repo, "src/index.ts")], "teaql-ts/*": [path.join(repo, "src/*")],
       "generated/*": [path.join(example, "generated/src/*")]}}}));
   fs.writeFileSync(config, "module.exports = " + JSON.stringify({rootDir: repo, roots: [example], testEnvironment: "node",
-    testMatch: ["**/examples/fix-e-alignment/verify.test.ts", "**/examples/fix-e-alignment/graph-fix-idempotence.test.ts"],
+    testMatch: ["**/examples/fix-e-alignment/verify.test.ts", "**/examples/fix-e-alignment/graph-fix-idempotence.test.ts", "**/examples/fix-e-alignment/delete-retry.test.ts"],
     moduleNameMapper: {"^teaql-ts$": path.join(repo, "src/index.ts"), "^teaql-ts/(.*)$": path.join(repo, "src/$1"),
       "^generated/(.*)$": path.join(example, "generated/src/$1")},
     transform: {"^.+\\.tsx?$": ["ts-jest", {tsconfig}]}}) + ";\n");
@@ -61,6 +62,12 @@ try {
     if (result.status !== 0) process.exitCode = result.status || 1;
     assert.equal(result.status, 0, fs.readFileSync(log, "utf8").slice(-12000));
     const lines = fs.readFileSync(log, "utf8").split(/\r?\n/);
+    const deletes = lines.filter(line => line.startsWith('CORE_TS_FILE_DELETE_RETRY='))
+      .map(line => JSON.parse(line.slice('CORE_TS_FILE_DELETE_RETRY='.length)));
+    assert.equal(deletes.length, 1); assert.equal(deletes[0].round, round); assert.equal(deletes[0].retryError, null);
+    assert.deepEqual(deletes[0].rollback.ledgerFields, []); assert.equal(deletes[0].retryMutations, 1);
+    assert.equal(deletes[0].retryPersists, 1); assert.equal(deletes[0].auditDelta, 1);
+    report.rounds[report.rounds.length - 1].deleteRetry = deletes[0];
     const viewCases = lines.filter(line => line.startsWith('CORE_TS_UNCHANGED_VIEW_CASE='))
       .map(line => JSON.parse(line.slice('CORE_TS_UNCHANGED_VIEW_CASE='.length)));
     assert.deepEqual(viewCases.map(value => value.scenario).sort(), [
@@ -96,6 +103,8 @@ try {
     assert.deepEqual(fingerprint(), manifest);
   }
   report.databaseSha256 = sha(fs.readFileSync(path.join(evidence, "fixture.sqlite")));
+  report.deleteRetryFile = {file: 'fixture.sqlite.delete-retry.json',
+    sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.delete-retry.json')))};
   report.contextRootDatabase = {file: 'fixture.sqlite.context-root.sqlite',
     sha256: sha(fs.readFileSync(path.join(evidence, 'fixture.sqlite.context-root.sqlite')))};
   report.contextRootFile = {file: 'fixture.sqlite.context-root.json',
