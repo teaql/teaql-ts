@@ -36,7 +36,7 @@ function checkIdentities(want: readonly GraphIdentity[], actual: readonly GraphI
   assert.equal(new Set(observed).size, 6, `${boundary}: duplicate identity`);
   assert.deepEqual(observed.sort(), expected.sort(), `${boundary}: missing or unknown typed identity`);
 }
-function graphIdentities(graph: ReturnType<typeof construct>): GraphIdentity[] {
+function graphIdentities(graph: Awaited<ReturnType<typeof construct>>): GraphIdentity[] {
   const identity = (entity: string, id: unknown): GraphIdentity => {
     assert(typeof id === 'string', 'saved generated entity must have an assigned ID');
     return { entity, id };
@@ -204,7 +204,7 @@ function checkPrivateGraph(client: Client, driver: Driver, entries: readonly SQL
     safeReason, logging, phase, fail, precommitChecks, commands, sql: entries, audit: audits }));
   console.log('PASS TypeScript complete private lineage: raw commands, safe SQL/readback and committed audit');
 }
-function expected(graph: ReturnType<typeof construct>, rootReason: string, deleted = false) {
+function expected(graph: Awaited<ReturnType<typeof construct>>, rootReason: string, deleted = false) {
   const root = ['auditReason', 'CustomerOrder', graph.order.id, rootReason];
   return [[root], [root], deleted ? [root, ['auditReason', 'OrderItem', graph.removed.id, 'remove unavailable item']] : [root],
     [root, ['auditReason', 'Payment', graph.payment.id, 'authorize payment']],
