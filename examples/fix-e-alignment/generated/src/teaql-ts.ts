@@ -323,7 +323,8 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
             width.checkMutation(mutation.payload || {}, results);
             this.userContext.translateCheckResults(results, declaringEntityType);
             if (results.length) throw new CheckException(results);
-            if (mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+            // Loaded Delete values are validation/audit input, never field-write intent.
+            if (mutation.action !== "Delete" && mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
             return this.sealMutationVersion(mutation, originalVersion);
         } finally { if (ownsFixTime) this.userContext.removeResource("fixTime").finishFixEvidence(); }
     }

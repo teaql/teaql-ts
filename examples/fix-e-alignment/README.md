@@ -70,7 +70,16 @@ once. Separate contexts can overlap without sharing their Fix snapshots or
 receipts. Two distinct modified views of the same ID remain a conflict and are
 rejected before provider work. All three cases run twice on retained databases.
 
-`fixture-manifest.json` records the qualified generator revision, all 17 exported
-file hashes and the previous manifest hash. The four updated generated files are
-unmodified export bytes. The raw collector's ordering failure remains recorded
-separately from the successful native tests and ordered-file qualification.
+`delete-retry.test.ts` injects a failure after a real file-backed child Delete.
+The file, audit history, optimistic baseline and parent version remain unchanged;
+the Delete intent survives, but loaded validation values must not become field
+writes. Saving the same graph again commits one child tombstone and one audit
+event, without reloading or updating the parent. Repeating Delete on the committed
+tombstone is rejected before persistence, mutation execution or another audit.
+Both rounds use the same retained JSON store, also checked independently.
+
+`fixture-manifest.json` records the unified generator revision, all 17 exported
+file hashes and the previous manifest hash. The four updated generated files
+are exact export bytes, including the file-client Delete guard and generated
+GroupBy aliases. The prior collector qualification remains historical metadata;
+it is not presented as evidence for this export.

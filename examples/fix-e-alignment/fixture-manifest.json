@@ -2,12 +2,12 @@
   "schema": "teaql.generated-example-fixture/v1",
   "language": "typescript",
   "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7",
-  "generatedManifestSha256": "1317a7d1ae7685ad015a22dee19a5b765ba2d1af9f06e07e771581b11b085d5e",
-  "producerReceiptSha256": "5965c66974955daa87dbd47b67c55d5ef1caf9019890e8ae396e527d7443bbce",
-  "producerReceiptSchema": "teaql.typescript-graph-fix-generation-qualified/v1",
+  "generatedManifestSha256": "784c140f2518ec60fcffa4e2e508d2a40186eb58743d2ca3bbee23851daa5aad",
+  "producerReceiptSha256": "59a02bea2a82739251933d54aa0d5fb287ddd286ba9ad49d6ab9f24d9d851e83",
+  "producerReceiptSchema": "teaql.generator-qualified-union-export/v1",
   "producerSource": {
-    "commit": "b627e705051badd319ad9a50fb2b4ec71914f865",
-    "sourceContentsSha256": "161e72c95363abc5dccb2544e7f8ea2a197232cad6a6ac4b591b69c74f60e6ea"
+    "commit": "b962d619a3aea00eba48e48d79fa860a5577d250",
+    "sourceContentsSha256": "73cbf462aa2ef00b2ea9de28e71c88ad48441a6090b87ecde7a1af882a55d43b"
   },
   "evaluatedScope": "typescript-node-lib-core",
   "evaluationErrors": 0,
@@ -21,18 +21,29 @@
     "teaql-i18n.json": "c8229ce36ed92393409dd95a5e6a6bd72c9818c95520d5d2e3656ac6f7c0f014",
     "package.json": "9d6bff3b787abb3c141211704048ab53cc06d366aab436790120074b7ebcb1c9",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
-    "src/teaql-ts.ts": "7a227a81e9d7750ac81a96d40df45e94d8a17d0100ccc8a4fc35d1e97fe01a79",
+    "src/teaql-ts.ts": "73787b3490bbc5deb284132a795bf7fb53a46525f6dbee1b5ae5b9ade6da1623",
     "src/generated-search-models.ts": "f7be71e619617cb1ff0011791d82f0bcd6ef9e3f94ce6f8159f283d3d160aef6",
     "src/teaql-node-sql.ts": "dabe21ab06bc85ee8ae2ca76440ef7fe7f8c3212fa2cd82ebdb838d549a276a3",
     "src/runtime-module.ts": "d665f68c46986a5f62fcf21cf4153b99ac98e4cfe5ef2e755df0902306923e51",
     "src/generated-bootstrap.ts": "f16c9576076922c99fab0b88ab36c7c21b1560dce451d99d44b281bbedc5c237",
     "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
-    "src/generated/requests/TenantRequest.ts": "5bd1546ffbfd59a896db64ed05012f8b50f6b55f4376ae464d17352afc9c219c",
-    "src/generated/requests/PurchaseOrderRequest.ts": "da4084b111bf82fad0d8e1b93c346755cee2fad0afdf6d6e097f4ed8576581b2",
-    "src/generated/requests/OrderItemRequest.ts": "9a00963e30169b4023002f8f285ee7f07fe54116211c6c246837149cd7bb7261"
+    "src/generated/requests/TenantRequest.ts": "91b24f87248775bdd9eb31e2ca0e8dfcb9013235b1514794c33eb40eaa625510",
+    "src/generated/requests/PurchaseOrderRequest.ts": "9858803a093318f961a2dc551b95b4c6049e38c241515b004c83b58665649bd9",
+    "src/generated/requests/OrderItemRequest.ts": "4ff1bf5dae0f09a9660af221c6095348932ac69f08de35be061cac04978472fc"
   },
-  "previousFixtureManifestSha256": "6d9d0eedbfae6379a0b5ce60c0b6a52d3d720a0efa47e0f7056c7451d3408e6c",
+  "previousFixtureManifestSha256": "9a54f5821b05bd8556b0e7c24f4cd000b4070ca59cd6ed5ad4cabea172c824de",
   "regeneration": {
+    "repository": "teaql/teaql-conformance",
+    "receipt": "evidence/2026-10-25-core-p0-p1/generator-qualified-union-export-v2/report.json",
+    "qualification": "Actual evaluated export from the unified generator; all fixture bytes match the retained generated manifest.",
+    "changedFiles": [
+      "src/teaql-ts.ts",
+      "src/generated/requests/TenantRequest.ts",
+      "src/generated/requests/PurchaseOrderRequest.ts",
+      "src/generated/requests/OrderItemRequest.ts"
+    ]
+  },
+  "previousRegeneration": {
     "repository": "teaql/teaql-conformance",
     "qualifiedReceipt": "evidence/2026-10-25-core-p0-p1/generator-typescript-graph-fix-idempotence-ordered/report.json",
     "rawDonor": {
