@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,7 +31,7 @@ async function main() {
     await order.auditAs('save governed graph').save(context);
     assert.equal(audits.length, 3);
     assert.equal(physical.snapshot().length, 6);
-    const loaded = await Q.customerOrders().withIdIs(order.id)
+    const loaded = await Q.customerOrders().withIdIs(internalId(order.id))
       .selectOrderItemListWith(Q.orderItems().limit(3)).limit(1)
       .comment('inspect saved graph').purpose('verify standard graph telemetry').executeForList(context);
     assert.equal(loaded.length, 1);

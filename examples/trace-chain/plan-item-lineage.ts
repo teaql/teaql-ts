@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
@@ -145,7 +146,7 @@ async function main() {
         const independent = `independent ${secrets.join(' ')}`;
         await Q.platforms().limit(1).comment(independent).purpose('verify completed plan privacy isolation').executeForList(context);
         assert.equal(evidence.snapshot()[0].comment, independent);
-        const loaded = await Q.orderItems().withIdIs(first.id).limit(1)
+        const loaded = await Q.orderItems().withIdIs(internalId(first.id)).limit(1)
           .comment('read first committed item').purpose('verify item plan persistence').executeForList(context);
         assert.equal(E.orderItem(loaded[0]).name().eval(), secrets[0]);
         console.log(JSON.stringify({ case: 'TC-MUT-09/TC-REQ-16', path: 'existing MutationPlan and root save',

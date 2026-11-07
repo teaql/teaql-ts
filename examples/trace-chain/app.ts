@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -301,7 +302,7 @@ async function main() {
     checks.push('generated normative update and child markForDeletion then root save');
 
     sql.enableAll();
-    const attempts = await Q.paymentAttempts().withIdIs(graph.attempt.id)
+    const attempts = await Q.paymentAttempts().withIdIs(internalId(graph.attempt.id))
       .selectPaymentWith(Q.payments().limit(1).selectCustomerOrderWith(
         Q.customerOrders().limit(1).selectPlatformWith(Q.platforms().limit(1))))
       .limit(1).comment('load generated three-level graph').purpose('verify query lineage').executeForList(context);
@@ -367,7 +368,7 @@ async function main() {
     const privacy = (await construct(context, `loaded-privacy-${logging}`));
     privacy.item.updateName('PRIVATEOLDITEM');
     await privacy.order.auditAs('seed loaded privacy graph').save(context);
-    const loaded = (await Q.customerOrders().withIdIs(privacy.order.id)
+    const loaded = (await Q.customerOrders().withIdIs(internalId(privacy.order.id))
       .selectOrderItemListWith(Q.orderItems().limit(2)).limit(1)
       .comment('load privacy graph').purpose('verify authoritative scalar snapshot').executeForList(context))[0];
     const item = loaded.orderItemList().find(row => row.id === privacy.item.id)!;
@@ -401,7 +402,7 @@ async function main() {
         [oldValue, newValue], newValue, fail, logging, fail ? 'rollback' : oldValue === 'PRIVATEOLDITEM' ? 'update' : 'retry', precommitChecks);
       driver.beforeCommit = undefined;
       driver.failureTable = undefined;
-      const persisted = (await Q.orderItems().withIdIs(item.id).limit(1)
+      const persisted = (await Q.orderItems().withIdIs(internalId(item.id)).limit(1)
         .comment('verify item privacy mutation').purpose('check committed or rolled-back value').executeForList(context))[0];
       assert.equal(E.orderItem(persisted).name().eval(), fail ? oldValue : newValue);
     }
@@ -417,7 +418,7 @@ async function main() {
     checkPrivateGraph(client, driver, sql.snapshot(), audits, loaded.id!, item.id!, reason,
       ['PRIVATERETRYITEM'], undefined, false, logging, 'delete', precommitChecks);
     driver.beforeCommit = undefined;
-    const missing = await Q.orderItems().withIdIs(item.id).limit(1)
+    const missing = await Q.orderItems().withIdIs(internalId(item.id)).limit(1)
       .comment('verify loaded private child deletion').purpose('confirm soft-deleted row is hidden').executeForList(context);
     assert.equal(missing.length, 0);
     // No unrelated request may inherit the preceding graph's privacy snapshot.

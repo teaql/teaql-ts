@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 import { decimal, FixedBusinessClock, UserContext } from '../../src';
 import { QueryRequest } from '../../src/core/request-intent';
 import { queryExecutionOwner } from '../../src/core/query-snapshot';
@@ -62,7 +63,7 @@ export async function verifyConcurrentQuery(filename: string): Promise<void> {
       await parent.auditAs('Create the ' + label + ' concurrent-query graph').save(context);
       if (!parent.id) throw new Error('Missing persisted parent identity');
       ids[label] = String(parent.id);
-      const seeded = (await Q.purchaseOrders().withIdIs(parent.id)
+      const seeded = (await Q.purchaseOrders().withIdIs(internalId(parent.id))
         .selectOrderItemListWith(Q.orderItems().limit(10).comment('Read the saved ' + label + ' child'))
         .limit(1).comment('Read back the ' + label + ' graph').purpose('Never infer a child ID from allocation order')
         .executeForList(context))[0];

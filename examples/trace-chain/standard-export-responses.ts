@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { UserContext } from 'teaql-ts';
@@ -62,7 +63,7 @@ async function main() {
     assert.equal(rejectedRows.length, 1);
     await recovering.auditAs('recover interrupted graph').save(context);
     assert.equal(audits.length, 6);
-    const rows = await Q.customerOrders().withIdIs(recovering.id)
+    const rows = await Q.customerOrders().withIdIs(internalId(recovering.id))
       .selectOrderItemListWith(Q.orderItems().limit(3)).limit(1)
       .comment('inspect recovered graph').purpose('verify exporter isolation').executeForList(context);
     assert.equal(rows.length, 1);
@@ -74,7 +75,7 @@ async function main() {
     loaded.orderItemList()[1].markForDeletion();
     await loaded.auditAs('remove second graph item').save(context);
     assert.equal(audits.length, 9, 'unchanged root and first child must not be written');
-    const final = await Q.customerOrders().withIdIs(loaded.id)
+    const final = await Q.customerOrders().withIdIs(internalId(loaded.id))
       .selectOrderItemListWith(Q.orderItems().limit(3)).limit(1)
       .comment('inspect final graph').purpose('verify exporter isolation').executeForList(context);
     assert.equal(E.customerOrder(final[0]).description().eval(), group + '-updated');
@@ -92,7 +93,7 @@ async function main() {
       const baseline = handle.health!();
       const baselineAudits = audits.length;
       for (let index = 0; index < 1500; index++) {
-        const read = await Q.customerOrders().withIdIs(loaded.id).limit(1)
+        const read = await Q.customerOrders().withIdIs(internalId(loaded.id)).limit(1)
           .comment('read graph under telemetry pressure').purpose('verify exact bounded admission').executeForList(context);
         assert.equal(E.customerOrder(read[0]).description().eval(), group + '-updated');
       }
@@ -116,7 +117,7 @@ async function main() {
           assert.equal(queue.admitted,queue.completed+queue.retired);
         }
         assert(closed.queues.logs.retired > 0);
-        const late = await Q.customerOrders().withIdIs(loaded.id).limit(1)
+        const late = await Q.customerOrders().withIdIs(internalId(loaded.id)).limit(1)
           .comment('read after telemetry shutdown').purpose('verify business continuity').executeForList(context);
         assert.equal(E.customerOrder(late[0]).description().eval(),group+'-updated');
         assert.equal(audits.length,baselineAudits);
@@ -128,7 +129,7 @@ async function main() {
       } else {
         await handle.flush(); const drained = handle.health!();
         for (const signal of ['traces','logs'] as const) assert.equal(drained.queues[signal].outstanding,0);
-        await Q.customerOrders().withIdIs(loaded.id).limit(1).comment('recovery after telemetry pressure')
+        await Q.customerOrders().withIdIs(internalId(loaded.id)).limit(1).comment('recovery after telemetry pressure')
           .purpose('verify released capacity').executeForList(context);
         await handle.flush(); const recovered = handle.health!();
         assert.equal(recovered.queues.traces.admitted-drained.queues.traces.admitted,3);

@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
   assert.equal(created.version, 1);
   console.log(`PASS Create (id=${created.id}, version=${created.version})`);
 
-  const queried = await Q.workItems().withIdIs(created.id)
+  const queried = await Q.workItems().withIdIs(internalId(created.id))
     .selectPlatformWith(Q.platforms().selectName())
     .comment("Load the complete work item before mutation")
     .purpose("Verify typed Q API and update semantics").executeForOne(context);
@@ -62,7 +63,7 @@ async function main(): Promise<void> {
 
   assert.equal(E.workItem(queried).title().eval(), "Verify TypeScript runtime");
   assert.equal(E.workItem(queried).description().orElse("N/A"), "N/A");
-  const minimal = await Q.workItemsWithMinimalFields().withIdIs(created.id)
+  const minimal = await Q.workItemsWithMinimalFields().withIdIs(internalId(created.id))
     .comment("Load only mandatory identity fields")
     .purpose("Verify E not-loaded semantics").executeForOne(context);
   assert(minimal);
@@ -76,7 +77,7 @@ async function main(): Promise<void> {
   console.log(`PASS Update (version ${previousVersion} -> ${queried.version})`);
 
   await queried.markForDeletion().auditAs("Delete conformance work item").save(context);
-  const remaining = await Q.workItems().withIdIs(created.id)
+  const remaining = await Q.workItems().withIdIs(internalId(created.id))
     .comment("Verify soft-deleted work item is excluded")
     .purpose("Verify delete semantics").executeForList(context);
   assert.equal(remaining.length, 0);

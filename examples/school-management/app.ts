@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 import { Q } from "./src/generated/Q";
 import { E } from "./src/generated/E";
 import { Platform } from "./src/generated/models/Platform";
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
         throw new Error("PRIMARY helper did not persist and hydrate school_type=1001");
     }
 
-    const loaded = await Q.schools().withIdIs(school.id)
+    const loaded = await Q.schools().withIdIs(internalId(school.id))
         .selectPlatformWith(Q.platformsWithMinimalFields().selectName().selectBaseUrl())
         .selectSchoolTypeWith(Q.schoolTypesWithMinimalFields().selectName().selectCode().selectDisplayOrder())
         .comment("Load a school with its forward relations")
@@ -124,7 +125,7 @@ async function main(): Promise<void> {
     loaded.updateName("Riverside Primary School — verified");
     await loaded.auditAs("Verify TypeScript update fixes").save(context);
     if (loaded.version !== nextEntityVersion('Update', previousVersion)) throw new Error("Update did not advance version");
-    const updated = await Q.schools().withIdIs(loaded.id)
+    const updated = await Q.schools().withIdIs(internalId(loaded.id))
         .comment("Reload the updated school")
         .purpose("Verify update_time fix and persisted mutation").executeForOne(context);
     if (updated?.name !== "Riverside Primary School — verified") {

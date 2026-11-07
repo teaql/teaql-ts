@@ -1,3 +1,4 @@
+import {internalId} from 'teaql-ts';
 // Application-owned generated Q/E/Mutation acceptance; spellings come from
 // main.test.ts and the retained file-client Checker probe, not source discovery.
 import {Q} from 'scalar-lib/generated/Q';
@@ -108,7 +109,7 @@ for(const backend of ['sqlite','file'] as const)test(`generated Integer32 ${back
   }
   for(const fault of legacy){
    let failure:unknown;try{await load(context,fault.id);}catch(error){failure=error;}precise(failure,fault.field);record(`legacy-${fault.field}-${fault.fault}`);
-   const projected=await Q.scalarTypeProbesWithMinimalFields().withIdIs(fault.id).limit(1).comment('omit corrupt Integer deliberately').purpose('verify safe projected reads remain NotLoaded').executeForOne(context);
+   const projected=await Q.scalarTypeProbesWithMinimalFields().withIdIs(internalId(fault.id)).limit(1).comment('omit corrupt Integer deliberately').purpose('verify safe projected reads remain NotLoaded').executeForOne(context);
    expect(projected?.id).toBe(fault.id);expect(projected?.version).toBe(1);
    expect(()=>E.scalarTypeProbe(projected!).requiredInteger().eval()).toThrow(TeaQLNotLoadedError);record(`legacy-projection-${fault.field}-${fault.fault}`);
   }
