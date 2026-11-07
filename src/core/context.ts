@@ -3,6 +3,7 @@ import { BusinessClock, SystemBusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
 import { prepareCheckerResults } from './checker-privacy';
+import { internalId, InternalIdGenerator, InternalIdReservationService } from './internal-id';
 import {
   contextSchemaCapability,
   InternalContextSchemaExecutor,
@@ -54,6 +55,32 @@ export class ContextRootError extends Error {
 }
 
 export class UserContext {
+  withInternalIdGenerator(generator: InternalIdGenerator): this {
+    if (!generator || typeof generator.generateId !== 'function') {
+      throw new TypeError('Internal ID generator must provide generateId(entity, context)');
+    }
+    return this.insertResource('idGenerator', generator);
+  }
+
+  /** Reserve before constructing an entity. Failure must never choose another allocator. */
+  async generateInternalId(entity: string): Promise<string> {
+    if (typeof entity !== 'string' || !entity.trim() || entity !== entity.trim()) {
+      throw new TypeError('Internal ID entity type is required');
+    }
+    if (this.resources.has('idGenerator')) {
+      const generator = this.getResource<InternalIdGenerator>('idGenerator');
+      if (!generator || typeof generator.generateId !== 'function') {
+        throw new TypeError('Configured internal ID generator must provide generateId(entity, context)');
+      }
+      return internalId(await generator.generateId(entity, this));
+    }
+    const service = this.requireResource<InternalIdReservationService>('dataService');
+    if (typeof service.reserveInternalId !== 'function') {
+      throw new TypeError('Configured data service must provide reserveInternalId(entity, context)');
+    }
+    return internalId(await service.reserveInternalId(entity, this));
+  }
+
   private businessClock: BusinessClock = new SystemBusinessClock();
   withBusinessClock(clock: BusinessClock): this {
     if (!clock || typeof clock.now !== 'function') throw new TypeError('Business clock must provide now()');

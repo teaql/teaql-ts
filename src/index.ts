@@ -5,6 +5,7 @@ export * from './core/mutation-version';
 export * from './core/modeled-integer32';
 export * from './core/local-time';
 export * from './core/context';
+export * from './core/internal-id';
 export * from './core/business-clock';
 export * from './core/object-storage';
 export * from './core/request-intent';

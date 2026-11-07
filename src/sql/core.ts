@@ -9,6 +9,7 @@ import { CheckException, EntityChecker } from '../core/checker';
 import { translateCheckerResults } from '../core/checker-privacy';
 import { MutationFieldLayout } from '../core/mutation-field-layout';
 import { UserContext } from '../core/context';
+import { internalId } from '../core/internal-id';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
 import { contextSchemaCapability } from '../core/schema-capability';
@@ -199,6 +200,7 @@ function sameBootstrapValue(left: unknown, right: unknown): boolean {
 }
 
 export interface TeaQLDataService {
+  reserveInternalId(entity: string, context: UserContext): Promise<string>;
   withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
   executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T>;
   preflightMutation(mutation: any): any;
@@ -425,6 +427,20 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   setUserContext(context: UserContext): this { this.userContext = context; return this; }
+
+  /** Separate reservation transaction: no business mutation, Checker, Fix or audit. */
+  async reserveInternalId(entity: string, context: UserContext): Promise<string> {
+    if (!(context instanceof UserContext)) throw new TypeError('UserContext is required for ID reservation');
+    this.schema(entity);
+    if (this.activeGraph) throw new Error('Internal ID reservation is not allowed inside an active graph save');
+    const predecessor = this.graphSaveTail;
+    let release!: () => void;
+    this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
+    await predecessor;
+    try {
+      return await this.driver.transaction(async session => internalId(await this.driver.nextId(session, entity)));
+    } finally { release(); }
+  }
 
   private schema(entity: string): EntitySchema {
     const schema = this.schemas[entity];
