@@ -56,8 +56,10 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
       if (expectedRule) expect(violations.some(result => result.ruleId === expectedRule)).toBe(true);
       observations.push({scenario, violations, entityType});
     };
-    await invalid('create-required', async () => (await owner()).auditAs('Reject an omitted required contact phone').save(context));
-    await invalid('create-max-length', async () => (await owner()).updateContactPhone('x'.repeat(33))
+    const omitted = await owner();
+    await invalid('create-required', () => omitted.auditAs('Reject an omitted required contact phone').save(context));
+    const tooLong = (await owner()).updateContactPhone('x'.repeat(33));
+    await invalid('create-max-length', () => tooLong
       .auditAs('Reject a contact phone exceeding the modeled length').save(context));
     const complete = (await Q.purchaseOrders().withIdIs(good.id!).limit(1)
       .comment('Load the complete owner before the invalid update').purpose('Verify explicit null is not omission')

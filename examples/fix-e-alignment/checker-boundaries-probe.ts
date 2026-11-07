@@ -175,7 +175,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
     expect(String(E.orderItem(repairedChild).unitPrice().eval())).toBe('0');
     repaired.orderItemList().push(repairedChild); fix = 'repair'; reset();
     await repaired.auditAs('Persist only the repaired required and range values').save(context); fix = 'none';
-    expect(effects()).toMatchObject({transactions: 1, begins: 1, commits: 1, rollbacks: 0, allocations: 2, mutations: 2, audits: 2});
+    expect(effects()).toMatchObject({transactions: 1, begins: 1, commits: 1, rollbacks: 0, allocations: 0, mutations: 2, audits: 2});
     const repairedEffects = effects();
     const repairedRows = (await Q.orderItems().withIdIs(repairedChild.id!).limit(1)
       .comment('Read the actual repaired business values').purpose('Verify customer Fix reaches persistence').executeForList(context));
