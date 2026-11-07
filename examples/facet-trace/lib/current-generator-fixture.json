@@ -23,5 +23,26 @@
     "src/generated/models/School.ts": "e663e1fa343fdc3b27291ee371f9b800d35d4bb63ab76f4b1c65311ebe6bbf1a"
   },
   "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
-  "previousFixtureManifestSha256": "4b3e2375807a4a110b002000d08d5fb0647e305bb56efd9989efa2174055e7b4"
+  "previousFixtureManifestSha256": "4b3e2375807a4a110b002000d08d5fb0647e305bb56efd9989efa2174055e7b4",
+  "previousSourceGuard": {
+    "accepted": false,
+    "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+    "differences": [
+      {
+        "name": "src/generated/models/Platform.ts",
+        "expected": "3b6ee4bcae34fb0ba2e267f048c671a97d7ebc058e0a188b857f665a17c040c2",
+        "actual": "db69ea5d998104c1398f54d22fa2720dc55cd93d853fcdfa0d79341c077b6673"
+      },
+      {
+        "name": "src/generated/models/SchoolType.ts",
+        "expected": "a0466df6922511ce356072f2dc511edf9cd3d30a8dc77611f48eb3d8a20e5bfc",
+        "actual": "422d533965dd8bc6e226e1944592e3de44d16b7f46fc842651a19c230e9aaf49"
+      },
+      {
+        "name": "src/generated/models/School.ts",
+        "expected": "ce931a9b31676805239db5f51ce4eadb65c6b328ac58a842773ecfa4a1e3e028",
+        "actual": "dcec1738d0a739bdbd6f9df0ab0a700bd698653ddaac6b8a20e55296854aacdf"
+      }
+    ]
+  }
 }

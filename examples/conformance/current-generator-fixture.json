@@ -21,5 +21,21 @@
     "src/generated/models/WorkItem.ts": "3739c2602861a6e1c96287af8f6f682b151dfcf6c422d862c4c046d25c288f41"
   },
   "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
-  "previousFixtureManifestSha256": "fee08db64b27b9871f17c04c05f5549b6cd3bf744d2ae639b41f001972e869ae"
+  "previousFixtureManifestSha256": "fee08db64b27b9871f17c04c05f5549b6cd3bf744d2ae639b41f001972e869ae",
+  "previousSourceGuard": {
+    "accepted": false,
+    "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+    "differences": [
+      {
+        "name": "src/generated/models/Platform.ts",
+        "expected": "016e9b537e124b79a11321fcbcf37155d46e028cf6d77c04406a8a379313c0e5",
+        "actual": "b86aa80274e59dde2b89ac816beaf997edf417eff1e7ff82d97cff2b867f2aeb"
+      },
+      {
+        "name": "src/generated/models/WorkItem.ts",
+        "expected": "8ae5221919f4ad99a7d1ae0a2f785173ab5bc2624b6bc9ed283368239965f30b",
+        "actual": "49211b446abffe8e8616a91c838cc947d290f9488f0e93a7e0438b2a43203ca6"
+      }
+    ]
+  }
 }

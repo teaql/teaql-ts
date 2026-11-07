@@ -29,5 +29,41 @@
     "src/generated/models/Shipment.ts": "5654989bcd567954872a6c08800a5a564698a20a6dd90e453e2f85e445f0d390"
   },
   "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
-  "previousFixtureManifestSha256": "fa286a967631117ca74722823fc209c50ab42e2b2a5ad460efd6192bdfde417e"
+  "previousFixtureManifestSha256": "fa286a967631117ca74722823fc209c50ab42e2b2a5ad460efd6192bdfde417e",
+  "previousSourceGuard": {
+    "accepted": false,
+    "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+    "differences": [
+      {
+        "name": "src/generated/models/Platform.ts",
+        "expected": "bfe56aa9c73bb1301462d771a28856258dfa5eb717f2948842d21ac3b80e34bd",
+        "actual": "f7c49e94a4b28fcf74c676601371beee6e4d2417cf4e6e07c3eca40581754d14"
+      },
+      {
+        "name": "src/generated/models/CustomerOrder.ts",
+        "expected": "48e534361c3b7af37ec74327e0bc7edebd3b5dca5df6cffbc81c037f3030617f",
+        "actual": "294c174429288ef813d5d1127b5ea501f4b2aad7568c8ee3fcd3696f7ac11de4"
+      },
+      {
+        "name": "src/generated/models/OrderItem.ts",
+        "expected": "1b8830553ff23253bca228f0f20040fccf00ce9b5f9611ae3f6852d83003afad",
+        "actual": "8c2a7f06d80b14015c259b5f798337e589a34cbf0520b14a0b4a4f33ca2c46b0"
+      },
+      {
+        "name": "src/generated/models/Payment.ts",
+        "expected": "331a422c60853e3d82a83ab3dbc09ee6627ab0941ad46eda93093ad2166f59e7",
+        "actual": "d61247fdf23471aa44cb1abf858e2936c57f43f9c6481fb64081c3d190c5ec79"
+      },
+      {
+        "name": "src/generated/models/PaymentAttempt.ts",
+        "expected": "c8597a8bbb1514c05cd115705752ee7bef0141e91b2930d0a218e6725797e484",
+        "actual": "9ce92d085ae1f48082420151ffd87141e6afb06988771a4d0902c234922507f5"
+      },
+      {
+        "name": "src/generated/models/Shipment.ts",
+        "expected": "1de5f9f41d6753f51a77d69a045435a05ef79202aafe2cf72710fa96f33851b9",
+        "actual": "9f480997aaad0cbd0c549160d61d60f5a4e938017faa60584731dd244dfcbe7c"
+      }
+    ]
+  }
 }

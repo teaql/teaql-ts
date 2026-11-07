@@ -25,7 +25,23 @@
         "src/generated/models/Platform.ts": "378bf89701194d94aa3ca2fe6eb89331c2a77943bbad30bd607d02ac39125c89",
         "src/generated/models/WorkItem.ts": "3739c2602861a6e1c96287af8f6f682b151dfcf6c422d862c4c046d25c288f41"
       },
-      "dependencyBindings": []
+      "dependencyBindings": [],
+      "previousSourceGuard": {
+        "accepted": false,
+        "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+        "differences": [
+          {
+            "name": "src/generated/models/Platform.ts",
+            "expected": "016e9b537e124b79a11321fcbcf37155d46e028cf6d77c04406a8a379313c0e5",
+            "actual": "b86aa80274e59dde2b89ac816beaf997edf417eff1e7ff82d97cff2b867f2aeb"
+          },
+          {
+            "name": "src/generated/models/WorkItem.ts",
+            "expected": "8ae5221919f4ad99a7d1ae0a2f785173ab5bc2624b6bc9ed283368239965f30b",
+            "actual": "49211b446abffe8e8616a91c838cc947d290f9488f0e93a7e0438b2a43203ca6"
+          }
+        ]
+      }
     },
     {
       "id": "trace-chain",
@@ -53,7 +69,43 @@
         "src/generated/models/PaymentAttempt.ts": "3eaf48d693743c8a8d8441c74a5d397322ddbb6cda39b5df602523c5947a1c3f",
         "src/generated/models/Shipment.ts": "5654989bcd567954872a6c08800a5a564698a20a6dd90e453e2f85e445f0d390"
       },
-      "dependencyBindings": []
+      "dependencyBindings": [],
+      "previousSourceGuard": {
+        "accepted": false,
+        "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+        "differences": [
+          {
+            "name": "src/generated/models/Platform.ts",
+            "expected": "bfe56aa9c73bb1301462d771a28856258dfa5eb717f2948842d21ac3b80e34bd",
+            "actual": "f7c49e94a4b28fcf74c676601371beee6e4d2417cf4e6e07c3eca40581754d14"
+          },
+          {
+            "name": "src/generated/models/CustomerOrder.ts",
+            "expected": "48e534361c3b7af37ec74327e0bc7edebd3b5dca5df6cffbc81c037f3030617f",
+            "actual": "294c174429288ef813d5d1127b5ea501f4b2aad7568c8ee3fcd3696f7ac11de4"
+          },
+          {
+            "name": "src/generated/models/OrderItem.ts",
+            "expected": "1b8830553ff23253bca228f0f20040fccf00ce9b5f9611ae3f6852d83003afad",
+            "actual": "8c2a7f06d80b14015c259b5f798337e589a34cbf0520b14a0b4a4f33ca2c46b0"
+          },
+          {
+            "name": "src/generated/models/Payment.ts",
+            "expected": "331a422c60853e3d82a83ab3dbc09ee6627ab0941ad46eda93093ad2166f59e7",
+            "actual": "d61247fdf23471aa44cb1abf858e2936c57f43f9c6481fb64081c3d190c5ec79"
+          },
+          {
+            "name": "src/generated/models/PaymentAttempt.ts",
+            "expected": "c8597a8bbb1514c05cd115705752ee7bef0141e91b2930d0a218e6725797e484",
+            "actual": "9ce92d085ae1f48082420151ffd87141e6afb06988771a4d0902c234922507f5"
+          },
+          {
+            "name": "src/generated/models/Shipment.ts",
+            "expected": "1de5f9f41d6753f51a77d69a045435a05ef79202aafe2cf72710fa96f33851b9",
+            "actual": "9f480997aaad0cbd0c549160d61d60f5a4e938017faa60584731dd244dfcbe7c"
+          }
+        ]
+      }
     },
     {
       "id": "facet-trace",
@@ -75,7 +127,28 @@
         "src/generated/models/SchoolType.ts": "1ccf1fac854d58f308f2769f57ec8c378483cdad89208b6c6498cda46592d411",
         "src/generated/models/School.ts": "e663e1fa343fdc3b27291ee371f9b800d35d4bb63ab76f4b1c65311ebe6bbf1a"
       },
-      "dependencyBindings": []
+      "dependencyBindings": [],
+      "previousSourceGuard": {
+        "accepted": false,
+        "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+        "differences": [
+          {
+            "name": "src/generated/models/Platform.ts",
+            "expected": "3b6ee4bcae34fb0ba2e267f048c671a97d7ebc058e0a188b857f665a17c040c2",
+            "actual": "db69ea5d998104c1398f54d22fa2720dc55cd93d853fcdfa0d79341c077b6673"
+          },
+          {
+            "name": "src/generated/models/SchoolType.ts",
+            "expected": "a0466df6922511ce356072f2dc511edf9cd3d30a8dc77611f48eb3d8a20e5bfc",
+            "actual": "422d533965dd8bc6e226e1944592e3de44d16b7f46fc842651a19c230e9aaf49"
+          },
+          {
+            "name": "src/generated/models/School.ts",
+            "expected": "ce931a9b31676805239db5f51ce4eadb65c6b328ac58a842773ecfa4a1e3e028",
+            "actual": "dcec1738d0a739bdbd6f9df0ab0a700bd698653ddaac6b8a20e55296854aacdf"
+          }
+        ]
+      }
     },
     {
       "id": "school-management",
@@ -97,7 +170,28 @@
         "src/generated/models/SchoolType.ts": "1ccf1fac854d58f308f2769f57ec8c378483cdad89208b6c6498cda46592d411",
         "src/generated/models/School.ts": "e663e1fa343fdc3b27291ee371f9b800d35d4bb63ab76f4b1c65311ebe6bbf1a"
       },
-      "dependencyBindings": []
+      "dependencyBindings": [],
+      "previousSourceGuard": {
+        "accepted": false,
+        "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+        "differences": [
+          {
+            "name": "src/generated/models/Platform.ts",
+            "expected": "3b6ee4bcae34fb0ba2e267f048c671a97d7ebc058e0a188b857f665a17c040c2",
+            "actual": "db69ea5d998104c1398f54d22fa2720dc55cd93d853fcdfa0d79341c077b6673"
+          },
+          {
+            "name": "src/generated/models/SchoolType.ts",
+            "expected": "a0466df6922511ce356072f2dc511edf9cd3d30a8dc77611f48eb3d8a20e5bfc",
+            "actual": "422d533965dd8bc6e226e1944592e3de44d16b7f46fc842651a19c230e9aaf49"
+          },
+          {
+            "name": "src/generated/models/School.ts",
+            "expected": "ce931a9b31676805239db5f51ce4eadb65c6b328ac58a842773ecfa4a1e3e028",
+            "actual": "dcec1738d0a739bdbd6f9df0ab0a700bd698653ddaac6b8a20e55296854aacdf"
+          }
+        ]
+      }
     },
     {
       "id": "school-reconciled",
@@ -119,7 +213,28 @@
         "generated/models/SchoolType.ts": "1ccf1fac854d58f308f2769f57ec8c378483cdad89208b6c6498cda46592d411",
         "generated/models/School.ts": "125e5812cf6a9b2ac14614ea98b6e0f514d09c15db605a55c347ff1ac35a8185"
       },
-      "dependencyBindings": []
+      "dependencyBindings": [],
+      "previousSourceGuard": {
+        "accepted": false,
+        "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+        "differences": [
+          {
+            "name": "generated/models/Platform.ts",
+            "expected": "3b6ee4bcae34fb0ba2e267f048c671a97d7ebc058e0a188b857f665a17c040c2",
+            "actual": "db69ea5d998104c1398f54d22fa2720dc55cd93d853fcdfa0d79341c077b6673"
+          },
+          {
+            "name": "generated/models/SchoolType.ts",
+            "expected": "a0466df6922511ce356072f2dc511edf9cd3d30a8dc77611f48eb3d8a20e5bfc",
+            "actual": "422d533965dd8bc6e226e1944592e3de44d16b7f46fc842651a19c230e9aaf49"
+          },
+          {
+            "name": "generated/models/School.ts",
+            "expected": "64d8e1cce7df0c85fca0bf844c429a375a8e251b0455241df6243221994b7635",
+            "actual": "d12b86ed017a2df90e22f117783fdf4b64ac9be0e2f87b4993790884f9eb8f01"
+          }
+        ]
+      }
     },
     {
       "id": "browser-orders",
@@ -145,7 +260,38 @@
         "src/generated/models/CustomerOrder.ts": "11dd27a3b310cb88a495df5df3241bdc0d7e42834593b7a5b475d7d76755ee3c",
         "src/generated/models/OrderItem.ts": "45543cf484bf7b57b542bedd42d7f6f1c2650678d80b11da2ddc63925e32e706"
       },
-      "dependencyBindings": []
+      "dependencyBindings": [],
+      "previousSourceGuard": {
+        "accepted": false,
+        "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+        "differences": [
+          {
+            "name": "src/generated/models/Platform.ts",
+            "expected": "d5ccaabeceefbfba15ec1c90f0602c10033476b6d53ab7352d5fda41433f0abd",
+            "actual": "94da2759b338a3be4ebd5310e71db128d741b7bdafd94d94bb68950249f705ef"
+          },
+          {
+            "name": "src/generated/models/OrderStatus.ts",
+            "expected": "1fd1875def868241a206e77a71c2f7cb567c9a6f84dac647dc0264d6ddde3ca6",
+            "actual": "6ab043c7044fe392aa9f1f96716066eed51b1419920e783978e28deb2c955f01"
+          },
+          {
+            "name": "src/generated/models/Customer.ts",
+            "expected": "50f4b5ceff2858320136579cf637001a05bf1c08db6a6f64d82992150eb179d3",
+            "actual": "e3cee2717ea883ed1071f42e11e9560ec31079932ff0127b6c26c60083a67a95"
+          },
+          {
+            "name": "src/generated/models/CustomerOrder.ts",
+            "expected": "0fcae54183cbd0012d7f930726070602a4c2a8752985fcd81bf52d6c596c29c9",
+            "actual": "90a832c2ba6bc2051c7c1e8667a0c9ecf300ff070b8ded7cfd500a290de97a11"
+          },
+          {
+            "name": "src/generated/models/OrderItem.ts",
+            "expected": "afaadab085e477f0d7b4037a3eda542e31124430ebe18d72acec3671eea508c5",
+            "actual": "ab789105e4ceb01b7cb579dff72de916a50f33fd013cfdcece9141752b0e0766"
+          }
+        ]
+      }
     },
     {
       "id": "fix-e-alignment",

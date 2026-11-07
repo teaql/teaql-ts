@@ -123,8 +123,9 @@ export async function verifyFileCheckerMetadata(filename: string): Promise<void>
     const good = (await owner()).updateContactPhone('5550803');
     await good.auditAs('Calibrate a successful file-backed save').save(context);
     expect(persist.mock.calls.length).toBeGreaterThan(0);
-    const before = readFileSync(filename), audits = client.auditTrace.length;
+    const audits = client.auditTrace.length;
     const invalid = async (scenario: string, save: () => Promise<unknown>, entityType: string) => {
+      const before = readFileSync(filename); // ID reservations have already completed.
       persist.mockClear();
       let failure: CheckException | undefined;
       try { await save(); }
@@ -139,8 +140,10 @@ export async function verifyFileCheckerMetadata(filename: string): Promise<void>
         results: failure!.violations.map(result => checkResultToWire(result)), persistCalls: 0, auditEvents: 0}) + '\n');
       for (const violation of failure!.violations) expect(violation.message).toContain(violation.location.nativePath());
     };
-    await invalid('create-required', async () => (await owner()).auditAs('Reject a file-backed required-field omission').save(context), 'PurchaseOrder');
-    await invalid('create-max-length', async () => (await owner()).updateContactPhone('x'.repeat(33))
+    const omitted = await owner();
+    await invalid('create-required', () => omitted.auditAs('Reject a file-backed required-field omission').save(context), 'PurchaseOrder');
+    const tooLong = (await owner()).updateContactPhone('x'.repeat(33));
+    await invalid('create-max-length', () => tooLong
       .auditAs('Reject a file-backed modeled length violation').save(context), 'PurchaseOrder');
     const parent = (await owner()).updateContactPhone('5550804');
     const child = (await Q.orderItems().comment('Prepare a file-backed invalid child')

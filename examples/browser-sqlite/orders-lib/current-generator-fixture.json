@@ -27,5 +27,36 @@
     "src/generated/models/OrderItem.ts": "45543cf484bf7b57b542bedd42d7f6f1c2650678d80b11da2ddc63925e32e706"
   },
   "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
-  "previousFixtureManifestSha256": "e5b0228d56f4de093fed8fdf26c206c5bca1db0034162c400c1cc10e2e4137b8"
+  "previousFixtureManifestSha256": "e5b0228d56f4de093fed8fdf26c206c5bca1db0034162c400c1cc10e2e4137b8",
+  "previousSourceGuard": {
+    "accepted": false,
+    "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
+    "differences": [
+      {
+        "name": "src/generated/models/Platform.ts",
+        "expected": "d5ccaabeceefbfba15ec1c90f0602c10033476b6d53ab7352d5fda41433f0abd",
+        "actual": "94da2759b338a3be4ebd5310e71db128d741b7bdafd94d94bb68950249f705ef"
+      },
+      {
+        "name": "src/generated/models/OrderStatus.ts",
+        "expected": "1fd1875def868241a206e77a71c2f7cb567c9a6f84dac647dc0264d6ddde3ca6",
+        "actual": "6ab043c7044fe392aa9f1f96716066eed51b1419920e783978e28deb2c955f01"
+      },
+      {
+        "name": "src/generated/models/Customer.ts",
+        "expected": "50f4b5ceff2858320136579cf637001a05bf1c08db6a6f64d82992150eb179d3",
+        "actual": "e3cee2717ea883ed1071f42e11e9560ec31079932ff0127b6c26c60083a67a95"
+      },
+      {
+        "name": "src/generated/models/CustomerOrder.ts",
+        "expected": "0fcae54183cbd0012d7f930726070602a4c2a8752985fcd81bf52d6c596c29c9",
+        "actual": "90a832c2ba6bc2051c7c1e8667a0c9ecf300ff070b8ded7cfd500a290de97a11"
+      },
+      {
+        "name": "src/generated/models/OrderItem.ts",
+        "expected": "afaadab085e477f0d7b4037a3eda542e31124430ebe18d72acec3671eea508c5",
+        "actual": "ab789105e4ceb01b7cb579dff72de916a50f33fd013cfdcece9141752b0e0766"
+      }
+    ]
+  }
 }
