@@ -99,3 +99,20 @@ test('file-backed reservations survive reopen, reserve distinct IDs and create n
   expect((await Q.purchaseOrders().limit(100).comment('Inspect reservation-only storage')
     .purpose('Confirm ID reservation is not business persistence').executeForList(reopened)).length).toBe(0);
 });
+
+test('actual SQLite ID exhaustion rolls back reservation without returning a rounded identity', async () => {
+  const f = await fixture('exhaustion');
+  const construct = jest.spyOn(PurchaseOrder, 'teaqlNewWithId');
+  try {
+    await create(f.context); construct.mockClear();
+    // Test-only sequence fixture, not a business-data mutation. Model writes
+    // still go through the generated API in the ordinary acceptance cases.
+    const database = (f.client as any).driver.database;
+    database.prepare('UPDATE teaql_id_space SET current_level = ? WHERE type_name = ?')
+      .run(Number.MAX_SAFE_INTEGER, 'PurchaseOrder');
+    await expect(create(f.context)).rejects.toThrow('exhausted');
+    expect(construct).not.toHaveBeenCalled(); expect(f.mutation).not.toHaveBeenCalled();
+    expect(database.prepare('SELECT current_level AS value FROM teaql_id_space WHERE type_name = ?')
+      .get('PurchaseOrder').value).toBe(Number.MAX_SAFE_INTEGER);
+  } finally { construct.mockRestore(); await f.close(); }
+});
