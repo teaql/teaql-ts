@@ -36,9 +36,13 @@ export async function verifyPartialAncestors(filename: string): Promise<void> {
       .purpose('Use the generated relation and audited save').newEntity(context))
       .updateProductName('Partial graph original').updateUnitPrice(decimal('10.00'));
     order.orderItemList().push(child);
+    const reservations = effects();
+    expect(reservations.transactions).toBe(2); expect(reservations.allocations).toBe(2);
+    expect(reservations.mutations).toBe(0); expect(reservations.audits).toBe(0);
+    reset();
     await order.auditAs('Create the partial-ancestor graph').save(context);
     const calibration = effects();
-    expect(calibration.transactions).toBe(1); expect(calibration.allocations).toBe(2);
+    expect(calibration.transactions).toBe(1); expect(calibration.allocations).toBe(0);
     expect(calibration.mutations).toBe(2); expect(calibration.audits).toBe(2);
     expect(calibration.policies).toBeGreaterThan(0); expect(calibration.reviews).toBeGreaterThan(0);
     if (!order.id) throw new Error('the saved order has no real identity');

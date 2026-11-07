@@ -102,6 +102,9 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
       isolated.install(new RuntimeModule({}, checkers));
       await isolatedDriver.query('SELECT 1 AS calibration'); expect(isolatedQuery).toHaveBeenCalledTimes(1);
       isolatedQuery.mockClear();
+      // This test intentionally has no physical schema. Select a non-storage
+      // allocator so the test still isolates Checker admission from ID-space I/O.
+      isolatedContext.withInternalIdGenerator({generateId: () => '1'});
       const missing = (await Q.purchaseOrders().comment('Prepare invalid data without installing schema')
         .purpose('Require module Checkers before any database mutation').newEntity(isolatedContext));
       await expect(missing.auditAs('Reject required input in a schema-free store').save(isolatedContext)).rejects.toThrow(CheckException);
@@ -115,7 +118,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
 
     const parent = (await owner()), child = (await item()); parent.orderItemList().push(child); reset();
     await parent.auditAs('Calibrate a valid generated graph through one provider transaction').save(context);
-    expect(effects()).toMatchObject({transactions: 1, begins: 1, commits: 1, rollbacks: 0, allocations: 2, mutations: 2, audits: 2});
+    expect(effects()).toMatchObject({transactions: 1, begins: 1, commits: 1, rollbacks: 0, allocations: 0, mutations: 2, audits: 2});
     expect(effects().queries).toBeGreaterThan(0); expect(effects().policies).toBeGreaterThan(0);
     expect(effects().reviews).toBeGreaterThan(0); expect(checkerCalls).toBeGreaterThan(0);
     record('exact-provider-calibration', {parentID: Number(parent.id), childID: Number(child.id), effects: effects(), checkerCalls});
@@ -205,6 +208,10 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
           const envelope = JSON.parse(JSON.stringify({'payload/order': input}));
           normalized = normalizeWireInput(envelope['payload/order'], metadata, '/payload~1order');
           mapperCalls++; created = (await owner());
+          // Creation reservation is separate from the following save-admission
+          // oracle. It must not mutate business rows or emit an audit.
+          expect(effects().allocations).toBe(1); expect(effects().mutations).toBe(0); expect(effects().audits).toBe(0);
+          reset();
           Reflect.apply(created.updateContactPhone, created, [normalized.values.contact_phone]);
           saveCalls++; await created.auditAs('Save an admitted object-local JSON input through generated APIs').save(context);
         } catch (error) {failure = error;}

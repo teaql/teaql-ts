@@ -68,7 +68,7 @@ export async function verifyContextRoot(filename: string): Promise<void> {
     expect('updateTenantId' in parent).toBe(false); expect('updateTenantId' in child).toBe(false);
     reset(); await parent.auditAs('Persist the valid context-bound parent and child').save(context);
     const calibration = effects();
-    expect(calibration.transactions).toBe(1); expect(calibration.allocations).toBe(2); expect(calibration.audits).toBe(2);
+    expect(calibration.transactions).toBe(1); expect(calibration.allocations).toBe(0); expect(calibration.audits).toBe(2);
     expect(calibration.policies).toBeGreaterThan(0); expect(calibration.reviews).toBeGreaterThan(0); expect(calibration.rootLookups).toBe(0);
     expect(String(E.purchaseOrder(parent).tenantId().eval())).toBe(String(active.id));
     expect(String(E.orderItem(child).tenantId().eval())).toBe(String(active.id));

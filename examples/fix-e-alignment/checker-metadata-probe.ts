@@ -23,6 +23,8 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
     const owner = async () => (await Q.purchaseOrders().comment('Prepare a Checker metadata regression')
       .purpose('Require declaring entity types on actual generated-save errors').newEntity(context));
     const good = (await owner()).updateContactPhone('5550800');
+    expect(transaction.mock.calls.length).toBe(1); // Creation reserves, but does not save.
+    query.mockClear(); transaction.mockClear();
     await good.auditAs('Calibrate successful Checker admission and SQLite instrumentation').save(context);
     expect(query.mock.calls.length).toBeGreaterThan(0);
     expect(transaction.mock.calls.length).toBe(1);
