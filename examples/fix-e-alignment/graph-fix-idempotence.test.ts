@@ -75,10 +75,11 @@ test('overlapping real generated graphs on separate contexts keep their own snap
   let entered!: () => void, release!: () => void;
   const ready = new Promise<void>(resolve => {entered = resolve;}), hold = new Promise<void>(resolve => {release = resolve;});
   const transaction = first.driver.transaction.bind(first.driver);
-  a.transaction.mockImplementationOnce(async (work: any) => {entered(); await hold; return transaction(work);});
   let pending: Promise<unknown> | undefined;
   try {
     const left = (await make(first.context, 'First context')), right = (await make(second.context, 'Second context'));
+    // Creation reserves IDs in its own transaction. Hold only the save boundary.
+    a.transaction.mockImplementationOnce(async (work: any) => {entered(); await hold; return transaction(work);});
     pending = left.parent.auditAs('Hold the first generated graph before provider entry').save(first.context);
     await Promise.race([ready, pending.then(() => {throw Error('first graph finished without reaching the held transaction');})]);
     const receipt = first.context.getResource('fixEvidenceCurrent'); expect(receipt).toBeDefined();

@@ -200,7 +200,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
       for (const [name, input] of inputCases) {
         const before = physical(); reset(); let mapperCalls = 0, saveCalls = 0, failure: unknown;
         let normalized: ReturnType<typeof normalizeWireInput> | undefined;
-        let created: ReturnType<typeof owner> | undefined;
+        let created: Awaited<ReturnType<typeof owner>> | undefined;
         try {
           const envelope = JSON.parse(JSON.stringify({'payload/order': input}));
           normalized = normalizeWireInput(envelope['payload/order'], metadata, '/payload~1order');

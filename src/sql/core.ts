@@ -438,7 +438,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
     await predecessor;
     try {
-      return await this.driver.transaction(async session => internalId(await this.driver.nextId(session, entity)));
+      return await this.driver.transaction(async session => {
+        const id = internalId(await this.driver.nextId(session, entity));
+        // The current SQL ID-space and floor implementations use JS numbers.
+        // Reject their exhausted range inside the transaction, never return a
+        // rounded/duplicate string or silently select a different allocator.
+        if (!Number.isSafeInteger(Number(id))) throw new RangeError('SQL internal ID space exhausted its exact integer range');
+        return id;
+      });
     } finally { release(); }
   }
 

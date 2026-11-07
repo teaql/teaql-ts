@@ -20,8 +20,8 @@ async function fixture(name: string) {
   const mutation = jest.spyOn(client, 'executeMutation');
   return {context, client, allocation, mutation, close: async () => { allocation.mockRestore(); mutation.mockRestore(); await client.close(); }};
 }
-const create = async (context: UserContext) => (await Q.purchaseOrders().comment('Reserve an order identity')
-  .purpose('Verify creation before any business persistence').newEntity(context));
+const create = (context: UserContext) => Q.purchaseOrders().comment('Reserve an order identity')
+  .purpose('Verify creation before any business persistence').newEntity(context);
 
 test('default SQLite factory reserves a real identity, keeps its ledger key, then saves without reallocating', async () => {
   const f = await fixture('default');
@@ -47,8 +47,8 @@ test.each(['error', 'zero'] as const)('default allocation %s returns no entity o
   try {
     if (mode === 'error') f.allocation.mockRejectedValueOnce(sentinel);
     else f.allocation.mockResolvedValueOnce('0');
-    if (mode === 'error') await expect((await create(f.context))).rejects.toBe(sentinel);
-    else await expect((await create(f.context))).rejects.toThrow('positive');
+    if (mode === 'error') await expect(create(f.context)).rejects.toBe(sentinel);
+    else await expect(create(f.context)).rejects.toThrow('positive');
     expect(construct).not.toHaveBeenCalled(); expect(f.mutation).not.toHaveBeenCalled();
     const recovered = await create(f.context); expect(recovered.id).toMatch(/^[1-9][0-9]*$/);
     expect(construct).toHaveBeenCalledTimes(1); expect(f.allocation).toHaveBeenCalledTimes(2);
@@ -61,7 +61,7 @@ test('selected provider is awaited; failures do not fall back and successful ind
     .mockResolvedValueOnce('41').mockResolvedValueOnce('42');
   f.context.withInternalIdGenerator({generateId});
   try {
-    await expect((await create(f.context))).rejects.toBe(sentinel); await expect((await create(f.context))).rejects.toThrow('positive');
+    await expect(create(f.context)).rejects.toBe(sentinel); await expect(create(f.context)).rejects.toThrow('positive');
     const first = await create(f.context), other = await create(f.context);
     expect(generateId).toHaveBeenLastCalledWith('PurchaseOrder', f.context);
     expect(first.id).toBe('41'); expect(other.id).toBe('42'); expect((first as any)._root).not.toBe((other as any)._root);
@@ -81,9 +81,9 @@ test('a pending provider cannot return an entity and missing Context fails befor
   const context = new UserContext().withInternalIdGenerator({generateId});
   const construct = jest.spyOn(PurchaseOrder, 'teaqlNewWithId');
   try {
-    const pending = (await create(context)); await Promise.resolve(); expect(construct).not.toHaveBeenCalled();
+    const pending = create(context); await Promise.resolve(); expect(construct).not.toHaveBeenCalled();
     finish('61'); expect((await pending).id).toBe('61');
-    await expect((await create(undefined as any))).rejects.toThrow('UserContext'); expect(generateId).toHaveBeenCalledTimes(1);
+    await expect(create(undefined as any)).rejects.toThrow('UserContext'); expect(generateId).toHaveBeenCalledTimes(1);
   } finally { construct.mockRestore(); }
 });
 
@@ -91,7 +91,7 @@ test('file-backed reservations survive reopen, reserve distinct IDs and create n
   const file = database('reserved.json');
   const first = new TeaQLClient(file).install(GENERATED_RUNTIME_MODULE);
   const ctx = new UserContext().insertResource('dataService', first);
-  const rows = await Promise.all([(await create(ctx)), (await create(ctx))]);
+  const rows = await Promise.all([create(ctx), create(ctx)]);
   expect(rows[0].id).not.toBe(rows[1].id);
   const second = new TeaQLClient(file).install(GENERATED_RUNTIME_MODULE);
   const reopened = new UserContext().insertResource('dataService', second);

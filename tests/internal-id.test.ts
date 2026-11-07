@@ -89,3 +89,11 @@ test('concurrent SQL reservations serialize and preserve a failed provider error
   expect(results).toEqual([{status: 'rejected', reason: failure}, {status: 'fulfilled', value: '11'}, {status: 'fulfilled', value: '12'}]);
   expect(maximum).toBe(1);
 });
+
+test('SQL reservation rejects a driver string outside its exact numeric storage domain', async () => {
+  const transaction = jest.fn(async (work: (session: SqlSession) => Promise<string>) => work({} as SqlSession));
+  const nextId = jest.fn(async () => '9007199254740992');
+  const client = new Client({nextId, transaction} as unknown as TeaQLSqlDriver);
+  const context = new UserContext().insertResource('dataService', client);
+  await expect(context.generateInternalId('School')).rejects.toThrow('exhausted');
+});
