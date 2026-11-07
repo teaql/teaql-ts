@@ -74,7 +74,8 @@ rejected before provider work. All three cases run twice on retained databases.
 The file, audit history, optimistic baseline and parent version remain unchanged;
 the Delete intent survives, but loaded validation values must not become field
 writes. Saving the same graph again commits one child tombstone and one audit
-event, without reloading or updating the parent. A repeated save is a no-op.
+event, without reloading or updating the parent. Repeating Delete on the committed
+tombstone is rejected before persistence, mutation execution or another audit.
 Both rounds use the same retained JSON store, also checked independently.
 
 `fixture-manifest.json` records the unified generator revision, all 17 exported

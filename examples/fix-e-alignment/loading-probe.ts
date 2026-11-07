@@ -5,7 +5,7 @@ import { Q } from 'generated/generated/Q';
 export async function verifyLoading(context: UserContext,
     orderId: Parameters<ReturnType<typeof Q.purchaseOrders>['withIdIs']>[0]): Promise<void> {
   const rows = await Q.purchaseOrders().withIdIs(orderId)
-    .selectTenantWith(Q.tenantsWithMinimalFields().withIdIs(2).limit(1)
+    .selectTenantWith(Q.tenantsWithMinimalFields().withIdIs('2').limit(1)
       .comment("Load only a different tenant's detail"))
     .limit(1).comment('Keep the selected FK when target detail is filtered out')
     .purpose('Verify filtered target detail is NotLoaded rather than loaded null').executeForList(context);
