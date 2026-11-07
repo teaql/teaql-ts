@@ -48,16 +48,16 @@ export async function verifyPartialRoot(filename: string): Promise<void> {
     await context.ensureSchema();
     const active = context.requireActiveRoot('Tenant');
     reset();
-    const other = Q.tenants().comment('Prepare another persisted domain root')
-      .purpose('Test wrong context with a real root, not an invented ID').newEntity(context)
+    const other = (await Q.tenants().comment('Prepare another persisted domain root')
+      .purpose('Test wrong context with a real root, not an invented ID').newEntity(context))
       .updateName('Independent partial root');
     await other.auditAs('Create an independent root for managed-root verification').save(context);
     expect(other.id).toBeTruthy(); expect(String(other.id)).not.toBe(String(active.id));
-    const order = Q.purchaseOrders().comment('Prepare the managed partial-ancestor fixture')
-      .purpose('Verify ownership through an unchanged sparse graph').newEntity(context)
+    const order = (await Q.purchaseOrders().comment('Prepare the managed partial-ancestor fixture')
+      .purpose('Verify ownership through an unchanged sparse graph').newEntity(context))
       .updateContactPhone('5550801').updateInternalNote(null);
-    const child = Q.orderItems().comment('Prepare the complete managed leaf')
-      .purpose('Persist a leaf owned by the original domain root').newEntity(context)
+    const child = (await Q.orderItems().comment('Prepare the complete managed leaf')
+      .purpose('Persist a leaf owned by the original domain root').newEntity(context))
       .updateProductName('Managed partial original').updateUnitPrice(decimal('10.00'));
     order.orderItemList().push(child);
     await order.auditAs('Create the owned graph for partial-ancestor admission').save(context);

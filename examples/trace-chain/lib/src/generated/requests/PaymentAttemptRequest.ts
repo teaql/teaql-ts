@@ -25,6 +25,10 @@ export class PaymentAttemptRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "PaymentAttempt" {
+        return "PaymentAttempt";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -134,7 +138,7 @@ export class PaymentAttemptRequest {
     }
 
 
-    selectPaymentWith(request: { toQuery(): SelectQuery }): this {
+    selectPaymentWith(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
         this.query.select(["payment"]);
         this.query.relationQuery(
             "payment", request.toQuery(), "payment", "id", false,
@@ -142,7 +146,7 @@ export class PaymentAttemptRequest {
         return this;
     }
 
-    withPaymentMatching(request: { toQuery(): SelectQuery }): this {
+    withPaymentMatching(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "payment": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -151,7 +155,7 @@ export class PaymentAttemptRequest {
         return this;
     }
 
-    withoutPaymentMatching(request: { toQuery(): SelectQuery }): this {
+    withoutPaymentMatching(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "payment": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -163,47 +167,47 @@ export class PaymentAttemptRequest {
 
 
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -248,42 +252,42 @@ export class PaymentAttemptRequest {
             return this;
         }
 
-        withReferenceCodeIsNot(val: any): this {
+        withReferenceCodeIsNot(val: string): this {
             this.filters.push({ "referenceCode": { "$ne": val } });
             return this;
         }
 
-        withReferenceCodeIn(...vals: any[]): this {
+        withReferenceCodeIn(...vals: string[]): this {
             this.filters.push({ "referenceCode": { "$in": vals } });
             return this;
         }
 
-        withReferenceCodeNotIn(...vals: any[]): this {
+        withReferenceCodeNotIn(...vals: string[]): this {
             this.filters.push({ "referenceCode": { "$notIn": vals } });
             return this;
         }
 
-        withReferenceCodeGreaterThan(val: any): this {
+        withReferenceCodeGreaterThan(val: string): this {
             this.filters.push({ "referenceCode": { "$gt": val } });
             return this;
         }
 
-        withReferenceCodeGreaterThanOrEqualTo(val: any): this {
+        withReferenceCodeGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "referenceCode": { "$gte": val } });
             return this;
         }
 
-        withReferenceCodeLessThan(val: any): this {
+        withReferenceCodeLessThan(val: string): this {
             this.filters.push({ "referenceCode": { "$lt": val } });
             return this;
         }
 
-        withReferenceCodeLessThanOrEqualTo(val: any): this {
+        withReferenceCodeLessThanOrEqualTo(val: string): this {
             this.filters.push({ "referenceCode": { "$lte": val } });
             return this;
         }
 
-        withReferenceCodeBetween(lower: any, upper: any): this {
+        withReferenceCodeBetween(lower: string, upper: string): this {
             this.filters.push({ "referenceCode": { "$between": [lower, upper] } });
             return this;
         }
@@ -327,47 +331,47 @@ export class PaymentAttemptRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -437,7 +441,7 @@ export class PaymentAttemptRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByPayment(): this {
@@ -446,7 +450,7 @@ export class PaymentAttemptRequest {
     }
 
     groupByPaymentAs(retName: string): this {
-        this.query.groupBy("payment"); // In TS we don't alias group by yet natively
+        this.query.groupBy("payment", retName);
         return this;
     }
     groupByReferenceCode(): this {
@@ -455,7 +459,7 @@ export class PaymentAttemptRequest {
     }
 
     groupByReferenceCodeAs(retName: string): this {
-        this.query.groupBy("referenceCode"); // In TS we don't alias group by yet natively
+        this.query.groupBy("referenceCode", retName);
         return this;
     }
     groupByVersion(): this {
@@ -464,14 +468,14 @@ export class PaymentAttemptRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByPaymentAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "Payment"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "payment", request, includeAllFacets,
@@ -587,9 +591,11 @@ export class ExecutablePaymentAttemptRequest {
         return this;
     }
 
-    newEntity(context: UserContext): PaymentAttempt {
+    async newEntity(context: UserContext): Promise<PaymentAttempt> {
         this.ensureIntent();
-        return new PaymentAttempt();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("PaymentAttempt");
+        return PaymentAttempt.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<PaymentAttempt>> {

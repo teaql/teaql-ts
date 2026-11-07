@@ -1,4 +1,4 @@
-import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { ScalarTypeProbe } from './ScalarTypeProbe';
 
 export class TypePlatform {
@@ -81,7 +81,18 @@ export class TypePlatform {
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
     static teaqlBootstrapNew(id: string | number): TypePlatform {
-        return new TypePlatform().updateId(String(id));
+        return TypePlatform.teaqlNewWithId(internalId(id));
+    }
+
+    /** @internal Q calls this only after Context allocation has completed. */
+    static teaqlNewWithId(value: string): TypePlatform {
+        const id = internalId(value);
+        const entity = new TypePlatform();
+        const previous = entity.teaqlEntityKey();
+        entity.updateId(id);
+        (entity as any)._ledgerId = id;
+        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
+        return entity;
     }
 
     markForDeletion(): this {
@@ -190,8 +201,10 @@ export class TypePlatform {
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return;
+        seen.add(this);
         const action = (this as any)._action;
         graph.discardRestoredFields(TypePlatform.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
@@ -226,7 +239,7 @@ export class TypePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("typePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateTypePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("scalar_type_probe_list").index(index);
@@ -238,8 +251,10 @@ export class TypePlatform {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<TypePlatform> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<TypePlatform> {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return this;
+        seen.add(this);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -262,7 +277,7 @@ export class TypePlatform {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("typePlatform") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateTypePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("scalar_type_probe_list").index(index);
@@ -279,7 +294,7 @@ export class TypePlatform {
             throw new Error("Mutation did not return the authoritative persisted record");
         }
         const rollbackState = {
-            payload: this.teaqlMutationPayload(),
+            ownProperties: Object.getOwnPropertyDescriptors(this),
             ledgerId: (this as any)._ledgerId,
             action: (this as any)._action,
             loadedFields: new Set((this as any)._loadedFields),
@@ -294,7 +309,10 @@ export class TypePlatform {
         const committedSnapshot = this.teaqlScalarSnapshot();
         const activeScope = request.scopeFor(newKey);
         service.afterGraphRollback(() => {
-            Object.assign(this, rollbackState.payload);
+            for (const name of Object.getOwnPropertyNames(this)) {
+                if (!Object.prototype.hasOwnProperty.call(rollbackState.ownProperties, name)) delete (this as any)[name];
+            }
+            Object.defineProperties(this, rollbackState.ownProperties);
             (this as any)._ledgerId = rollbackState.ledgerId;
             (this as any)._action = rollbackState.action;
             (this as any)._loadedFields = rollbackState.loadedFields;
@@ -313,7 +331,7 @@ export class TypePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("typePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateTypePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("scalar_type_probe_list").index(index);

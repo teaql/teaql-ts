@@ -1067,9 +1067,11 @@ export class ExecutablePlatformRequest {
         return this;
     }
 
-    newEntity(context: UserContext): Platform {
+    async newEntity(context: UserContext): Promise<Platform> {
         this.ensureIntent();
-        return new Platform();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("Platform");
+        return Platform.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Platform>> {

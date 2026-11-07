@@ -50,17 +50,17 @@ async function seed({context}: Runtime): Promise<void> {
     .comment('detect existing order demo').purpose('keep mutation seeding idempotent').executeForList(context);
   if (existing.length) return;
   const platform = (await Q.platforms().limit(2).comment('load bootstrap platform').purpose('prepare order demo').executeForList(context))[0];
-  const customer = Q.customers().comment('initialize demo customer').purpose('prepare order demo').newEntity(context);
+  const customer = (await Q.customers().comment('initialize demo customer').purpose('prepare order demo').newEntity(context));
   customer.updateName('North Star Retail').updatePlatform(platform.id);
   await customer.auditAs('seed browser order customer').save(context);
   for (let index = 1; index <= 4; index++) {
-    const order = Q.customerOrders().comment('initialize demo order').purpose('prepare order demo').newEntity(context);
+    const order = (await Q.customerOrders().comment('initialize demo order').purpose('prepare order demo').newEntity(context));
     order.updateCustomer(customer.id).updateOrderNumber(index < 4 ? `KEEP-00${index}` : 'DROP-004')
       .updateOrderDate(`2026-10-0${index}`).updateTotalAmount(decimal(String(index < 4 ? index * 100 : 900)));
     if (index === 1) order.updateStatusToNew(); else order.updateStatusToPaid();
     await order.auditAs('seed browser order').save(context);
     for (let item = 1; item <= 5; item++) {
-      const line = Q.orderItems().comment('initialize demo item').purpose('prepare item previews').newEntity(context);
+      const line = (await Q.orderItems().comment('initialize demo item').purpose('prepare item previews').newEntity(context));
       line.updateCustomerOrder(order.id).updateProductName(`Box ${item}`).updateQuantity(item).updateUnitPrice(decimal('20'));
       await line.auditAs('seed browser order item').save(context);
     }

@@ -2,113 +2,34 @@
   "schema": "teaql.generated-example-fixture/v1",
   "language": "typescript",
   "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762",
-  "generatedManifestSha256": "8442bab6ceaa100778cb03feeae5074ab5533371ff23b90365cec682f617e285",
+  "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
   "producerReceiptSha256": "80957fd5cd6b67aee4f598a2fb15d586a981504aeb0800f4a9f257774622361e",
   "producerSource": {
-    "commit": "554a1b7fa1e5c053e52290c3ee48925901cebe00",
-    "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sourceContentsSha256": "030ea893182a7bd47993656ef9d2d4f0c4f5774d3d6240fbbff2350e10d4a8e8",
-    "pairedTypescript": {
-      "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "b7673ff32ef72acf62c6520b3d91e2228ac63c51",
-      "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sourceContentsSha256": "4525128ea583281b6fd31effe7a6fcae903b27da0b55c216376a96b51bca8191"
-    },
-    "retainedModels": [
-      {
-        "id": "conformance",
-        "model": "examples/conformance/model.xml",
-        "target": "examples/conformance",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7"
-      },
-      {
-        "id": "trace-chain",
-        "model": "examples/trace-chain/model.xml",
-        "target": "examples/trace-chain/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "95502038a66686580e7399dc4252df51f95cc0dc10a54657f5779dc2a5dd1e76"
-      },
-      {
-        "id": "facet-trace",
-        "model": "examples/facet-trace/model.xml",
-        "target": "examples/facet-trace/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "9fc6724c828e10aca8cea9f53b65460f26577f74ba5396f04376ad4f20ddc30e"
-      },
-      {
-        "id": "school-management",
-        "model": "examples/school-management/model.xml",
-        "target": "examples/school-management",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4"
-      },
-      {
-        "id": "school-reconciled",
-        "model": "examples/school-management/model-reconciled.xml",
-        "target": "examples/school-management/src/reconciled",
-        "sourceOnly": "true",
-        "stripPrefix": "src/",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "896c579f3c9dded55c9728cb4af23cc8b920776e93ddcb95c8b0e95efdbcb451"
-      },
-      {
-        "id": "browser-orders",
-        "model": "examples/browser-sqlite/order-model.xml",
-        "target": "examples/browser-sqlite/orders-lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "44d20c0d236de9c79f767054deba773e11aa6ae4eaed1ede98cf7c6ed8d18495"
-      },
-      {
-        "id": "fix-e-alignment",
-        "model": "examples/fix-e-alignment/model.xml",
-        "target": "examples/fix-e-alignment/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7"
-      },
-      {
-        "id": "scalar-type-probe",
-        "model": "examples/scalar-type-probe/model.xml",
-        "target": "examples/scalar-type-probe/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762"
-      }
-    ],
-    "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
+    "commit": "54dccd3b534d568c03590eae89f61a002f189e25",
+    "sourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d"
   },
   "evaluatedScope": "typescript-node-lib-core",
   "evaluationErrors": 0,
   "evaluationWarnings": 0,
   "files": {
-    "src/generated/requests/TypePlatformRequest.ts": "550de9ffdde4deaa2481c6c2cb4b9a92b32db4bbc667127bbbab6f52b833d79e",
-    "src/generated/requests/ScalarTypeProbeRequest.ts": "4aef008eda2d9c4681efe68303fec593edca5c6f22d3f8ed7f0ed1a3437cd4be",
+    "src/generated/Q.ts": "e9c654d67ae27c4fdb1fbb38cfdb99a4a89b88fdeeac3de2ae862358bae3b143",
+    "src/generated/requests/TypePlatformRequest.ts": "1f83ed4a2e5ef7a6ccaa880e8cce1f3d0ce9af8fac3d9e0f11926bc724cac759",
+    "src/generated/requests/ScalarTypeProbeRequest.ts": "fcf96cfffda072e0e24a30786d3673e40a9e7146af5db870219203eb6f909c13",
     "teaql-i18n.json": "a2b6c40ece22b6c1c4b0231036e6859c294494c3ed6db8d24d57f08448457163",
+    "src/generated/E.ts": "c96e60f771a2477dc64ece64a860c117a63d79790f229683f375aae1f89ac14f",
     "package.json": "cb8450ca7d5fb93070a44708c994db3788f2cf37a70e6e0d5009003889ae83a2",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
-    "src/teaql-ts.ts": "463ac354f44a3c66cbefde57a0a4ab77f514bd87aa0750ff0299a6a9a221920d",
+    "src/teaql-ts.ts": "5ae07a53e060969004a88e0dc7fe09cc430e3202b7101a46387ff927c3f5de6d",
     "src/generated-search-models.ts": "25be59abce5f53f0434f3cb781ff29930118e08d851e2c7f8930a447e6b34956",
     "src/teaql-node-sql.ts": "6061936d57cb9f57cdf2a60acb10aeb84ab839e5d927b0f14fe64ae47156ebd6",
     "src/runtime-module.ts": "b8898eecf41ea135ba72efe960cfda1eede40ec5cc1afba5a077ba4c6b8dfcf5",
     "src/generated-bootstrap.ts": "92184f41b0a04ce3661a14deab06b2ee99a1bf644641dfe280b89dad416ed63e",
     "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
-    "src/generated/Q.ts": "e9c654d67ae27c4fdb1fbb38cfdb99a4a89b88fdeeac3de2ae862358bae3b143",
-    "src/generated/E.ts": "c96e60f771a2477dc64ece64a860c117a63d79790f229683f375aae1f89ac14f",
-    "src/generated/models/TypePlatform.ts": "d3d169b41dcc8d394b5937c35f965cbd2de5a7edd6d6eb3bfb2c7381327fda3d",
-    "src/generated/models/ScalarTypeProbe.ts": "5f812e1c53d0c1223eca589eae1af519d6db47d84b58a9cff8f7ba97080cefc8"
+    "src/generated/models/TypePlatform.ts": "aa28874a0eebabd198470e0dd310478499c66321250ea745edd4c5827f55b4c2",
+    "src/generated/models/ScalarTypeProbe.ts": "b3bddd346e3ee38eba1a401bbd820c1893bdb04f83d414da4be013f6fd5ddd3d"
   },
-  "previousFixtureManifestSha256": "b80b9cb8ee8abff1e4e0476404d2843c051f02e304fc4ef60b62c9270a0fc8c2"
+  "previousFixtureManifestSha256": "80595817d406721be0bc941eda1b7314c5a9f730e374528552d1053baa2a209b",
+  "generatorCommit": "54dccd3b534d568c03590eae89f61a002f189e25",
+  "generatorSourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d",
+  "producerReportSha256": "df47b2daf172ecfbdd25c18557230ce4d8f0d1bd897926c0315dd9e87d8fb586"
 }

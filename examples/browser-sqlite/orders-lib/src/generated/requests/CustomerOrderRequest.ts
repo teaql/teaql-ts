@@ -25,6 +25,10 @@ export class CustomerOrderRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "CustomerOrder" {
+        return "CustomerOrder";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -145,14 +149,14 @@ export class CustomerOrderRequest {
     }
 
 
-    selectCustomerWith(request: { toQuery(): SelectQuery }): this {
+    selectCustomerWith(request: { readonly entityName: "Customer"; toQuery(): SelectQuery }): this {
         this.query.select(["customer"]);
         this.query.relationQuery(
             "customer", request.toQuery(), "customer", "id", false,
             { kind: "relation-select", method: "selectCustomerWith", relation: "customer" });
         return this;
     }
-    selectStatusWith(request: { toQuery(): SelectQuery }): this {
+    selectStatusWith(request: { readonly entityName: "OrderStatus"; toQuery(): SelectQuery }): this {
         this.query.select(["status"]);
         this.query.relationQuery(
             "status", request.toQuery(), "status", "id", false,
@@ -160,7 +164,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withCustomerMatching(request: { toQuery(): SelectQuery }): this {
+    withCustomerMatching(request: { readonly entityName: "Customer"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "customer": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -169,7 +173,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withoutCustomerMatching(request: { toQuery(): SelectQuery }): this {
+    withoutCustomerMatching(request: { readonly entityName: "Customer"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "customer": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -177,7 +181,7 @@ export class CustomerOrderRequest {
         });
         return this;
     }
-    withStatusMatching(request: { toQuery(): SelectQuery }): this {
+    withStatusMatching(request: { readonly entityName: "OrderStatus"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "status": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -186,7 +190,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withoutStatusMatching(request: { toQuery(): SelectQuery }): this {
+    withoutStatusMatching(request: { readonly entityName: "OrderStatus"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "status": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -195,7 +199,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    selectOrderItemListWith(request: { toQuery(): SelectQuery }): this {
+    selectOrderItemListWith(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "orderItemList", request.toQuery(), "id", "customerOrder", true,
             { kind: "relation-select", method: "selectOrderItemListWith", relation: "orderItemList" });
@@ -204,17 +208,19 @@ export class CustomerOrderRequest {
 
     haveOrderItems(): this {
         return this.withOrderItemListMatching({
+            entityName: "OrderItem",
             toQuery: () => new SelectQuery("OrderItem"),
         });
     }
 
     haveNoOrderItems(): this {
         return this.withoutOrderItemListMatching({
+            entityName: "OrderItem",
             toQuery: () => new SelectQuery("OrderItem"),
         });
     }
 
-    withOrderItemListMatching(request: { toQuery(): SelectQuery }): this {
+    withOrderItemListMatching(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -225,7 +231,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withoutOrderItemListMatching(request: { toQuery(): SelectQuery }): this {
+    withoutOrderItemListMatching(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -242,13 +248,13 @@ export class CustomerOrderRequest {
 
     countOrderItemsAs(alias: string): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
-        this.countOrderItemsWith(alias, { toQuery: () => query });
+        this.countOrderItemsWith(alias, { entityName: "OrderItem", toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countOrderItemsAs", relation: "orderItemList", alias };
         return this;
     }
 
-    countOrderItemsWith(alias: string, child: { toQuery(): SelectQuery }): this {
+    countOrderItemsWith(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -260,10 +266,10 @@ export class CustomerOrderRequest {
     minQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.minQuantityOfOrderItemsAs(
-            "minOfQuantityOfOrderItems", { toQuery: () => query });
+            "minOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    minQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "quantity", alias);
@@ -274,10 +280,10 @@ export class CustomerOrderRequest {
     maxQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.maxQuantityOfOrderItemsAs(
-            "maxOfQuantityOfOrderItems", { toQuery: () => query });
+            "maxOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    maxQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "quantity", alias);
@@ -288,10 +294,10 @@ export class CustomerOrderRequest {
     sumQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.sumQuantityOfOrderItemsAs(
-            "sumOfQuantityOfOrderItems", { toQuery: () => query });
+            "sumOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    sumQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "quantity", alias);
@@ -302,10 +308,10 @@ export class CustomerOrderRequest {
     avgQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.avgQuantityOfOrderItemsAs(
-            "avgOfQuantityOfOrderItems", { toQuery: () => query });
+            "avgOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    avgQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "quantity", alias);
@@ -316,10 +322,10 @@ export class CustomerOrderRequest {
     standardDeviationQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.standardDeviationQuantityOfOrderItemsAs(
-            "standardDeviationOfQuantityOfOrderItems", { toQuery: () => query });
+            "standardDeviationOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    standardDeviationQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "quantity", alias);
@@ -330,10 +336,10 @@ export class CustomerOrderRequest {
     squareRootOfPopulationStandardDeviationQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationQuantityOfOrderItemsAs(
-            "squareRootOfPopulationStandardDeviationOfQuantityOfOrderItems", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "quantity", alias);
@@ -344,10 +350,10 @@ export class CustomerOrderRequest {
     sampleVarianceQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceQuantityOfOrderItemsAs(
-            "sampleVarianceOfQuantityOfOrderItems", { toQuery: () => query });
+            "sampleVarianceOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    sampleVarianceQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "quantity", alias);
@@ -358,10 +364,10 @@ export class CustomerOrderRequest {
     samplePopulationVarianceQuantityOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceQuantityOfOrderItemsAs(
-            "samplePopulationVarianceOfQuantityOfOrderItems", { toQuery: () => query });
+            "samplePopulationVarianceOfQuantityOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    samplePopulationVarianceQuantityOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceQuantityOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "quantity", alias);
@@ -372,10 +378,10 @@ export class CustomerOrderRequest {
     minUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.minUnitPriceOfOrderItemsAs(
-            "minOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "minOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    minUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "unitPrice", alias);
@@ -386,10 +392,10 @@ export class CustomerOrderRequest {
     maxUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.maxUnitPriceOfOrderItemsAs(
-            "maxOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "maxOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    maxUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "unitPrice", alias);
@@ -400,10 +406,10 @@ export class CustomerOrderRequest {
     sumUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.sumUnitPriceOfOrderItemsAs(
-            "sumOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "sumOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    sumUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "unitPrice", alias);
@@ -414,10 +420,10 @@ export class CustomerOrderRequest {
     avgUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.avgUnitPriceOfOrderItemsAs(
-            "avgOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "avgOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    avgUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "unitPrice", alias);
@@ -428,10 +434,10 @@ export class CustomerOrderRequest {
     standardDeviationUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.standardDeviationUnitPriceOfOrderItemsAs(
-            "standardDeviationOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "standardDeviationOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    standardDeviationUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "unitPrice", alias);
@@ -442,10 +448,10 @@ export class CustomerOrderRequest {
     squareRootOfPopulationStandardDeviationUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationUnitPriceOfOrderItemsAs(
-            "squareRootOfPopulationStandardDeviationOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "unitPrice", alias);
@@ -456,10 +462,10 @@ export class CustomerOrderRequest {
     sampleVarianceUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceUnitPriceOfOrderItemsAs(
-            "sampleVarianceOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "sampleVarianceOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    sampleVarianceUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "unitPrice", alias);
@@ -470,10 +476,10 @@ export class CustomerOrderRequest {
     samplePopulationVarianceUnitPriceOfOrderItems(): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceUnitPriceOfOrderItemsAs(
-            "samplePopulationVarianceOfUnitPriceOfOrderItems", { toQuery: () => query });
+            "samplePopulationVarianceOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
     }
 
-    samplePopulationVarianceUnitPriceOfOrderItemsAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "unitPrice", alias);
@@ -482,47 +488,47 @@ export class CustomerOrderRequest {
         return this;
     }
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -599,42 +605,42 @@ export class CustomerOrderRequest {
             return this;
         }
 
-        withOrderNumberIsNot(val: any): this {
+        withOrderNumberIsNot(val: string): this {
             this.filters.push({ "orderNumber": { "$ne": val } });
             return this;
         }
 
-        withOrderNumberIn(...vals: any[]): this {
+        withOrderNumberIn(...vals: string[]): this {
             this.filters.push({ "orderNumber": { "$in": vals } });
             return this;
         }
 
-        withOrderNumberNotIn(...vals: any[]): this {
+        withOrderNumberNotIn(...vals: string[]): this {
             this.filters.push({ "orderNumber": { "$notIn": vals } });
             return this;
         }
 
-        withOrderNumberGreaterThan(val: any): this {
+        withOrderNumberGreaterThan(val: string): this {
             this.filters.push({ "orderNumber": { "$gt": val } });
             return this;
         }
 
-        withOrderNumberGreaterThanOrEqualTo(val: any): this {
+        withOrderNumberGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "orderNumber": { "$gte": val } });
             return this;
         }
 
-        withOrderNumberLessThan(val: any): this {
+        withOrderNumberLessThan(val: string): this {
             this.filters.push({ "orderNumber": { "$lt": val } });
             return this;
         }
 
-        withOrderNumberLessThanOrEqualTo(val: any): this {
+        withOrderNumberLessThanOrEqualTo(val: string): this {
             this.filters.push({ "orderNumber": { "$lte": val } });
             return this;
         }
 
-        withOrderNumberBetween(lower: any, upper: any): this {
+        withOrderNumberBetween(lower: string, upper: string): this {
             this.filters.push({ "orderNumber": { "$between": [lower, upper] } });
             return this;
         }
@@ -678,47 +684,47 @@ export class CustomerOrderRequest {
             return this;
         }
 
-        withOrderDateIs(val: any): this {
+        withOrderDateIs(val: string): this {
             this.filters.push({ "orderDate": { "$eq": val } });
             return this;
         }
 
-        withOrderDateIsNot(val: any): this {
+        withOrderDateIsNot(val: string): this {
             this.filters.push({ "orderDate": { "$ne": val } });
             return this;
         }
 
-        withOrderDateIn(...vals: any[]): this {
+        withOrderDateIn(...vals: string[]): this {
             this.filters.push({ "orderDate": { "$in": vals } });
             return this;
         }
 
-        withOrderDateNotIn(...vals: any[]): this {
+        withOrderDateNotIn(...vals: string[]): this {
             this.filters.push({ "orderDate": { "$notIn": vals } });
             return this;
         }
 
-        withOrderDateGreaterThan(val: any): this {
+        withOrderDateGreaterThan(val: string): this {
             this.filters.push({ "orderDate": { "$gt": val } });
             return this;
         }
 
-        withOrderDateGreaterThanOrEqualTo(val: any): this {
+        withOrderDateGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "orderDate": { "$gte": val } });
             return this;
         }
 
-        withOrderDateLessThan(val: any): this {
+        withOrderDateLessThan(val: string): this {
             this.filters.push({ "orderDate": { "$lt": val } });
             return this;
         }
 
-        withOrderDateLessThanOrEqualTo(val: any): this {
+        withOrderDateLessThanOrEqualTo(val: string): this {
             this.filters.push({ "orderDate": { "$lte": val } });
             return this;
         }
 
-        withOrderDateBetween(lower: any, upper: any): this {
+        withOrderDateBetween(lower: string, upper: string): this {
             this.filters.push({ "orderDate": { "$between": [lower, upper] } });
             return this;
         }
@@ -788,47 +794,47 @@ export class CustomerOrderRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -983,7 +989,7 @@ export class CustomerOrderRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByCustomer(): this {
@@ -992,7 +998,7 @@ export class CustomerOrderRequest {
     }
 
     groupByCustomerAs(retName: string): this {
-        this.query.groupBy("customer"); // In TS we don't alias group by yet natively
+        this.query.groupBy("customer", retName);
         return this;
     }
     groupByStatus(): this {
@@ -1001,7 +1007,7 @@ export class CustomerOrderRequest {
     }
 
     groupByStatusAs(retName: string): this {
-        this.query.groupBy("status"); // In TS we don't alias group by yet natively
+        this.query.groupBy("status", retName);
         return this;
     }
     groupByOrderNumber(): this {
@@ -1010,7 +1016,7 @@ export class CustomerOrderRequest {
     }
 
     groupByOrderNumberAs(retName: string): this {
-        this.query.groupBy("orderNumber"); // In TS we don't alias group by yet natively
+        this.query.groupBy("orderNumber", retName);
         return this;
     }
     groupByOrderDate(): this {
@@ -1019,7 +1025,7 @@ export class CustomerOrderRequest {
     }
 
     groupByOrderDateAs(retName: string): this {
-        this.query.groupBy("orderDate"); // In TS we don't alias group by yet natively
+        this.query.groupBy("orderDate", retName);
         return this;
     }
     groupByTotalAmount(): this {
@@ -1028,7 +1034,7 @@ export class CustomerOrderRequest {
     }
 
     groupByTotalAmountAs(retName: string): this {
-        this.query.groupBy("totalAmount"); // In TS we don't alias group by yet natively
+        this.query.groupBy("totalAmount", retName);
         return this;
     }
     groupByVersion(): this {
@@ -1037,14 +1043,14 @@ export class CustomerOrderRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByCustomerAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "Customer"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "customer", request, includeAllFacets,
@@ -1054,7 +1060,7 @@ export class CustomerOrderRequest {
 
     facetByStatusAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "OrderStatus"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "status", request, includeAllFacets,
@@ -1170,9 +1176,11 @@ export class ExecutableCustomerOrderRequest {
         return this;
     }
 
-    newEntity(context: UserContext): CustomerOrder {
+    async newEntity(context: UserContext): Promise<CustomerOrder> {
         this.ensureIntent();
-        return new CustomerOrder();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("CustomerOrder");
+        return CustomerOrder.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<CustomerOrder>> {

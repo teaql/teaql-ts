@@ -6,10 +6,10 @@ import { verifyPageStream } from './paged-ownership';
 export async function verifyOwnership(context: UserContext): Promise<void> {
   const before = await Q.purchaseOrders().limit(20).comment('Inspect the initial ownership fixture')
     .purpose('Verify Context and multi-root results do not own shared mutation ledgers').executeForList(context);
-  const first = Q.purchaseOrders().comment('Prepare independent new owner A')
-    .purpose('Verify Context does not own mutation ledgers').newEntity(context);
-  const second = Q.purchaseOrders().comment('Prepare independent new owner B')
-    .purpose('Verify Context does not own mutation ledgers').newEntity(context);
+  const first = (await Q.purchaseOrders().comment('Prepare independent new owner A')
+    .purpose('Verify Context does not own mutation ledgers').newEntity(context));
+  const second = (await Q.purchaseOrders().comment('Prepare independent new owner B')
+    .purpose('Verify Context does not own mutation ledgers').newEntity(context));
   first.updateContactPhone('5550300'); second.updateContactPhone('5550400');
   const savedA = await first.auditAs('Save only independent new owner A').save(context);
   const initial = await Q.purchaseOrders().limit(20).comment("Inspect A's save before saving B")

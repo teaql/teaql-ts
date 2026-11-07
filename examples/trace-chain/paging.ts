@@ -47,9 +47,9 @@ async function main() {
         const privateName='PRIVATE-TS-PAGE-CHILD-CANARY';
         const ids:string[]=[];
         for(let i=0;i<(mode==='scope'?4:3);i++) {
-          const root=Q.customerOrders().comment('initialize page root').purpose('verify page isolation').newEntity(context)
+          const root=(await Q.customerOrders().comment('initialize page root').purpose('verify page isolation').newEntity(context))
             .updatePlatform('1').updateOrderNumber(`${group}-${i}`).updateDescription(group);
-          root.orderItemList().push(Q.orderItems().comment('initialize page child').purpose('verify page isolation').newEntity(context).updateName(privateName));
+          root.orderItemList().push((await Q.orderItems().comment('initialize page child').purpose('verify page isolation').newEntity(context)).updateName(privateName));
           await root.auditAs('seed page graph').save(context); ids.push(root.id!);
         }
         const paged=mode==='page'||mode==='scope';

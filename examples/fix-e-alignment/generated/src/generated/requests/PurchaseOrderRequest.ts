@@ -1036,9 +1036,11 @@ export class ExecutablePurchaseOrderRequest {
         return this;
     }
 
-    newEntity(context: UserContext): PurchaseOrder {
+    async newEntity(context: UserContext): Promise<PurchaseOrder> {
         this.ensureIntent();
-        return new PurchaseOrder();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("PurchaseOrder");
+        return PurchaseOrder.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<PurchaseOrder>> {

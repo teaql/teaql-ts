@@ -2,7 +2,7 @@ import {
     CheckException, EntityChecker, RuntimeModule, ContextSchemaProvider,
     SelectQuery as RuntimeSelectQuery, UserContext,
     GraphCommittedError, executeRelationFacets, QueryRequest, MutationIntent, MutationRequest, GraphMutationSession, MutationFieldLayout,
-    EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, compareLongs, ModeledInteger32Layout,
+    EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, compareLongs, ModeledInteger32Layout, internalId,
 } from "teaql-ts";
 
 export { CheckException, EntityRoot, ObjectLocation, SmartList, UserContext, executeRelationFacets, MutationIntent } from "teaql-ts";
@@ -11,6 +11,7 @@ export type { Decimal } from "teaql-ts";
 export { long, compareLongs, localTime } from "teaql-ts";
 export type { Long, LocalTime } from "teaql-ts";
 export { entityVersion, nextEntityVersion } from "teaql-ts";
+export { internalId } from "teaql-ts";
 export { integer32Error } from "teaql-ts";
 export type { EntityVersion } from "teaql-ts";
 export { GraphCommittedError, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationTraceScope, QueryIntent, QueryRequest, RequestIntentError } from "teaql-ts";
@@ -51,6 +52,7 @@ export class SelectQuery extends RuntimeSelectQuery {
 }
 
 export interface TeaQLDataService {
+    reserveInternalId(entity: string, context: UserContext): Promise<string>;
     executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
@@ -173,6 +175,27 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
     setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this {
         this.auditSink = sink;
         return this;
+    }
+
+    async reserveInternalId(entity: string, context: UserContext): Promise<string> {
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for ID reservation");
+        if (!entity || entity !== entity.trim()) throw new TypeError("Internal ID entity type is required");
+        if (this.graphSaveActive) throw new Error("Internal ID reservation is not allowed inside an active graph save");
+        const predecessor = this.graphSaveTail;
+        let release!: () => void;
+        this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
+        await predecessor;
+        const previous = this.nextIds[entity];
+        try {
+            const id = internalId(previous ?? 1);
+            this.nextIds[entity] = Number(id) + 1;
+            this.persist();
+            return id;
+        } catch (error) {
+            if (previous === undefined) delete this.nextIds[entity];
+            else this.nextIds[entity] = previous;
+            throw error;
+        } finally { release(); }
     }
 
     private persist() {

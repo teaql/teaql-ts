@@ -46,17 +46,19 @@ try {
     baseUrl: repo, paths: {"teaql-ts": [path.join(repo, "src/index.ts")], "teaql-ts/*": [path.join(repo, "src/*")],
       "generated/*": [path.join(example, "generated/src/*")]}}}));
   fs.writeFileSync(config, "module.exports = " + JSON.stringify({rootDir: repo, roots: [example], testEnvironment: "node",
-    testMatch: ["**/examples/fix-e-alignment/verify.test.ts", "**/examples/fix-e-alignment/graph-fix-idempotence.test.ts", "**/examples/fix-e-alignment/delete-retry.test.ts"],
+    testMatch: ["**/examples/fix-e-alignment/verify.test.ts", "**/examples/fix-e-alignment/graph-fix-idempotence.test.ts", "**/examples/fix-e-alignment/delete-retry.test.ts", "**/examples/fix-e-alignment/creation-identity.test.ts"],
     moduleNameMapper: {"^teaql-ts$": path.join(repo, "src/index.ts"), "^teaql-ts/(.*)$": path.join(repo, "src/$1"),
       "^generated/(.*)$": path.join(example, "generated/src/$1")},
     transform: {"^.+\\.tsx?$": ["ts-jest", {tsconfig}]}}) + ";\n");
   for (const round of [1, 2]) {
+    const creationDatabases = path.join(evidence, "creation-round-" + round);
+    fs.mkdirSync(creationDatabases);
     const command = [path.join(repo, "node_modules/jest/bin/jest.js"), "--config", config,
       "--runInBand", "--cacheDirectory", path.join(scratch, "jest")];
     const log = path.join(evidence, "round-" + round + ".log"), fd = fs.openSync(log, "w");
     let result;
     try { result = await runner.run([process.execPath, ...command], {cwd: repo, timeout: 120000,
-      env: {...process.env, TEAQL_FIX_E_DB: path.join(evidence, "fixture.sqlite"), TEAQL_FIX_E_ROUND: String(round)}, stdio: ["ignore", fd, fd]}); }
+      env: {...process.env, TEAQL_FIX_E_DB: path.join(evidence, "fixture.sqlite"), TEAQL_FIX_E_ROUND: String(round), TEAQL_CREATION_DATABASES: creationDatabases}, stdio: ["ignore", fd, fd]}); }
     finally { fs.closeSync(fd); }
     report.rounds.push({command, exitCode: result.status, signal: result.signal, logSha256: sha(fs.readFileSync(log))});
     if (result.status !== 0) process.exitCode = result.status || 1;

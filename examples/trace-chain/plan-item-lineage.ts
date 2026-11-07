@@ -80,10 +80,10 @@ async function main() {
     for (const logging of [true, false]) {
       client.setQueryLoggingEnabled(logging).setMutationLoggingEnabled(logging);
       const nonce = randomUUID();
-      const order = Q.customerOrders().comment('initialize plan root').purpose('verify ordered graph plan').newEntity(context)
+      const order = (await Q.customerOrders().comment('initialize plan root').purpose('verify ordered graph plan').newEntity(context))
         .updatePlatform('1').updateOrderNumber(`PLAN-${nonce}`).updateDescription('before');
-      const first = Q.orderItems().comment('initialize first plan item').purpose('verify ordered graph plan').newEntity(context);
-      const second = Q.orderItems().comment('initialize second plan item').purpose('verify ordered graph plan').newEntity(context);
+      const first = (await Q.orderItems().comment('initialize first plan item').purpose('verify ordered graph plan').newEntity(context));
+      const second = (await Q.orderItems().comment('initialize second plan item').purpose('verify ordered graph plan').newEntity(context));
       order.orderItemList().push(first, second);
       first.auditAs('prepare first item'); second.auditAs('prepare second item');
       for (const phase of ['create', 'update'] as const) {

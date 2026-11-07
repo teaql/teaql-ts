@@ -102,8 +102,8 @@ test('unmodified generated Q/E and audited SQLite saves consume the local Busine
   };
   try {
     await context.ensureSchema();
-    const order = Q.purchaseOrders().comment('Prepare the synthetic clock fixture')
-      .purpose('Verify generated Fix and expression diagnostics').newEntity(context);
+    const order = (await Q.purchaseOrders().comment('Prepare the synthetic clock fixture')
+      .purpose('Verify generated Fix and expression diagnostics').newEntity(context));
     order.updateContactPhone('5550100');
     const saved = await order.auditAs('Create the synthetic Fix order').save(context);
     expect(new Date(E.purchaseOrder(saved).createTime().eval()!).getTime()).toBe(first.getTime());
@@ -163,8 +163,8 @@ test('a generated persisted field restored to its baseline has no provider, poli
   context.insertResource('dataService', client);
   try {
     await context.ensureSchema();
-    const entity = Q.purchaseOrders().comment('Prepare the known baseline restoration fixture')
-      .purpose('Verify a restored field does not become a business write').newEntity(context);
+    const entity = (await Q.purchaseOrders().comment('Prepare the known baseline restoration fixture')
+      .purpose('Verify a restored field does not become a business write').newEntity(context));
     entity.updateContactPhone('5550700');
     await entity.auditAs('Create the known baseline restoration fixture').save(context);
     const row = (await Q.purchaseOrders().withIdIs(entity.id!).limit(1)
@@ -256,8 +256,8 @@ test('a generated persisted field restored to its baseline has no provider, poli
     } finally { remainingOracle.close(); }
 
     // The complete plan, not only the parent's ledger, controls no-op handling.
-    const child = Q.orderItems().comment('Prepare a genuine new child on a clean parent')
-      .purpose('Verify clean parents still traverse pending child work').newEntity(context);
+    const child = (await Q.orderItems().comment('Prepare a genuine new child on a clean parent')
+      .purpose('Verify clean parents still traverse pending child work').newEntity(context));
     child.updateProductName('Widget').updateUnitPrice(decimal('10'));
     entity.orderItemList().push(child);
     auditStart = reset(); await entity.auditAs('Save only the dirty child through its clean parent').save(context);

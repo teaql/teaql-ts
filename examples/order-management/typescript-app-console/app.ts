@@ -1,11 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Q } from "order-management-service-lib/src/generated/Q";
-import { CommercePlatform } from "order-management-service-lib/src/generated/models/CommercePlatform";
-import { Customer } from "order-management-service-lib/src/generated/models/Customer";
-import { CustomerOrder } from "order-management-service-lib/src/generated/models/CustomerOrder";
-import { OrderSearchPreset } from "order-management-service-lib/src/generated/models/OrderSearchPreset";
-import { UserContext } from "teaql-ts";
+import { UserContext, decimal } from "teaql-ts";
 import { SQLiteTeaQLClient } from "order-management-service-lib/src/teaql-node-sqlite";
 
 async function main(): Promise<void> {
@@ -30,7 +26,8 @@ async function main(): Promise<void> {
     .executeForList(ctx);
   let platformId: string;
   if (platforms.data.length === 0) {
-    const platform = new CommercePlatform().updateName("Northwind Demo");
+    const platform = (await Q.commercePlatforms().comment("Prepare the demo commerce platform")
+      .purpose("Reserve identity before initializing business data").newEntity(ctx)).updateName("Northwind Demo");
     await platform.auditAs("Create quick-start commerce platform").save(ctx);
     platformId = platform.id!;
   } else platformId = String(platforms.data[0].id);
@@ -41,15 +38,17 @@ async function main(): Promise<void> {
     .purpose("Initialize the local order-management example")
     .executeForList(ctx);
   if (seeded.data.length === 0) {
-    const customer = new Customer()
+    const customer = (await Q.customers().comment("Prepare the demo customer")
+      .purpose("Reserve identity before initializing business data").newEntity(ctx))
       .updateName("Acme Retail")
       .updateEmail("masked-in-quick-start")
       .updateCommercePlatform(platformId);
     await customer.auditAs("Create masked quick-start customer").save(ctx);
-    const order = new CustomerOrder()
+    const order = (await Q.customerOrders().comment("Prepare the deterministic demo order")
+      .purpose("Reserve identity before initializing business data").newEntity(ctx))
       .updateOrderNumber("WEB-2026-001")
       .updateOrderDate("2026-08-12")
-      .updateTotalAmount(129.95)
+      .updateTotalAmount(decimal('129.95'))
       .updateStatusToPending()
       .updateCustomer(customer.id)
       .updateCommercePlatform(platformId);
@@ -74,7 +73,8 @@ async function main(): Promise<void> {
     .purpose("Persist the operator's reusable search")
     .executeForList(ctx);
   if (presets.data.length === 0) {
-    const preset = new OrderSearchPreset()
+    const preset = (await Q.orderSearchPresets().comment("Prepare a reusable demo search")
+      .purpose("Reserve identity before persisting a search preset").newEntity(ctx))
       .updateName("Pending web orders")
       .updateFilterJson('{"order_number":"WEB-"}')
       .updateRequestId("quick-start-pending-orders")

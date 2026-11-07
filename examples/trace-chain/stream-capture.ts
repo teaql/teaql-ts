@@ -41,10 +41,10 @@ async function main(){
   try{
     await context.ensureSchema();await context.ensureSchema();
     for(let index=0;index<3;index++){
-      const root=Q.customerOrders().comment('seed stream capture').purpose('verify delayed consumption').newEntity(context)
+      const root=(await Q.customerOrders().comment('seed stream capture').purpose('verify delayed consumption').newEntity(context))
         .updatePlatform('1').updateOrderNumber(`${group}-${index}`).updateDescription(group);
-      root.orderItemList().push(Q.orderItems().comment('seed stream child').purpose('verify delayed relation capture')
-        .newEntity(context).updateName(secret));
+      root.orderItemList().push((await Q.orderItems().comment('seed stream child').purpose('verify delayed relation capture')
+        .newEntity(context)).updateName(secret));
       await root.auditAs('seed delayed stream graph').save(context);ids.push(root.id!);
     }
     sql.enableAll();context.calls=0;context.allowed=ids.slice(0,2);

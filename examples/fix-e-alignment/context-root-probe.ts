@@ -59,10 +59,10 @@ export async function verifyContextRoot(filename: string): Promise<void> {
     await Q.tenants().withIdIs(active.id as string).limit(1).comment('Calibrate the context-root lookup observer')
       .purpose('Prove the real SQL observer detects a root SELECT').executeForList(context);
     const queryCalibration = effects(); expect(queryCalibration.queries).toBeGreaterThan(0); expect(queryCalibration.rootLookups).toBeGreaterThan(0);
-    const owner = () => Q.purchaseOrders().comment('Prepare a context-root admission boundary')
-      .purpose('Derive ownership from trusted runtime context').newEntity(context).updateContactPhone('5550980');
-    const parent = owner(), child = Q.orderItems().comment('Prepare a context-bound graph child')
-      .purpose('Verify root Fix at every modified graph node').newEntity(context)
+    const owner = async () => (await Q.purchaseOrders().comment('Prepare a context-root admission boundary')
+      .purpose('Derive ownership from trusted runtime context').newEntity(context)).updateContactPhone('5550980');
+    const parent = (await owner()), child = (await Q.orderItems().comment('Prepare a context-bound graph child')
+      .purpose('Verify root Fix at every modified graph node').newEntity(context))
       .updateProductName('Context root child').updateUnitPrice(decimal('10.00'));
     parent.orderItemList().push(child);
     expect('updateTenantId' in parent).toBe(false); expect('updateTenantId' in child).toBe(false);
@@ -95,13 +95,13 @@ export async function verifyContextRoot(filename: string): Promise<void> {
         ...(matching ? {wire: checkResultToWire(matching)} : {})};
       cases.push(value); process.stdout.write('CORE_TS_ROOT_CASE=' + JSON.stringify(value) + '\n');
     };
-    root(); await reject('missing-root', owner(), 'context_root');
-    root({entity: 'UnrelatedRoot', id: active.id}); await reject('type-mismatch', owner(), 'context_root');
+    root(); await reject('missing-root', (await owner()), 'context_root');
+    root({entity: 'UnrelatedRoot', id: active.id}); await reject('type-mismatch', (await owner()), 'context_root');
     for (const [name, id] of [['zero-number', 0], ['zero-string', '0'], ['zero-bigint', 0n], ['negative-number', -1]] as const) {
-      root({entity: 'Tenant', id}); await reject(name, owner(), 'context_root');
+      root({entity: 'Tenant', id}); await reject(name, (await owner()), 'context_root');
     }
     root(active);
-    const conflict = owner();
+    const conflict = (await owner());
     Reflect.set(conflict, rootMember, String(BigInt(active.id) + 1n));
     (conflict as any)._root.set({entity: 'PurchaseOrder', id: (conflict as any)._ledgerId}, 'tenant', String(BigInt(active.id) + 1n));
     await reject('explicit-root-mismatch', conflict, 'context_root_mismatch');
@@ -141,10 +141,10 @@ export async function verifyFileContextRoot(filename: string): Promise<void> {
     .withBusinessClock(new FixedBusinessClock(new Date('2032-02-29T10:15:30Z')));
   const client = new TeaQLClient(filename).install(GENERATED_RUNTIME_MODULE).setUserContext(context);
   context.insertResource('dataService', client);
-  const owner = () => Q.purchaseOrders().comment('Prepare file-backed root ownership admission')
+  const owner = async () => (await Q.purchaseOrders().comment('Prepare file-backed root ownership admission')
     .purpose('Verify both generated client implementations enforce the same context boundary')
-    .newEntity(context).updateContactPhone('5550984');
-  const row = owner(); await row.auditAs('Create the file-backed root baseline').save(context);
+    .newEntity(context)).updateContactPhone('5550984');
+  const row = (await owner()); await row.auditAs('Create the file-backed root baseline').save(context);
   const persist = jest.spyOn(client as any, 'persist');
   const calibration = {persistCalls: persist.mock.calls.length};
   // The spy starts after the baseline. A second valid save calibrates it.
@@ -163,7 +163,7 @@ export async function verifyFileContextRoot(filename: string): Promise<void> {
     cases.push(result); process.stdout.write('CORE_TS_ROOT_FILE_CASE=' + JSON.stringify(result) + '\n');
   };
   try {
-    context.withActiveRoot({entity: 'Tenant', id: 0}); await reject('zero-root', owner(), 'context_root');
+    context.withActiveRoot({entity: 'Tenant', id: 0}); await reject('zero-root', (await owner()), 'context_root');
     const load = async () => (await Q.purchaseOrders().withIdIs(row.id!).limit(1)
       .comment('Load the complete file-backed baseline').purpose('Use actual hydration provenance for ownership').executeForList(context))[0];
     context.withActiveRoot({entity: 'Tenant', id: '2'});

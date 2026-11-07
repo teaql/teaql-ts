@@ -64,12 +64,12 @@ async function main() {
   const group=randomUUID();
   try {
     await context.ensureSchema();await context.ensureSchema();
-    const order=Q.customerOrders().comment('initialize membership graph').purpose('verify generated aggregate')
-      .newEntity(context).updatePlatform('1').updateOrderNumber(group).updateDescription(group);
-    for(const name of [secret,'ordinary member'])order.orderItemList().push(Q.orderItems()
-      .comment('initialize membership item').purpose('verify two members').newEntity(context).updateName(name));
-    order.paymentList().push(Q.payments().comment('initialize membership payment').purpose('verify nested owner')
-      .newEntity(context).updateReferenceCode(group));
+    const order=(await Q.customerOrders().comment('initialize membership graph').purpose('verify generated aggregate')
+      .newEntity(context)).updatePlatform('1').updateOrderNumber(group).updateDescription(group);
+    for(const name of [secret,'ordinary member'])order.orderItemList().push((await Q.orderItems()
+      .comment('initialize membership item').purpose('verify two members').newEntity(context)).updateName(name));
+    order.paymentList().push((await Q.payments().comment('initialize membership payment').purpose('verify nested owner')
+      .newEntity(context)).updateReferenceCode(group));
     await order.auditAs('seed generated aggregate membership').save(context);
     const id=order.id!;
     for(const nested of [false,true])for(const mode of ['list','stream-full','stream-tail'])

@@ -111,10 +111,10 @@ async function main() {
     client.maxSaves = 0; client.maxCallbacks = 0; sql.enableAll();
   };
   const create = async (suffix: string) => {
-    const root = Q.customerOrders().comment('initialize Checker overlap fixture').purpose('verify generated validation')
-      .newEntity(context).updatePlatform('1').updateOrderNumber(`${nonce}-${suffix}`).updateDescription(`before-${suffix}`);
-    root.orderItemList().push(Q.orderItems().comment('initialize Checker item').purpose('verify generated validation')
-      .newEntity(context).updateName(`${nonce}-${suffix}-item`));
+    const root = (await Q.customerOrders().comment('initialize Checker overlap fixture').purpose('verify generated validation')
+      .newEntity(context)).updatePlatform('1').updateOrderNumber(`${nonce}-${suffix}`).updateDescription(`before-${suffix}`);
+    root.orderItemList().push((await Q.orderItems().comment('initialize Checker item').purpose('verify generated validation')
+      .newEntity(context)).updateName(`${nonce}-${suffix}-item`));
     await root.auditAs('seed Checker overlap fixture').save(context);
     return root;
   };
@@ -143,8 +143,8 @@ async function main() {
       valid.updateDescription(`accepted-${nonce}-${suffix}`);
       valid.orderItemList()[0].updateName(`accepted-child-${nonce}-${suffix}`).auditAs('accepted child responsibility');
       invalid.updateDescription(`must-remain-pending-${nonce}-${suffix}`);
-      const missingName = Q.orderItems().comment('initialize invalid child').purpose('verify real required-field Checker')
-        .newEntity(context).auditAs('rejected child responsibility');
+      const missingName = (await Q.orderItems().comment('initialize invalid child').purpose('verify real required-field Checker')
+        .newEntity(context)).auditAs('rejected child responsibility');
       invalid.orderItemList().push(missingName);
       reset();
       const jobs = invalidFirst

@@ -27,12 +27,12 @@ async function main() {
     assert.deepEqual(statuses.map(r => [r.id, E.taskStatus(r).code().eval()]),
       [['1001', 'PLANNED'], ['1002', 'READY'], ['1003', 'EXECUTING'], ['1004', 'VERIFIED']]);
 
-    const invalid = Q.tasks().comment('prepare invalid task').purpose('verify Checker').newEntity(context)
+    const invalid = (await Q.tasks().comment('prepare invalid task').purpose('verify Checker').newEntity(context))
       .updatePlatform('1').updateStatusToPlanned().updateName('');
     const beforeInvalid = client.sqlTrace.length;
     await assert.rejects(async () => invalid.auditAs('reject blank task name').save(context), CheckException);
     assert.equal(client.sqlTrace.length, beforeInvalid, 'Checker rejection must precede business SQL');
-    const missingAudit = Q.tasks().comment('prepare unaudited task').purpose('verify audit gate').newEntity(context)
+    const missingAudit = (await Q.tasks().comment('prepare unaudited task').purpose('verify audit gate').newEntity(context))
       .updatePlatform('1').updateStatusToPlanned().updateName('rejected audit fixture');
     await assert.rejects(async () => missingAudit.auditAs('').save(context), RequestIntentError);
 
@@ -44,11 +44,11 @@ async function main() {
       assert(existing.length <= 1);
       let entity = existing[0];
       if (!entity) {
-        entity = Q.tasks().comment('initialize task graph').purpose('demonstrate generated creation').newEntity(context)
+        entity = (await Q.tasks().comment('initialize task graph').purpose('demonstrate generated creation').newEntity(context))
           .updatePlatform('1').updateStatusToPlanned().updateName(initialName);
         assert(entity.id && BigInt(entity.id) > 0n, 'creation must assign identity before saving');
-        const log = Q.taskExecutionLogs().comment('initialize execution history')
-          .purpose('demonstrate graph save').newEntity(context)
+        const log = (await Q.taskExecutionLogs().comment('initialize execution history')
+          .purpose('demonstrate graph save').newEntity(context))
           .updateTask(entity.id).updateAction('created').updateDetail('PRIVATE-TASK-DETAIL');
         entity.taskExecutionLogList().push(log);
         await entity.auditAs('create task and its execution history').save(context); seeded++;
@@ -83,7 +83,7 @@ async function main() {
     assert.throws(() => QueryParser.parse('globalThis.process.exit()', Q));
     await assert.rejects(async () => Q.tasks().limit(1).comment('').purpose('verify query intent').executeForList(context), RequestIntentError);
 
-    const transient = Q.tasks().comment('initialize deletion fixture').purpose('demonstrate staged deletion').newEntity(context)
+    const transient = (await Q.tasks().comment('initialize deletion fixture').purpose('demonstrate staged deletion').newEntity(context))
       .updatePlatform('1').updateStatusToReady().updateName('temporary-task-' + round);
     await transient.auditAs('create deletion fixture').save(context);
     const id = transient.id!;

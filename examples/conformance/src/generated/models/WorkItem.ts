@@ -1,4 +1,4 @@
-import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 
 export class WorkItem {
@@ -75,7 +75,18 @@ export class WorkItem {
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
     static teaqlBootstrapNew(id: string | number): WorkItem {
-        return new WorkItem().updateId(String(id));
+        return WorkItem.teaqlNewWithId(internalId(id));
+    }
+
+    /** @internal Q calls this only after Context allocation has completed. */
+    static teaqlNewWithId(value: string): WorkItem {
+        const id = internalId(value);
+        const entity = new WorkItem();
+        const previous = entity.teaqlEntityKey();
+        entity.updateId(id);
+        (entity as any)._ledgerId = id;
+        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
+        return entity;
     }
 
     markForDeletion(): this {
@@ -159,8 +170,10 @@ export class WorkItem {
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return;
+        seen.add(this);
         const action = (this as any)._action;
         graph.discardRestoredFields(WorkItem.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
@@ -192,8 +205,10 @@ export class WorkItem {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<WorkItem> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<WorkItem> {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return this;
+        seen.add(this);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {

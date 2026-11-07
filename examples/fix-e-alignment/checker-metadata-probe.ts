@@ -20,9 +20,9 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
     const driver = (client as any).driver;
     const query = jest.spyOn(driver, 'query');
     const transaction = jest.spyOn(driver, 'transaction');
-    const owner = () => Q.purchaseOrders().comment('Prepare a Checker metadata regression')
-      .purpose('Require declaring entity types on actual generated-save errors').newEntity(context);
-    const good = owner().updateContactPhone('5550800');
+    const owner = async () => (await Q.purchaseOrders().comment('Prepare a Checker metadata regression')
+      .purpose('Require declaring entity types on actual generated-save errors').newEntity(context));
+    const good = (await owner()).updateContactPhone('5550800');
     await good.auditAs('Calibrate successful Checker admission and SQLite instrumentation').save(context);
     expect(query.mock.calls.length).toBeGreaterThan(0);
     expect(transaction.mock.calls.length).toBe(1);
@@ -54,8 +54,8 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
       if (expectedRule) expect(violations.some(result => result.ruleId === expectedRule)).toBe(true);
       observations.push({scenario, violations, entityType});
     };
-    await invalid('create-required', () => owner().auditAs('Reject an omitted required contact phone').save(context));
-    await invalid('create-max-length', () => owner().updateContactPhone('x'.repeat(33))
+    await invalid('create-required', async () => (await owner()).auditAs('Reject an omitted required contact phone').save(context));
+    await invalid('create-max-length', async () => (await owner()).updateContactPhone('x'.repeat(33))
       .auditAs('Reject a contact phone exceeding the modeled length').save(context));
     const complete = (await Q.purchaseOrders().withIdIs(good.id!).limit(1)
       .comment('Load the complete owner before the invalid update').purpose('Verify explicit null is not omission')
@@ -70,9 +70,9 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
     partial.updateContactPhone('5550801');
     await invalid('modified-partial-owner', () => partial.auditAs('Reject changing a partially loaded owner').save(context));
     const badChild = async (scenario: string, name: string | undefined, price: string, rule: string, field: string) => {
-      const parent = owner().updateContactPhone('5550802');
-      const child = Q.orderItems().comment('Prepare an invalid child for indexed Checker diagnostics')
-        .purpose('Keep the declaring child type when prefixing an error').newEntity(context);
+      const parent = (await owner()).updateContactPhone('5550802');
+      const child = (await Q.orderItems().comment('Prepare an invalid child for indexed Checker diagnostics')
+        .purpose('Keep the declaring child type when prefixing an error').newEntity(context));
       if (name !== undefined) child.updateProductName(name);
       child.updateUnitPrice(decimal(price));
       parent.orderItemList().push(child);
@@ -112,11 +112,11 @@ export async function verifyFileCheckerMetadata(filename: string): Promise<void>
     .withActiveRoot({entity: 'Tenant', id: '1'});
   const client = new TeaQLClient(filename).install(GENERATED_RUNTIME_MODULE).setUserContext(context);
   context.insertResource('dataService', client);
-  const owner = () => Q.purchaseOrders().comment('Prepare file-backed Checker admission')
-    .purpose('Verify the generated client preserves declaring entity types').newEntity(context);
+  const owner = async () => (await Q.purchaseOrders().comment('Prepare file-backed Checker admission')
+    .purpose('Verify the generated client preserves declaring entity types').newEntity(context));
   const persist = jest.spyOn(client as any, 'persist');
   try {
-    const good = owner().updateContactPhone('5550803');
+    const good = (await owner()).updateContactPhone('5550803');
     await good.auditAs('Calibrate a successful file-backed save').save(context);
     expect(persist.mock.calls.length).toBeGreaterThan(0);
     const before = readFileSync(filename), audits = client.auditTrace.length;
@@ -135,12 +135,12 @@ export async function verifyFileCheckerMetadata(filename: string): Promise<void>
         results: failure!.violations.map(result => checkResultToWire(result)), persistCalls: 0, auditEvents: 0}) + '\n');
       for (const violation of failure!.violations) expect(violation.message).toContain(violation.location.nativePath());
     };
-    await invalid('create-required', () => owner().auditAs('Reject a file-backed required-field omission').save(context), 'PurchaseOrder');
-    await invalid('create-max-length', () => owner().updateContactPhone('x'.repeat(33))
+    await invalid('create-required', async () => (await owner()).auditAs('Reject a file-backed required-field omission').save(context), 'PurchaseOrder');
+    await invalid('create-max-length', async () => (await owner()).updateContactPhone('x'.repeat(33))
       .auditAs('Reject a file-backed modeled length violation').save(context), 'PurchaseOrder');
-    const parent = owner().updateContactPhone('5550804');
-    const child = Q.orderItems().comment('Prepare a file-backed invalid child')
-      .purpose('Verify prefixed errors retain the child type').newEntity(context).updateUnitPrice(decimal('10'));
+    const parent = (await owner()).updateContactPhone('5550804');
+    const child = (await Q.orderItems().comment('Prepare a file-backed invalid child')
+      .purpose('Verify prefixed errors retain the child type').newEntity(context)).updateUnitPrice(decimal('10'));
     parent.orderItemList().push(child);
     await invalid('nested-required', () => parent.auditAs('Reject an invalid file-backed child graph').save(context), 'OrderItem');
     process.stdout.write('CORE_FILE_CHECKER_METADATA=' + JSON.stringify({language: 'typescript', passed: true,

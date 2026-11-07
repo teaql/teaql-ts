@@ -48,10 +48,10 @@ test('file provider creates the generated root and constants, then preserves an 
  await root!.auditAs('keep an application-owned Domain Root customization').save(context);
  const version=root!.version;await context.ensureSchema();
  const preserved=await platform(context);expect(preserved?.name).toBe('User-maintained platform '+round);expect(preserved?.version).toBe(version);expect(JSON.stringify(preserved?.createTime)).toBe(created);
- const extra=Q.schoolTypes().comment('allocate a type after fixed model identities').purpose('verify the file ID floor').newEntity(context)
+ const extra=(await Q.schoolTypes().comment('allocate a type after fixed model identities').purpose('verify the file ID floor').newEntity(context))
   .updatePlatform(Platform.refer('1')).updateName('Other '+round).updateCode('OTHER_'+round).updateDisplayOrder(decimal('3'));
  await extra.auditAs('verify normal allocation never collides with model constants').save(context);expect(Number(extra.id)).toBe(1002+round);
- const school=Q.schools().comment('prepare a file-backed School').purpose('verify the bootstrap graph is usable').newEntity(context)
+ const school=(await Q.schools().comment('prepare a file-backed School').purpose('verify the bootstrap graph is usable').newEntity(context))
   .updatePlatform(Platform.refer('1')).updateSchoolTypeToPrimary().updateName('File School '+round).updateAddress('12 River Road')
   .updateEstablishedDate('1995-09-01').updateStudentCapacity(800).updateActive(true);
  await school.auditAs('create a School against the generated constants').save(context);
@@ -113,7 +113,7 @@ test('recreating lower fixed model IDs never moves an existing ID floor backward
  writeFileSync(file,JSON.stringify(state));
  const {client,context}=scoped(file);await context.ensureSchema();
  expect(client.auditTrace).toHaveLength(2);expect((await schoolTypes(context)).filter(x=>['1001','1002'].includes(x.id!))).toHaveLength(2);
- const next=Q.schoolTypes().comment('allocate after restoring lower fixed identities').purpose('verify persistent monotonic ID floors').newEntity(context)
+ const next=(await Q.schoolTypes().comment('allocate after restoring lower fixed identities').purpose('verify persistent monotonic ID floors').newEntity(context))
   .updatePlatform(Platform.refer('1')).updateName('Floor control '+round).updateCode('FLOOR_'+round).updateDisplayOrder(decimal('4'));
  await next.auditAs('verify fixed bootstrap identities cannot rewind allocation').save(context);expect(next.id).toBe(String(floor));
  const stored=JSON.parse(readFileSync(file,'utf8'));expect(stored.nextIds.SchoolType).toBe(floor+1);restored(context);

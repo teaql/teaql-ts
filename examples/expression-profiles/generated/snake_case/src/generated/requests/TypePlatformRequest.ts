@@ -25,6 +25,10 @@ export class TypePlatformRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "TypePlatform" {
+        return "TypePlatform";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -135,7 +139,7 @@ export class TypePlatformRequest {
 
 
 
-    selectScalarTypeProbeListWith(request: { toQuery(): SelectQuery }): this {
+    selectScalarTypeProbeListWith(request: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "scalarTypeProbeList", request.toQuery(), "id", "typePlatform", true,
             { kind: "relation-select", method: "selectScalarTypeProbeListWith", relation: "scalarTypeProbeList" });
@@ -144,17 +148,19 @@ export class TypePlatformRequest {
 
     haveScalarTypeProbes(): this {
         return this.withScalarTypeProbeListMatching({
+            entityName: "ScalarTypeProbe",
             toQuery: () => new SelectQuery("ScalarTypeProbe"),
         });
     }
 
     haveNoScalarTypeProbes(): this {
         return this.withoutScalarTypeProbeListMatching({
+            entityName: "ScalarTypeProbe",
             toQuery: () => new SelectQuery("ScalarTypeProbe"),
         });
     }
 
-    withScalarTypeProbeListMatching(request: { toQuery(): SelectQuery }): this {
+    withScalarTypeProbeListMatching(request: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -165,7 +171,7 @@ export class TypePlatformRequest {
         return this;
     }
 
-    withoutScalarTypeProbeListMatching(request: { toQuery(): SelectQuery }): this {
+    withoutScalarTypeProbeListMatching(request: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -182,13 +188,13 @@ export class TypePlatformRequest {
 
     countScalarTypeProbesAs(alias: string): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
-        this.countScalarTypeProbesWith(alias, { toQuery: () => query });
+        this.countScalarTypeProbesWith(alias, { entityName: "ScalarTypeProbe", toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countScalarTypeProbesAs", relation: "scalarTypeProbeList", alias };
         return this;
     }
 
-    countScalarTypeProbesWith(alias: string, child: { toQuery(): SelectQuery }): this {
+    countScalarTypeProbesWith(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -200,10 +206,10 @@ export class TypePlatformRequest {
     minRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minRequiredIntegerOfScalarTypeProbesAs(
-            "minOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "minOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "requiredInteger", alias);
@@ -214,10 +220,10 @@ export class TypePlatformRequest {
     maxRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxRequiredIntegerOfScalarTypeProbesAs(
-            "maxOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "requiredInteger", alias);
@@ -228,10 +234,10 @@ export class TypePlatformRequest {
     sumRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumRequiredIntegerOfScalarTypeProbesAs(
-            "sumOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "requiredInteger", alias);
@@ -242,10 +248,10 @@ export class TypePlatformRequest {
     avgRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgRequiredIntegerOfScalarTypeProbesAs(
-            "avgOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "requiredInteger", alias);
@@ -256,10 +262,10 @@ export class TypePlatformRequest {
     standardDeviationRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationRequiredIntegerOfScalarTypeProbesAs(
-            "standardDeviationOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "requiredInteger", alias);
@@ -270,10 +276,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationRequiredIntegerOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "requiredInteger", alias);
@@ -284,10 +290,10 @@ export class TypePlatformRequest {
     sampleVarianceRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceRequiredIntegerOfScalarTypeProbesAs(
-            "sampleVarianceOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "requiredInteger", alias);
@@ -298,10 +304,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceRequiredIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceRequiredIntegerOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfRequiredIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfRequiredIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceRequiredIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "requiredInteger", alias);
@@ -312,10 +318,10 @@ export class TypePlatformRequest {
     minOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minOptionalIntegerOfScalarTypeProbesAs(
-            "minOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "minOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "optionalInteger", alias);
@@ -326,10 +332,10 @@ export class TypePlatformRequest {
     maxOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxOptionalIntegerOfScalarTypeProbesAs(
-            "maxOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "optionalInteger", alias);
@@ -340,10 +346,10 @@ export class TypePlatformRequest {
     sumOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumOptionalIntegerOfScalarTypeProbesAs(
-            "sumOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "optionalInteger", alias);
@@ -354,10 +360,10 @@ export class TypePlatformRequest {
     avgOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgOptionalIntegerOfScalarTypeProbesAs(
-            "avgOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "optionalInteger", alias);
@@ -368,10 +374,10 @@ export class TypePlatformRequest {
     standardDeviationOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationOptionalIntegerOfScalarTypeProbesAs(
-            "standardDeviationOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "optionalInteger", alias);
@@ -382,10 +388,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationOptionalIntegerOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "optionalInteger", alias);
@@ -396,10 +402,10 @@ export class TypePlatformRequest {
     sampleVarianceOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceOptionalIntegerOfScalarTypeProbesAs(
-            "sampleVarianceOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "optionalInteger", alias);
@@ -410,10 +416,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceOptionalIntegerOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceOptionalIntegerOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfOptionalIntegerOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfOptionalIntegerOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceOptionalIntegerOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "optionalInteger", alias);
@@ -424,10 +430,10 @@ export class TypePlatformRequest {
     minRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minRequiredLongOfScalarTypeProbesAs(
-            "minOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "minOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "requiredLong", alias);
@@ -438,10 +444,10 @@ export class TypePlatformRequest {
     maxRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxRequiredLongOfScalarTypeProbesAs(
-            "maxOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "requiredLong", alias);
@@ -452,10 +458,10 @@ export class TypePlatformRequest {
     sumRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumRequiredLongOfScalarTypeProbesAs(
-            "sumOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "requiredLong", alias);
@@ -466,10 +472,10 @@ export class TypePlatformRequest {
     avgRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgRequiredLongOfScalarTypeProbesAs(
-            "avgOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "requiredLong", alias);
@@ -480,10 +486,10 @@ export class TypePlatformRequest {
     standardDeviationRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationRequiredLongOfScalarTypeProbesAs(
-            "standardDeviationOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "requiredLong", alias);
@@ -494,10 +500,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationRequiredLongOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "requiredLong", alias);
@@ -508,10 +514,10 @@ export class TypePlatformRequest {
     sampleVarianceRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceRequiredLongOfScalarTypeProbesAs(
-            "sampleVarianceOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "requiredLong", alias);
@@ -522,10 +528,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceRequiredLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceRequiredLongOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfRequiredLongOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfRequiredLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceRequiredLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceRequiredLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "requiredLong", alias);
@@ -536,10 +542,10 @@ export class TypePlatformRequest {
     minOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minOptionalLongOfScalarTypeProbesAs(
-            "minOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "minOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "optionalLong", alias);
@@ -550,10 +556,10 @@ export class TypePlatformRequest {
     maxOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxOptionalLongOfScalarTypeProbesAs(
-            "maxOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "optionalLong", alias);
@@ -564,10 +570,10 @@ export class TypePlatformRequest {
     sumOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumOptionalLongOfScalarTypeProbesAs(
-            "sumOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "optionalLong", alias);
@@ -578,10 +584,10 @@ export class TypePlatformRequest {
     avgOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgOptionalLongOfScalarTypeProbesAs(
-            "avgOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "optionalLong", alias);
@@ -592,10 +598,10 @@ export class TypePlatformRequest {
     standardDeviationOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationOptionalLongOfScalarTypeProbesAs(
-            "standardDeviationOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "optionalLong", alias);
@@ -606,10 +612,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationOptionalLongOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "optionalLong", alias);
@@ -620,10 +626,10 @@ export class TypePlatformRequest {
     sampleVarianceOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceOptionalLongOfScalarTypeProbesAs(
-            "sampleVarianceOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "optionalLong", alias);
@@ -634,10 +640,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceOptionalLongOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceOptionalLongOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfOptionalLongOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfOptionalLongOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceOptionalLongOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceOptionalLongOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "optionalLong", alias);
@@ -648,10 +654,10 @@ export class TypePlatformRequest {
     minRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minRequiredDecimalOfScalarTypeProbesAs(
-            "minOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "minOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "requiredDecimal", alias);
@@ -662,10 +668,10 @@ export class TypePlatformRequest {
     maxRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxRequiredDecimalOfScalarTypeProbesAs(
-            "maxOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "requiredDecimal", alias);
@@ -676,10 +682,10 @@ export class TypePlatformRequest {
     sumRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumRequiredDecimalOfScalarTypeProbesAs(
-            "sumOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "requiredDecimal", alias);
@@ -690,10 +696,10 @@ export class TypePlatformRequest {
     avgRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgRequiredDecimalOfScalarTypeProbesAs(
-            "avgOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "requiredDecimal", alias);
@@ -704,10 +710,10 @@ export class TypePlatformRequest {
     standardDeviationRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationRequiredDecimalOfScalarTypeProbesAs(
-            "standardDeviationOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "requiredDecimal", alias);
@@ -718,10 +724,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationRequiredDecimalOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "requiredDecimal", alias);
@@ -732,10 +738,10 @@ export class TypePlatformRequest {
     sampleVarianceRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceRequiredDecimalOfScalarTypeProbesAs(
-            "sampleVarianceOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "requiredDecimal", alias);
@@ -746,10 +752,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceRequiredDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceRequiredDecimalOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfRequiredDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfRequiredDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceRequiredDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "requiredDecimal", alias);
@@ -760,10 +766,10 @@ export class TypePlatformRequest {
     minOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minOptionalDecimalOfScalarTypeProbesAs(
-            "minOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "minOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "optionalDecimal", alias);
@@ -774,10 +780,10 @@ export class TypePlatformRequest {
     maxOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxOptionalDecimalOfScalarTypeProbesAs(
-            "maxOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "optionalDecimal", alias);
@@ -788,10 +794,10 @@ export class TypePlatformRequest {
     sumOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumOptionalDecimalOfScalarTypeProbesAs(
-            "sumOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "optionalDecimal", alias);
@@ -802,10 +808,10 @@ export class TypePlatformRequest {
     avgOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgOptionalDecimalOfScalarTypeProbesAs(
-            "avgOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "optionalDecimal", alias);
@@ -816,10 +822,10 @@ export class TypePlatformRequest {
     standardDeviationOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationOptionalDecimalOfScalarTypeProbesAs(
-            "standardDeviationOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "optionalDecimal", alias);
@@ -830,10 +836,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationOptionalDecimalOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "optionalDecimal", alias);
@@ -844,10 +850,10 @@ export class TypePlatformRequest {
     sampleVarianceOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceOptionalDecimalOfScalarTypeProbesAs(
-            "sampleVarianceOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "optionalDecimal", alias);
@@ -858,10 +864,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceOptionalDecimalOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceOptionalDecimalOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfOptionalDecimalOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfOptionalDecimalOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceOptionalDecimalOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "optionalDecimal", alias);
@@ -872,10 +878,10 @@ export class TypePlatformRequest {
     minRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minRequiredFloatOfScalarTypeProbesAs(
-            "minOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "minOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "requiredFloat", alias);
@@ -886,10 +892,10 @@ export class TypePlatformRequest {
     maxRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxRequiredFloatOfScalarTypeProbesAs(
-            "maxOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "requiredFloat", alias);
@@ -900,10 +906,10 @@ export class TypePlatformRequest {
     sumRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumRequiredFloatOfScalarTypeProbesAs(
-            "sumOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "requiredFloat", alias);
@@ -914,10 +920,10 @@ export class TypePlatformRequest {
     avgRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgRequiredFloatOfScalarTypeProbesAs(
-            "avgOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "requiredFloat", alias);
@@ -928,10 +934,10 @@ export class TypePlatformRequest {
     standardDeviationRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationRequiredFloatOfScalarTypeProbesAs(
-            "standardDeviationOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "requiredFloat", alias);
@@ -942,10 +948,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationRequiredFloatOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "requiredFloat", alias);
@@ -956,10 +962,10 @@ export class TypePlatformRequest {
     sampleVarianceRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceRequiredFloatOfScalarTypeProbesAs(
-            "sampleVarianceOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "requiredFloat", alias);
@@ -970,10 +976,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceRequiredFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceRequiredFloatOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfRequiredFloatOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfRequiredFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceRequiredFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceRequiredFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "requiredFloat", alias);
@@ -984,10 +990,10 @@ export class TypePlatformRequest {
     minOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minOptionalFloatOfScalarTypeProbesAs(
-            "minOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "minOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "optionalFloat", alias);
@@ -998,10 +1004,10 @@ export class TypePlatformRequest {
     maxOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxOptionalFloatOfScalarTypeProbesAs(
-            "maxOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "optionalFloat", alias);
@@ -1012,10 +1018,10 @@ export class TypePlatformRequest {
     sumOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumOptionalFloatOfScalarTypeProbesAs(
-            "sumOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "optionalFloat", alias);
@@ -1026,10 +1032,10 @@ export class TypePlatformRequest {
     avgOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgOptionalFloatOfScalarTypeProbesAs(
-            "avgOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "optionalFloat", alias);
@@ -1040,10 +1046,10 @@ export class TypePlatformRequest {
     standardDeviationOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationOptionalFloatOfScalarTypeProbesAs(
-            "standardDeviationOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "optionalFloat", alias);
@@ -1054,10 +1060,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationOptionalFloatOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "optionalFloat", alias);
@@ -1068,10 +1074,10 @@ export class TypePlatformRequest {
     sampleVarianceOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceOptionalFloatOfScalarTypeProbesAs(
-            "sampleVarianceOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "optionalFloat", alias);
@@ -1082,10 +1088,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceOptionalFloatOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceOptionalFloatOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfOptionalFloatOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfOptionalFloatOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceOptionalFloatOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceOptionalFloatOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "optionalFloat", alias);
@@ -1096,10 +1102,10 @@ export class TypePlatformRequest {
     minRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minRequiredDoubleOfScalarTypeProbesAs(
-            "minOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "minOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "requiredDouble", alias);
@@ -1110,10 +1116,10 @@ export class TypePlatformRequest {
     maxRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxRequiredDoubleOfScalarTypeProbesAs(
-            "maxOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "requiredDouble", alias);
@@ -1124,10 +1130,10 @@ export class TypePlatformRequest {
     sumRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumRequiredDoubleOfScalarTypeProbesAs(
-            "sumOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "requiredDouble", alias);
@@ -1138,10 +1144,10 @@ export class TypePlatformRequest {
     avgRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgRequiredDoubleOfScalarTypeProbesAs(
-            "avgOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "requiredDouble", alias);
@@ -1152,10 +1158,10 @@ export class TypePlatformRequest {
     standardDeviationRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationRequiredDoubleOfScalarTypeProbesAs(
-            "standardDeviationOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "requiredDouble", alias);
@@ -1166,10 +1172,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationRequiredDoubleOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "requiredDouble", alias);
@@ -1180,10 +1186,10 @@ export class TypePlatformRequest {
     sampleVarianceRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceRequiredDoubleOfScalarTypeProbesAs(
-            "sampleVarianceOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "requiredDouble", alias);
@@ -1194,10 +1200,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceRequiredDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceRequiredDoubleOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfRequiredDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfRequiredDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceRequiredDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "requiredDouble", alias);
@@ -1208,10 +1214,10 @@ export class TypePlatformRequest {
     minOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.minOptionalDoubleOfScalarTypeProbesAs(
-            "minOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "minOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    minOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "optionalDouble", alias);
@@ -1222,10 +1228,10 @@ export class TypePlatformRequest {
     maxOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.maxOptionalDoubleOfScalarTypeProbesAs(
-            "maxOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "maxOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    maxOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "optionalDouble", alias);
@@ -1236,10 +1242,10 @@ export class TypePlatformRequest {
     sumOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sumOptionalDoubleOfScalarTypeProbesAs(
-            "sumOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "sumOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sumOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "optionalDouble", alias);
@@ -1250,10 +1256,10 @@ export class TypePlatformRequest {
     avgOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.avgOptionalDoubleOfScalarTypeProbesAs(
-            "avgOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "avgOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    avgOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "optionalDouble", alias);
@@ -1264,10 +1270,10 @@ export class TypePlatformRequest {
     standardDeviationOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.standardDeviationOptionalDoubleOfScalarTypeProbesAs(
-            "standardDeviationOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "standardDeviationOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    standardDeviationOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "optionalDouble", alias);
@@ -1278,10 +1284,10 @@ export class TypePlatformRequest {
     squareRootOfPopulationStandardDeviationOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationOptionalDoubleOfScalarTypeProbesAs(
-            "squareRootOfPopulationStandardDeviationOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "optionalDouble", alias);
@@ -1292,10 +1298,10 @@ export class TypePlatformRequest {
     sampleVarianceOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceOptionalDoubleOfScalarTypeProbesAs(
-            "sampleVarianceOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "sampleVarianceOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    sampleVarianceOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "optionalDouble", alias);
@@ -1306,10 +1312,10 @@ export class TypePlatformRequest {
     samplePopulationVarianceOptionalDoubleOfScalarTypeProbes(): this {
         const query = new SelectQuery("ScalarTypeProbe").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceOptionalDoubleOfScalarTypeProbesAs(
-            "samplePopulationVarianceOfOptionalDoubleOfScalarTypeProbes", { toQuery: () => query });
+            "samplePopulationVarianceOfOptionalDoubleOfScalarTypeProbes", { entityName: "ScalarTypeProbe", toQuery: () => query });
     }
 
-    samplePopulationVarianceOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceOptionalDoubleOfScalarTypeProbesAs(alias: string, child: { readonly entityName: "ScalarTypeProbe"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "optionalDouble", alias);
@@ -1318,47 +1324,47 @@ export class TypePlatformRequest {
         return this;
     }
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -1383,42 +1389,42 @@ export class TypePlatformRequest {
             return this;
         }
 
-        withNameIsNot(val: any): this {
+        withNameIsNot(val: string): this {
             this.filters.push({ "name": { "$ne": val } });
             return this;
         }
 
-        withNameIn(...vals: any[]): this {
+        withNameIn(...vals: string[]): this {
             this.filters.push({ "name": { "$in": vals } });
             return this;
         }
 
-        withNameNotIn(...vals: any[]): this {
+        withNameNotIn(...vals: string[]): this {
             this.filters.push({ "name": { "$notIn": vals } });
             return this;
         }
 
-        withNameGreaterThan(val: any): this {
+        withNameGreaterThan(val: string): this {
             this.filters.push({ "name": { "$gt": val } });
             return this;
         }
 
-        withNameGreaterThanOrEqualTo(val: any): this {
+        withNameGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$gte": val } });
             return this;
         }
 
-        withNameLessThan(val: any): this {
+        withNameLessThan(val: string): this {
             this.filters.push({ "name": { "$lt": val } });
             return this;
         }
 
-        withNameLessThanOrEqualTo(val: any): this {
+        withNameLessThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$lte": val } });
             return this;
         }
 
-        withNameBetween(lower: any, upper: any): this {
+        withNameBetween(lower: string, upper: string): this {
             this.filters.push({ "name": { "$between": [lower, upper] } });
             return this;
         }
@@ -1462,47 +1468,47 @@ export class TypePlatformRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -1571,7 +1577,7 @@ export class TypePlatformRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByName(): this {
@@ -1580,7 +1586,7 @@ export class TypePlatformRequest {
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name"); // In TS we don't alias group by yet natively
+        this.query.groupBy("name", retName);
         return this;
     }
     groupByVersion(): this {
@@ -1589,7 +1595,7 @@ export class TypePlatformRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
@@ -1702,9 +1708,11 @@ export class ExecutableTypePlatformRequest {
         return this;
     }
 
-    newEntity(context: UserContext): TypePlatform {
+    async newEntity(context: UserContext): Promise<TypePlatform> {
         this.ensureIntent();
-        return new TypePlatform();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("TypePlatform");
+        return TypePlatform.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<TypePlatform>> {

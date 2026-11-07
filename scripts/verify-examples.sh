@@ -33,8 +33,8 @@ TEAQL_GENERATED_E_PROFILE_EVIDENCE_DIR="$example_evidence/expression-profiles" \
 bash "$repo/examples/object-storage/verify.sh"
 (cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
 mkdir -p "$repo/.local"
-node "$repo/examples/fix-e-alignment/verify-local.cjs"
-node "$repo/examples/scalar-type-probe/verify-local.cjs"
+TEAQL_FIX_E_EVIDENCE_DIR="$example_evidence/fix-e-alignment" node "$repo/examples/fix-e-alignment/verify-local.cjs"
+TEAQL_SCALAR_EVIDENCE_DIR="$example_evidence/scalar-type-probe" node "$repo/examples/scalar-type-probe/verify-local.cjs"
 TEAQL_FILE_BOOTSTRAP_OUTPUT="$example_evidence/file-bootstrap" node "$repo/examples/school-management/verify-file-bootstrap.cjs"
 if rg -n --glob '*.ts' --glob '!**/node_modules/**' --glob '!**/dist/**' \
     '\b(executeForPage|ExecuteForPage|execute_for_page)\b' "$repo/examples"; then

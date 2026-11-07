@@ -43,15 +43,15 @@ async function main(): Promise<void> {
         throw new Error("Changed SchoolType constant was not reconciled exactly once");
     }
     await changedClient.close();
-    const extraType = Q.schoolTypes().comment("Create a post-bootstrap school type")
-        .purpose("Verify bootstrap ID floor").newEntity(context);
+    const extraType = (await Q.schoolTypes().comment("Create a post-bootstrap school type")
+        .purpose("Verify bootstrap ID floor").newEntity(context));
     extraType.updatePlatform(Platform.refer("1"));
     extraType.updateName("Other").updateCode("OTHER").updateDisplayOrder(decimal('3'));
     await extraType.auditAs("Verify SchoolType ID floor").save(context);
     if (Number(extraType.id) <= 1002) throw new Error("SchoolType ID floor did not advance beyond 1002");
 
-    const school = Q.schools().comment("Create the example school")
-        .purpose("Verify generated TypeScript mutations").newEntity(context);
+    const school = (await Q.schools().comment("Create the example school")
+        .purpose("Verify generated TypeScript mutations").newEntity(context));
     school.updatePlatform(Platform.refer("1"));
     school.updateSchoolTypeToPrimary();
     school.updateName("Riverside Primary School");

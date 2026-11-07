@@ -32,8 +32,8 @@ async function prepared(context: UserContext, name: string) {
   const root = await Q.typePlatforms().withIdIs('1').limit(1)
     .comment('reuse the generated scalar root').purpose('prepare typed scalar acceptance').executeForOne(context);
   if (!root) throw new Error('scalar root missing');
-  const entity = Q.scalarTypeProbes().comment('prepare portable scalar values')
-    .purpose('verify the selected runtime through generated scalar APIs').newEntity(context);
+  const entity = (await Q.scalarTypeProbes().comment('prepare portable scalar values')
+    .purpose('verify the selected runtime through generated scalar APIs').newEntity(context));
   entity.updateTypePlatform(root);
   entity.updateRequiredString(name).updateOptionalString('');
   entity.updateLargeText('Unicode 雪 and a long text field');

@@ -2,16 +2,21 @@
   "name": "order-management-service-lib",
   "version": "1.0.0",
   "description": "Generated typescript library",
+  "engines": {
+    "node": ">=22"
+  },
   "main": "src/generated/Q.ts",
   "scripts": {
     "build": "tsc --noEmit"
   },
   "dependencies": {
     "teaql-ts": "file:../../..",
-    "better-sqlite3": "^11.7.0"},
+    "better-sqlite3": "^13.0.3"
+  },
   "devDependencies": {
     "typescript": "^5.0.0",
     "ts-node": "^10.9.2",
     "@types/node": "^22.0.0",
-    "@types/better-sqlite3": "^7.6.12"}
+    "@types/better-sqlite3": "^7.6.12"
+  }
 }

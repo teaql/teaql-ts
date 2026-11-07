@@ -36,18 +36,18 @@ export async function verifyExpressionBoundaries(filename: string): Promise<void
   };
   try {
     await context.ensureSchema();
-    const parent = Q.purchaseOrders().comment('Create the generated E boundary parent')
-      .purpose('Verify expression diagnostics against persisted rows').newEntity(context);
+    const parent = (await Q.purchaseOrders().comment('Create the generated E boundary parent')
+      .purpose('Verify expression diagnostics against persisted rows').newEntity(context));
     parent.updateContactPhone('PRIVATE_TS_ROOT_123');
     for (let i = 0; i < 3; i++) {
-      const child = Q.orderItems().comment('Create an indexed E boundary child')
-        .purpose('Exercise real loaded-list positions').newEntity(context);
+      const child = (await Q.orderItems().comment('Create an indexed E boundary child')
+        .purpose('Exercise real loaded-list positions').newEntity(context));
       child.updateProductName('Expression item ' + i).updateUnitPrice(decimal('10.00'));
       parent.orderItemList().push(child);
     }
     await parent.auditAs('Persist the generated E boundary graph').save(context);
-    const empty = Q.purchaseOrders().comment('Create the loaded-empty E boundary parent')
-      .purpose('Distinguish loaded empty from NotLoaded').newEntity(context);
+    const empty = (await Q.purchaseOrders().comment('Create the loaded-empty E boundary parent')
+      .purpose('Distinguish loaded empty from NotLoaded').newEntity(context));
     empty.updateContactPhone('PRIVATE_TS_ROOT_EMPTY');
     await empty.auditAs('Persist the parent without children').save(context);
     const calibration = {queries: query.mock.calls.length, transactions: transaction.mock.calls.length,

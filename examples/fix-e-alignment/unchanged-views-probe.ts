@@ -50,8 +50,8 @@ export async function verifyUnchangedView(filename: string, scenario: UnchangedV
   };
   try {
     await context.ensureSchema(); reset();
-    const original = Q.purchaseOrders().comment('Prepare the unchanged-view graph fixture')
-      .purpose('Verify no-op geometry and genuine transaction rollback through generated APIs').newEntity(context)
+    const original = (await Q.purchaseOrders().comment('Prepare the unchanged-view graph fixture')
+      .purpose('Verify no-op geometry and genuine transaction rollback through generated APIs').newEntity(context))
       .updateContactPhone('5550800').updateInternalNote(null);
     await original.auditAs('Create one unchanged-view control').save(context);
     const id = original.id!;

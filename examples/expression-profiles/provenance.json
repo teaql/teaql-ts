@@ -1,9 +1,12 @@
 {
-  "producerReportSha256": "ebc4324db811d9f6479c668f8fc729ad4c4ee0239c0491faee3c20451eb12e4b",
-  "manifestSha256": "ac276aebc20d95a16299fd9b05b4e7317b994ad92d582291930fb4391cbd7181",
+  "producerReportSha256": "df47b2daf172ecfbdd25c18557230ce4d8f0d1bd897926c0315dd9e87d8fb586",
+  "manifestSha256": "4e8a121b68777b55cbc5209576f47c831ca9a756718411870b072a083177fd1b",
   "producer": {
-    "commit": "38fe3d082484c751d00a854d937216193e42e1f3",
-    "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sourceContentsSha256": "c7da4991ccfaa48c8dccd45a964babaf1e65ba2fc9fb79b4bfe4f0061530a0b6"
-  }
+    "commit": "54dccd3b534d568c03590eae89f61a002f189e25",
+    "sourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d"
+  },
+  "generatorCommit": "54dccd3b534d568c03590eae89f61a002f189e25",
+  "generatorSourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d",
+  "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
+  "previousManifestSha256": "ac276aebc20d95a16299fd9b05b4e7317b994ad92d582291930fb4391cbd7181"
 }

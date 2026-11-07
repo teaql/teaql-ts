@@ -60,14 +60,14 @@ async function main() {
     await context.ensureSchema();
     await context.ensureSchema();
     for (let i = 0; i < 2; i++) {
-      const order = Q.customerOrders().comment('initialize aggregate fixture').purpose('verify generated relation aggregate')
-        .newEntity(context).updatePlatform('1').updateOrderNumber(`${group}-${i}`).updateDescription(group);
+      const order = (await Q.customerOrders().comment('initialize aggregate fixture').purpose('verify generated relation aggregate')
+        .newEntity(context)).updatePlatform('1').updateOrderNumber(`${group}-${i}`).updateDescription(group);
       for (const name of [secret, 'ordinary item']) {
-        order.orderItemList().push(Q.orderItems().comment('initialize item').purpose('verify count predicate')
-          .newEntity(context).updateName(name));
+        order.orderItemList().push((await Q.orderItems().comment('initialize item').purpose('verify count predicate')
+          .newEntity(context)).updateName(name));
       }
-      order.paymentList().push(Q.payments().comment('initialize payment').purpose('verify nested count')
-        .newEntity(context).updateReferenceCode(`${group}-${i}`));
+      order.paymentList().push((await Q.payments().comment('initialize payment').purpose('verify nested count')
+        .newEntity(context)).updateReferenceCode(`${group}-${i}`));
       await order.auditAs('seed generated aggregate graph').save(context);
       ids.push(order.id!);
     }

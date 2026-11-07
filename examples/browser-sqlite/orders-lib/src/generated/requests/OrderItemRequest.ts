@@ -25,6 +25,10 @@ export class OrderItemRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "OrderItem" {
+        return "OrderItem";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -144,7 +148,7 @@ export class OrderItemRequest {
     }
 
 
-    selectCustomerOrderWith(request: { toQuery(): SelectQuery }): this {
+    selectCustomerOrderWith(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.query.select(["customerOrder"]);
         this.query.relationQuery(
             "customerOrder", request.toQuery(), "customerOrder", "id", false,
@@ -152,7 +156,7 @@ export class OrderItemRequest {
         return this;
     }
 
-    withCustomerOrderMatching(request: { toQuery(): SelectQuery }): this {
+    withCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "customerOrder": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -161,7 +165,7 @@ export class OrderItemRequest {
         return this;
     }
 
-    withoutCustomerOrderMatching(request: { toQuery(): SelectQuery }): this {
+    withoutCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "customerOrder": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -173,47 +177,47 @@ export class OrderItemRequest {
 
 
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -258,42 +262,42 @@ export class OrderItemRequest {
             return this;
         }
 
-        withProductNameIsNot(val: any): this {
+        withProductNameIsNot(val: string): this {
             this.filters.push({ "productName": { "$ne": val } });
             return this;
         }
 
-        withProductNameIn(...vals: any[]): this {
+        withProductNameIn(...vals: string[]): this {
             this.filters.push({ "productName": { "$in": vals } });
             return this;
         }
 
-        withProductNameNotIn(...vals: any[]): this {
+        withProductNameNotIn(...vals: string[]): this {
             this.filters.push({ "productName": { "$notIn": vals } });
             return this;
         }
 
-        withProductNameGreaterThan(val: any): this {
+        withProductNameGreaterThan(val: string): this {
             this.filters.push({ "productName": { "$gt": val } });
             return this;
         }
 
-        withProductNameGreaterThanOrEqualTo(val: any): this {
+        withProductNameGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "productName": { "$gte": val } });
             return this;
         }
 
-        withProductNameLessThan(val: any): this {
+        withProductNameLessThan(val: string): this {
             this.filters.push({ "productName": { "$lt": val } });
             return this;
         }
 
-        withProductNameLessThanOrEqualTo(val: any): this {
+        withProductNameLessThanOrEqualTo(val: string): this {
             this.filters.push({ "productName": { "$lte": val } });
             return this;
         }
 
-        withProductNameBetween(lower: any, upper: any): this {
+        withProductNameBetween(lower: string, upper: string): this {
             this.filters.push({ "productName": { "$between": [lower, upper] } });
             return this;
         }
@@ -337,47 +341,47 @@ export class OrderItemRequest {
             return this;
         }
 
-        withQuantityIs(val: any): this {
+        withQuantityIs(val: number): this {
             this.filters.push({ "quantity": { "$eq": val } });
             return this;
         }
 
-        withQuantityIsNot(val: any): this {
+        withQuantityIsNot(val: number): this {
             this.filters.push({ "quantity": { "$ne": val } });
             return this;
         }
 
-        withQuantityIn(...vals: any[]): this {
+        withQuantityIn(...vals: number[]): this {
             this.filters.push({ "quantity": { "$in": vals } });
             return this;
         }
 
-        withQuantityNotIn(...vals: any[]): this {
+        withQuantityNotIn(...vals: number[]): this {
             this.filters.push({ "quantity": { "$notIn": vals } });
             return this;
         }
 
-        withQuantityGreaterThan(val: any): this {
+        withQuantityGreaterThan(val: number): this {
             this.filters.push({ "quantity": { "$gt": val } });
             return this;
         }
 
-        withQuantityGreaterThanOrEqualTo(val: any): this {
+        withQuantityGreaterThanOrEqualTo(val: number): this {
             this.filters.push({ "quantity": { "$gte": val } });
             return this;
         }
 
-        withQuantityLessThan(val: any): this {
+        withQuantityLessThan(val: number): this {
             this.filters.push({ "quantity": { "$lt": val } });
             return this;
         }
 
-        withQuantityLessThanOrEqualTo(val: any): this {
+        withQuantityLessThanOrEqualTo(val: number): this {
             this.filters.push({ "quantity": { "$lte": val } });
             return this;
         }
 
-        withQuantityBetween(lower: any, upper: any): this {
+        withQuantityBetween(lower: number, upper: number): this {
             this.filters.push({ "quantity": { "$between": [lower, upper] } });
             return this;
         }
@@ -447,47 +451,47 @@ export class OrderItemRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -705,7 +709,7 @@ export class OrderItemRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByCustomerOrder(): this {
@@ -714,7 +718,7 @@ export class OrderItemRequest {
     }
 
     groupByCustomerOrderAs(retName: string): this {
-        this.query.groupBy("customerOrder"); // In TS we don't alias group by yet natively
+        this.query.groupBy("customerOrder", retName);
         return this;
     }
     groupByProductName(): this {
@@ -723,7 +727,7 @@ export class OrderItemRequest {
     }
 
     groupByProductNameAs(retName: string): this {
-        this.query.groupBy("productName"); // In TS we don't alias group by yet natively
+        this.query.groupBy("productName", retName);
         return this;
     }
     groupByQuantity(): this {
@@ -732,7 +736,7 @@ export class OrderItemRequest {
     }
 
     groupByQuantityAs(retName: string): this {
-        this.query.groupBy("quantity"); // In TS we don't alias group by yet natively
+        this.query.groupBy("quantity", retName);
         return this;
     }
     groupByUnitPrice(): this {
@@ -741,7 +745,7 @@ export class OrderItemRequest {
     }
 
     groupByUnitPriceAs(retName: string): this {
-        this.query.groupBy("unitPrice"); // In TS we don't alias group by yet natively
+        this.query.groupBy("unitPrice", retName);
         return this;
     }
     groupByVersion(): this {
@@ -750,14 +754,14 @@ export class OrderItemRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByCustomerOrderAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "customerOrder", request, includeAllFacets,
@@ -873,9 +877,11 @@ export class ExecutableOrderItemRequest {
         return this;
     }
 
-    newEntity(context: UserContext): OrderItem {
+    async newEntity(context: UserContext): Promise<OrderItem> {
         this.ensureIntent();
-        return new OrderItem();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("OrderItem");
+        return OrderItem.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<OrderItem>> {

@@ -29,11 +29,11 @@ export async function verifyPartialAncestors(filename: string): Promise<void> {
   try {
     await context.ensureSchema();
     reset();
-    const order = Q.purchaseOrders().comment('Prepare the partial-ancestor fixture')
-      .purpose('Validate only modified business objects for graph saves').newEntity(context)
+    const order = (await Q.purchaseOrders().comment('Prepare the partial-ancestor fixture')
+      .purpose('Validate only modified business objects for graph saves').newEntity(context))
       .updateContactPhone('5550600').updateInternalNote(null);
-    const child = Q.orderItems().comment('Prepare one complete leaf')
-      .purpose('Use the generated relation and audited save').newEntity(context)
+    const child = (await Q.orderItems().comment('Prepare one complete leaf')
+      .purpose('Use the generated relation and audited save').newEntity(context))
       .updateProductName('Partial graph original').updateUnitPrice(decimal('10.00'));
     order.orderItemList().push(child);
     await order.auditAs('Create the partial-ancestor graph').save(context);

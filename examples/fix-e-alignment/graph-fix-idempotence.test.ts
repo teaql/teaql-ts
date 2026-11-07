@@ -13,11 +13,11 @@ async function setup(filename: string) {
   context.insertResource('dataService', client); await context.ensureSchema();
   return {context, client, driver: (client as any).driver};
 }
-function make(context: UserContext, label: string) {
-  const parent = Q.purchaseOrders().comment('Prepare the graph owner ' + label).purpose('Verify Fix traversal identity')
-    .newEntity(context).updateContactPhone('5550140');
-  const child = Q.orderItems().comment('Prepare the graph child ' + label).purpose('Verify one entity Fix per graph')
-    .newEntity(context).updateProductName(label).updateUnitPrice(decimal('12.34'));
+async function make(context: UserContext, label: string) {
+  const parent = (await Q.purchaseOrders().comment('Prepare the graph owner ' + label).purpose('Verify Fix traversal identity')
+    .newEntity(context)).updateContactPhone('5550140');
+  const child = (await Q.orderItems().comment('Prepare the graph child ' + label).purpose('Verify one entity Fix per graph')
+    .newEntity(context)).updateProductName(label).updateUnitPrice(decimal('12.34'));
   parent.orderItemList().push(child); return {parent, child};
 }
 function observe(client: SQLiteTeaQLClient, context: UserContext) {
@@ -41,7 +41,7 @@ test('the same child instance reached twice is fixed and persisted once per invo
   let tick = instant + round * 1000; const created = tick;
   context.withBusinessClock({now: () => new Date(tick++)});
   try {
-    const {parent, child} = make(context, 'Repeated child'); parent.orderItemList().push(child);
+    const {parent, child} = (await make(context, 'Repeated child')); parent.orderItemList().push(child);
     let failure: unknown;
     try {await parent.auditAs('Create with repeated references to one child instance').save(context);} catch (error) {failure = error;}
     const createFacts = {round, visits: [...observed.visits], clockCaptures: tick - created, providerEffects: observed.effects(),
@@ -78,7 +78,7 @@ test('overlapping real generated graphs on separate contexts keep their own snap
   a.transaction.mockImplementationOnce(async (work: any) => {entered(); await hold; return transaction(work);});
   let pending: Promise<unknown> | undefined;
   try {
-    const left = make(first.context, 'First context'), right = make(second.context, 'Second context');
+    const left = (await make(first.context, 'First context')), right = (await make(second.context, 'Second context'));
     pending = left.parent.auditAs('Hold the first generated graph before provider entry').save(first.context);
     await Promise.race([ready, pending.then(() => {throw Error('first graph finished without reaching the held transaction');})]);
     const receipt = first.context.getResource('fixEvidenceCurrent'); expect(receipt).toBeDefined();
@@ -94,7 +94,7 @@ test('overlapping real generated graphs on separate contexts keep their own snap
 
 test('different object views of one ID are not silently skipped by the identity traversal guard', async () => {
   const {client, context} = await setup(database + '.identity.sqlite');
-  const observed = observe(client, context), {parent, child} = make(context, 'Distinct views');
+  const observed = observe(client, context), {parent, child} = (await make(context, 'Distinct views'));
   try {
     await parent.auditAs('Create a baseline for duplicate identity protection').save(context);
     const other = (await Q.orderItems().withIdIs(child.id!).limit(1).comment('Load a separate child view').purpose('Do not confuse object identity with entity ID').executeForList(context))[0];

@@ -20,11 +20,11 @@ async function main() {
   try {
     await context.ensureSchema();
     physical.enableAll(); audits.length = 0;
-    const order = Q.customerOrders().comment('prepare graph root').purpose('verify standard graph telemetry')
-      .newEntity(context).updatePlatform('1').updateOrderNumber('STANDARD-GRAPH').updateDescription('fixture');
-    const inherited = Q.orderItems().comment('prepare inherited item').purpose('verify standard graph telemetry').newEntity(context)
+    const order = (await Q.customerOrders().comment('prepare graph root').purpose('verify standard graph telemetry')
+      .newEntity(context)).updatePlatform('1').updateOrderNumber('STANDARD-GRAPH').updateDescription('fixture');
+    const inherited = (await Q.orderItems().comment('prepare inherited item').purpose('verify standard graph telemetry').newEntity(context))
       .updateName('STANDARD_GRAPH_PRIVATE_LEFT');
-    const explicit = Q.orderItems().comment('prepare explicit item').purpose('verify standard graph telemetry').newEntity(context)
+    const explicit = (await Q.orderItems().comment('prepare explicit item').purpose('verify standard graph telemetry').newEntity(context))
       .updateName('STANDARD_GRAPH_PRIVATE_RIGHT').auditAs('prepare second graph item');
     order.orderItemList().push(inherited, explicit);
     await order.auditAs('save governed graph').save(context);

@@ -1,4 +1,4 @@
-import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { PurchaseOrder } from './PurchaseOrder';
 import { OrderItem } from './OrderItem';
 
@@ -96,7 +96,18 @@ export class Tenant {
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
     static teaqlBootstrapNew(id: string | number): Tenant {
-        return new Tenant().updateId(String(id));
+        return Tenant.teaqlNewWithId(internalId(id));
+    }
+
+    /** @internal Q calls this only after Context allocation has completed. */
+    static teaqlNewWithId(value: string): Tenant {
+        const id = internalId(value);
+        const entity = new Tenant();
+        const previous = entity.teaqlEntityKey();
+        entity.updateId(id);
+        (entity as any)._ledgerId = id;
+        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
+        return entity;
     }
 
     markForDeletion(): this {

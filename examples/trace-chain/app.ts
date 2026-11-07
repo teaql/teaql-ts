@@ -119,18 +119,18 @@ class Client extends AbstractSQLTeaQLClient {
   }
 }
 
-function construct(context: UserContext, suffix: string) {
-  const order = Q.customerOrders().comment('initialize order').purpose('verify generated graph').newEntity(context)
+async function construct(context: UserContext, suffix: string) {
+  const order = (await Q.customerOrders().comment('initialize order').purpose('verify generated graph').newEntity(context))
     .updatePlatform('1').updateOrderNumber(`${nonce}-${suffix}`).updateDescription(`fixture-description-${suffix}`);
-  const item = Q.orderItems().comment('initialize available item').purpose('verify generated graph').newEntity(context)
+  const item = (await Q.orderItems().comment('initialize available item').purpose('verify generated graph').newEntity(context))
     .updateName(`fixture-available-${suffix}`);
-  const removed = Q.orderItems().comment('initialize second item').purpose('verify generated graph').newEntity(context)
+  const removed = (await Q.orderItems().comment('initialize second item').purpose('verify generated graph').newEntity(context))
     .updateName(`fixture-unavailable-${suffix}`);
-  const payment = Q.payments().comment('initialize payment').purpose('verify generated graph').newEntity(context)
+  const payment = (await Q.payments().comment('initialize payment').purpose('verify generated graph').newEntity(context))
     .updateReferenceCode(`fixture-payment-${suffix}`).auditAs('authorize payment');
-  const attempt = Q.paymentAttempts().comment('initialize payment attempt').purpose('verify generated graph').newEntity(context)
+  const attempt = (await Q.paymentAttempts().comment('initialize payment attempt').purpose('verify generated graph').newEntity(context))
     .updateReferenceCode(`fixture-attempt-${suffix}`);
-  const shipment = Q.shipments().comment('initialize shipment').purpose('verify generated graph').newEntity(context)
+  const shipment = (await Q.shipments().comment('initialize shipment').purpose('verify generated graph').newEntity(context))
     .updateReferenceCode(`fixture-shipment-${suffix}`).auditAs('dispatch shipment');
   order.orderItemList().push(item, removed);
   order.paymentList().push(payment);
@@ -266,7 +266,7 @@ async function main() {
     checks.push('generated bootstrap twice');
     client.commands.length = 0; audits.length = 0;
     client.setRuntimeTelemetrySink(sql);
-    const graph = construct(context, 'normative');
+    const graph = (await construct(context, 'normative'));
     await graph.order.auditAs('submit order').save(context);
     assert.equal(client.commands.length, 6);
     assert.deepEqual(client.commands.map(command => plain(command.lineage)), expected(graph, 'submit order'));
@@ -330,7 +330,7 @@ async function main() {
     checks.push('generated bounded Q and E across three relation levels');
 
     audits.length = 0; client.commands.length = 0; sql.enableAll();
-    const first = construct(context, 'concurrent-first'), second = construct(context, 'concurrent-second');
+    const first = (await construct(context, 'concurrent-first')), second = (await construct(context, 'concurrent-second'));
     await Promise.all([first.order.auditAs('first independent operation').save(context),
       second.order.auditAs('second independent operation').save(context)]);
     for (const [graph, reason] of [[first, 'first independent operation'], [second, 'second independent operation']] as const) {
@@ -343,7 +343,7 @@ async function main() {
     checks.push('generated overlapping graph saves on the same Context');
 
     for (const readback of [false, true]) {
-      const failed = construct(context, `failed-${readback}`);
+      const failed = (await construct(context, `failed-${readback}`));
       client.commands.length = 0; audits.length = 0; sql.enableAll();
       driver.failureTable = 'payment_data'; driver.readbackFailure = readback;
       await assert.rejects(failed.order.auditAs('submit failing order').save(context), /injected trace-chain provider failure/);
@@ -364,7 +364,7 @@ async function main() {
     checks.push('generated provider and readback failures retain trace and produce no committed audit');
 
     for (const logging of [false, true]) {
-    const privacy = construct(context, `loaded-privacy-${logging}`);
+    const privacy = (await construct(context, `loaded-privacy-${logging}`));
     privacy.item.updateName('PRIVATEOLDITEM');
     await privacy.order.auditAs('seed loaded privacy graph').save(context);
     const loaded = (await Q.customerOrders().withIdIs(privacy.order.id)

@@ -50,11 +50,11 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
       order_item_data: db.prepare('SELECT id,purchase_order,tenant,product_name,unit_price,create_time,update_time,version FROM order_item_data ORDER BY id').all(),
     };} finally {db.close();}
   };
-  const owner = (phone = '5550100') => Q.purchaseOrders().comment('Prepare a bounded Checker fixture')
-    .purpose('Verify admission through generated audited graph saves').newEntity(context).updateContactPhone(phone);
-  const item = (valid = true) => {
-    const value = Q.orderItems().comment('Prepare a generated Checker child')
-      .purpose('Verify post-Fix business values without application SQL').newEntity(context).updateUnitPrice(decimal(valid ? '10.00' : '0'));
+  const owner = async (phone = '5550100') => (await Q.purchaseOrders().comment('Prepare a bounded Checker fixture')
+    .purpose('Verify admission through generated audited graph saves').newEntity(context)).updateContactPhone(phone);
+  const item = async (valid = true) => {
+    const value = (await Q.orderItems().comment('Prepare a generated Checker child')
+      .purpose('Verify post-Fix business values without application SQL').newEntity(context)).updateUnitPrice(decimal(valid ? '10.00' : '0'));
     if (valid) value.updateProductName('Boundary item');
     return value;
   };
@@ -102,8 +102,8 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
       isolated.install(new RuntimeModule({}, checkers));
       await isolatedDriver.query('SELECT 1 AS calibration'); expect(isolatedQuery).toHaveBeenCalledTimes(1);
       isolatedQuery.mockClear();
-      const missing = Q.purchaseOrders().comment('Prepare invalid data without installing schema')
-        .purpose('Require module Checkers before any database mutation').newEntity(isolatedContext);
+      const missing = (await Q.purchaseOrders().comment('Prepare invalid data without installing schema')
+        .purpose('Require module Checkers before any database mutation').newEntity(isolatedContext));
       await expect(missing.auditAs('Reject required input in a schema-free store').save(isolatedContext)).rejects.toThrow(CheckException);
       expect(isolatedChecks).toBeGreaterThan(0); expect(isolatedQuery).not.toHaveBeenCalled();
       expect(isolatedTransaction).not.toHaveBeenCalled(); expect(isolatedSchema).not.toHaveBeenCalled();
@@ -113,14 +113,14 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
         installedCheckers: Object.keys(delegates).sort(), checkerCalls: isolatedChecks});
     } finally {isolatedQuery.mockRestore(); isolatedTransaction.mockRestore(); isolatedSchema.mockRestore(); await isolated.close();}
 
-    const parent = owner(), child = item(); parent.orderItemList().push(child); reset();
+    const parent = (await owner()), child = (await item()); parent.orderItemList().push(child); reset();
     await parent.auditAs('Calibrate a valid generated graph through one provider transaction').save(context);
     expect(effects()).toMatchObject({transactions: 1, begins: 1, commits: 1, rollbacks: 0, allocations: 2, mutations: 2, audits: 2});
     expect(effects().queries).toBeGreaterThan(0); expect(effects().policies).toBeGreaterThan(0);
     expect(effects().reviews).toBeGreaterThan(0); expect(checkerCalls).toBeGreaterThan(0);
     record('exact-provider-calibration', {parentID: Number(parent.id), childID: Number(child.id), effects: effects(), checkerCalls});
 
-    const orphan = item();
+    const orphan = (await item());
     const required = await expectRejected(() => orphan.auditAs('Reject an omitted required parent association').save(context),
       'required', 'purchase_order', 'OrderItem');
     record('required-relation', {wire: checkResultToWire(required.result), effects: required.effects, checkerCalls: required.checkerCalls});
@@ -158,7 +158,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
     record('untouched-partial-target', {parentID: Number(parent.id), parentVersion: complete.version, effects: effects()});
 
     for (const mode of ['required-null', 'min-zero'] as const) {
-      const graph = owner(), leaf = item(); graph.orderItemList().push(leaf); fix = mode;
+      const graph = (await owner()), leaf = (await item()); graph.orderItemList().push(leaf); fix = mode;
       const rejected = await expectRejected(() => graph.auditAs('Validate the actual customer-Fix result').save(context),
         mode === 'required-null' ? 'required' : 'min', 'order_item_list[0].' + (mode === 'required-null' ? 'product_name' : 'unit_price'), 'OrderItem');
       expect(E.orderItem(leaf).productName().eval()).toBe('Boundary item');
@@ -166,7 +166,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
       record('post-fix-' + mode, {effects: rejected.effects, wire: checkResultToWire(rejected.result),
         originalInputRetained: true, checkerCalls: rejected.checkerCalls}); fix = 'none';
     }
-    const repaired = owner(), repairedChild = item(false);
+    const repaired = (await owner()), repairedChild = (await item(false));
     const originalChild = (repairedChild as any)._root.change({entity: 'OrderItem', id: (repairedChild as any)._ledgerId});
     expect(originalChild).not.toHaveProperty('product_name');
     expect(String(E.orderItem(repairedChild).unitPrice().eval())).toBe('0');
@@ -204,7 +204,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
         try {
           const envelope = JSON.parse(JSON.stringify({'payload/order': input}));
           normalized = normalizeWireInput(envelope['payload/order'], metadata, '/payload~1order');
-          mapperCalls++; created = owner();
+          mapperCalls++; created = (await owner());
           Reflect.apply(created.updateContactPhone, created, [normalized.values.contact_phone]);
           saveCalls++; await created.auditAs('Save an admitted object-local JSON input through generated APIs').save(context);
         } catch (error) {failure = error;}

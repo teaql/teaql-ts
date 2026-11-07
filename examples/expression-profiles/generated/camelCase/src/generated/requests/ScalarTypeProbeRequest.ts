@@ -25,6 +25,10 @@ export class ScalarTypeProbeRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "ScalarTypeProbe" {
+        return "ScalarTypeProbe";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -244,7 +248,7 @@ export class ScalarTypeProbeRequest {
     }
 
 
-    selectTypePlatformWith(request: { toQuery(): SelectQuery }): this {
+    selectTypePlatformWith(request: { readonly entityName: "TypePlatform"; toQuery(): SelectQuery }): this {
         this.query.select(["typePlatform"]);
         this.query.relationQuery(
             "typePlatform", request.toQuery(), "typePlatform", "id", false,
@@ -252,7 +256,7 @@ export class ScalarTypeProbeRequest {
         return this;
     }
 
-    withTypePlatformMatching(request: { toQuery(): SelectQuery }): this {
+    withTypePlatformMatching(request: { readonly entityName: "TypePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "typePlatform": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -261,7 +265,7 @@ export class ScalarTypeProbeRequest {
         return this;
     }
 
-    withoutTypePlatformMatching(request: { toQuery(): SelectQuery }): this {
+    withoutTypePlatformMatching(request: { readonly entityName: "TypePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "typePlatform": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -273,47 +277,47 @@ export class ScalarTypeProbeRequest {
 
 
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -358,42 +362,42 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withRequiredStringIsNot(val: any): this {
+        withRequiredStringIsNot(val: string): this {
             this.filters.push({ "requiredString": { "$ne": val } });
             return this;
         }
 
-        withRequiredStringIn(...vals: any[]): this {
+        withRequiredStringIn(...vals: string[]): this {
             this.filters.push({ "requiredString": { "$in": vals } });
             return this;
         }
 
-        withRequiredStringNotIn(...vals: any[]): this {
+        withRequiredStringNotIn(...vals: string[]): this {
             this.filters.push({ "requiredString": { "$notIn": vals } });
             return this;
         }
 
-        withRequiredStringGreaterThan(val: any): this {
+        withRequiredStringGreaterThan(val: string): this {
             this.filters.push({ "requiredString": { "$gt": val } });
             return this;
         }
 
-        withRequiredStringGreaterThanOrEqualTo(val: any): this {
+        withRequiredStringGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "requiredString": { "$gte": val } });
             return this;
         }
 
-        withRequiredStringLessThan(val: any): this {
+        withRequiredStringLessThan(val: string): this {
             this.filters.push({ "requiredString": { "$lt": val } });
             return this;
         }
 
-        withRequiredStringLessThanOrEqualTo(val: any): this {
+        withRequiredStringLessThanOrEqualTo(val: string): this {
             this.filters.push({ "requiredString": { "$lte": val } });
             return this;
         }
 
-        withRequiredStringBetween(lower: any, upper: any): this {
+        withRequiredStringBetween(lower: string, upper: string): this {
             this.filters.push({ "requiredString": { "$between": [lower, upper] } });
             return this;
         }
@@ -447,42 +451,42 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withOptionalStringIsNot(val: any): this {
+        withOptionalStringIsNot(val: string): this {
             this.filters.push({ "optionalString": { "$ne": val } });
             return this;
         }
 
-        withOptionalStringIn(...vals: any[]): this {
+        withOptionalStringIn(...vals: string[]): this {
             this.filters.push({ "optionalString": { "$in": vals } });
             return this;
         }
 
-        withOptionalStringNotIn(...vals: any[]): this {
+        withOptionalStringNotIn(...vals: string[]): this {
             this.filters.push({ "optionalString": { "$notIn": vals } });
             return this;
         }
 
-        withOptionalStringGreaterThan(val: any): this {
+        withOptionalStringGreaterThan(val: string): this {
             this.filters.push({ "optionalString": { "$gt": val } });
             return this;
         }
 
-        withOptionalStringGreaterThanOrEqualTo(val: any): this {
+        withOptionalStringGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "optionalString": { "$gte": val } });
             return this;
         }
 
-        withOptionalStringLessThan(val: any): this {
+        withOptionalStringLessThan(val: string): this {
             this.filters.push({ "optionalString": { "$lt": val } });
             return this;
         }
 
-        withOptionalStringLessThanOrEqualTo(val: any): this {
+        withOptionalStringLessThanOrEqualTo(val: string): this {
             this.filters.push({ "optionalString": { "$lte": val } });
             return this;
         }
 
-        withOptionalStringBetween(lower: any, upper: any): this {
+        withOptionalStringBetween(lower: string, upper: string): this {
             this.filters.push({ "optionalString": { "$between": [lower, upper] } });
             return this;
         }
@@ -536,42 +540,42 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withLargeTextIsNot(val: any): this {
+        withLargeTextIsNot(val: string): this {
             this.filters.push({ "largeText": { "$ne": val } });
             return this;
         }
 
-        withLargeTextIn(...vals: any[]): this {
+        withLargeTextIn(...vals: string[]): this {
             this.filters.push({ "largeText": { "$in": vals } });
             return this;
         }
 
-        withLargeTextNotIn(...vals: any[]): this {
+        withLargeTextNotIn(...vals: string[]): this {
             this.filters.push({ "largeText": { "$notIn": vals } });
             return this;
         }
 
-        withLargeTextGreaterThan(val: any): this {
+        withLargeTextGreaterThan(val: string): this {
             this.filters.push({ "largeText": { "$gt": val } });
             return this;
         }
 
-        withLargeTextGreaterThanOrEqualTo(val: any): this {
+        withLargeTextGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "largeText": { "$gte": val } });
             return this;
         }
 
-        withLargeTextLessThan(val: any): this {
+        withLargeTextLessThan(val: string): this {
             this.filters.push({ "largeText": { "$lt": val } });
             return this;
         }
 
-        withLargeTextLessThanOrEqualTo(val: any): this {
+        withLargeTextLessThanOrEqualTo(val: string): this {
             this.filters.push({ "largeText": { "$lte": val } });
             return this;
         }
 
-        withLargeTextBetween(lower: any, upper: any): this {
+        withLargeTextBetween(lower: string, upper: string): this {
             this.filters.push({ "largeText": { "$between": [lower, upper] } });
             return this;
         }
@@ -624,42 +628,42 @@ export class ScalarTypeProbeRequest {
             this.filters.push({ "requiredBoolean": { "$eq": false } });
             return this;
         }
-        withRequiredBooleanIsNot(val: any): this {
+        withRequiredBooleanIsNot(val: boolean): this {
             this.filters.push({ "requiredBoolean": { "$ne": val } });
             return this;
         }
 
-        withRequiredBooleanIn(...vals: any[]): this {
+        withRequiredBooleanIn(...vals: boolean[]): this {
             this.filters.push({ "requiredBoolean": { "$in": vals } });
             return this;
         }
 
-        withRequiredBooleanNotIn(...vals: any[]): this {
+        withRequiredBooleanNotIn(...vals: boolean[]): this {
             this.filters.push({ "requiredBoolean": { "$notIn": vals } });
             return this;
         }
 
-        withRequiredBooleanGreaterThan(val: any): this {
+        withRequiredBooleanGreaterThan(val: boolean): this {
             this.filters.push({ "requiredBoolean": { "$gt": val } });
             return this;
         }
 
-        withRequiredBooleanGreaterThanOrEqualTo(val: any): this {
+        withRequiredBooleanGreaterThanOrEqualTo(val: boolean): this {
             this.filters.push({ "requiredBoolean": { "$gte": val } });
             return this;
         }
 
-        withRequiredBooleanLessThan(val: any): this {
+        withRequiredBooleanLessThan(val: boolean): this {
             this.filters.push({ "requiredBoolean": { "$lt": val } });
             return this;
         }
 
-        withRequiredBooleanLessThanOrEqualTo(val: any): this {
+        withRequiredBooleanLessThanOrEqualTo(val: boolean): this {
             this.filters.push({ "requiredBoolean": { "$lte": val } });
             return this;
         }
 
-        withRequiredBooleanBetween(lower: any, upper: any): this {
+        withRequiredBooleanBetween(lower: boolean, upper: boolean): this {
             this.filters.push({ "requiredBoolean": { "$between": [lower, upper] } });
             return this;
         }
@@ -683,42 +687,42 @@ export class ScalarTypeProbeRequest {
             this.filters.push({ "optionalBoolean": { "$eq": false } });
             return this;
         }
-        withOptionalBooleanIsNot(val: any): this {
+        withOptionalBooleanIsNot(val: boolean): this {
             this.filters.push({ "optionalBoolean": { "$ne": val } });
             return this;
         }
 
-        withOptionalBooleanIn(...vals: any[]): this {
+        withOptionalBooleanIn(...vals: boolean[]): this {
             this.filters.push({ "optionalBoolean": { "$in": vals } });
             return this;
         }
 
-        withOptionalBooleanNotIn(...vals: any[]): this {
+        withOptionalBooleanNotIn(...vals: boolean[]): this {
             this.filters.push({ "optionalBoolean": { "$notIn": vals } });
             return this;
         }
 
-        withOptionalBooleanGreaterThan(val: any): this {
+        withOptionalBooleanGreaterThan(val: boolean): this {
             this.filters.push({ "optionalBoolean": { "$gt": val } });
             return this;
         }
 
-        withOptionalBooleanGreaterThanOrEqualTo(val: any): this {
+        withOptionalBooleanGreaterThanOrEqualTo(val: boolean): this {
             this.filters.push({ "optionalBoolean": { "$gte": val } });
             return this;
         }
 
-        withOptionalBooleanLessThan(val: any): this {
+        withOptionalBooleanLessThan(val: boolean): this {
             this.filters.push({ "optionalBoolean": { "$lt": val } });
             return this;
         }
 
-        withOptionalBooleanLessThanOrEqualTo(val: any): this {
+        withOptionalBooleanLessThanOrEqualTo(val: boolean): this {
             this.filters.push({ "optionalBoolean": { "$lte": val } });
             return this;
         }
 
-        withOptionalBooleanBetween(lower: any, upper: any): this {
+        withOptionalBooleanBetween(lower: boolean, upper: boolean): this {
             this.filters.push({ "optionalBoolean": { "$between": [lower, upper] } });
             return this;
         }
@@ -733,47 +737,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withRequiredIntegerIs(val: any): this {
+        withRequiredIntegerIs(val: number): this {
             this.filters.push({ "requiredInteger": { "$eq": val } });
             return this;
         }
 
-        withRequiredIntegerIsNot(val: any): this {
+        withRequiredIntegerIsNot(val: number): this {
             this.filters.push({ "requiredInteger": { "$ne": val } });
             return this;
         }
 
-        withRequiredIntegerIn(...vals: any[]): this {
+        withRequiredIntegerIn(...vals: number[]): this {
             this.filters.push({ "requiredInteger": { "$in": vals } });
             return this;
         }
 
-        withRequiredIntegerNotIn(...vals: any[]): this {
+        withRequiredIntegerNotIn(...vals: number[]): this {
             this.filters.push({ "requiredInteger": { "$notIn": vals } });
             return this;
         }
 
-        withRequiredIntegerGreaterThan(val: any): this {
+        withRequiredIntegerGreaterThan(val: number): this {
             this.filters.push({ "requiredInteger": { "$gt": val } });
             return this;
         }
 
-        withRequiredIntegerGreaterThanOrEqualTo(val: any): this {
+        withRequiredIntegerGreaterThanOrEqualTo(val: number): this {
             this.filters.push({ "requiredInteger": { "$gte": val } });
             return this;
         }
 
-        withRequiredIntegerLessThan(val: any): this {
+        withRequiredIntegerLessThan(val: number): this {
             this.filters.push({ "requiredInteger": { "$lt": val } });
             return this;
         }
 
-        withRequiredIntegerLessThanOrEqualTo(val: any): this {
+        withRequiredIntegerLessThanOrEqualTo(val: number): this {
             this.filters.push({ "requiredInteger": { "$lte": val } });
             return this;
         }
 
-        withRequiredIntegerBetween(lower: any, upper: any): this {
+        withRequiredIntegerBetween(lower: number, upper: number): this {
             this.filters.push({ "requiredInteger": { "$between": [lower, upper] } });
             return this;
         }
@@ -788,47 +792,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withOptionalIntegerIs(val: any): this {
+        withOptionalIntegerIs(val: number): this {
             this.filters.push({ "optionalInteger": { "$eq": val } });
             return this;
         }
 
-        withOptionalIntegerIsNot(val: any): this {
+        withOptionalIntegerIsNot(val: number): this {
             this.filters.push({ "optionalInteger": { "$ne": val } });
             return this;
         }
 
-        withOptionalIntegerIn(...vals: any[]): this {
+        withOptionalIntegerIn(...vals: number[]): this {
             this.filters.push({ "optionalInteger": { "$in": vals } });
             return this;
         }
 
-        withOptionalIntegerNotIn(...vals: any[]): this {
+        withOptionalIntegerNotIn(...vals: number[]): this {
             this.filters.push({ "optionalInteger": { "$notIn": vals } });
             return this;
         }
 
-        withOptionalIntegerGreaterThan(val: any): this {
+        withOptionalIntegerGreaterThan(val: number): this {
             this.filters.push({ "optionalInteger": { "$gt": val } });
             return this;
         }
 
-        withOptionalIntegerGreaterThanOrEqualTo(val: any): this {
+        withOptionalIntegerGreaterThanOrEqualTo(val: number): this {
             this.filters.push({ "optionalInteger": { "$gte": val } });
             return this;
         }
 
-        withOptionalIntegerLessThan(val: any): this {
+        withOptionalIntegerLessThan(val: number): this {
             this.filters.push({ "optionalInteger": { "$lt": val } });
             return this;
         }
 
-        withOptionalIntegerLessThanOrEqualTo(val: any): this {
+        withOptionalIntegerLessThanOrEqualTo(val: number): this {
             this.filters.push({ "optionalInteger": { "$lte": val } });
             return this;
         }
 
-        withOptionalIntegerBetween(lower: any, upper: any): this {
+        withOptionalIntegerBetween(lower: number, upper: number): this {
             this.filters.push({ "optionalInteger": { "$between": [lower, upper] } });
             return this;
         }
@@ -1063,47 +1067,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withRequiredFloatIs(val: any): this {
+        withRequiredFloatIs(val: number): this {
             this.filters.push({ "requiredFloat": { "$eq": val } });
             return this;
         }
 
-        withRequiredFloatIsNot(val: any): this {
+        withRequiredFloatIsNot(val: number): this {
             this.filters.push({ "requiredFloat": { "$ne": val } });
             return this;
         }
 
-        withRequiredFloatIn(...vals: any[]): this {
+        withRequiredFloatIn(...vals: number[]): this {
             this.filters.push({ "requiredFloat": { "$in": vals } });
             return this;
         }
 
-        withRequiredFloatNotIn(...vals: any[]): this {
+        withRequiredFloatNotIn(...vals: number[]): this {
             this.filters.push({ "requiredFloat": { "$notIn": vals } });
             return this;
         }
 
-        withRequiredFloatGreaterThan(val: any): this {
+        withRequiredFloatGreaterThan(val: number): this {
             this.filters.push({ "requiredFloat": { "$gt": val } });
             return this;
         }
 
-        withRequiredFloatGreaterThanOrEqualTo(val: any): this {
+        withRequiredFloatGreaterThanOrEqualTo(val: number): this {
             this.filters.push({ "requiredFloat": { "$gte": val } });
             return this;
         }
 
-        withRequiredFloatLessThan(val: any): this {
+        withRequiredFloatLessThan(val: number): this {
             this.filters.push({ "requiredFloat": { "$lt": val } });
             return this;
         }
 
-        withRequiredFloatLessThanOrEqualTo(val: any): this {
+        withRequiredFloatLessThanOrEqualTo(val: number): this {
             this.filters.push({ "requiredFloat": { "$lte": val } });
             return this;
         }
 
-        withRequiredFloatBetween(lower: any, upper: any): this {
+        withRequiredFloatBetween(lower: number, upper: number): this {
             this.filters.push({ "requiredFloat": { "$between": [lower, upper] } });
             return this;
         }
@@ -1118,47 +1122,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withOptionalFloatIs(val: any): this {
+        withOptionalFloatIs(val: number): this {
             this.filters.push({ "optionalFloat": { "$eq": val } });
             return this;
         }
 
-        withOptionalFloatIsNot(val: any): this {
+        withOptionalFloatIsNot(val: number): this {
             this.filters.push({ "optionalFloat": { "$ne": val } });
             return this;
         }
 
-        withOptionalFloatIn(...vals: any[]): this {
+        withOptionalFloatIn(...vals: number[]): this {
             this.filters.push({ "optionalFloat": { "$in": vals } });
             return this;
         }
 
-        withOptionalFloatNotIn(...vals: any[]): this {
+        withOptionalFloatNotIn(...vals: number[]): this {
             this.filters.push({ "optionalFloat": { "$notIn": vals } });
             return this;
         }
 
-        withOptionalFloatGreaterThan(val: any): this {
+        withOptionalFloatGreaterThan(val: number): this {
             this.filters.push({ "optionalFloat": { "$gt": val } });
             return this;
         }
 
-        withOptionalFloatGreaterThanOrEqualTo(val: any): this {
+        withOptionalFloatGreaterThanOrEqualTo(val: number): this {
             this.filters.push({ "optionalFloat": { "$gte": val } });
             return this;
         }
 
-        withOptionalFloatLessThan(val: any): this {
+        withOptionalFloatLessThan(val: number): this {
             this.filters.push({ "optionalFloat": { "$lt": val } });
             return this;
         }
 
-        withOptionalFloatLessThanOrEqualTo(val: any): this {
+        withOptionalFloatLessThanOrEqualTo(val: number): this {
             this.filters.push({ "optionalFloat": { "$lte": val } });
             return this;
         }
 
-        withOptionalFloatBetween(lower: any, upper: any): this {
+        withOptionalFloatBetween(lower: number, upper: number): this {
             this.filters.push({ "optionalFloat": { "$between": [lower, upper] } });
             return this;
         }
@@ -1173,47 +1177,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withRequiredDoubleIs(val: any): this {
+        withRequiredDoubleIs(val: number): this {
             this.filters.push({ "requiredDouble": { "$eq": val } });
             return this;
         }
 
-        withRequiredDoubleIsNot(val: any): this {
+        withRequiredDoubleIsNot(val: number): this {
             this.filters.push({ "requiredDouble": { "$ne": val } });
             return this;
         }
 
-        withRequiredDoubleIn(...vals: any[]): this {
+        withRequiredDoubleIn(...vals: number[]): this {
             this.filters.push({ "requiredDouble": { "$in": vals } });
             return this;
         }
 
-        withRequiredDoubleNotIn(...vals: any[]): this {
+        withRequiredDoubleNotIn(...vals: number[]): this {
             this.filters.push({ "requiredDouble": { "$notIn": vals } });
             return this;
         }
 
-        withRequiredDoubleGreaterThan(val: any): this {
+        withRequiredDoubleGreaterThan(val: number): this {
             this.filters.push({ "requiredDouble": { "$gt": val } });
             return this;
         }
 
-        withRequiredDoubleGreaterThanOrEqualTo(val: any): this {
+        withRequiredDoubleGreaterThanOrEqualTo(val: number): this {
             this.filters.push({ "requiredDouble": { "$gte": val } });
             return this;
         }
 
-        withRequiredDoubleLessThan(val: any): this {
+        withRequiredDoubleLessThan(val: number): this {
             this.filters.push({ "requiredDouble": { "$lt": val } });
             return this;
         }
 
-        withRequiredDoubleLessThanOrEqualTo(val: any): this {
+        withRequiredDoubleLessThanOrEqualTo(val: number): this {
             this.filters.push({ "requiredDouble": { "$lte": val } });
             return this;
         }
 
-        withRequiredDoubleBetween(lower: any, upper: any): this {
+        withRequiredDoubleBetween(lower: number, upper: number): this {
             this.filters.push({ "requiredDouble": { "$between": [lower, upper] } });
             return this;
         }
@@ -1228,47 +1232,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withOptionalDoubleIs(val: any): this {
+        withOptionalDoubleIs(val: number): this {
             this.filters.push({ "optionalDouble": { "$eq": val } });
             return this;
         }
 
-        withOptionalDoubleIsNot(val: any): this {
+        withOptionalDoubleIsNot(val: number): this {
             this.filters.push({ "optionalDouble": { "$ne": val } });
             return this;
         }
 
-        withOptionalDoubleIn(...vals: any[]): this {
+        withOptionalDoubleIn(...vals: number[]): this {
             this.filters.push({ "optionalDouble": { "$in": vals } });
             return this;
         }
 
-        withOptionalDoubleNotIn(...vals: any[]): this {
+        withOptionalDoubleNotIn(...vals: number[]): this {
             this.filters.push({ "optionalDouble": { "$notIn": vals } });
             return this;
         }
 
-        withOptionalDoubleGreaterThan(val: any): this {
+        withOptionalDoubleGreaterThan(val: number): this {
             this.filters.push({ "optionalDouble": { "$gt": val } });
             return this;
         }
 
-        withOptionalDoubleGreaterThanOrEqualTo(val: any): this {
+        withOptionalDoubleGreaterThanOrEqualTo(val: number): this {
             this.filters.push({ "optionalDouble": { "$gte": val } });
             return this;
         }
 
-        withOptionalDoubleLessThan(val: any): this {
+        withOptionalDoubleLessThan(val: number): this {
             this.filters.push({ "optionalDouble": { "$lt": val } });
             return this;
         }
 
-        withOptionalDoubleLessThanOrEqualTo(val: any): this {
+        withOptionalDoubleLessThanOrEqualTo(val: number): this {
             this.filters.push({ "optionalDouble": { "$lte": val } });
             return this;
         }
 
-        withOptionalDoubleBetween(lower: any, upper: any): this {
+        withOptionalDoubleBetween(lower: number, upper: number): this {
             this.filters.push({ "optionalDouble": { "$between": [lower, upper] } });
             return this;
         }
@@ -1283,47 +1287,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withRequiredDateIs(val: any): this {
+        withRequiredDateIs(val: string): this {
             this.filters.push({ "requiredDate": { "$eq": val } });
             return this;
         }
 
-        withRequiredDateIsNot(val: any): this {
+        withRequiredDateIsNot(val: string): this {
             this.filters.push({ "requiredDate": { "$ne": val } });
             return this;
         }
 
-        withRequiredDateIn(...vals: any[]): this {
+        withRequiredDateIn(...vals: string[]): this {
             this.filters.push({ "requiredDate": { "$in": vals } });
             return this;
         }
 
-        withRequiredDateNotIn(...vals: any[]): this {
+        withRequiredDateNotIn(...vals: string[]): this {
             this.filters.push({ "requiredDate": { "$notIn": vals } });
             return this;
         }
 
-        withRequiredDateGreaterThan(val: any): this {
+        withRequiredDateGreaterThan(val: string): this {
             this.filters.push({ "requiredDate": { "$gt": val } });
             return this;
         }
 
-        withRequiredDateGreaterThanOrEqualTo(val: any): this {
+        withRequiredDateGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "requiredDate": { "$gte": val } });
             return this;
         }
 
-        withRequiredDateLessThan(val: any): this {
+        withRequiredDateLessThan(val: string): this {
             this.filters.push({ "requiredDate": { "$lt": val } });
             return this;
         }
 
-        withRequiredDateLessThanOrEqualTo(val: any): this {
+        withRequiredDateLessThanOrEqualTo(val: string): this {
             this.filters.push({ "requiredDate": { "$lte": val } });
             return this;
         }
 
-        withRequiredDateBetween(lower: any, upper: any): this {
+        withRequiredDateBetween(lower: string, upper: string): this {
             this.filters.push({ "requiredDate": { "$between": [lower, upper] } });
             return this;
         }
@@ -1338,47 +1342,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withOptionalDateIs(val: any): this {
+        withOptionalDateIs(val: string): this {
             this.filters.push({ "optionalDate": { "$eq": val } });
             return this;
         }
 
-        withOptionalDateIsNot(val: any): this {
+        withOptionalDateIsNot(val: string): this {
             this.filters.push({ "optionalDate": { "$ne": val } });
             return this;
         }
 
-        withOptionalDateIn(...vals: any[]): this {
+        withOptionalDateIn(...vals: string[]): this {
             this.filters.push({ "optionalDate": { "$in": vals } });
             return this;
         }
 
-        withOptionalDateNotIn(...vals: any[]): this {
+        withOptionalDateNotIn(...vals: string[]): this {
             this.filters.push({ "optionalDate": { "$notIn": vals } });
             return this;
         }
 
-        withOptionalDateGreaterThan(val: any): this {
+        withOptionalDateGreaterThan(val: string): this {
             this.filters.push({ "optionalDate": { "$gt": val } });
             return this;
         }
 
-        withOptionalDateGreaterThanOrEqualTo(val: any): this {
+        withOptionalDateGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "optionalDate": { "$gte": val } });
             return this;
         }
 
-        withOptionalDateLessThan(val: any): this {
+        withOptionalDateLessThan(val: string): this {
             this.filters.push({ "optionalDate": { "$lt": val } });
             return this;
         }
 
-        withOptionalDateLessThanOrEqualTo(val: any): this {
+        withOptionalDateLessThanOrEqualTo(val: string): this {
             this.filters.push({ "optionalDate": { "$lte": val } });
             return this;
         }
 
-        withOptionalDateBetween(lower: any, upper: any): this {
+        withOptionalDateBetween(lower: string, upper: string): this {
             this.filters.push({ "optionalDate": { "$between": [lower, upper] } });
             return this;
         }
@@ -1503,47 +1507,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withRequiredDatetimeIs(val: any): this {
+        withRequiredDatetimeIs(val: string): this {
             this.filters.push({ "requiredDatetime": { "$eq": val } });
             return this;
         }
 
-        withRequiredDatetimeIsNot(val: any): this {
+        withRequiredDatetimeIsNot(val: string): this {
             this.filters.push({ "requiredDatetime": { "$ne": val } });
             return this;
         }
 
-        withRequiredDatetimeIn(...vals: any[]): this {
+        withRequiredDatetimeIn(...vals: string[]): this {
             this.filters.push({ "requiredDatetime": { "$in": vals } });
             return this;
         }
 
-        withRequiredDatetimeNotIn(...vals: any[]): this {
+        withRequiredDatetimeNotIn(...vals: string[]): this {
             this.filters.push({ "requiredDatetime": { "$notIn": vals } });
             return this;
         }
 
-        withRequiredDatetimeGreaterThan(val: any): this {
+        withRequiredDatetimeGreaterThan(val: string): this {
             this.filters.push({ "requiredDatetime": { "$gt": val } });
             return this;
         }
 
-        withRequiredDatetimeGreaterThanOrEqualTo(val: any): this {
+        withRequiredDatetimeGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "requiredDatetime": { "$gte": val } });
             return this;
         }
 
-        withRequiredDatetimeLessThan(val: any): this {
+        withRequiredDatetimeLessThan(val: string): this {
             this.filters.push({ "requiredDatetime": { "$lt": val } });
             return this;
         }
 
-        withRequiredDatetimeLessThanOrEqualTo(val: any): this {
+        withRequiredDatetimeLessThanOrEqualTo(val: string): this {
             this.filters.push({ "requiredDatetime": { "$lte": val } });
             return this;
         }
 
-        withRequiredDatetimeBetween(lower: any, upper: any): this {
+        withRequiredDatetimeBetween(lower: string, upper: string): this {
             this.filters.push({ "requiredDatetime": { "$between": [lower, upper] } });
             return this;
         }
@@ -1558,47 +1562,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withOptionalDatetimeIs(val: any): this {
+        withOptionalDatetimeIs(val: string): this {
             this.filters.push({ "optionalDatetime": { "$eq": val } });
             return this;
         }
 
-        withOptionalDatetimeIsNot(val: any): this {
+        withOptionalDatetimeIsNot(val: string): this {
             this.filters.push({ "optionalDatetime": { "$ne": val } });
             return this;
         }
 
-        withOptionalDatetimeIn(...vals: any[]): this {
+        withOptionalDatetimeIn(...vals: string[]): this {
             this.filters.push({ "optionalDatetime": { "$in": vals } });
             return this;
         }
 
-        withOptionalDatetimeNotIn(...vals: any[]): this {
+        withOptionalDatetimeNotIn(...vals: string[]): this {
             this.filters.push({ "optionalDatetime": { "$notIn": vals } });
             return this;
         }
 
-        withOptionalDatetimeGreaterThan(val: any): this {
+        withOptionalDatetimeGreaterThan(val: string): this {
             this.filters.push({ "optionalDatetime": { "$gt": val } });
             return this;
         }
 
-        withOptionalDatetimeGreaterThanOrEqualTo(val: any): this {
+        withOptionalDatetimeGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "optionalDatetime": { "$gte": val } });
             return this;
         }
 
-        withOptionalDatetimeLessThan(val: any): this {
+        withOptionalDatetimeLessThan(val: string): this {
             this.filters.push({ "optionalDatetime": { "$lt": val } });
             return this;
         }
 
-        withOptionalDatetimeLessThanOrEqualTo(val: any): this {
+        withOptionalDatetimeLessThanOrEqualTo(val: string): this {
             this.filters.push({ "optionalDatetime": { "$lte": val } });
             return this;
         }
 
-        withOptionalDatetimeBetween(lower: any, upper: any): this {
+        withOptionalDatetimeBetween(lower: string, upper: string): this {
             this.filters.push({ "optionalDatetime": { "$between": [lower, upper] } });
             return this;
         }
@@ -1613,47 +1617,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withCreateTimeIs(val: any): this {
+        withCreateTimeIs(val: unknown): this {
             this.filters.push({ "createTime": { "$eq": val } });
             return this;
         }
 
-        withCreateTimeIsNot(val: any): this {
+        withCreateTimeIsNot(val: unknown): this {
             this.filters.push({ "createTime": { "$ne": val } });
             return this;
         }
 
-        withCreateTimeIn(...vals: any[]): this {
+        withCreateTimeIn(...vals: unknown[]): this {
             this.filters.push({ "createTime": { "$in": vals } });
             return this;
         }
 
-        withCreateTimeNotIn(...vals: any[]): this {
+        withCreateTimeNotIn(...vals: unknown[]): this {
             this.filters.push({ "createTime": { "$notIn": vals } });
             return this;
         }
 
-        withCreateTimeGreaterThan(val: any): this {
+        withCreateTimeGreaterThan(val: unknown): this {
             this.filters.push({ "createTime": { "$gt": val } });
             return this;
         }
 
-        withCreateTimeGreaterThanOrEqualTo(val: any): this {
+        withCreateTimeGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "createTime": { "$gte": val } });
             return this;
         }
 
-        withCreateTimeLessThan(val: any): this {
+        withCreateTimeLessThan(val: unknown): this {
             this.filters.push({ "createTime": { "$lt": val } });
             return this;
         }
 
-        withCreateTimeLessThanOrEqualTo(val: any): this {
+        withCreateTimeLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "createTime": { "$lte": val } });
             return this;
         }
 
-        withCreateTimeBetween(lower: any, upper: any): this {
+        withCreateTimeBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "createTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -1668,47 +1672,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withUpdateTimeIs(val: any): this {
+        withUpdateTimeIs(val: unknown): this {
             this.filters.push({ "updateTime": { "$eq": val } });
             return this;
         }
 
-        withUpdateTimeIsNot(val: any): this {
+        withUpdateTimeIsNot(val: unknown): this {
             this.filters.push({ "updateTime": { "$ne": val } });
             return this;
         }
 
-        withUpdateTimeIn(...vals: any[]): this {
+        withUpdateTimeIn(...vals: unknown[]): this {
             this.filters.push({ "updateTime": { "$in": vals } });
             return this;
         }
 
-        withUpdateTimeNotIn(...vals: any[]): this {
+        withUpdateTimeNotIn(...vals: unknown[]): this {
             this.filters.push({ "updateTime": { "$notIn": vals } });
             return this;
         }
 
-        withUpdateTimeGreaterThan(val: any): this {
+        withUpdateTimeGreaterThan(val: unknown): this {
             this.filters.push({ "updateTime": { "$gt": val } });
             return this;
         }
 
-        withUpdateTimeGreaterThanOrEqualTo(val: any): this {
+        withUpdateTimeGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "updateTime": { "$gte": val } });
             return this;
         }
 
-        withUpdateTimeLessThan(val: any): this {
+        withUpdateTimeLessThan(val: unknown): this {
             this.filters.push({ "updateTime": { "$lt": val } });
             return this;
         }
 
-        withUpdateTimeLessThanOrEqualTo(val: any): this {
+        withUpdateTimeLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "updateTime": { "$lte": val } });
             return this;
         }
 
-        withUpdateTimeBetween(lower: any, upper: any): this {
+        withUpdateTimeBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "updateTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -1723,47 +1727,47 @@ export class ScalarTypeProbeRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -2693,7 +2697,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByTypePlatform(): this {
@@ -2702,7 +2706,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByTypePlatformAs(retName: string): this {
-        this.query.groupBy("typePlatform"); // In TS we don't alias group by yet natively
+        this.query.groupBy("typePlatform", retName);
         return this;
     }
     groupByRequiredString(): this {
@@ -2711,7 +2715,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredStringAs(retName: string): this {
-        this.query.groupBy("requiredString"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredString", retName);
         return this;
     }
     groupByOptionalString(): this {
@@ -2720,7 +2724,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalStringAs(retName: string): this {
-        this.query.groupBy("optionalString"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalString", retName);
         return this;
     }
     groupByLargeText(): this {
@@ -2729,7 +2733,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByLargeTextAs(retName: string): this {
-        this.query.groupBy("largeText"); // In TS we don't alias group by yet natively
+        this.query.groupBy("largeText", retName);
         return this;
     }
     groupByRequiredBoolean(): this {
@@ -2738,7 +2742,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredBooleanAs(retName: string): this {
-        this.query.groupBy("requiredBoolean"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredBoolean", retName);
         return this;
     }
     groupByOptionalBoolean(): this {
@@ -2747,7 +2751,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalBooleanAs(retName: string): this {
-        this.query.groupBy("optionalBoolean"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalBoolean", retName);
         return this;
     }
     groupByRequiredInteger(): this {
@@ -2756,7 +2760,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredIntegerAs(retName: string): this {
-        this.query.groupBy("requiredInteger"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredInteger", retName);
         return this;
     }
     groupByOptionalInteger(): this {
@@ -2765,7 +2769,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalIntegerAs(retName: string): this {
-        this.query.groupBy("optionalInteger"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalInteger", retName);
         return this;
     }
     groupByRequiredLong(): this {
@@ -2774,7 +2778,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredLongAs(retName: string): this {
-        this.query.groupBy("requiredLong"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredLong", retName);
         return this;
     }
     groupByOptionalLong(): this {
@@ -2783,7 +2787,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalLongAs(retName: string): this {
-        this.query.groupBy("optionalLong"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalLong", retName);
         return this;
     }
     groupByRequiredDecimal(): this {
@@ -2792,7 +2796,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredDecimalAs(retName: string): this {
-        this.query.groupBy("requiredDecimal"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredDecimal", retName);
         return this;
     }
     groupByOptionalDecimal(): this {
@@ -2801,7 +2805,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalDecimalAs(retName: string): this {
-        this.query.groupBy("optionalDecimal"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalDecimal", retName);
         return this;
     }
     groupByRequiredFloat(): this {
@@ -2810,7 +2814,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredFloatAs(retName: string): this {
-        this.query.groupBy("requiredFloat"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredFloat", retName);
         return this;
     }
     groupByOptionalFloat(): this {
@@ -2819,7 +2823,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalFloatAs(retName: string): this {
-        this.query.groupBy("optionalFloat"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalFloat", retName);
         return this;
     }
     groupByRequiredDouble(): this {
@@ -2828,7 +2832,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredDoubleAs(retName: string): this {
-        this.query.groupBy("requiredDouble"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredDouble", retName);
         return this;
     }
     groupByOptionalDouble(): this {
@@ -2837,7 +2841,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalDoubleAs(retName: string): this {
-        this.query.groupBy("optionalDouble"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalDouble", retName);
         return this;
     }
     groupByRequiredDate(): this {
@@ -2846,7 +2850,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredDateAs(retName: string): this {
-        this.query.groupBy("requiredDate"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredDate", retName);
         return this;
     }
     groupByOptionalDate(): this {
@@ -2855,7 +2859,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalDateAs(retName: string): this {
-        this.query.groupBy("optionalDate"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalDate", retName);
         return this;
     }
     groupByRequiredTime(): this {
@@ -2864,7 +2868,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredTimeAs(retName: string): this {
-        this.query.groupBy("requiredTime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredTime", retName);
         return this;
     }
     groupByOptionalTime(): this {
@@ -2873,7 +2877,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalTimeAs(retName: string): this {
-        this.query.groupBy("optionalTime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalTime", retName);
         return this;
     }
     groupByRequiredDatetime(): this {
@@ -2882,7 +2886,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByRequiredDatetimeAs(retName: string): this {
-        this.query.groupBy("requiredDatetime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("requiredDatetime", retName);
         return this;
     }
     groupByOptionalDatetime(): this {
@@ -2891,7 +2895,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByOptionalDatetimeAs(retName: string): this {
-        this.query.groupBy("optionalDatetime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("optionalDatetime", retName);
         return this;
     }
     groupByCreateTime(): this {
@@ -2900,7 +2904,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByCreateTimeAs(retName: string): this {
-        this.query.groupBy("createTime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("createTime", retName);
         return this;
     }
     groupByUpdateTime(): this {
@@ -2909,7 +2913,7 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByUpdateTimeAs(retName: string): this {
-        this.query.groupBy("updateTime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("updateTime", retName);
         return this;
     }
     groupByVersion(): this {
@@ -2918,14 +2922,14 @@ export class ScalarTypeProbeRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByTypePlatformAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "TypePlatform"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "typePlatform", request, includeAllFacets,
@@ -3041,9 +3045,11 @@ export class ExecutableScalarTypeProbeRequest {
         return this;
     }
 
-    newEntity(context: UserContext): ScalarTypeProbe {
+    async newEntity(context: UserContext): Promise<ScalarTypeProbe> {
         this.ensureIntent();
-        return new ScalarTypeProbe();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("ScalarTypeProbe");
+        return ScalarTypeProbe.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<ScalarTypeProbe>> {

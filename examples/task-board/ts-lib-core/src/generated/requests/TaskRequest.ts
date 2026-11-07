@@ -735,9 +735,11 @@ export class ExecutableTaskRequest {
         return this;
     }
 
-    newEntity(context: UserContext): Task {
+    async newEntity(context: UserContext): Promise<Task> {
         this.ensureIntent();
-        return new Task();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("Task");
+        return Task.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Task>> {

@@ -74,10 +74,10 @@ async function main() {
   const observe = (scenario: string) => console.log(JSON.stringify({ scenario,
     commands: client.commands, sql: sql.snapshot(), committedAudit: audit }));
   const create = async (suffix: string, twoItems = false) => {
-    const order = Q.customerOrders().comment('initialize ownership fixture').purpose('test graph ownership').newEntity(context)
+    const order = (await Q.customerOrders().comment('initialize ownership fixture').purpose('test graph ownership').newEntity(context))
       .updatePlatform('1').updateOrderNumber(`${nonce}-${suffix}`).updateDescription(`before-${suffix}`);
     for (let index = 0; index < (twoItems ? 2 : 1); index++) {
-      order.orderItemList().push(Q.orderItems().comment('initialize ownership item').purpose('test graph ownership').newEntity(context)
+      order.orderItemList().push((await Q.orderItems().comment('initialize ownership item').purpose('test graph ownership').newEntity(context))
         .updateName(`${nonce}-${suffix}-item-${index}`));
     }
     await order.auditAs('create ownership fixture').save(context);

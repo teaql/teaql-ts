@@ -25,6 +25,10 @@ export class WorkItemRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "WorkItem" {
+        return "WorkItem";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -139,7 +143,7 @@ export class WorkItemRequest {
     }
 
 
-    selectPlatformWith(request: { toQuery(): SelectQuery }): this {
+    selectPlatformWith(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
         this.query.select(["platform"]);
         this.query.relationQuery(
             "platform", request.toQuery(), "platform", "id", false,
@@ -147,7 +151,7 @@ export class WorkItemRequest {
         return this;
     }
 
-    withPlatformMatching(request: { toQuery(): SelectQuery }): this {
+    withPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "platform": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -156,7 +160,7 @@ export class WorkItemRequest {
         return this;
     }
 
-    withoutPlatformMatching(request: { toQuery(): SelectQuery }): this {
+    withoutPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "platform": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -168,47 +172,47 @@ export class WorkItemRequest {
 
 
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -233,42 +237,42 @@ export class WorkItemRequest {
             return this;
         }
 
-        withTitleIsNot(val: any): this {
+        withTitleIsNot(val: string): this {
             this.filters.push({ "title": { "$ne": val } });
             return this;
         }
 
-        withTitleIn(...vals: any[]): this {
+        withTitleIn(...vals: string[]): this {
             this.filters.push({ "title": { "$in": vals } });
             return this;
         }
 
-        withTitleNotIn(...vals: any[]): this {
+        withTitleNotIn(...vals: string[]): this {
             this.filters.push({ "title": { "$notIn": vals } });
             return this;
         }
 
-        withTitleGreaterThan(val: any): this {
+        withTitleGreaterThan(val: string): this {
             this.filters.push({ "title": { "$gt": val } });
             return this;
         }
 
-        withTitleGreaterThanOrEqualTo(val: any): this {
+        withTitleGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "title": { "$gte": val } });
             return this;
         }
 
-        withTitleLessThan(val: any): this {
+        withTitleLessThan(val: string): this {
             this.filters.push({ "title": { "$lt": val } });
             return this;
         }
 
-        withTitleLessThanOrEqualTo(val: any): this {
+        withTitleLessThanOrEqualTo(val: string): this {
             this.filters.push({ "title": { "$lte": val } });
             return this;
         }
 
-        withTitleBetween(lower: any, upper: any): this {
+        withTitleBetween(lower: string, upper: string): this {
             this.filters.push({ "title": { "$between": [lower, upper] } });
             return this;
         }
@@ -322,42 +326,42 @@ export class WorkItemRequest {
             return this;
         }
 
-        withDescriptionIsNot(val: any): this {
+        withDescriptionIsNot(val: string): this {
             this.filters.push({ "description": { "$ne": val } });
             return this;
         }
 
-        withDescriptionIn(...vals: any[]): this {
+        withDescriptionIn(...vals: string[]): this {
             this.filters.push({ "description": { "$in": vals } });
             return this;
         }
 
-        withDescriptionNotIn(...vals: any[]): this {
+        withDescriptionNotIn(...vals: string[]): this {
             this.filters.push({ "description": { "$notIn": vals } });
             return this;
         }
 
-        withDescriptionGreaterThan(val: any): this {
+        withDescriptionGreaterThan(val: string): this {
             this.filters.push({ "description": { "$gt": val } });
             return this;
         }
 
-        withDescriptionGreaterThanOrEqualTo(val: any): this {
+        withDescriptionGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "description": { "$gte": val } });
             return this;
         }
 
-        withDescriptionLessThan(val: any): this {
+        withDescriptionLessThan(val: string): this {
             this.filters.push({ "description": { "$lt": val } });
             return this;
         }
 
-        withDescriptionLessThanOrEqualTo(val: any): this {
+        withDescriptionLessThanOrEqualTo(val: string): this {
             this.filters.push({ "description": { "$lte": val } });
             return this;
         }
 
-        withDescriptionBetween(lower: any, upper: any): this {
+        withDescriptionBetween(lower: string, upper: string): this {
             this.filters.push({ "description": { "$between": [lower, upper] } });
             return this;
         }
@@ -421,47 +425,47 @@ export class WorkItemRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -541,7 +545,7 @@ export class WorkItemRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByTitle(): this {
@@ -550,7 +554,7 @@ export class WorkItemRequest {
     }
 
     groupByTitleAs(retName: string): this {
-        this.query.groupBy("title"); // In TS we don't alias group by yet natively
+        this.query.groupBy("title", retName);
         return this;
     }
     groupByDescription(): this {
@@ -559,7 +563,7 @@ export class WorkItemRequest {
     }
 
     groupByDescriptionAs(retName: string): this {
-        this.query.groupBy("description"); // In TS we don't alias group by yet natively
+        this.query.groupBy("description", retName);
         return this;
     }
     groupByPlatform(): this {
@@ -568,7 +572,7 @@ export class WorkItemRequest {
     }
 
     groupByPlatformAs(retName: string): this {
-        this.query.groupBy("platform"); // In TS we don't alias group by yet natively
+        this.query.groupBy("platform", retName);
         return this;
     }
     groupByVersion(): this {
@@ -577,14 +581,14 @@ export class WorkItemRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByPlatformAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "Platform"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "platform", request, includeAllFacets,
@@ -700,9 +704,11 @@ export class ExecutableWorkItemRequest {
         return this;
     }
 
-    newEntity(context: UserContext): WorkItem {
+    async newEntity(context: UserContext): Promise<WorkItem> {
         this.ensureIntent();
-        return new WorkItem();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("WorkItem");
+        return WorkItem.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<WorkItem>> {

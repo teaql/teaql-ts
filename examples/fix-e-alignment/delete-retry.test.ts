@@ -12,12 +12,12 @@ test('a failed file-backed child Delete keeps its intent and retries on the same
     .withBusinessClock(new FixedBusinessClock(new Date('2032-02-29T10:15:30Z')));
   const client = new TeaQLClient(filename).install(GENERATED_RUNTIME_MODULE).setUserContext(context);
   context.insertResource('dataService', client);
-  const parent = Q.purchaseOrders().comment('Prepare the file-backed Delete owner')
+  const parent = (await Q.purchaseOrders().comment('Prepare the file-backed Delete owner')
     .purpose('Verify rollback retains child intent without updating its parent')
-    .newEntity(context).updateContactPhone('5550142');
-  const child = Q.orderItems().comment('Prepare the file-backed Delete child')
+    .newEntity(context)).updateContactPhone('5550142');
+  const child = (await Q.orderItems().comment('Prepare the file-backed Delete child')
     .purpose('Verify loaded Delete values are not field-write intent')
-    .newEntity(context).updateProductName('Delete retry round ' + round).updateUnitPrice(decimal('12.34'));
+    .newEntity(context)).updateProductName('Delete retry round ' + round).updateUnitPrice(decimal('12.34'));
   parent.orderItemList().push(child);
   await parent.auditAs('Create the Delete rollback baseline').save(context);
   const baseline = readFileSync(filename), audits = client.auditTrace.length;

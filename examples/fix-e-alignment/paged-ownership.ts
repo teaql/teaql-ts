@@ -8,8 +8,8 @@ export async function verifyPageStream(context: UserContext,
     idB: Parameters<ReturnType<typeof Q.purchaseOrders>['withIdIs']>[0]): Promise<void> {
   const before = await Q.purchaseOrders().limit(20).comment('Inspect the page ownership fixture')
     .purpose('Establish the bounded exact total').executeForList(context);
-  const sentinel = Q.purchaseOrders().comment('Prepare a page-offset sentinel')
-    .purpose('Exercise a genuine nonzero page offset').newEntity(context);
+  const sentinel = (await Q.purchaseOrders().comment('Prepare a page-offset sentinel')
+    .purpose('Exercise a genuine nonzero page offset').newEntity(context));
   sentinel.updateContactPhone('5550500');
   await sentinel.auditAs('Save the synthetic page sentinel').save(context);
   const exercise = async (rows: Iterable<PurchaseOrder>, label: string, previous: string, next: string, version: number) => {

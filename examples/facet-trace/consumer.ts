@@ -91,7 +91,7 @@ async function main() {
             const existing = await Q.schools().withNameIs(name).limit(1)
                 .comment('find retained fixture').purpose('idempotent seed').executeForList(context);
             if (!existing.length) {
-                const school = Q.schools().comment('initialize fixture').purpose('idempotent seed').newEntity(context);
+                const school = (await Q.schools().comment('initialize fixture').purpose('idempotent seed').newEntity(context));
                 school.updatePlatform('1').updateSchoolType('1001').updateName(name)
                     .updateAddress('12 River Road').updateEstablishedDate('1995-09-01')
                     .updateStudentCapacity(800).updateActive(true);

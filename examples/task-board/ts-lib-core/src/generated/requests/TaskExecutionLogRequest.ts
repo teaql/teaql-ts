@@ -704,9 +704,11 @@ export class ExecutableTaskExecutionLogRequest {
         return this;
     }
 
-    newEntity(context: UserContext): TaskExecutionLog {
+    async newEntity(context: UserContext): Promise<TaskExecutionLog> {
         this.ensureIntent();
-        return new TaskExecutionLog();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("TaskExecutionLog");
+        return TaskExecutionLog.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<TaskExecutionLog>> {

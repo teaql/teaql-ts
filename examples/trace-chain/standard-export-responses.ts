@@ -34,14 +34,14 @@ async function main() {
   const physical = new SQLExecutionEvidenceStore(); client.setRuntimeTelemetrySink(physical);
   const audits: Readonly<Record<string, unknown>>[] = []; client.setAuditSink(event => {audits.push(event);});
   const group = 'response-' + randomUUID();
-  const graph = () => {
-    const order = Q.customerOrders().comment('prepare governed response graph').purpose('verify exporter isolation')
-      .newEntity(context).updatePlatform('1').updateOrderNumber(group).updateDescription(group);
+  const graph = async () => {
+    const order = (await Q.customerOrders().comment('prepare governed response graph').purpose('verify exporter isolation')
+      .newEntity(context)).updatePlatform('1').updateOrderNumber(group).updateDescription(group);
     order.orderItemList().push(
-      Q.orderItems().comment('prepare inherited response item').purpose('verify exporter isolation')
-        .newEntity(context).updateName('TEAQL_PRIVATE_ITEM_LEFT'),
-      Q.orderItems().comment('prepare explicit response item').purpose('verify exporter isolation')
-        .newEntity(context).updateName('TEAQL_PRIVATE_ITEM_RIGHT').auditAs('prepare explicit item'),
+      (await Q.orderItems().comment('prepare inherited response item').purpose('verify exporter isolation')
+        .newEntity(context)).updateName('TEAQL_PRIVATE_ITEM_LEFT'),
+      (await Q.orderItems().comment('prepare explicit response item').purpose('verify exporter isolation')
+        .newEntity(context)).updateName('TEAQL_PRIVATE_ITEM_RIGHT').auditAs('prepare explicit item'),
     );
     return order;
   };
@@ -49,9 +49,9 @@ async function main() {
     await context.ensureSchema(); const firstSeedAudits = audits.length;
     await context.ensureSchema(); assert.equal(audits.length, firstSeedAudits);
     audits.length = 0; physical.enableAll();
-    const initial = graph(); await initial.auditAs('save first governed graph').save(context);
+    const initial = (await graph()); await initial.auditAs('save first governed graph').save(context);
     assert.equal(audits.length, 3);
-    const recovering = graph(); client.failSecondItem = true;
+    const recovering = (await graph()); client.failSecondItem = true;
     const beforeFailure = audits.length;
     await assert.rejects(recovering.auditAs('reject interrupted graph').save(context), error => error === client.failure);
     assert.equal(audits.length, beforeFailure, 'rolled-back writes must not emit committed audit');

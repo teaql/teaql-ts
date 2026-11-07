@@ -52,11 +52,11 @@ export async function verifyConcurrentQuery(filename: string): Promise<void> {
     const auditBeforeSeed = client.auditTrace.length;
     query.mockClear();
     for (const label of ['alpha', 'beta']) {
-      const parent = Q.purchaseOrders().comment('Prepare the ' + label + ' query fixture')
-        .purpose('Use generated audited graph mutation before concurrent reads').newEntity(context)
+      const parent = (await Q.purchaseOrders().comment('Prepare the ' + label + ' query fixture')
+        .purpose('Use generated audited graph mutation before concurrent reads').newEntity(context))
         .updateContactPhone(label === 'alpha' ? '5550701' : '5550702').updateInternalNote(null);
-      const child = Q.orderItems().comment('Prepare the ' + label + ' query leaf')
-        .purpose('Read child identity through generated Q and E').newEntity(context)
+      const child = (await Q.orderItems().comment('Prepare the ' + label + ' query leaf')
+        .purpose('Read child identity through generated Q and E').newEntity(context))
         .updateProductName(label + ' child').updateUnitPrice(decimal('1.00'));
       parent.orderItemList().push(child);
       await parent.auditAs('Create the ' + label + ' concurrent-query graph').save(context);
