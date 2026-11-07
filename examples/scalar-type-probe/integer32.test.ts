@@ -11,7 +11,7 @@ import {dirname,join} from 'node:path';
 import {readFileSync,writeFileSync} from 'node:fs';
 
 async function prepare(context:UserContext,name:string){
- const root=await Q.typePlatforms().withIdIs(context.requireActiveRoot('TypePlatform').id).limit(1).comment('reuse width-test root').purpose('prepare modeled Integer acceptance').executeForOne(context);
+ const root=await Q.typePlatforms().withIdIs(String(context.requireActiveRoot('TypePlatform').id)).limit(1).comment('reuse width-test root').purpose('prepare modeled Integer acceptance').executeForOne(context);
  if(!root)throw Error('seeded root missing');
  return (await Q.scalarTypeProbes().comment('prepare one complete width-test entity').purpose('verify modeled Integer through generated APIs').newEntity(context))
   .updateTypePlatform(root).updateRequiredString(name).updateRequiredBoolean(true).updateRequiredInteger(7).updateOptionalInteger(null)
