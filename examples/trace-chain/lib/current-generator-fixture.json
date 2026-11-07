@@ -2,112 +2,32 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "95502038a66686580e7399dc4252df51f95cc0dc10a54657f5779dc2a5dd1e76",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "d358d608b685dc2e076ac365a9030f18c140e95e66fbffa65d79f0ea8957f982",
+  "producerReceiptSha256": "df47b2daf172ecfbdd25c18557230ce4d8f0d1bd897926c0315dd9e87d8fb586",
   "producerSource": {
-    "commit": "55a23e374c57eeb303609cfcef2de6eaf42d0ed1",
-    "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sourceContentsSha256": "4f89af9c2ab44e34450a1f9b2ab625ad3b23d71407e254454ce3f53cae94ed0f",
-    "pairedTypescript": {
-      "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "c973e4a2fd9cf8e994f649359eb73d70ffeebc08",
-      "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sourceContentsSha256": "13d49a89d69a949715d16ec19c9b9c40991c378a1596fe1083be68b83ff0d2bc"
-    },
-    "retainedModels": [
-      {
-        "id": "conformance",
-        "model": "examples/conformance/model.xml",
-        "target": "examples/conformance",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7"
-      },
-      {
-        "id": "trace-chain",
-        "model": "examples/trace-chain/model.xml",
-        "target": "examples/trace-chain/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "95502038a66686580e7399dc4252df51f95cc0dc10a54657f5779dc2a5dd1e76"
-      },
-      {
-        "id": "facet-trace",
-        "model": "examples/facet-trace/model.xml",
-        "target": "examples/facet-trace/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "9fc6724c828e10aca8cea9f53b65460f26577f74ba5396f04376ad4f20ddc30e"
-      },
-      {
-        "id": "school-management",
-        "model": "examples/school-management/model.xml",
-        "target": "examples/school-management",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4"
-      },
-      {
-        "id": "school-reconciled",
-        "model": "examples/school-management/model-reconciled.xml",
-        "target": "examples/school-management/src/reconciled",
-        "sourceOnly": "true",
-        "stripPrefix": "src/",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "896c579f3c9dded55c9728cb4af23cc8b920776e93ddcb95c8b0e95efdbcb451"
-      },
-      {
-        "id": "browser-orders",
-        "model": "examples/browser-sqlite/order-model.xml",
-        "target": "examples/browser-sqlite/orders-lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "44d20c0d236de9c79f767054deba773e11aa6ae4eaed1ede98cf7c6ed8d18495"
-      },
-      {
-        "id": "fix-e-alignment",
-        "model": "examples/fix-e-alignment/model.xml",
-        "target": "examples/fix-e-alignment/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7"
-      },
-      {
-        "id": "scalar-type-probe",
-        "model": "examples/scalar-type-probe/model.xml",
-        "target": "examples/scalar-type-probe/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762"
-      }
-    ],
-    "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
+    "commit": "54dccd3b534d568c03590eae89f61a002f189e25",
+    "sourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d"
   },
   "files": {
-    "src/generated/models/Platform.ts": "bfe56aa9c73bb1301462d771a28856258dfa5eb717f2948842d21ac3b80e34bd",
-    "src/generated/models/CustomerOrder.ts": "48e534361c3b7af37ec74327e0bc7edebd3b5dca5df6cffbc81c037f3030617f",
-    "src/generated/models/OrderItem.ts": "1b8830553ff23253bca228f0f20040fccf00ce9b5f9611ae3f6852d83003afad",
-    "src/generated/models/Payment.ts": "331a422c60853e3d82a83ab3dbc09ee6627ab0941ad46eda93093ad2166f59e7",
-    "src/generated/models/PaymentAttempt.ts": "c8597a8bbb1514c05cd115705752ee7bef0141e91b2930d0a218e6725797e484",
-    "src/generated/models/Shipment.ts": "1de5f9f41d6753f51a77d69a045435a05ef79202aafe2cf72710fa96f33851b9",
-    "src/generated/requests/PlatformRequest.ts": "a404634943261d700950fdfe35dd6164eaacdd6e0e2dee3648350c9415ad1cdf",
-    "src/generated/requests/CustomerOrderRequest.ts": "2fc4934365ca804fb98f242c4b2b6bbbc7d2d67c5e8bf53a0d7a2424214bdf1b",
-    "src/generated/requests/OrderItemRequest.ts": "dd87bfad0287176c23f152d148c76d8731b7e7edcd0c83ea0c83cb8a7a73c96d",
-    "src/generated/requests/PaymentRequest.ts": "d6535b3752555f0daabed1f708c94cd71e04c6ba5c7cd1ad3cba93d793131ba1",
-    "src/generated/requests/PaymentAttemptRequest.ts": "32b650043a3fc8286aef63ec95c22fe63d27fb5efb33de48a69df5811bf06762",
-    "src/generated/requests/ShipmentRequest.ts": "2ae7b4bb74fbb68ea1379bf70428aa5df9df99cc0a8f915e21b7eaad3db0ad93",
     "src/generated/Q.ts": "ec633c6c5c488e3a2f0dd77a2c9cc5b40cece976f8439caf6782bb9f5cd49833",
+    "src/generated/requests/PlatformRequest.ts": "39c046990fca0f78bff7f061fb8f80df445e38299c58a68fb2ada753b6eebcc8",
+    "src/generated/requests/CustomerOrderRequest.ts": "f28f1c1c7143a7e9708bd19df338eb09cb766e89ba9bb3b0b6f2752e632c3028",
+    "src/generated/requests/OrderItemRequest.ts": "20030ab7968e281b5705ce617762af9447d2ec31f3d7d662b1f9c94d40cdabe9",
+    "src/generated/requests/PaymentRequest.ts": "9a710f503ddc386e0902f47a3caaef932b69c7fe4fb9e8a83b7a28a3d7e119b4",
+    "src/generated/requests/PaymentAttemptRequest.ts": "4aac4c415a27f4007ee0ba7468e6739ce6775be0b59b6c2cda9c2bdb0c1ea981",
+    "src/generated/requests/ShipmentRequest.ts": "6846607eca4b581798563ca5f4e99cd739bb90b5d1d109a7809919807bf2aedd",
     "src/generated/E.ts": "5b2dd375da6ee57c91fd4c752e6ec27aa2372ec5abd639f702d5c32b3053bee0",
-    "src/teaql-ts.ts": "463ac354f44a3c66cbefde57a0a4ab77f514bd87aa0750ff0299a6a9a221920d",
+    "src/teaql-ts.ts": "5ae07a53e060969004a88e0dc7fe09cc430e3202b7101a46387ff927c3f5de6d",
     "src/generated-search-models.ts": "b2793ced879531ebf0b7d1a87fbbe0357bad746f43b9d8fc900dce458dc07820",
     "src/teaql-schemas.ts": "bf09100425eaa11c09ae3a412cea5706c2c60dcb0e4ed05effc5158b78a6e8a8",
     "src/runtime-module.ts": "e47fcc695cd64599ee5314950b29bfbb278b5499060634643e2850c43a5f9d33",
-    "src/generated-bootstrap.ts": "91e1f178624c29d92475497b27f522ad20963694494e2541a48e5b01f21a31d0"
-  }
+    "src/generated-bootstrap.ts": "91e1f178624c29d92475497b27f522ad20963694494e2541a48e5b01f21a31d0",
+    "src/generated/models/Platform.ts": "cddc3065ef5203d8eb0425d35bfb953c15cf9b921e9d715749e0c497bab92b45",
+    "src/generated/models/CustomerOrder.ts": "d2b76f37907186c454c4f4e01af784f19efc1f8fc9fe30752feb7cb1744bbc55",
+    "src/generated/models/OrderItem.ts": "b3dbbb4be23b9f491f53b086e5a6116712dbffea94f9ac3ca21fa9c79418acd7",
+    "src/generated/models/Payment.ts": "195c5647261abc1f375e799b4cec94ab59a2c542b06d9730ff88fa769a1b4542",
+    "src/generated/models/PaymentAttempt.ts": "3eaf48d693743c8a8d8441c74a5d397322ddbb6cda39b5df602523c5947a1c3f",
+    "src/generated/models/Shipment.ts": "5654989bcd567954872a6c08800a5a564698a20a6dd90e453e2f85e445f0d390"
+  },
+  "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
+  "previousFixtureManifestSha256": "fa286a967631117ca74722823fc209c50ab42e2b2a5ad460efd6192bdfde417e"
 }

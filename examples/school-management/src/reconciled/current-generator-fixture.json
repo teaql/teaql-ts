@@ -2,106 +2,26 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "896c579f3c9dded55c9728cb4af23cc8b920776e93ddcb95c8b0e95efdbcb451",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "d358d608b685dc2e076ac365a9030f18c140e95e66fbffa65d79f0ea8957f982",
+  "producerReceiptSha256": "df47b2daf172ecfbdd25c18557230ce4d8f0d1bd897926c0315dd9e87d8fb586",
   "producerSource": {
-    "commit": "55a23e374c57eeb303609cfcef2de6eaf42d0ed1",
-    "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "status": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "sourceContentsSha256": "4f89af9c2ab44e34450a1f9b2ab625ad3b23d71407e254454ce3f53cae94ed0f",
-    "pairedTypescript": {
-      "source": "/home/philip/workspace/teaql-core-p0-p1/typescript",
-      "commit": "c973e4a2fd9cf8e994f649359eb73d70ffeebc08",
-      "diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sourceContentsSha256": "13d49a89d69a949715d16ec19c9b9c40991c378a1596fe1083be68b83ff0d2bc"
-    },
-    "retainedModels": [
-      {
-        "id": "conformance",
-        "model": "examples/conformance/model.xml",
-        "target": "examples/conformance",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7"
-      },
-      {
-        "id": "trace-chain",
-        "model": "examples/trace-chain/model.xml",
-        "target": "examples/trace-chain/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "95502038a66686580e7399dc4252df51f95cc0dc10a54657f5779dc2a5dd1e76"
-      },
-      {
-        "id": "facet-trace",
-        "model": "examples/facet-trace/model.xml",
-        "target": "examples/facet-trace/lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "9fc6724c828e10aca8cea9f53b65460f26577f74ba5396f04376ad4f20ddc30e"
-      },
-      {
-        "id": "school-management",
-        "model": "examples/school-management/model.xml",
-        "target": "examples/school-management",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4"
-      },
-      {
-        "id": "school-reconciled",
-        "model": "examples/school-management/model-reconciled.xml",
-        "target": "examples/school-management/src/reconciled",
-        "sourceOnly": "true",
-        "stripPrefix": "src/",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "896c579f3c9dded55c9728cb4af23cc8b920776e93ddcb95c8b0e95efdbcb451"
-      },
-      {
-        "id": "browser-orders",
-        "model": "examples/browser-sqlite/order-model.xml",
-        "target": "examples/browser-sqlite/orders-lib",
-        "sourceOnly": "true",
-        "language": "typescript",
-        "scope": "typescript-lib-core",
-        "modelSha256": "44d20c0d236de9c79f767054deba773e11aa6ae4eaed1ede98cf7c6ed8d18495"
-      },
-      {
-        "id": "fix-e-alignment",
-        "model": "examples/fix-e-alignment/model.xml",
-        "target": "examples/fix-e-alignment/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7"
-      },
-      {
-        "id": "scalar-type-probe",
-        "model": "examples/scalar-type-probe/model.xml",
-        "target": "examples/scalar-type-probe/generated",
-        "scope": "typescript-node-lib-core",
-        "language": "typescript",
-        "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762"
-      }
-    ],
-    "exporterProbeSha256": "a91a2d427e7ab59515b71fb745777324a7d824df1a5fe30a4c5041f8e1e7dfd5"
+    "commit": "54dccd3b534d568c03590eae89f61a002f189e25",
+    "sourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d"
   },
   "files": {
-    "generated/models/Platform.ts": "3b6ee4bcae34fb0ba2e267f048c671a97d7ebc058e0a188b857f665a17c040c2",
-    "generated/models/SchoolType.ts": "a0466df6922511ce356072f2dc511edf9cd3d30a8dc77611f48eb3d8a20e5bfc",
-    "generated/models/School.ts": "64d8e1cce7df0c85fca0bf844c429a375a8e251b0455241df6243221994b7635",
-    "generated/requests/PlatformRequest.ts": "2cf29a04ac38258292e5290485bf53fa05c06f58d7aed129125280178540da3f",
-    "generated/requests/SchoolTypeRequest.ts": "3ba24192b1b91a36584b62b0fe43ebc0ef13094638194a603f11022807c03e26",
-    "generated/requests/SchoolRequest.ts": "a9f6bc26b5b30d25810d6f7aa0f447d980fe64e1d30c9dfcb10a4318de163d6a",
     "generated/Q.ts": "96e150775a079420a4afb57d5be8e9b7696d2b8d8bef6eee3727c2b530b3dd33",
+    "generated/requests/PlatformRequest.ts": "03adb49953f5e947b1402ecf534077721f97ff302042888b2bd5ca88ebc89859",
+    "generated/requests/SchoolTypeRequest.ts": "9051a61d269dd716b681b0e02c32a3db843f3b49b9bc9add062cf7b028fa2650",
+    "generated/requests/SchoolRequest.ts": "fac23dbff189b41421432bb7efd6dcddcfe4fd96d6eaf004fda78e17567c62cd",
     "generated/E.ts": "79a54bc6bf0470b6f62c4b00b45ee27d8b23c706bc39365c138dc1eeab0f7d53",
-    "teaql-ts.ts": "463ac354f44a3c66cbefde57a0a4ab77f514bd87aa0750ff0299a6a9a221920d",
+    "teaql-ts.ts": "5ae07a53e060969004a88e0dc7fe09cc430e3202b7101a46387ff927c3f5de6d",
     "generated-search-models.ts": "3d596870c683b14ea9ca4cc930216cec647e6b216b1b7a073b573626293ce4a5",
     "teaql-schemas.ts": "b326b194b719290d5a3f5e5945195846f88f5d8b537441066fa13483d0cf454c",
     "runtime-module.ts": "8b72914c80b75610a081a52a5aee5f66d64a5fca61f0654bb9b00a79fd201f61",
-    "generated-bootstrap.ts": "1513d365488b3f1016973c158034e450b06c6601dec5c109c4fa2bd369aef736"
-  }
+    "generated-bootstrap.ts": "1513d365488b3f1016973c158034e450b06c6601dec5c109c4fa2bd369aef736",
+    "generated/models/Platform.ts": "14ac53e267f00f41f9881702ceef94f84655e3590b4f62ddab2ad696edbe4178",
+    "generated/models/SchoolType.ts": "1ccf1fac854d58f308f2769f57ec8c378483cdad89208b6c6498cda46592d411",
+    "generated/models/School.ts": "125e5812cf6a9b2ac14614ea98b6e0f514d09c15db605a55c347ff1ac35a8185"
+  },
+  "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
+  "previousFixtureManifestSha256": "aa417be4b5c552eefb28cf1ae3eeb77a398a261190e13cee659fd4ae87088098"
 }

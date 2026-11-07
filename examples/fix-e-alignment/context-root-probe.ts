@@ -80,7 +80,7 @@ export async function verifyContextRoot(filename: string): Promise<void> {
     };
     const cases: Array<Record<string, unknown>> = [];
     const root = (value?: ContextEntityRef) => value ? context.insertResource('activeRoot', value) : context.removeResource('activeRoot');
-    const reject = async (name: string, row: ReturnType<typeof owner>, expectedRule: string) => {
+    const reject = async (name: string, row: Awaited<ReturnType<typeof owner>>, expectedRule: string) => {
       const before = physical(); reset(); let failure: unknown;
       try {await row.auditAs('Reject the synthetic ' + name + ' root violation').save(context);} catch (error) {failure = error;}
       const counts = effects(), violations = failure instanceof CheckException ? failure.violations : [];
@@ -151,7 +151,7 @@ export async function verifyFileContextRoot(filename: string): Promise<void> {
   row.updateContactPhone('5550985'); await row.auditAs('Calibrate file-backed persistence').save(context);
   calibration.persistCalls = persist.mock.calls.length; expect(calibration.persistCalls).toBeGreaterThan(0);
   const cases: Array<Record<string, unknown>> = [];
-  const reject = async (name: string, target: ReturnType<typeof owner>, expected: string) => {
+  const reject = async (name: string, target: Awaited<ReturnType<typeof owner>>, expected: string) => {
     const before = readFileSync(filename), audit = client.auditTrace.length; persist.mockClear(); let failure: unknown;
     try {await target.auditAs('Reject file-backed ' + name).save(context);} catch (error) {failure = error;}
     const typed = failure instanceof ContextRootError && failure.expectedType === 'Tenant' && expected === 'context_root';
