@@ -53,15 +53,20 @@ async function main() {
     const initial = (await graph()); await initial.auditAs('save first governed graph').save(context);
     assert.equal(audits.length, 3);
     const recovering = (await graph()); client.failSecondItem = true;
+    const reservedIdentities = [recovering, ...recovering.orderItemList()].map(row => internalId(row.id));
     const beforeFailure = audits.length;
     await assert.rejects(recovering.auditAs('reject interrupted graph').save(context), error => error === client.failure);
     assert.equal(audits.length, beforeFailure, 'rolled-back writes must not emit committed audit');
-    assert.equal(recovering.id, undefined, 'rollback restores the new-entity state');
+    assert.deepEqual([recovering, ...recovering.orderItemList()].map(row => internalId(row.id)), reservedIdentities,
+      'rollback preserves every creation-reserved identity');
+    assert.equal(recovering.version, undefined, 'rollback restores the unsaved new-entity version');
     client.failSecondItem = false;
     const rejectedRows = await Q.customerOrders().withDescriptionIs(group).limit(10)
       .comment('inspect rolled back graph').purpose('verify rollback isolation').executeForList(context);
     assert.equal(rejectedRows.length, 1);
     await recovering.auditAs('recover interrupted graph').save(context);
+    assert.deepEqual([recovering, ...recovering.orderItemList()].map(row => internalId(row.id)), reservedIdentities,
+      'retry must not allocate another identity');
     assert.equal(audits.length, 6);
     const rows = await Q.customerOrders().withIdIs(internalId(recovering.id))
       .selectOrderItemListWith(Q.orderItems().limit(3)).limit(1)
