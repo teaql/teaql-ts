@@ -33,3 +33,4 @@ export * from './meta/descriptors';
 export * from './tfp/client';
 export * from './parser/dsl';
 export * from './core/expression-path';
+export {EntityCreation, EntityCreationError} from './core/entity-creation';

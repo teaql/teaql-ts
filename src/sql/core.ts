@@ -731,7 +731,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     context.insertResource('bootstrapCategory', 'runtime-bootstrap');
     try {
         if (this.bootstrap.ensure) {
-          await this.bootstrap.ensure(context);
+          const {runGeneratedBootstrap} = await import('../core/entity-creation');
+          await runGeneratedBootstrap(context, this.bootstrap, () => this.bootstrap.ensure!(context));
         } else {
           await this.ensureBootstrapData();
         }

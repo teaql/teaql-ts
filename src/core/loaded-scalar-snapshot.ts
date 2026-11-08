@@ -21,14 +21,19 @@ export class LoadedScalarSnapshot {
   readonly #values: Readonly<Record<string, unknown>>;
   readonly #owner?: Readonly<{key: EntityKey; version: EntityVersion}>;
   readonly #identityKey?: EntityKey;
+  readonly #origin: 'hydrated' | 'creationBaseline';
+  readonly #persistedVersion?: EntityVersion;
 
-  constructor(values: Record<string, unknown> = {}, key?: EntityKey, version?: EntityVersionInput) {
+  constructor(values: Record<string, unknown> = {}, key?: EntityKey, version?: EntityVersionInput,
+    origin: 'hydrated' | 'creationBaseline' = 'hydrated') {
     this.#values = snapshotQuery(values);
-    if (key && version !== undefined) {
+    this.#origin = origin;
+    if (origin === 'hydrated' && key && version !== undefined) {
       const exact = entityVersion(version);
+      this.#persistedVersion = exact;
       if (exact !== 0) {
-        this.#identityKey = Object.freeze({...key});
-        this.#owner = Object.freeze({key: this.#identityKey, version: exact});
+        if (values.id !== undefined) this.#identityKey = Object.freeze({...key});
+        this.#owner = Object.freeze({key: Object.freeze({...key}), version: exact});
       }
     }
     // An explicit ID-only reference still has an immutable identity. A new
@@ -39,6 +44,8 @@ export class LoadedScalarSnapshot {
 
   /** Copies prevent callers or mutable JSON/date fields from rewriting history. */
   values(): Readonly<Record<string, unknown>> { return snapshotQuery(this.#values); }
+  get origin(): 'hydrated' | 'creationBaseline' {return this.#origin;}
+  get persistedVersion(): EntityVersion | undefined {return this.#persistedVersion;}
 
   /** @internal Exact canonical top-level difference for detached preparation. */
   changedField(values: Readonly<Record<string, unknown>>): string | undefined {
@@ -70,8 +77,9 @@ export class LoadedScalarSnapshot {
   }
 
   /** @internal Generated hydration stores provenance outside entity/JSON state. */
-  static captureFor(entity: object, values: Record<string, unknown>, key?: EntityKey, version?: EntityVersionInput): LoadedScalarSnapshot {
-    const snapshot = new LoadedScalarSnapshot(values, key, version);
+  static captureFor(entity: object, values: Record<string, unknown>, key?: EntityKey, version?: EntityVersionInput,
+    origin: 'hydrated' | 'creationBaseline' = 'hydrated'): LoadedScalarSnapshot {
+    const snapshot = new LoadedScalarSnapshot(values, key, version, origin);
     loadedSnapshots.set(entity, snapshot);
     return snapshot;
   }

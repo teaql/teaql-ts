@@ -1,6 +1,7 @@
 import type {UserContext} from './context';
 import {mergeRuntimeBootstrap, RuntimeBootstrap} from './runtime-module';
 import {contextSchemaCapability} from './schema-capability';
+import {runGeneratedBootstrap} from './entity-creation';
 
 /** Provider SPI: the only executable entry point is UserContext.ensureSchema().
  * Protected hooks cannot be called by an application workspace. No model data
@@ -45,7 +46,7 @@ export abstract class ContextSchemaProvider {
       await this.ensurePhysicalSchema(context);
       context.insertResource('bootstrapActor', 'teaql-generated-bootstrap');
       context.insertResource('bootstrapCategory', 'runtime-bootstrap');
-      await bootstrap.ensure?.(context);
+      await runGeneratedBootstrap(context, bootstrap, async () => {await bootstrap.ensure?.(context);});
     } catch (error) { failed = true; failure = error; }
     finally {
       const cleanup = (work: () => void) => {
