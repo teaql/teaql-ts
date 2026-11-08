@@ -216,8 +216,11 @@ async function main() {
     }
   } finally { await client.close(); }
   assert.equal(manifest('lib'), before, 'acceptance must not edit generated source');
-  mkdirSync('evidence', { recursive: true });
-  writeFileSync('evidence/shared-reference-library.sha256', before);
+  const evidenceDirectory = process.env.TEAQL_EXAMPLES_EVIDENCE_DIR
+    ? resolve(process.env.TEAQL_EXAMPLES_EVIDENCE_DIR, 'trace-chain')
+    : resolve('.local/evidence');
+  mkdirSync(evidenceDirectory, { recursive: true });
+  writeFileSync(join(evidenceDirectory, 'shared-reference-library.sha256'), before);
   console.log(JSON.stringify({ database, nonce, checks, generatedSourceUnchanged: true }));
   console.log(`PASS TypeScript shared-reference example: ${checks.length} checks`);
 }
