@@ -429,8 +429,11 @@ async function main() {
     checks.push('generated loaded old-value privacy, committed refresh, rollback retry and independent request isolation');
   } finally { await client.close(); }
   assert.equal(manifest('lib'), generatedBefore, 'application execution changed generated source');
-  mkdirSync('evidence', { recursive: true });
-  writeFileSync('evidence/generated-library-manifest.sha256', generatedBefore);
+  const evidenceDirectory = process.env.TEAQL_EXAMPLES_EVIDENCE_DIR
+    ? resolve(process.env.TEAQL_EXAMPLES_EVIDENCE_DIR, 'trace-chain')
+    : resolve('.local/evidence');
+  mkdirSync(evidenceDirectory, { recursive: true });
+  writeFileSync(join(evidenceDirectory, 'generated-library-manifest.sha256'), generatedBefore);
   console.log(JSON.stringify({ database, nonce, checks, generatedSourceUnchanged: true }));
   console.log(`PASS TypeScript generated trace-chain example: ${checks.length} checks`);
 }
