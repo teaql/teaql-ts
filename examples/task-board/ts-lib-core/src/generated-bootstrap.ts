@@ -7,7 +7,7 @@ import { TaskStatus } from './generated/models/TaskStatus';
 export async function ensureGeneratedBootstrap(context: UserContext): Promise<void> {
   let domainRoot = (await Q.platforms().withIdIs('1').comment('what: locate generated Domain Root').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!domainRoot) {
-    domainRoot = Platform.teaqlBootstrapNew('1');
+    domainRoot = Platform.teaqlBootstrapNew(context, '1');
     domainRoot.updateName("Robot System");
     domainRoot.updateUserEmail("admin@robots.example");
     await domainRoot.auditAs('create generated Domain Root Platform').save(context);
@@ -15,7 +15,7 @@ export async function ensureGeneratedBootstrap(context: UserContext): Promise<vo
   context.withActiveRoot({ entity: 'Platform', id: domainRoot.id! });
   let constantTaskStatus1001 = (await Q.taskStatuses().withIdIs("1001").comment('what: locate generated constant TaskStatus(1001)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantTaskStatus1001) {
-    constantTaskStatus1001 = TaskStatus.teaqlBootstrapNew("1001");
+    constantTaskStatus1001 = TaskStatus.teaqlBootstrapNew(context, "1001");
     constantTaskStatus1001.updateName("Planned");
     constantTaskStatus1001.updateCode("PLANNED");
     constantTaskStatus1001.updateColor("#94A3B8");
@@ -35,7 +35,7 @@ export async function ensureGeneratedBootstrap(context: UserContext): Promise<vo
   }
   let constantTaskStatus1002 = (await Q.taskStatuses().withIdIs("1002").comment('what: locate generated constant TaskStatus(1002)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantTaskStatus1002) {
-    constantTaskStatus1002 = TaskStatus.teaqlBootstrapNew("1002");
+    constantTaskStatus1002 = TaskStatus.teaqlBootstrapNew(context, "1002");
     constantTaskStatus1002.updateName("Ready");
     constantTaskStatus1002.updateCode("READY");
     constantTaskStatus1002.updateColor("#3B82F6");
@@ -55,7 +55,7 @@ export async function ensureGeneratedBootstrap(context: UserContext): Promise<vo
   }
   let constantTaskStatus1003 = (await Q.taskStatuses().withIdIs("1003").comment('what: locate generated constant TaskStatus(1003)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantTaskStatus1003) {
-    constantTaskStatus1003 = TaskStatus.teaqlBootstrapNew("1003");
+    constantTaskStatus1003 = TaskStatus.teaqlBootstrapNew(context, "1003");
     constantTaskStatus1003.updateName("Executing");
     constantTaskStatus1003.updateCode("EXECUTING");
     constantTaskStatus1003.updateColor("#F59E0B");
@@ -75,7 +75,7 @@ export async function ensureGeneratedBootstrap(context: UserContext): Promise<vo
   }
   let constantTaskStatus1004 = (await Q.taskStatuses().withIdIs("1004").comment('what: locate generated constant TaskStatus(1004)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantTaskStatus1004) {
-    constantTaskStatus1004 = TaskStatus.teaqlBootstrapNew("1004");
+    constantTaskStatus1004 = TaskStatus.teaqlBootstrapNew(context, "1004");
     constantTaskStatus1004.updateName("Verified");
     constantTaskStatus1004.updateCode("VERIFIED");
     constantTaskStatus1004.updateColor("#16A34A");

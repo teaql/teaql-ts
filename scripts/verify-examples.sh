@@ -36,6 +36,7 @@ mkdir -p "$repo/.local"
 TEAQL_FIX_E_EVIDENCE_DIR="${TEAQL_FIX_E_EVIDENCE_DIR:-$example_evidence/fix-e-alignment}" node "$repo/examples/fix-e-alignment/verify-local.cjs"
 TEAQL_SCALAR_EVIDENCE_DIR="${TEAQL_SCALAR_EVIDENCE_DIR:-$example_evidence/scalar-type-probe}" node "$repo/examples/scalar-type-probe/verify-local.cjs"
 TEAQL_FILE_BOOTSTRAP_OUTPUT="$example_evidence/file-bootstrap" node "$repo/examples/school-management/verify-file-bootstrap.cjs"
+TEAQL_MANAGED_EVIDENCE_DIR="$example_evidence/managed-construction" node "$repo/examples/conformance/verify-managed.cjs"
 if rg -n --glob '*.ts' --glob '!**/node_modules/**' --glob '!**/dist/**' \
     '\b(executeForPage|ExecuteForPage|execute_for_page)\b' "$repo/examples"; then
   echo 'FAIL: an example still exposes or calls a retired page terminal; regenerate its library' >&2

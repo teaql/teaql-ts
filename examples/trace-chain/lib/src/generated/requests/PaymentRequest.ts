@@ -657,8 +657,7 @@ export class ExecutablePaymentRequest {
     async newEntity(context: UserContext): Promise<Payment> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("Payment");
-        return Payment.teaqlNewWithId(id);
+        return Payment.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Payment>> {

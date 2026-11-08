@@ -1022,8 +1022,7 @@ export class ExecutableSchoolTypeRequest {
     async newEntity(context: UserContext): Promise<SchoolType> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("SchoolType");
-        return SchoolType.teaqlNewWithId(id);
+        return SchoolType.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<SchoolType>> {

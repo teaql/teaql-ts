@@ -8,7 +8,6 @@ import {
   UserContext,
 } from 'teaql-ts';
 import { Q } from '../../conformance/src/generated/Q';
-import { WorkItem } from '../../conformance/src/generated/models/WorkItem';
 import { GENERATED_RUNTIME_MODULE } from '../../conformance/src/runtime-module';
 import { ENTITY_SCHEMAS } from '../../conformance/src/teaql-node-sql';
 import './work-items.css';
@@ -58,7 +57,8 @@ async function seedDemoData({ context }: Runtime): Promise<void> {
     .executeForList(context);
   if (existing.length) return;
   for (const title of ['Evaluate semantic model', 'Generate typed library', 'Verify browser runtime']) {
-    await new WorkItem()
+    await (await Q.workItems().comment('reserve one browser demo work item')
+      .purpose('seed deterministic data through managed creation').newEntity(context))
       .updateTitle(title)
       .updatePlatform('1')
       .auditAs('seed deterministic browser demo data')

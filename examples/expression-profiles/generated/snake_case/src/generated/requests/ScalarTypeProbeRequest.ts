@@ -3048,8 +3048,7 @@ export class ExecutableScalarTypeProbeRequest {
     async newEntity(context: UserContext): Promise<ScalarTypeProbe> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("ScalarTypeProbe");
-        return ScalarTypeProbe.teaqlNewWithId(id);
+        return ScalarTypeProbe.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<ScalarTypeProbe>> {

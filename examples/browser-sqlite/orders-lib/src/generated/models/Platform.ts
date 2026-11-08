@@ -1,6 +1,8 @@
-import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, EntityCreation, EntityCreationError, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { OrderStatus } from './OrderStatus';
 import { Customer } from './Customer';
+
+const teaqlConstruction = Symbol("managed entity construction");
 
 export class Platform {
     private static teaqlTemporaryId = 0;
@@ -10,17 +12,19 @@ export class Platform {
         name?: string;
         version?: EntityVersion;
 
-    constructor(init?: Partial<Platform>) {
-        Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
+    private constructor(init?: Partial<Platform>, token?: symbol, creation = false) {
+        if (token !== teaqlConstruction) throw new EntityCreationError();
+        Object.defineProperty(this, "_action", { value: creation ? "Create" : "Update", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
-        Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
+        Object.defineProperty(this, "_fullyLoaded", { value: creation, writable: true, enumerable: false });
         Object.defineProperty(this, "_loadedFields", { value: new Set(Object.keys(init || {})), writable: true, enumerable: false });
         Object.defineProperty(this, "_root", { value: new EntityRoot(), writable: true, enumerable: false });
         Object.defineProperty(this, "_ledgerId", { value: init?.id ?? --Platform.teaqlTemporaryId, writable: true, enumerable: false });
-        Object.defineProperty(this, "_orderStatusList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
-        Object.defineProperty(this, "_customerList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_orderStatusList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_customerList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
         if (init) {
             const fields: Record<string, unknown> = { ...(init as Record<string, unknown>) };
+            for (const key of ["_action", "_comment", "_fullyLoaded", "_loadedFields", "_root", "_ledgerId"]) delete fields[key];
             delete fields["orderStatusList"];
             delete fields["customerList"];
             Object.assign(this, fields);
@@ -49,7 +53,8 @@ export class Platform {
         if ((this as any).version !== undefined) (this as any).version = entityVersion((this as any).version);
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, (this as any).version);
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version,
+            creation ? "creationBaseline" : "hydrated");
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "Platform", id: (this as any)._ledgerId }; }
@@ -64,7 +69,7 @@ export class Platform {
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): Platform {
-        const entity = new Platform(record as Partial<Platform>);
+        const entity = EntityCreation.hydrated(new Platform(record as Partial<Platform>, teaqlConstruction));
         return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
@@ -91,23 +96,19 @@ export class Platform {
     }
 
     static refer(id: string | number): Platform {
-        return new Platform({ id: String(id) } as Partial<Platform>);
+        return Platform.fromRecord({ id: String(id) });
     }
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
-    static teaqlBootstrapNew(id: string | number): Platform {
-        return Platform.teaqlNewWithId(internalId(id));
+    static teaqlBootstrapNew(context: UserContext, id: string | number): Platform {
+        return EntityCreation.bootstrap(context, "Platform", id,
+            reserved => new Platform({id: reserved} as Partial<Platform>, teaqlConstruction, true));
     }
 
-    /** @internal Q calls this only after Context allocation has completed. */
-    static teaqlNewWithId(value: string): Platform {
-        const id = internalId(value);
-        const entity = new Platform();
-        const previous = entity.teaqlEntityKey();
-        entity.updateId(id);
-        (entity as any)._ledgerId = id;
-        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
-        return entity;
+    /** @internal Q owns the awaited public creation entry point. */
+    static teaqlCreate(context: UserContext): Promise<Platform> {
+        return EntityCreation.create(context, "Platform",
+            reserved => new Platform({id: reserved} as Partial<Platform>, teaqlConstruction, true));
     }
 
     markForDeletion(): this {
@@ -123,6 +124,8 @@ export class Platform {
 
     async save(context: UserContext): Promise<Platform> {
         const intent = new MutationIntent((this as any)._comment);
+        this.teaqlValidateLoadedIdentities();
+        if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             return this.teaqlSaveWithinGraph(context, service, graph);
@@ -138,6 +141,18 @@ export class Platform {
             this.teaqlNormalizeGraph(graph);
             return this.teaqlAdmitGraph();
         });
+    }
+
+    /** @internal Pure provenance pass before resolving any Context resources. */
+    private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
+        if (seen.has(this)) return false;
+        seen.add(this);
+        const action = (this as any)._action;
+        let pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
+        for (const child of (this as any)._orderStatusList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        for (const child of (this as any)._customerList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        return pending;
     }
 
     /** @internal Read-only first pass: no ledger attachment, FK edits or no-op shortcut. */
@@ -211,10 +226,11 @@ export class Platform {
         seen.add(this);
         const action = (this as any)._action;
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
         LoadedScalarSnapshot.forEntity(this)?.validateMutationVersion((this as any)._root, this.teaqlEntityKey());
         Platform.teaqlMutationFields.validate((this as any)._root.change(this.teaqlEntityKey()), action === "Update");
         if (pending) {
-            nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
+            nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "Platform", location: ObjectLocation.property(notLoaded.canonical),
@@ -268,7 +284,7 @@ export class Platform {
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
@@ -318,7 +334,7 @@ export class Platform {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root

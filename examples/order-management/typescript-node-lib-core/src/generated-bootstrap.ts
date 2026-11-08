@@ -7,14 +7,14 @@ import { OrderStatus } from './generated/models/OrderStatus';
 export async function ensureGeneratedBootstrap(context: UserContext): Promise<void> {
   let domainRoot = (await Q.commercePlatforms().withIdIs('1').comment('what: locate generated Domain Root').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!domainRoot) {
-    domainRoot = CommercePlatform.teaqlBootstrapNew('1');
+    domainRoot = CommercePlatform.teaqlBootstrapNew(context, '1');
     domainRoot.updateName("Northwind Demo");
     await domainRoot.auditAs('create generated Domain Root CommercePlatform').save(context);
   }
   context.withActiveRoot({ entity: 'CommercePlatform', id: domainRoot.id! });
   let constantOrderStatus1001 = (await Q.orderStatuses().withIdIs("1001").comment('what: locate generated constant OrderStatus(1001)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantOrderStatus1001) {
-    constantOrderStatus1001 = OrderStatus.teaqlBootstrapNew("1001");
+    constantOrderStatus1001 = OrderStatus.teaqlBootstrapNew(context, "1001");
     constantOrderStatus1001.updateName("Pending");
     constantOrderStatus1001.updateCode("PENDING");
     constantOrderStatus1001.updateColor("#F59E0B");
@@ -32,7 +32,7 @@ export async function ensureGeneratedBootstrap(context: UserContext): Promise<vo
   }
   let constantOrderStatus1002 = (await Q.orderStatuses().withIdIs("1002").comment('what: locate generated constant OrderStatus(1002)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantOrderStatus1002) {
-    constantOrderStatus1002 = OrderStatus.teaqlBootstrapNew("1002");
+    constantOrderStatus1002 = OrderStatus.teaqlBootstrapNew(context, "1002");
     constantOrderStatus1002.updateName("Confirmed");
     constantOrderStatus1002.updateCode("CONFIRMED");
     constantOrderStatus1002.updateColor("#10B981");

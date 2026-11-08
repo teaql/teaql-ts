@@ -2,40 +2,29 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "df47b2daf172ecfbdd25c18557230ce4d8f0d1bd897926c0315dd9e87d8fb586",
+  "producerReceiptSha256": "a09fb7991972743b7f603f5771e321cef772583af30e3763979c190a657c8e6d",
   "producerSource": {
-    "commit": "54dccd3b534d568c03590eae89f61a002f189e25",
-    "sourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d"
+    "commit": "e6cd611ae1d5413c24c717c3650c9f5a3c301b08",
+    "sourceContentsSha256": "2adbc3e7d627fe0a355dcc4459a244749c8bd51022576eb307efcbab49e03937"
   },
   "files": {
     "src/generated/Q.ts": "4e7f90a3b34385ab94a44d1bdf84a91c1294d5a51784588bd3da22b983bd3027",
-    "src/generated/requests/PlatformRequest.ts": "fe5a1387d2f630767a6aa1e076382f00f55adaf1ab26716c6f7e46b0ce6f3bd5",
-    "src/generated/requests/WorkItemRequest.ts": "0641a721e4a0c718a52a16ab6c097e3095fa906b62bb5d2794e8d72cac86bbeb",
+    "src/generated/requests/PlatformRequest.ts": "9a6c8e75b393b977c6b53517f222104e67b1ea0c8dfba773f2fd770f22b124db",
+    "src/generated/requests/WorkItemRequest.ts": "8c2d20df65964c9a0ab1775fbb3c482fa54e7634032f34828c231e1954f2bd82",
     "src/generated/E.ts": "b757b7dee2a5c8b018ebe8aae2c2f92622d90ed71d270b2c523c1ec49d42b5a7",
-    "src/teaql-ts.ts": "5ae07a53e060969004a88e0dc7fe09cc430e3202b7101a46387ff927c3f5de6d",
+    "src/teaql-ts.ts": "3ddf92defac1865617a737415bbadb86ffba6f071822463440413f7c12d1b814",
     "src/generated-search-models.ts": "1d044e55eefc0415502f51cfff10a9d71b5261be4e99aeac287af55af56acb39",
     "src/teaql-schemas.ts": "ebc992b7f7850e0324a9be563b663cba3d5c7d2bbafd5269f38d54b06ddf9e83",
     "src/runtime-module.ts": "fb0e3dc8299b2607139d0e077b37ad8e2d19dc307220ec5d41296667aa3a068e",
-    "src/generated-bootstrap.ts": "3a760a0942f5e1c9a6767a319d1d3b5f217c06b065f0b1af3ba93157f98b1510",
-    "src/generated/models/Platform.ts": "378bf89701194d94aa3ca2fe6eb89331c2a77943bbad30bd607d02ac39125c89",
-    "src/generated/models/WorkItem.ts": "3739c2602861a6e1c96287af8f6f682b151dfcf6c422d862c4c046d25c288f41"
+    "src/generated-bootstrap.ts": "10a1133555d160947deb5c2a2756cc28162ff7e75627aeb77029be345ad523e7",
+    "src/generated/models/Platform.ts": "edfcd2aa09444125e319036c2dd223b1c254bcd4b2047f7c25a5f9c30cd9c877",
+    "src/generated/models/WorkItem.ts": "d921e1a9eda92d6feb4ecae49beb14db642be0cc25c624aa103b5a33a7254066"
   },
-  "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
-  "previousFixtureManifestSha256": "fee08db64b27b9871f17c04c05f5549b6cd3bf744d2ae639b41f001972e869ae",
+  "generatedManifestSha256": "104e28e215a041d06fd86976833a3e3ebe818eee0e326df08e16b01389911709",
+  "previousFixtureManifestSha256": "078e2d9af5e933d5806d219b00e06ef3a346ac05137e05aaf33f70269a738afb",
   "previousSourceGuard": {
-    "accepted": false,
-    "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
-    "differences": [
-      {
-        "name": "src/generated/models/Platform.ts",
-        "expected": "016e9b537e124b79a11321fcbcf37155d46e028cf6d77c04406a8a379313c0e5",
-        "actual": "b86aa80274e59dde2b89ac816beaf997edf417eff1e7ff82d97cff2b867f2aeb"
-      },
-      {
-        "name": "src/generated/models/WorkItem.ts",
-        "expected": "8ae5221919f4ad99a7d1ae0a2f785173ab5bc2624b6bc9ed283368239965f30b",
-        "actual": "49211b446abffe8e8616a91c838cc947d290f9488f0e93a7e0438b2a43203ca6"
-      }
-    ]
+    "accepted": true,
+    "sourceCommit": "dda8add95e6e5402fe1155ecbd68ad8427d7ac29",
+    "differences": []
   }
 }

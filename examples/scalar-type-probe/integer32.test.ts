@@ -71,7 +71,7 @@ for(const backend of ['sqlite','file'] as const)test(`generated Integer32 ${back
     record(`fix-${update?'update':'create'}-${field}-${bound}`,{zeroEffects:true,fixCalls:calls});
     native.install(new RuntimeModule({}, {ScalarTypeProbe:generated}));
    }
-   expect(()=>new ScalarTypeProbe({id:'9',version:1,[field==='required_integer'?'requiredInteger':'optionalInteger']:value} as any)).toThrow(CheckException);
+   expect(()=>ScalarTypeProbe.fromRecord({id:'9',version:1,[field==='required_integer'?'requiredInteger':'optionalInteger']:value})).toThrow(CheckException);
    record(`construct-${field}-${bound}`);
    const invalid=await load(context,id);mutation(invalid,field,value);
    for(const terminal of ['eval','present','fallback','json']){

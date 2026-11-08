@@ -707,8 +707,7 @@ export class ExecutableTaskExecutionLogRequest {
     async newEntity(context: UserContext): Promise<TaskExecutionLog> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("TaskExecutionLog");
-        return TaskExecutionLog.teaqlNewWithId(id);
+        return TaskExecutionLog.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<TaskExecutionLog>> {

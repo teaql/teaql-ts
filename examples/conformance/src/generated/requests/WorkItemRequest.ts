@@ -707,8 +707,7 @@ export class ExecutableWorkItemRequest {
     async newEntity(context: UserContext): Promise<WorkItem> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("WorkItem");
-        return WorkItem.teaqlNewWithId(id);
+        return WorkItem.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<WorkItem>> {

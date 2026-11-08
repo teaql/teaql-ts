@@ -2,47 +2,31 @@
   "schema": "teaql.typescript-current-example-fixture/v1",
   "modelSha256": "9fc6724c828e10aca8cea9f53b65460f26577f74ba5396f04376ad4f20ddc30e",
   "scope": "typescript-lib-core",
-  "producerReceiptSha256": "df47b2daf172ecfbdd25c18557230ce4d8f0d1bd897926c0315dd9e87d8fb586",
+  "producerReceiptSha256": "a09fb7991972743b7f603f5771e321cef772583af30e3763979c190a657c8e6d",
   "producerSource": {
-    "commit": "54dccd3b534d568c03590eae89f61a002f189e25",
-    "sourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d"
+    "commit": "e6cd611ae1d5413c24c717c3650c9f5a3c301b08",
+    "sourceContentsSha256": "2adbc3e7d627fe0a355dcc4459a244749c8bd51022576eb307efcbab49e03937"
   },
   "files": {
     "src/generated/Q.ts": "96e150775a079420a4afb57d5be8e9b7696d2b8d8bef6eee3727c2b530b3dd33",
-    "src/generated/requests/PlatformRequest.ts": "03adb49953f5e947b1402ecf534077721f97ff302042888b2bd5ca88ebc89859",
-    "src/generated/requests/SchoolTypeRequest.ts": "9051a61d269dd716b681b0e02c32a3db843f3b49b9bc9add062cf7b028fa2650",
-    "src/generated/requests/SchoolRequest.ts": "dc816696497fa63adb8bd735c0e7b059129357f511767a9b66333f03248b7aeb",
+    "src/generated/requests/PlatformRequest.ts": "9688521d546f907faeefb35b76dda49247ccaef6dca034ae9624036766cdbb60",
+    "src/generated/requests/SchoolTypeRequest.ts": "98ebdc64f9889386dc835f5dd1c1c76854b2c2a653221cd06f5c34521c50d118",
+    "src/generated/requests/SchoolRequest.ts": "ce09fa5542c811f68fe58fde72367c298c8b46a190e26b7c96594a01c787bdb5",
     "src/generated/E.ts": "79a54bc6bf0470b6f62c4b00b45ee27d8b23c706bc39365c138dc1eeab0f7d53",
-    "src/teaql-ts.ts": "5ae07a53e060969004a88e0dc7fe09cc430e3202b7101a46387ff927c3f5de6d",
+    "src/teaql-ts.ts": "3ddf92defac1865617a737415bbadb86ffba6f071822463440413f7c12d1b814",
     "src/generated-search-models.ts": "3d596870c683b14ea9ca4cc930216cec647e6b216b1b7a073b573626293ce4a5",
     "src/teaql-schemas.ts": "fd40553b01ce0165ae02f315e16b4aeeb7ee78a688f40a55f04e52f8547fb9a9",
     "src/runtime-module.ts": "3bdea1228818d5e81c888cb61426c6688c9bd510449a25d2032bdee07a95c6ae",
-    "src/generated-bootstrap.ts": "101de343f33b3e5013a3e42ff126fdae293745f50226ea1337730b692a11c442",
-    "src/generated/models/Platform.ts": "14ac53e267f00f41f9881702ceef94f84655e3590b4f62ddab2ad696edbe4178",
-    "src/generated/models/SchoolType.ts": "1ccf1fac854d58f308f2769f57ec8c378483cdad89208b6c6498cda46592d411",
-    "src/generated/models/School.ts": "e663e1fa343fdc3b27291ee371f9b800d35d4bb63ab76f4b1c65311ebe6bbf1a"
+    "src/generated-bootstrap.ts": "75c847ca2b29ca42a4520a6cf83d5d72df1ecc15a56fff00bc6e8f44953486c5",
+    "src/generated/models/Platform.ts": "1424aff7c56193ee94d3ef2ade6e48268a06234b830eca23e5e6401d069eb09d",
+    "src/generated/models/SchoolType.ts": "c0ae70c638ddc08f2ad1347a12c53013e5ac969ff07834c9b8c648a344784f08",
+    "src/generated/models/School.ts": "8e104213e38082dc700eabbae024172d61fd00cf1ccb5d36484042ca811337b7"
   },
-  "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
-  "previousFixtureManifestSha256": "4b3e2375807a4a110b002000d08d5fb0647e305bb56efd9989efa2174055e7b4",
+  "generatedManifestSha256": "104e28e215a041d06fd86976833a3e3ebe818eee0e326df08e16b01389911709",
+  "previousFixtureManifestSha256": "47cb1cd593ec571f6fe9f26d08d4a72f4873e91e8a8d5a7e5542dfb65568d1a6",
   "previousSourceGuard": {
-    "accepted": false,
-    "sourceCommit": "00f371926933492dc45c213faa0f37ce2a2b03e3",
-    "differences": [
-      {
-        "name": "src/generated/models/Platform.ts",
-        "expected": "3b6ee4bcae34fb0ba2e267f048c671a97d7ebc058e0a188b857f665a17c040c2",
-        "actual": "db69ea5d998104c1398f54d22fa2720dc55cd93d853fcdfa0d79341c077b6673"
-      },
-      {
-        "name": "src/generated/models/SchoolType.ts",
-        "expected": "a0466df6922511ce356072f2dc511edf9cd3d30a8dc77611f48eb3d8a20e5bfc",
-        "actual": "422d533965dd8bc6e226e1944592e3de44d16b7f46fc842651a19c230e9aaf49"
-      },
-      {
-        "name": "src/generated/models/School.ts",
-        "expected": "ce931a9b31676805239db5f51ce4eadb65c6b328ac58a842773ecfa4a1e3e028",
-        "actual": "dcec1738d0a739bdbd6f9df0ab0a700bd698653ddaac6b8a20e55296854aacdf"
-      }
-    ]
+    "accepted": true,
+    "sourceCommit": "dda8add95e6e5402fe1155ecbd68ad8427d7ac29",
+    "differences": []
   }
 }

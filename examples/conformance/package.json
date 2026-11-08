@@ -5,7 +5,8 @@
   "main": "src/generated/Q.ts",
   "scripts": {
     "build": "tsc --noEmit",
-    "start": "ts-node src/main.ts"
+    "start": "ts-node src/main.ts",
+    "test:managed": "node verify-managed.cjs"
   },
   "dependencies": {
     "teaql-ts": "file:../..",

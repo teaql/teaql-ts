@@ -7,7 +7,7 @@ import { SchoolType } from './generated/models/SchoolType';
 export async function ensureGeneratedBootstrap(context: UserContext): Promise<void> {
   let domainRoot = (await Q.platforms().withIdIs('1').comment('what: locate generated Domain Root').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!domainRoot) {
-    domainRoot = Platform.teaqlBootstrapNew('1');
+    domainRoot = Platform.teaqlBootstrapNew(context, '1');
     domainRoot.updateName("Campus Learning Platform");
     domainRoot.updateBaseUrl("https://campus.example.com");
     await domainRoot.auditAs('create generated Domain Root Platform').save(context);
@@ -15,7 +15,7 @@ export async function ensureGeneratedBootstrap(context: UserContext): Promise<vo
   context.withActiveRoot({ entity: 'Platform', id: domainRoot.id! });
   let constantSchoolType1001 = (await Q.schoolTypes().withIdIs("1001").comment('what: locate generated constant SchoolType(1001)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantSchoolType1001) {
-    constantSchoolType1001 = SchoolType.teaqlBootstrapNew("1001");
+    constantSchoolType1001 = SchoolType.teaqlBootstrapNew(context, "1001");
     constantSchoolType1001.updatePlatform(domainRoot);
     constantSchoolType1001.updateName("Primary School");
     constantSchoolType1001.updateCode("PRIMARY");
@@ -31,7 +31,7 @@ export async function ensureGeneratedBootstrap(context: UserContext): Promise<vo
   }
   let constantSchoolType1002 = (await Q.schoolTypes().withIdIs("1002").comment('what: locate generated constant SchoolType(1002)').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!constantSchoolType1002) {
-    constantSchoolType1002 = SchoolType.teaqlBootstrapNew("1002");
+    constantSchoolType1002 = SchoolType.teaqlBootstrapNew(context, "1002");
     constantSchoolType1002.updatePlatform(domainRoot);
     constantSchoolType1002.updateName("Secondary");
     constantSchoolType1002.updateCode("SECONDARY");

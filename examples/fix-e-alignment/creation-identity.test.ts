@@ -1,7 +1,6 @@
-import { UserContext, FixedBusinessClock } from 'teaql-ts';
+import { UserContext, FixedBusinessClock, LoadedScalarSnapshot } from 'teaql-ts';
 import { Q } from 'generated/generated/Q';
 import { E } from 'generated/generated/E';
-import { PurchaseOrder } from 'generated/generated/models/PurchaseOrder';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';
 import { TeaQLClient } from 'generated/teaql-ts';
 import { GENERATED_RUNTIME_MODULE } from 'generated/runtime-module';
@@ -43,7 +42,7 @@ test('default SQLite factory reserves a real identity, keeps its ledger key, the
 
 test.each(['error', 'zero'] as const)('default allocation %s returns no entity or ledger; a later call recovers', async mode => {
   const f = await fixture(mode), sentinel = new Error('creation allocator unavailable');
-  const construct = jest.spyOn(PurchaseOrder, 'teaqlNewWithId');
+  const construct = jest.spyOn(LoadedScalarSnapshot, 'captureFor');
   try {
     if (mode === 'error') f.allocation.mockRejectedValueOnce(sentinel);
     else f.allocation.mockResolvedValueOnce('0');
@@ -79,7 +78,7 @@ test('a pending provider cannot return an entity and missing Context fails befor
   let finish!: (id: string) => void;
   const generateId = jest.fn(() => new Promise<string>(resolve => { finish = resolve; }));
   const context = new UserContext().withInternalIdGenerator({generateId});
-  const construct = jest.spyOn(PurchaseOrder, 'teaqlNewWithId');
+  const construct = jest.spyOn(LoadedScalarSnapshot, 'captureFor');
   try {
     const pending = create(context); await Promise.resolve(); expect(construct).not.toHaveBeenCalled();
     finish('61'); expect((await pending).id).toBe('61');
@@ -102,7 +101,7 @@ test('file-backed reservations survive reopen, reserve distinct IDs and create n
 
 test('actual SQLite ID exhaustion rolls back reservation without returning a rounded identity', async () => {
   const f = await fixture('exhaustion');
-  const construct = jest.spyOn(PurchaseOrder, 'teaqlNewWithId');
+  const construct = jest.spyOn(LoadedScalarSnapshot, 'captureFor');
   try {
     await create(f.context); construct.mockClear();
     // Test-only sequence fixture, not a business-data mutation. Model writes

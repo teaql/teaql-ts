@@ -5,7 +5,6 @@ import path from "node:path";
 import { CheckException, EntityRoot, UserContext, nextEntityVersion } from "./teaql-ts";
 import { E, TeaQLNotLoadedError } from "./generated/E";
 import { Q } from "./generated/Q";
-import { WorkItem } from "./generated/models/WorkItem";
 import { SQLiteTeaQLClient } from "./teaql-node-sqlite";
 import { verifyMaskingLifecycle } from './masking-verification';
 import { LocalCache } from 'teaql-ts';
@@ -34,8 +33,9 @@ async function main(): Promise<void> {
   await context.ensureSchema();
   console.log("PASS ensureSchema (explicit SQLite DDL and Platform(1) bootstrap)");
 
+  const invalid = (await Q.workItems().comment('reserve the invalid Checker fixture')
+    .purpose('verify business validation before mutation SQL').newEntity(context)).updatePlatform("1");
   const sqlBeforeInvalidSave = client.sqlTrace.length;
-  const invalid = new WorkItem().updatePlatform("1");
   await assert.rejects(invalid.auditAs("Checker must reject a missing title").save(context), (error: unknown) => {
     assert(error instanceof CheckException);
     assert(error.violations.some(item => item.ruleId === "required" && String(item.location).includes("title")));
@@ -44,7 +44,8 @@ async function main(): Promise<void> {
   assert.equal(client.sqlTrace.length, sqlBeforeInvalidSave, "Checker must run before mutation SQL");
   console.log("PASS Checker (canonical title key, rejected before SQL)");
 
-  const created = await new WorkItem()
+  const created = await (await Q.workItems().comment('reserve a conformance work item')
+    .purpose('verify managed creation through the Context allocator').newEntity(context))
     .updateTitle("Verify TypeScript runtime")
     .updatePlatform("1")
     .auditAs("Create conformance work item").save(context);

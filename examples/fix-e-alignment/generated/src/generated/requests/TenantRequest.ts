@@ -766,8 +766,7 @@ export class ExecutableTenantRequest {
     async newEntity(context: UserContext): Promise<Tenant> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("Tenant");
-        return Tenant.teaqlNewWithId(id);
+        return Tenant.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Tenant>> {

@@ -12,6 +12,7 @@ export { long, compareLongs, localTime } from "teaql-ts";
 export type { Long, LocalTime } from "teaql-ts";
 export { entityVersion, nextEntityVersion } from "teaql-ts";
 export { internalId } from "teaql-ts";
+export { EntityCreation, EntityCreationError } from "teaql-ts";
 export { integer32Error } from "teaql-ts";
 export type { EntityVersion } from "teaql-ts";
 export { GraphCommittedError, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationTraceScope, QueryIntent, QueryRequest, RequestIntentError } from "teaql-ts";

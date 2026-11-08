@@ -6,29 +6,29 @@
     "label": "typescript-task-board-generator-v3",
     "sha256": "606f4ec6d012bb12930aaab04d4f0aec9bf51701c300a497c61d2ad1cb55d811"
   },
-  "generatorCommit": "54dccd3b534d568c03590eae89f61a002f189e25",
+  "generatorCommit": "e6cd611ae1d5413c24c717c3650c9f5a3c301b08",
   "evaluatedScope": "typescript-node-lib-core",
   "evaluationErrors": 0,
   "files": {
     "src/generated/Q.ts": "2d2440b92789bffc20f29bc07c8a47b8f968028b26cd41c71ff3d4b1dc3a2fb7",
-    "src/generated/requests/PlatformRequest.ts": "d02f8397132992a40731bdeecb4d321bcd4807a48a940d211b7bea8ef38f9d08",
-    "src/generated/requests/TaskStatusRequest.ts": "501ed560c7fef2143b6df6dd80084824ae3bfa623c499cf624613465352e19ba",
-    "src/generated/requests/TaskRequest.ts": "a66bb1ce89a44a1c91219f6f26c002f20d496a6ae58611bf596fd59eb2c46185",
-    "src/generated/requests/TaskExecutionLogRequest.ts": "451abd611b6bec0ea8470a1d4337ad48e389892d9475e8f5efd6dcba9517de28",
+    "src/generated/requests/PlatformRequest.ts": "c20d7cdee9394dba4103a64cd5d8b44a9f9714d8a752d561f6bea13bb39d53a3",
+    "src/generated/requests/TaskStatusRequest.ts": "6cb4081eecc35f10aa66fa7d56ac66a406d438d60a96e6d84e5d38669faaa3c8",
+    "src/generated/requests/TaskRequest.ts": "312c7a5b30f86e4d656daee7cf1075d6e6388f010b2f3d46c41fd73427f9003a",
+    "src/generated/requests/TaskExecutionLogRequest.ts": "1484d5c9e07fe4cd46688e0fa40976091b335d2ecc736a1cd99d1e0457714b5f",
     "teaql-i18n.json": "79b420e04edf1c1e1b9f4d04ddfc0ec8a6e2a2458e6a337a8c046bacb64c3a8d",
     "src/generated/E.ts": "69183b57505edf1c81b52c9134e1ea684e9c20b14bc3d625e1f0c4c5214852d7",
     "package.json": "cec0438794e240d1a2d2a39db0880030dc61c5b565092e00084ac74ad3d6c2a8",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
-    "src/teaql-ts.ts": "5ae07a53e060969004a88e0dc7fe09cc430e3202b7101a46387ff927c3f5de6d",
+    "src/teaql-ts.ts": "3ddf92defac1865617a737415bbadb86ffba6f071822463440413f7c12d1b814",
     "src/generated-search-models.ts": "bc43fc08c6bea764e4e180f51e90d1fea7a476415b1297c6c9cc431dda369a9c",
     "src/teaql-node-sql.ts": "7229a80a16b0ec20289a84602455c05a19cfa728832eadadea379f75550345e8",
     "src/runtime-module.ts": "fb475de7f11541e425a5ad6818fd09a1e4d6733dfc857f5da3b2cbdb513250b1",
-    "src/generated-bootstrap.ts": "89796bbdfdcf09c31cffbd64c654853a163b66511776b996594fe5cbf7c5ab01",
+    "src/generated-bootstrap.ts": "a0444cc739c1a3c8cd3bc89127c2db056ca2aedf3293990c2b7fe5bfdf44afc3",
     "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
-    "src/generated/models/Platform.ts": "2e8dc7c1c3ca171b352b1ed7d318b8b2506f02645f167e30f569ce9be4011707",
-    "src/generated/models/TaskStatus.ts": "cf236b6d0b08056c578e9fa6681dc141ab7b155aacaa44e339c9974a504ad456",
-    "src/generated/models/Task.ts": "a80de823264c6abda17d177b762462b3791f6d2d377adfdb9282a67b5239feaf",
-    "src/generated/models/TaskExecutionLog.ts": "271b9d3a51cbf86cd2190b1f6798bca3414594c4d41b74719c7d3c50ff3873ef"
+    "src/generated/models/Platform.ts": "c455434e212c63a95e789131400ceba113800d6ab045778d96f142f54c014da2",
+    "src/generated/models/TaskStatus.ts": "8610b1aa0156f0b1dba7f6ba691b2b490dbdb2f489fa17b9894cc994e20156a4",
+    "src/generated/models/Task.ts": "efea9096e07268c6b0eb5fa711c397fc40d104a5e67840c6e067d01c4e83b5a8",
+    "src/generated/models/TaskExecutionLog.ts": "2a100aea505f12a86fd7c87ee8ead1a3313d8d7515ab5e3b4388eb31c14dd03a"
   },
   "assist": {
     "query/task.md": "6f99a202ad68381ffc852ed4501eac7be6194a81548850326219866fa856f9fe",
@@ -48,13 +48,13 @@
   },
   "generatedImplementationHandEdited": false,
   "runtimeProductionChanged": false,
-  "generatorSourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d",
-  "producerReportSha256": "df47b2daf172ecfbdd25c18557230ce4d8f0d1bd897926c0315dd9e87d8fb586",
-  "generatedManifestSha256": "25d505b42f105f9130b6ace8597ef07124207fb0bc95f044866786749d4b8e93",
+  "generatorSourceContentsSha256": "2adbc3e7d627fe0a355dcc4459a244749c8bd51022576eb307efcbab49e03937",
+  "producerReportSha256": "a09fb7991972743b7f603f5771e321cef772583af30e3763979c190a657c8e6d",
+  "generatedManifestSha256": "104e28e215a041d06fd86976833a3e3ebe818eee0e326df08e16b01389911709",
   "producerSource": {
-    "commit": "54dccd3b534d568c03590eae89f61a002f189e25",
-    "sourceContentsSha256": "a09764dead9746a0e4f521957c3cad4e4368835c98ab1d73fc55bd429bc52e1d"
+    "commit": "e6cd611ae1d5413c24c717c3650c9f5a3c301b08",
+    "sourceContentsSha256": "2adbc3e7d627fe0a355dcc4459a244749c8bd51022576eb307efcbab49e03937"
   },
   "evaluationWarnings": 6,
-  "previousFixtureManifestSha256": "305738f4688c3439737a988db9a5ca1567a8c9e37b4ee2e7e036cd7b99d952f2"
+  "previousFixtureManifestSha256": "c4e011c976fa58b2cd6295fb53485eac9280dddd5103c8503a82fd417551fea2"
 }

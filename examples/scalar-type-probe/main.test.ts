@@ -86,7 +86,7 @@ test('all portable scalar families survive generated mutation Q E and JSON', asy
     for (const [field, value] of Object.entries(expected)) expect(json[field]).toEqual(value);
     expect(json.id).toBe(row.id); expect(json.version).toBe(1);
     for (const field of ['_root', '_loadedFields', '_fullyLoaded', '_fixTime', 'entityMutationLedger']) expect(json).not.toHaveProperty(field);
-    const restored = new ScalarTypeProbe(json);
+    const restored = ScalarTypeProbe.fromRecord(json);
     expect(values(restored)).toEqual(expected);
     expect(restored.id).toBe(row.id); expect(restored.version).toBe(1);
 
@@ -118,14 +118,14 @@ test('all portable scalar families survive generated mutation Q E and JSON', asy
     const nullable = JSON.parse(JSON.stringify(updated));
     expect(nullable).toHaveProperty('optionalTime', null);
     expect(nullable).toHaveProperty('optionalString', null);
-    const restoredNull = new ScalarTypeProbe(nullable);
+    const restoredNull = ScalarTypeProbe.fromRecord(nullable);
     expect(E.scalarTypeProbe(restoredNull).optionalTime().eval()).toBeNull();
     const sparse = await Q.scalarTypeProbesWithMinimalFields().withIdIs(row.id!).selectRequiredString().limit(1)
       .comment('load a scalar projection').purpose('preserve NotLoaded through JSON').executeForOne(context);
     if (!sparse) throw new Error('projected row missing');
     const sparseJson = JSON.parse(JSON.stringify(sparse));
     expect(sparseJson).not.toHaveProperty('optionalTime');
-    const sparseRestored = new ScalarTypeProbe(sparseJson);
+    const sparseRestored = ScalarTypeProbe.fromRecord(sparseJson);
     expect(() => E.scalarTypeProbe(sparseRestored).optionalTime().eval()).toThrow(TeaQLNotLoadedError);
     expect(E.scalarTypeProbe(sparseRestored).requiredString().eval()).toBe(expected.requiredString);
     process.stdout.write('CORE_SCALAR_WIRE=' + JSON.stringify({language: 'typescript', passed: true,

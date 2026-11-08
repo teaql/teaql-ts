@@ -6,7 +6,7 @@ import { TypePlatform } from './generated/models/TypePlatform';
 export async function ensureGeneratedBootstrap(context: UserContext): Promise<void> {
   let domainRoot = (await Q.typePlatforms().withIdIs('1').comment('what: locate generated Domain Root').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!domainRoot) {
-    domainRoot = TypePlatform.teaqlBootstrapNew('1');
+    domainRoot = TypePlatform.teaqlBootstrapNew(context, '1');
     domainRoot.updateName("Scalar Type Conformance");
     await domainRoot.auditAs('create generated Domain Root TypePlatform').save(context);
   }

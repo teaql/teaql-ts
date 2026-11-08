@@ -1398,8 +1398,7 @@ export class ExecutableCommercePlatformRequest {
     async newEntity(context: UserContext): Promise<CommercePlatform> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("CommercePlatform");
-        return CommercePlatform.teaqlNewWithId(id);
+        return CommercePlatform.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<CommercePlatform>> {
