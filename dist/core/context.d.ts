@@ -2,6 +2,7 @@ import { SelectQuery } from './ast';
 import { BusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
+import { InternalIdGenerator } from './internal-id';
 import { MutationGovernanceSink, MutationGovernanceSnapshot, MutationPlan, MutationPolicyApprovalProvider, MutationPolicyRegistry } from './mutation-policy';
 export type RetainedIdSet = {
     ids: BigUint64Array;
@@ -23,18 +24,21 @@ export type FixEvidence = Readonly<{
     sourceLabel: string;
 }>;
 export declare class ContextRootError extends Error {
-    readonly reason: 'missing' | 'type_mismatch';
+    readonly reason: 'missing' | 'type_mismatch' | 'invalid_id';
     readonly expectedType: string;
     readonly activeRoot?: Readonly<{
         entity: string;
         id: string | number | bigint;
     }> | undefined;
-    constructor(reason: 'missing' | 'type_mismatch', expectedType: string, activeRoot?: Readonly<{
+    constructor(reason: 'missing' | 'type_mismatch' | 'invalid_id', expectedType: string, activeRoot?: Readonly<{
         entity: string;
         id: string | number | bigint;
     }> | undefined);
 }
 export declare class UserContext {
+    withInternalIdGenerator(generator: InternalIdGenerator): this;
+    /** Reserve before constructing an entity. Failure must never choose another allocator. */
+    generateInternalId(entity: string): Promise<string>;
     private businessClock;
     withBusinessClock(clock: BusinessClock): this;
     businessTime(): Date;
@@ -64,13 +68,15 @@ export declare class UserContext {
     setLanguageCode(code: string): this;
     installI18nCatalog(catalog: I18nCatalog): this;
     installIdSetPaginationStore(store: IdSetPaginationStore): this;
-    translateCheckResults(results: CheckResult[]): CheckResult[];
+    translateCheckResults(results: CheckResult[], declaringEntityType?: string): CheckResult[];
     withMutationPolicyRegistry(registry: MutationPolicyRegistry): this;
     withMutationPolicyApprovalProvider(provider: MutationPolicyApprovalProvider): this;
     withMutationGovernanceSink(sink: MutationGovernanceSink): this;
     reviewMutationPlan(plan: MutationPlan): MutationGovernanceSnapshot;
     /** @internal Used by governed data-service graph orchestration. */
     beginMutationPolicyGraph(): void;
+    /** @internal Generated post-Fix snapshots are reviewed before provider work. */
+    prepareMutationPolicyGraph(rootEntity?: string): void;
     /** @internal Used by generated preflight after Checker/Fix. */
     recordMutationPolicyPreflight(mutation: unknown): void;
     /** @internal Called at the provider mutation boundary. */

@@ -13,7 +13,7 @@ export interface WireEntityMetadata {
 export interface NormalizedWireInput {
     /** Values keyed only by canonical KSML property names. */
     readonly values: Readonly<Record<string, unknown>>;
-    /** Exact submitted RFC 6901 pointer, retained only for accepted aliases. */
+    /** Exact submitted RFC 6901 pointer for aliases and nested input boundaries. */
     readonly sourceInstancePaths: Readonly<Record<string, string>>;
 }
 export declare class WireInputError extends Error {

@@ -1,8 +1,8 @@
 import {
   startStandardNodeTelemetry
-} from "../chunks/chunk-ZY7L4QDF.js";
+} from "../chunks/chunk-N2LXBR3V.js";
 import "../chunks/chunk-LGSUBUWZ.js";
-import "../chunks/chunk-AQT573VW.js";
+import "../chunks/chunk-UNAWFD3C.js";
 export {
   startStandardNodeTelemetry
 };

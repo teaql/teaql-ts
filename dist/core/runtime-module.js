@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RuntimeModule = exports.mergeRuntimeBootstrap = void 0;
+const modeled_integer32_1 = require("./modeled-integer32");
 function mergeRuntimeBootstrap(left, right) {
     const leftRoot = left.defaultDomainRoot;
     const rightRoot = right.defaultDomainRoot;
@@ -24,6 +25,7 @@ exports.mergeRuntimeBootstrap = mergeRuntimeBootstrap;
 /** Passive, immutable metadata manifest. It never creates or alters database tables. */
 class RuntimeModule {
     constructor(schemas = {}, checkers = {}, bootstrap = {}) {
+        (0, modeled_integer32_1.validateInteger32Schemas)(schemas);
         this.schemas = Object.freeze({ ...schemas });
         this.checkers = Object.freeze({ ...checkers });
         this.bootstrap = Object.freeze({

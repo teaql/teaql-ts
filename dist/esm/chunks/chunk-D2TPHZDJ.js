@@ -1,63 +1,15 @@
 import {
+  decimalOrderKey
+} from "./chunk-2M5YIPLE.js";
+import {
   ObjectStorage
-} from "./chunk-MJFGQZSQ.js";
+} from "./chunk-QG6ZEHP2.js";
 import {
   __privateAdd,
   __privateGet,
-  __privateSet
-} from "./chunk-AQT573VW.js";
-
-// src/core/decimal.ts
-var DECIMAL_TEXT = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/;
-var MAX_DIGITS = 1024;
-function decimal(value) {
-  if (typeof value !== "string" || !DECIMAL_TEXT.test(value) || value.length - Number(value.startsWith("-")) - Number(value.includes(".")) > MAX_DIGITS) {
-    throw new TypeError('Decimal requires a finite base-10 string (for example "3.50")');
-  }
-  return value;
-}
-function parts(value) {
-  const exact = decimal(value);
-  const negative = exact.startsWith("-");
-  const [whole, fractional = ""] = (negative ? exact.slice(1) : exact).split(".");
-  const integer = whole.replace(/^0+(?=[0-9])/, "");
-  const fraction = fractional.replace(/0+$/, "");
-  return { negative: negative && (integer !== "0" || fraction !== ""), integer, fraction };
-}
-function compareDecimals(left, right) {
-  const a = parts(left);
-  const b = parts(right);
-  if (a.negative !== b.negative) return a.negative ? -1 : 1;
-  const sign = a.negative ? -1 : 1;
-  if (a.integer.length !== b.integer.length) {
-    return Math.sign(a.integer.length - b.integer.length) * sign;
-  }
-  if (a.integer !== b.integer) return (a.integer < b.integer ? -1 : 1) * sign;
-  const width = Math.max(a.fraction.length, b.fraction.length);
-  const af = a.fraction.padEnd(width, "0");
-  const bf = b.fraction.padEnd(width, "0");
-  return af === bf ? 0 : (af < bf ? -1 : 1) * sign;
-}
-function decimalOrderKey(value) {
-  const p = parts(value);
-  const width = p.integer.length.toString().padStart(4, "0");
-  if (!p.negative) return `1${width}${p.integer}:${p.fraction}!`;
-  const invert = (digits) => digits.replace(/[0-9]/g, (digit) => String(9 - Number(digit)));
-  return `0${invert(width)}${invert(p.integer)}:${invert(p.fraction)}~`;
-}
-function addDecimals(left, right) {
-  decimal(left);
-  decimal(right);
-  const leftScale = left.split(".")[1]?.length ?? 0;
-  const rightScale = right.split(".")[1]?.length ?? 0;
-  const scale = Math.max(leftScale, rightScale);
-  const coefficient = (value, valueScale) => BigInt(value.replace(".", "")) * 10n ** BigInt(scale - valueScale);
-  const sum = coefficient(left, leftScale) + coefficient(right, rightScale);
-  if (scale === 0) return decimal(sum.toString());
-  const negative = sum < 0n ? "-" : "";
-  const digits = (sum < 0n ? -sum : sum).toString().padStart(scale + 1, "0");
-  return decimal(`${negative}${digits.slice(0, -scale)}.${digits.slice(-scale)}`);
-}
+  __privateSet,
+  __privateWrapper
+} from "./chunk-UNAWFD3C.js";
 
 // src/core/long.ts
 var LONG_TEXT = /^-?(?:0|[1-9][0-9]*)$/;
@@ -82,16 +34,116 @@ function longOrderKey(value) {
   return decimalOrderKey(long(value));
 }
 
-// src/core/local-time.ts
-var LOCAL_TIME_TEXT = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]{1,6})?$/;
-function localTime(value) {
-  if (typeof value !== "string" || !LOCAL_TIME_TEXT.test(value)) {
-    throw new TypeError("LocalTime requires HH:mm:ss with optional 1-6 fractional digits");
+// src/core/checker.ts
+var CheckException = class extends Error {
+  constructor(violations) {
+    super(`Check failed: ${violations.map((v) => v.message ?? `${v.ruleId}:${v.location}`).join("; ")}`);
+    this.violations = violations;
+    this.name = "CheckException";
   }
-  const dot = value.indexOf(".");
-  if (dot < 0) return value;
-  const fraction = value.slice(dot + 1).padEnd(6, "0");
-  return fraction === "000000" ? value.slice(0, dot) : `${value.slice(0, dot)}.${fraction}`;
+};
+
+// src/core/object-location.ts
+function lowerCamel(name) {
+  const parts = name.split("_");
+  return parts[0] + parts.slice(1).map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join("");
+}
+function renderJsonFieldName(name, profile) {
+  if (profile === "snake_case") return name;
+  const camel = lowerCamel(name);
+  if (profile === "camelCase" || !camel) return camel;
+  return camel[0].toUpperCase() + camel.slice(1);
+}
+function escapeJsonPointer(value) {
+  return value.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+var ObjectLocation = class _ObjectLocation {
+  constructor(segments) {
+    this.segments = segments;
+  }
+  static root() {
+    return new _ObjectLocation([]);
+  }
+  static property(name) {
+    return _ObjectLocation.root().property(name);
+  }
+  property(name) {
+    return new _ObjectLocation([...this.segments, { kind: "property", name }]);
+  }
+  index(index) {
+    return new _ObjectLocation([...this.segments, { kind: "index", index }]);
+  }
+  prefixedBy(prefix) {
+    return new _ObjectLocation([...prefix.segments, ...this.segments]);
+  }
+  modelPath() {
+    return this.render((name) => name);
+  }
+  nativePath() {
+    return this.render(lowerCamel);
+  }
+  instancePath(profile = "camelCase") {
+    return this.segments.map((segment) => segment.kind === "index" ? String(segment.index) : escapeJsonPointer(renderJsonFieldName(segment.name, profile))).map((value) => `/${value}`).join("");
+  }
+  toString() {
+    return this.nativePath();
+  }
+  render(propertyName) {
+    let result = "";
+    for (const segment of this.segments) {
+      if (segment.kind === "index") result += `[${segment.index}]`;
+      else result += `${result ? "." : ""}${propertyName(segment.name)}`;
+    }
+    return result;
+  }
+};
+
+// src/core/mutation-version.ts
+var MIN = -(1n << 63n);
+var MAX = (1n << 63n) - 1n;
+var SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+var MutationVersionError = class extends CheckException {
+  constructor(code, operation = "mutation") {
+    super([{
+      ruleId: code,
+      location: ObjectLocation.property("version"),
+      message: code === "version_exhausted" ? `${operation} version is exhausted in the signed 64-bit domain` : `${operation} requires an exact version in its permitted lifecycle state`
+    }]);
+    this.code = code;
+    this.name = "MutationVersionError";
+  }
+};
+function entityVersion(value) {
+  let exact;
+  if (typeof value === "bigint") exact = value;
+  else if (typeof value === "number" && Number.isSafeInteger(value)) exact = BigInt(value);
+  else if (typeof value === "string" && /^(?:0|-?[1-9][0-9]*)$/.test(value)) exact = BigInt(value);
+  else throw new MutationVersionError("invalid_type");
+  if (exact < MIN || exact > MAX) throw new MutationVersionError("invalid_type");
+  return exact >= -SAFE && exact <= SAFE ? Number(exact) : long(exact);
+}
+function nextEntityVersion(operation, original) {
+  if (operation === "Create") return 1;
+  const version = BigInt(entityVersion(original));
+  let next;
+  switch (operation) {
+    case "Update":
+      if (version <= 0n) throw new MutationVersionError("invalid_type", operation);
+      next = version + 1n;
+      break;
+    case "Delete":
+      if (version <= 0n) throw new MutationVersionError("invalid_type", operation);
+      next = -version - 1n;
+      break;
+    case "Recover":
+      if (version >= 0n) throw new MutationVersionError("invalid_type", operation);
+      next = -version + 1n;
+      break;
+    default:
+      throw new MutationVersionError("invalid_type");
+  }
+  if (next < MIN || next > MAX) throw new MutationVersionError("version_exhausted", operation);
+  return entityVersion(next);
 }
 
 // src/core/business-clock.ts
@@ -109,6 +161,216 @@ var FixedBusinessClock = class {
     return new Date(this.milliseconds);
   }
 };
+
+// src/core/value-privacy.ts
+var PLAINTEXT_LOG_ENV = "TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS";
+var PLAINTEXT_LOG_ACK = "I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK";
+var redacted = "[REDACTED]";
+var warned = false;
+function maskAuditValue(value) {
+  const scalars = Array.from(value);
+  if (scalars.length < 8 || /^[0-9]+$/.test(value)) return "*".repeat(scalars.length);
+  return scalars.slice(0, 2).join("") + "*".repeat(scalars.length - 4) + scalars.slice(-2).join("");
+}
+function plaintextLogsEnabled() {
+  const environment = globalThis.process?.env;
+  const enabled = environment?.[PLAINTEXT_LOG_ENV] === PLAINTEXT_LOG_ACK;
+  if (enabled && !warned) {
+    warned = true;
+    console.warn("TeaQL: sensitive plaintext logging enabled; application data may be written to disk. Authentication secrets remain redacted.");
+  }
+  return enabled;
+}
+function credentialName(name) {
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return [
+    "password",
+    "passwd",
+    "passphrase",
+    "privatekey",
+    "secret",
+    "accesstoken",
+    "refreshtoken",
+    "idtoken",
+    "apikey",
+    "authorization",
+    "credential",
+    "sessiontoken",
+    "magiclinktoken"
+  ].some((word) => normalized.includes(word));
+}
+function hasCredentials(value) {
+  return !!value && typeof value === "object" && credentialObject(value, /* @__PURE__ */ new WeakSet());
+}
+function credentialObject(value, seen) {
+  if (!value || typeof value !== "object" || seen.has(value)) return false;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) return value.some((child) => credentialObject(child, seen));
+    return Object.entries(value).some(([key, child]) => credentialName(key) || credentialObject(child, seen));
+  } finally {
+    seen.delete(value);
+  }
+}
+function logValueStrings(value) {
+  if (value === void 0 || value === null || value === "") return [];
+  return typeof value === "object" ? objectStrings(value, /* @__PURE__ */ new WeakSet()) : [String(value)];
+}
+function objectStrings(value, seen) {
+  if (value === void 0 || value === null || value === "") return [];
+  if (typeof value === "object") {
+    if (seen.has(value)) return [];
+    seen.add(value);
+    try {
+      if (Array.isArray(value)) return value.flatMap((child) => objectStrings(child, seen));
+      if (value instanceof Date) return [value.toISOString()];
+      return Object.values(value).flatMap((child) => objectStrings(child, seen));
+    } finally {
+      seen.delete(value);
+    }
+  }
+  return [String(value)];
+}
+function scrubLogText(text, values) {
+  return [...new Set(values)].sort((a, b) => b.length - a.length).reduce((result, value) => result?.split(value).join(redacted), text);
+}
+function businessMask(value, seen = /* @__PURE__ */ new WeakSet()) {
+  if (value === null || value === void 0) return null;
+  if (typeof value === "object") {
+    if (seen.has(value)) return redacted;
+    seen.add(value);
+    try {
+      if (Array.isArray(value)) return value.map((child) => businessMask(child, seen));
+      if ("type" in value) return businessMask(value.value, seen);
+      if (!(value instanceof Date)) return redacted;
+    } finally {
+      seen.delete(value);
+    }
+  }
+  return maskAuditValue(value instanceof Date ? value.toISOString() : String(value));
+}
+
+// src/core/checker-privacy.ts
+var presentationToken = /* @__PURE__ */ Symbol("TeaQL.CheckerPresentation");
+var presentations = /* @__PURE__ */ new WeakMap();
+var active = /* @__PURE__ */ new WeakMap();
+var metadata = (r) => {
+  const token = r[presentationToken];
+  return token && presentations.get(token);
+};
+function retain(r, value) {
+  const token = Object.freeze({});
+  presentations.set(token, value);
+  Object.defineProperty(r, presentationToken, { value: token, enumerable: true, configurable: true });
+}
+function originalLength(r) {
+  const state = metadata(r);
+  if (state?.masked && Object.is(state.value, r.inputValue) && state.length !== void 0) return state.length;
+  return typeof r.inputValue === "string" ? Array.from(r.inputValue).length : 0;
+}
+function kind(r, declaring, policy, allow) {
+  const fields = r.location.segments.filter((s) => s.kind === "property").map((s) => s.name);
+  const field = fields[fields.length - 1] ?? "", configured = policy?.(r.entityType?.trim() ? r.entityType : declaring, field);
+  if (fields.some(credentialName) || configured === "credential" || hasCredentials(r.inputValue)) return "credential";
+  return !allow && (configured === "masked" || field.startsWith("#")) ? "masked" : void 0;
+}
+function expectedValue(r, classification) {
+  const value = r.systemValue;
+  if (value === void 0 || value === null || typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") return value;
+  return classification === "credential" || hasCredentials(value) ? "[REDACTED]" : value;
+}
+function frozenMask(value) {
+  const masked = businessMask(value);
+  const freeze = (v) => Array.isArray(v) ? Object.freeze(v.map(freeze)) : v;
+  return freeze(masked);
+}
+function project(r, declaring, policy, allow) {
+  const value = { ...r }, old = metadata(r), classification = kind(r, declaring, policy, allow);
+  if (declaring && !value.entityType?.trim()) value.entityType = declaring;
+  const alreadySafe = old?.masked && Object.is(old.value, r.inputValue) && (old.kind === "credential" || classification !== "credential");
+  let input = r.inputValue;
+  if (!alreadySafe && input !== null && input !== void 0) {
+    if (classification === "credential") input = "[REDACTED]";
+    else if (classification === "masked") input = frozenMask(input);
+  }
+  const system = expectedValue(r, classification), changed = !Object.is(input, r.inputValue) || !Object.is(system, r.systemValue);
+  if (Object.prototype.hasOwnProperty.call(r, "inputValue")) value.inputValue = input;
+  if (Object.prototype.hasOwnProperty.call(r, "systemValue")) value.systemValue = system;
+  const secrets = [
+    ...!Object.is(input, r.inputValue) ? logValueStrings(r.inputValue) : [],
+    ...!Object.is(system, r.systemValue) ? logValueStrings(r.systemValue) : []
+  ];
+  const masked = !!alreadySafe || !Object.is(input, r.inputValue);
+  const state = masked ? { masked: true, value: input, length: originalLength(r), kind: alreadySafe ? old.kind : classification } : {};
+  if (!changed && old?.message !== void 0 && old.message === r.message) state.message = old.message;
+  return { value, state, changed, secrets };
+}
+function redactions(values) {
+  return [...new Set(values.flatMap((value) => value ? [value, JSON.stringify(value).slice(1, -1)] : []))].sort((a, b) => b.length - a.length);
+}
+function prepareCheckerResults(results, declaring, policy, checkedValues = []) {
+  const allow = plaintextLogsEnabled(), rows = results.map((r) => project(r, declaring, policy, allow));
+  const inherited = results.flatMap((r) => active.get(r)?.redactions ?? []);
+  const checked = checkedValues.flatMap((values) => Object.entries(values).flatMap(([field, value]) => {
+    const configured = policy?.(declaring, field);
+    const sensitive = credentialName(field) || hasCredentials(value) || configured === "credential" || !allow && (configured === "masked" || field.startsWith("#"));
+    return sensitive ? logValueStrings(value) : [];
+  }));
+  const known = redactions([...inherited, ...checked, ...rows.flatMap((r) => r.secrets)]);
+  const owned = rows.map((row) => {
+    if (row.value.message !== void 0) row.value.message = scrubLogText(row.value.message, known);
+    retain(row.value, { ...row.state, message: row.value.message });
+    active.set(row.value, { redactions: known, length: row.state.length ?? originalLength(row.value), input: row.value.inputValue, system: row.value.systemValue });
+    return row.value;
+  });
+  return {
+    values: owned,
+    finish(translated) {
+      const projected = translated.map((r) => project(r, declaring, policy, allow));
+      const all = redactions([...known, ...projected.flatMap((r) => r.secrets)]);
+      return projected.map((row) => {
+        if (row.state.message === void 0) row.value.message = scrubLogText(row.value.message, all);
+        retain(row.value, { ...row.state, message: row.value.message });
+        return row.value;
+      });
+    },
+    close() {
+      for (const r of owned) active.delete(r);
+    }
+  };
+}
+function checkerInputLength(result) {
+  return active.get(result)?.length ?? originalLength(result);
+}
+function checkerTemplateLiteral(result, text) {
+  return scrubLogText(text, active.get(result)?.redactions ?? []) ?? "";
+}
+function markCheckerRendering(result) {
+  const scope = active.get(result);
+  if (scope && Object.is(scope.input, result.inputValue) && Object.is(scope.system, result.systemValue)) {
+    retain(result, { ...metadata(result), message: result.message });
+  }
+}
+function translateCheckerResults(context, results, declaring, policy, checkedValues = []) {
+  if (!results.length) {
+    const translated = context.translateCheckResults(results, declaring);
+    if (!translated.length) return;
+    const scope2 = prepareCheckerResults(translated, declaring, policy, checkedValues);
+    try {
+      results.splice(0, results.length, ...scope2.finish(scope2.values));
+    } finally {
+      scope2.close();
+    }
+    return;
+  }
+  const scope = prepareCheckerResults(results, declaring, policy, checkedValues);
+  try {
+    const translated = context.translateCheckResults(scope.values, declaring);
+    results.splice(0, results.length, ...scope.finish(translated));
+  } finally {
+    scope.close();
+  }
+}
 
 // src/core/builtin-messages-v1.json
 var builtin_messages_v1_default = {
@@ -302,14 +564,37 @@ var _I18nCatalog = class _I18nCatalog {
   translate(result, locale) {
     const keys = { required: "checker.required", min: "checker.min", max: "checker.max", min_str_len: "checker.minLength", min_length: "checker.minLength", max_str_len: "checker.maxLength", max_length: "checker.maxLength" };
     const key = keys[result.ruleId.toLowerCase()] ?? `checker.${result.ruleId.toLowerCase()}`;
+    const template = this.message(locale, key);
+    if (template === key && result.message?.trim()) return result;
     const input = String(result.inputValue);
-    const length = typeof result.inputValue === "string" ? [...result.inputValue].length : 0;
-    result.message = this.message(locale, key).split("{location}").join(result.location.nativePath()).split("{system}").join(String(result.systemValue)).split("{input}").join(input).split("{input_len}").join(String(length));
+    const values = {
+      "{location}": result.location.nativePath(),
+      "{system}": String(result.systemValue),
+      "{input}": input,
+      "{input_len}": String(checkerInputLength(result))
+    };
+    const publicTemplate = template === _I18nCatalog.builtin.message(locale, key);
+    result.message = template.split(/(\{(?:location|system|input|input_len)\})/g).map((part) => Object.prototype.hasOwnProperty.call(values, part) ? values[part] : publicTemplate ? part : checkerTemplateLiteral(result, part)).join("");
+    markCheckerRendering(result);
     return result;
   }
 };
 _I18nCatalog.builtin = new _I18nCatalog(builtin_messages_v1_default);
 var I18nCatalog = _I18nCatalog;
+
+// src/core/internal-id.ts
+function internalId(value) {
+  if (typeof value === "number" && (!Number.isSafeInteger(value) || value <= 0)) {
+    throw new RangeError("Internal ID must be a positive safe integer when supplied as a number");
+  }
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "bigint") {
+    throw new TypeError("Internal ID must be an exact positive integer");
+  }
+  const text = String(value);
+  if (!/^[1-9][0-9]*$/.test(text)) throw new TypeError("Internal ID must be a canonical positive integer");
+  if (BigInt(text) > (1n << 63n) - 1n) throw new RangeError("Internal ID exceeds signed 64-bit range");
+  return text;
+}
 
 // src/core/schema-capability.ts
 var contextSchemaCapability = /* @__PURE__ */ Symbol("teaql.context.schema-capability");
@@ -354,13 +639,13 @@ function mutationScopeForEntity(parent, entity, id, rootComment, localComment) {
 var intentKinds = /* @__PURE__ */ new Set(["comment", "purpose", "auditReason"]);
 var nonBlank = (value) => !/^\p{White_Space}*$/u.test(value);
 function canonicalSQLTracePath(source, backend, operation) {
-  const last = (kind) => {
+  const last = (kind2) => {
     for (let index = source.length - 1; index >= 0; index--) {
-      if (source[index].kind === kind) return source[index].detail ?? "";
+      if (source[index].kind === kind2) return source[index].detail ?? "";
     }
     return void 0;
   };
-  const canonical = ["operation", "provider", "sql"].every((kind) => source.some((node) => node.kind === kind));
+  const canonical = ["operation", "provider", "sql"].every((kind2) => source.some((node) => node.kind === kind2));
   let path;
   if (canonical) path = source.filter((node) => !intentKinds.has(node.kind));
   else {
@@ -534,75 +819,23 @@ function quoteSQLString(value) {
 }
 
 // src/core/log-privacy.ts
-var PLAINTEXT_LOG_ENV = "TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS";
-var PLAINTEXT_LOG_ACK = "I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK";
-var redacted = "[REDACTED]";
+var redacted2 = "[REDACTED]";
 var redactedSQL = "[REDACTED SQL; NOT REPLAYABLE]";
 var debugLabel = "-- TeaQL DEBUG PLAINTEXT; EXPLICIT OPT-IN\n";
-var warned = false;
-function maskAuditValue(value) {
-  const scalars = Array.from(value);
-  if (scalars.length < 8 || /^[0-9]+$/.test(value)) return "*".repeat(scalars.length);
-  return scalars.slice(0, 2).join("") + "*".repeat(scalars.length - 4) + scalars.slice(-2).join("");
-}
-function plaintextLogsEnabled() {
-  const environment = globalThis.process?.env;
-  const enabled = environment?.[PLAINTEXT_LOG_ENV] === PLAINTEXT_LOG_ACK;
-  if (enabled && !warned) {
-    warned = true;
-    console.warn("TeaQL: sensitive plaintext logging enabled; application data may be written to disk. Authentication secrets remain redacted.");
-  }
-  return enabled;
-}
-function credentialName(name) {
-  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return [
-    "password",
-    "passwd",
-    "passphrase",
-    "privatekey",
-    "secret",
-    "accesstoken",
-    "refreshtoken",
-    "idtoken",
-    "apikey",
-    "authorization",
-    "credential",
-    "sessiontoken",
-    "magiclinktoken"
-  ].some((word) => normalized.includes(word));
-}
-function hasCredentials(value) {
-  if (Array.isArray(value)) return value.some(hasCredentials);
-  if (value && typeof value === "object") {
-    return Object.entries(value).some(([key, child]) => credentialName(key) || hasCredentials(child));
-  }
-  return false;
-}
-function logValueStrings(value) {
-  if (value === void 0 || value === null || value === "") return [];
-  if (Array.isArray(value)) return value.flatMap(logValueStrings);
-  if (value instanceof Date) return [value.toISOString()];
-  if (typeof value === "object") return Object.values(value).flatMap(logValueStrings);
-  return [String(value)];
-}
-function scrubLogText(text, values) {
-  return [...new Set(values)].sort((a, b) => b.length - a.length).reduce((result, value) => result?.split(value).join(redacted), text);
-}
 var projections = /* @__PURE__ */ new WeakMap();
 var safeAlternatives = /* @__PURE__ */ new WeakMap();
 var rawProvenance = /* @__PURE__ */ new WeakMap();
-function retainSQLLogProvenance(metadata, bindings, intentValues = []) {
-  rawProvenance.set(metadata, {
+function retainSQLLogProvenance(metadata2, bindings, intentValues = []) {
+  rawProvenance.set(metadata2, {
     bindings: bindings ? inheritSQLLogBindings(bindings) : void 0,
     intentValues: Object.freeze(intentValues.map(copyLogValue))
   });
 }
-function bindingPolicies(metadata) {
-  const supplied = metadata.parameterLogPolicies;
-  const valid = !!supplied && supplied.length === metadata.parameters.length;
-  const credentialStatement = credentialName(metadata.parameterizedSQL) && (metadata.sqlOrigin !== "generated" || !valid);
-  return metadata.parameters.map((value, index) => {
+function bindingPolicies(metadata2) {
+  const supplied = metadata2.parameterLogPolicies;
+  const valid = !!supplied && supplied.length === metadata2.parameters.length;
+  const credentialStatement = credentialName(metadata2.parameterizedSQL) && (metadata2.sqlOrigin !== "generated" || !valid);
+  return metadata2.parameters.map((value, index) => {
     if (credentialStatement || hasCredentials(value)) return "credential";
     const policy = valid ? supplied[index] : void 0;
     return policy === "plain" || policy === "masked" || policy === "credential" ? policy : "unknown";
@@ -634,67 +867,58 @@ function inheritSQLLogBindings(source, inherited) {
     parameterLogPolicies: Object.freeze(sources.flatMap(bindingPolicies))
   });
 }
-function businessMask(value) {
-  if (value === null || value === void 0) return null;
-  if (Array.isArray(value)) return value.map(businessMask);
-  if (value && typeof value === "object" && "type" in value) {
-    return businessMask(value.value);
-  }
-  if (typeof value === "object" && !(value instanceof Date)) return redacted;
-  return maskAuditValue(value instanceof Date ? value.toISOString() : String(value));
-}
-function projectSQLLog(metadata, inherited, intentValues = []) {
-  const allow = plaintextLogsEnabled() && metadata.logMode !== "masked";
-  const prior = projections.get(metadata);
-  if (prior !== void 0 && (!prior || allow)) return metadata;
-  const safe = safeAlternatives.get(metadata);
+function projectSQLLog(metadata2, inherited, intentValues = []) {
+  const allow = plaintextLogsEnabled() && metadata2.logMode !== "masked";
+  const prior = projections.get(metadata2);
+  if (prior !== void 0 && (!prior || allow)) return metadata2;
+  const safe = safeAlternatives.get(metadata2);
   if (!allow && safe) return safe;
-  const projected = projectWithPolicy(metadata, allow, inherited, intentValues);
+  const projected = projectWithPolicy(metadata2, allow, inherited, intentValues);
   projections.set(projected, allow);
   if (allow) {
-    const alternative = projectWithPolicy(metadata, false, inherited, intentValues);
+    const alternative = projectWithPolicy(metadata2, false, inherited, intentValues);
     projections.set(alternative, false);
     safeAlternatives.set(projected, alternative);
   }
   return projected;
 }
-function projectSafeSQLLog(metadata) {
-  const safe = safeAlternatives.get(metadata);
+function projectSafeSQLLog(metadata2) {
+  const safe = safeAlternatives.get(metadata2);
   if (safe) return safe;
-  if (projections.get(metadata) === false) return metadata;
-  const projected = projectWithPolicy(metadata, false);
+  if (projections.get(metadata2) === false) return metadata2;
+  const projected = projectWithPolicy(metadata2, false);
   projections.set(projected, false);
   return projected;
 }
-function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
-  const retained = rawProvenance.get(metadata);
+function projectWithPolicy(metadata2, allow, inherited, intentValues = []) {
+  const retained = rawProvenance.get(metadata2);
   if (retained?.bindings) inherited = inheritSQLLogBindings(retained.bindings, inherited);
   if (retained) intentValues = [...intentValues, ...retained.intentValues];
-  const supplied = metadata.parameterLogPolicies;
-  const policiesValid = !supplied || supplied.length === metadata.parameters.length;
-  const credentialStatement = credentialName(metadata.parameterizedSQL) && (metadata.sqlOrigin !== "generated" || !supplied || !policiesValid);
-  const policies = bindingPolicies(metadata);
+  const supplied = metadata2.parameterLogPolicies;
+  const policiesValid = !supplied || supplied.length === metadata2.parameters.length;
+  const credentialStatement = credentialName(metadata2.parameterizedSQL) && (metadata2.sqlOrigin !== "generated" || !supplied || !policiesValid);
+  const policies = bindingPolicies(metadata2);
   const masked = policies.map((policy) => bindingIsMasked(policy, allow));
-  const secrets = metadata.parameters.flatMap((value, index) => masked[index] ? logValueStrings(value) : []);
+  const secrets = metadata2.parameters.flatMap((value, index) => masked[index] ? logValueStrings(value) : []);
   if (inherited) {
     const inheritedPolicies = bindingPolicies(inherited);
     secrets.push(...inherited.parameters.flatMap((value, index) => bindingIsMasked(inheritedPolicies[index], allow) ? logValueStrings(value) : []));
   }
   const intentSecrets = [...secrets, ...intentValues.flatMap(logValueStrings)];
-  const unknownDebugIntent = !allow && metadata.logMode === "debug-plaintext" && !inherited;
-  const intentText = (value) => unknownDebugIntent && value ? redacted : scrubLogText(value, intentSecrets);
-  const safeValues = metadata.parameters.map((value, index) => {
+  const unknownDebugIntent = !allow && metadata2.logMode === "debug-plaintext" && !inherited;
+  const intentText = (value) => unknownDebugIntent && value ? redacted2 : scrubLogText(value, intentSecrets);
+  const safeValues = metadata2.parameters.map((value, index) => {
     if (!masked[index]) return copyLogValue(value);
-    return policies[index] === "masked" ? businessMask(value) : redacted;
+    return policies[index] === "masked" ? businessMask(value) : redacted2;
   });
-  const bareTemplate = metadata.parameterizedSQL.replace(/\$[0-9]+|@p[0-9]+/gi, "?");
-  const unsafeSQL = (!allow || credentialStatement) && metadata.sqlOrigin !== "generated" && /['"`$]|--|\/\*|\b\d+\b|:[A-Za-z_]/.test(bareTemplate);
-  const kind = metadata.databaseKind ?? "sqlite";
+  const bareTemplate = metadata2.parameterizedSQL.replace(/\$[0-9]+|@p[0-9]+/gi, "?");
+  const unsafeSQL = (!allow || credentialStatement) && metadata2.sqlOrigin !== "generated" && /['"`$]|--|\/\*|\b\d+\b|:[A-Za-z_]/.test(bareTemplate);
+  const kind2 = metadata2.databaseKind ?? "sqlite";
   let rendered = redactedSQL;
   let omissionReason = unsafeSQL ? "untrusted-literal-sql" : !policiesValid ? "policy-count-mismatch" : void 0;
   if (!unsafeSQL && policiesValid) {
     try {
-      rendered = renderSQL(metadata.parameterizedSQL, safeValues, kind, (index) => sqlLiteral(safeValues[index], kind) + (masked[index] ? " /* masked */" : ""));
+      rendered = renderSQL(metadata2.parameterizedSQL, safeValues, kind2, (index) => sqlLiteral(safeValues[index], kind2) + (masked[index] ? " /* masked */" : ""));
       rendered = (allow ? masked.some(Boolean) ? "-- TeaQL DEBUG PLAINTEXT; EXPLICIT OPT-IN; PARTIALLY MASKED; NOT REPLAYABLE\n" : debugLabel : "-- TeaQL MASKED; NOT REPLAYABLE\n") + rendered;
     } catch {
       rendered = redactedSQL;
@@ -702,27 +926,27 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
     }
   }
   const projected = Object.freeze({
-    ...metadata,
-    ...metadata.statements ? { statements: Object.freeze(metadata.statements.map((statement) => projectWithPolicy(statement, allow, inheritSQLLogBindings(metadata, inherited), intentValues))) } : {},
-    parameterizedSQL: unsafeSQL ? redactedSQL : metadata.sqlOrigin === "generated" ? metadata.parameterizedSQL : scrubLogText(metadata.parameterizedSQL, secrets),
+    ...metadata2,
+    ...metadata2.statements ? { statements: Object.freeze(metadata2.statements.map((statement) => projectWithPolicy(statement, allow, inheritSQLLogBindings(metadata2, inherited), intentValues))) } : {},
+    parameterizedSQL: unsafeSQL ? redactedSQL : metadata2.sqlOrigin === "generated" ? metadata2.parameterizedSQL : scrubLogText(metadata2.parameterizedSQL, secrets),
     parameters: Object.freeze(safeValues),
     parameterLogPolicies: Object.freeze(policies),
     maskedParameters: Object.freeze(masked),
     logMode: allow ? "debug-plaintext" : "masked",
     omissionReason,
     debugSQL: rendered,
-    comment: intentText(metadata.comment),
-    purpose: intentText(metadata.purpose),
-    auditReason: intentText(metadata.auditReason),
-    ...metadata.traceChain ? { traceChain: Object.freeze(metadata.traceChain.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {},
+    comment: intentText(metadata2.comment),
+    purpose: intentText(metadata2.purpose),
+    auditReason: intentText(metadata2.auditReason),
+    ...metadata2.traceChain ? { traceChain: Object.freeze(metadata2.traceChain.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {},
     // Counts are operational metadata, not a copy of a masked numeric binding.
-    resultSummary: metadata.resultCount !== void 0 ? `${metadata.resultCount} rows returned` : metadata.affectedRows !== void 0 ? `${metadata.affectedRows} rows affected` : scrubLogText(metadata.resultSummary, secrets),
-    tracePath: Object.freeze(metadata.tracePath.map((frame) => Object.freeze(
+    resultSummary: metadata2.resultCount !== void 0 ? `${metadata2.resultCount} rows returned` : metadata2.affectedRows !== void 0 ? `${metadata2.affectedRows} rows affected` : scrubLogText(metadata2.resultSummary, secrets),
+    tracePath: Object.freeze(metadata2.tracePath.map((frame) => Object.freeze(
       Object.fromEntries(Object.entries(frame).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))
     ))),
-    ...metadata.traceChain ? { traceChain: Object.freeze(metadata.traceChain.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {},
+    ...metadata2.traceChain ? { traceChain: Object.freeze(metadata2.traceChain.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {},
     // Typed identity is structural (as in the audit event's id), not prose.
-    ...metadata.mutationLineage ? { mutationLineage: Object.freeze(metadata.mutationLineage.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {}
+    ...metadata2.mutationLineage ? { mutationLineage: Object.freeze(metadata2.mutationLineage.map((node) => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== "entityId" && typeof value === "string" ? intentText(value) : value]))))) } : {}
   });
   return projected;
 }
@@ -763,20 +987,78 @@ function snapshotQuery(value, seen = /* @__PURE__ */ new Map()) {
 
 // src/core/loaded-scalar-snapshot.ts
 var loadedSnapshots = /* @__PURE__ */ new WeakMap();
-var _values;
+var LoadedEntityIdentityError = class extends CheckException {
+  constructor(field) {
+    super([{
+      ruleId: "entity_version_conflict",
+      location: ObjectLocation.property(field),
+      message: "ENTITY_VERSION_CONFLICT: loaded entity identity must remain unchanged"
+    }]);
+    this.code = "ENTITY_VERSION_CONFLICT";
+    this.name = "LoadedEntityIdentityError";
+  }
+};
+var _values, _owner, _identityKey, _origin, _persistedVersion;
 var _LoadedScalarSnapshot = class _LoadedScalarSnapshot {
-  constructor(values = {}) {
+  constructor(values = {}, key, version, origin = "hydrated") {
     __privateAdd(this, _values);
+    __privateAdd(this, _owner);
+    __privateAdd(this, _identityKey);
+    __privateAdd(this, _origin);
+    __privateAdd(this, _persistedVersion);
     __privateSet(this, _values, snapshotQuery(values));
+    __privateSet(this, _origin, origin);
+    if (origin === "hydrated" && key && version !== void 0) {
+      const exact = entityVersion(version);
+      __privateSet(this, _persistedVersion, exact);
+      if (exact !== 0) {
+        if (values.id !== void 0) __privateSet(this, _identityKey, Object.freeze({ ...key }));
+        __privateSet(this, _owner, Object.freeze({ key: Object.freeze({ ...key }), version: exact }));
+      }
+    }
+    if (!__privateGet(this, _identityKey) && key && values.id !== void 0) __privateSet(this, _identityKey, Object.freeze({ ...key }));
     Object.freeze(this);
   }
   /** Copies prevent callers or mutable JSON/date fields from rewriting history. */
   values() {
     return snapshotQuery(__privateGet(this, _values));
   }
+  get origin() {
+    return __privateGet(this, _origin);
+  }
+  get persistedVersion() {
+    return __privateGet(this, _persistedVersion);
+  }
+  /** @internal Exact canonical top-level difference for detached preparation. */
+  changedField(values) {
+    const fields = [.../* @__PURE__ */ new Set([...Object.keys(__privateGet(this, _values)), ...Object.keys(values)])].sort();
+    return fields.find((field) => !Object.prototype.hasOwnProperty.call(__privateGet(this, _values), field) || !Object.prototype.hasOwnProperty.call(values, field) || !sameValue(__privateGet(this, _values)[field], values[field]));
+  }
+  /** Validate even read-only nodes, before root attachment or FK normalization. */
+  validateNativeIdentity(key, nativeID, nativeVersion) {
+    const expected = __privateGet(this, _identityKey);
+    if (expected && (expected.entity !== key.entity || !Object.is(expected.id, key.id) || !Object.is(expected.id, nativeID))) throw new LoadedEntityIdentityError("id");
+    if (__privateGet(this, _owner)) {
+      let version;
+      try {
+        version = entityVersion(nativeVersion);
+      } catch {
+        throw new LoadedEntityIdentityError("version");
+      }
+      if (version !== __privateGet(this, _owner).version) throw new LoadedEntityIdentityError("version");
+    }
+  }
+  /** Normalize restored intent first. Clean old views may observe an advanced
+   * ledger, but a dirty old view must never borrow its newer committed version. */
+  validateMutationVersion(root, key) {
+    if (!__privateGet(this, _owner) || !root.hasPending(key)) return;
+    if (__privateGet(this, _owner).key.entity !== key.entity || !Object.is(__privateGet(this, _owner).key.id, key.id) || root.isNew(key) || root.originalVersion(key) !== __privateGet(this, _owner).version) {
+      throw new LoadedEntityIdentityError("version");
+    }
+  }
   /** @internal Generated hydration stores provenance outside entity/JSON state. */
-  static captureFor(entity, values) {
-    const snapshot = new _LoadedScalarSnapshot(values);
+  static captureFor(entity, values, key, version, origin = "hydrated") {
+    const snapshot = new _LoadedScalarSnapshot(values, key, version, origin);
     loadedSnapshots.set(entity, snapshot);
     return snapshot;
   }
@@ -789,9 +1071,254 @@ var _LoadedScalarSnapshot = class _LoadedScalarSnapshot {
     if (snapshot) loadedSnapshots.set(entity, snapshot);
     else loadedSnapshots.delete(entity);
   }
+  /** @internal Called only after model-field admission, before completeness and Fix. */
+  discardRestoredFields(root, key) {
+    const owner = __privateGet(this, _owner);
+    if (!owner || owner.key.entity !== key.entity || !Object.is(owner.key.id, key.id) || root.originalVersion(key) !== owner.version || root.isNew(key) || root.isDeleted(key)) return;
+    const restored = /* @__PURE__ */ Object.create(null);
+    for (const [field, value] of Object.entries(root.change(key))) {
+      const original = Object.getOwnPropertyDescriptor(__privateGet(this, _values), field);
+      if (field !== "id" && field !== "version" && original && "value" in original && original.value !== void 0 && sameValue(original.value, value)) restored[field] = value;
+    }
+    root.discardFields(key, restored);
+  }
 };
 _values = new WeakMap();
+_owner = new WeakMap();
+_identityKey = new WeakMap();
+_origin = new WeakMap();
+_persistedVersion = new WeakMap();
 var LoadedScalarSnapshot = _LoadedScalarSnapshot;
+function sameValue(a, b, budget = { nodes: 4096 }, depth = 0) {
+  if (--budget.nodes < 0 || depth > 64 || typeof a !== typeof b) return false;
+  if (typeof a === "number") return Number.isFinite(a) && Number.isFinite(b) && Object.is(a, b);
+  if (a === null || b === null || typeof a !== "object") return Object.is(a, b);
+  if (a instanceof Date || b instanceof Date) return a instanceof Date && b instanceof Date && Number.isFinite(a.getTime()) && a.getTime() === b.getTime();
+  if (a instanceof Uint8Array || b instanceof Uint8Array) return a instanceof Uint8Array && b instanceof Uint8Array && a.length === b.length && a.every((value, index) => value === b[index]);
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (!Array.isArray(a) && (Object.getPrototypeOf(a) !== Object.prototype && Object.getPrototypeOf(a) !== null || Object.getPrototypeOf(b) !== Object.prototype && Object.getPrototypeOf(b) !== null)) return false;
+  if (Array.isArray(a) && a.length !== b.length) return false;
+  const left = Object.getOwnPropertyDescriptors(a), right = Object.getOwnPropertyDescriptors(b);
+  const keys = Object.keys(left).filter((key) => left[key].enumerable);
+  if (keys.length !== Object.keys(right).filter((key) => right[key].enumerable).length) return false;
+  return keys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && right[key].enumerable && "value" in left[key] && "value" in right[key] && sameValue(left[key].value, right[key].value, budget, depth + 1));
+}
+
+// src/core/prepared-mutation.ts
+var refField = "__teaql_prepared_reference";
+var keyOf = (key) => `${key.entity}\0${typeof key.id}:${String(key.id)}`;
+var PreparedMutationError = class extends CheckException {
+  constructor(field = "") {
+    super([{
+      ruleId: "mutation_changed_after_preparation",
+      location: field ? ObjectLocation.property(field) : ObjectLocation.root(),
+      message: "Mutation differs from its prepared and reviewed state; prepare and review it again"
+    }]);
+    this.code = "MUTATION_CHANGED_AFTER_PREPARATION";
+    this.name = "PreparedMutationError";
+  }
+};
+var PreparedGraphState = class {
+  constructor() {
+    this.sources = [];
+    this.objects = /* @__PURE__ */ new WeakMap();
+    this.tokens = /* @__PURE__ */ new Map();
+    this.entries = [];
+    this.aliases = /* @__PURE__ */ new Map();
+    this.bindings = [];
+    this.metadata = [];
+    this.sealed = false;
+  }
+  get rootEntity() {
+    return this.sources[0]?.key.entity ?? this.entries[0]?.key.entity;
+  }
+  get size() {
+    return this.entries.length;
+  }
+  register(object, root, key, references, read) {
+    if (this.sealed) throw new PreparedMutationError();
+    if (this.objects.has(object)) return;
+    const source = { object, token: /* @__PURE__ */ Symbol("prepared entity"), root, key: { ...key }, origin: { ...key }, references, read };
+    this.objects.set(object, source);
+    this.tokens.set(source.token, source);
+    this.sources.push(source);
+  }
+  members(objects) {
+    return objects.map((object) => {
+      const source = this.objects.get(object);
+      if (!source) throw new PreparedMutationError();
+      return source.token;
+    });
+  }
+  bind(read) {
+    this.bindings.push({ read, value: read() });
+  }
+  bindMetadata(read) {
+    this.metadata.push({ read, value: new LoadedScalarSnapshot(read()) });
+  }
+  captureInput() {
+    for (const source of this.sources) source.native = new LoadedScalarSnapshot(this.canonical(source.read(), source.references));
+  }
+  resolved(key) {
+    return this.aliases.get(keyOf(key)) ?? key;
+  }
+  canonical(values, references) {
+    const result = { ...values };
+    for (const [field, target] of Object.entries(references)) {
+      const value = result[field];
+      if (!value || typeof value !== "object") continue;
+      const source = this.objects.get(value);
+      if (source) {
+        if (source.key.entity !== target) throw new PreparedMutationError(field);
+        result[field] = { [refField]: source.token };
+      } else if (value.id !== void 0 && value.id !== null) result[field] = value.id;
+      else throw new PreparedMutationError(field);
+    }
+    return result;
+  }
+  materialize(values, logical = false) {
+    return Object.fromEntries(Object.entries(values).map(([field, value]) => {
+      const token = value && typeof value === "object" ? value[refField] : void 0;
+      if (typeof token !== "symbol") return [field, value];
+      const source = this.tokens.get(token);
+      if (!source) throw new PreparedMutationError(field);
+      const target = this.resolved(source.origin);
+      if (!logical && !this.aliases.has(keyOf(source.origin)) && source.root.isNew(source.key)) throw new PreparedMutationError(field);
+      return [field, target.id];
+    }));
+  }
+  difference(expected, actual) {
+    return new LoadedScalarSnapshot(this.materialize(expected.values(), true)).changedField(this.materialize(actual, true));
+  }
+  rootState(root, key, references) {
+    return {
+      values: new LoadedScalarSnapshot(this.canonical(root.change(key), references)),
+      version: root.originalVersion(key),
+      fresh: root.isNew(key),
+      deleted: root.isDeleted(key),
+      trace: new LoadedScalarSnapshot({ trace: root.traceChain(key) })
+    };
+  }
+  assertRoot(root, key, references, expected) {
+    if (root.originalVersion(key) !== expected.version) throw new PreparedMutationError("version");
+    if (root.isNew(key) !== expected.fresh || root.isDeleted(key) !== expected.deleted) throw new PreparedMutationError();
+    const field = this.difference(expected.values, this.canonical(root.change(key), references));
+    if (field !== void 0) throw new PreparedMutationError(field);
+    if (expected.trace.changedField({ trace: root.traceChain(key) }) !== void 0) throw new PreparedMutationError("comment");
+  }
+  assertNative(source) {
+    if (!source.native) throw new PreparedMutationError();
+    const field = this.difference(source.native, this.canonical(source.read(), source.references));
+    if (field !== void 0) throw new PreparedMutationError(field === "__teaql_comment" ? "comment" : field === "__teaql_key" ? "id" : field.startsWith("__teaql_") ? "" : field);
+  }
+  remember(request, mutation, references) {
+    if (this.sealed) throw new PreparedMutationError();
+    const root = mutation.ledgerRoot;
+    const key = mutation.ledgerKey ?? { entity: String(mutation.entity), id: mutation.id ?? /* @__PURE__ */ Symbol("unassigned") };
+    if (this.entries.some((entry2) => root && entry2.root === root && keyOf(entry2.key) === keyOf(key))) throw new PreparedMutationError("id");
+    const values = new LoadedScalarSnapshot(this.canonical(mutation.payload ?? {}, references));
+    const entry = {
+      request,
+      root,
+      key: { ...key },
+      mutation: { ...mutation, payload: void 0 },
+      references,
+      values,
+      input: new LoadedScalarSnapshot(this.canonical(request.mutation.payload ?? {}, references)),
+      loaded: new LoadedScalarSnapshot(this.canonical(request.loadedValues(), references)),
+      state: root ? this.rootState(root, key, references) : void 0,
+      status: "prepared"
+    };
+    this.entries.push(entry);
+    return { ...mutation, id: mutation.id ?? mutation.ledgerKey?.id, payload: this.materialize(values.values(), true) };
+  }
+  seal() {
+    if (this.sealed) return;
+    for (const source of this.sources) this.assertNative(source);
+    for (const entry of this.entries) if (entry.root && entry.state) this.assertRoot(entry.root, entry.key, entry.references, entry.state);
+    for (const source of this.sources) source.state = this.rootState(source.root, source.key, source.references);
+    this.sealed = true;
+    this.validate();
+  }
+  validate() {
+    for (const binding of this.bindings) if (binding.read() !== binding.value) throw new PreparedMutationError("context");
+    for (const metadata2 of this.metadata) if (metadata2.value.changedField(metadata2.read()) !== void 0) throw new PreparedMutationError("metadata");
+    for (const source of this.sources) {
+      this.assertNative(source);
+      if (source.state) this.assertRoot(source.root, source.key, source.references, source.state);
+    }
+    for (const entry of this.entries) if (entry.root && entry.state) this.assertRoot(entry.root, this.resolved(entry.key), entry.references, entry.state);
+  }
+  entry(request) {
+    const mutation = request.mutation;
+    const entry = this.entries.find((entry2) => entry2.request === request || mutation.ledgerRoot && entry2.root === mutation.ledgerRoot && mutation.ledgerKey && keyOf(this.resolved(entry2.key)) === keyOf(mutation.ledgerKey)) ?? this.entries.find((entry2) => !entry2.root && entry2.status === "prepared" && entry2.mutation.entity === mutation.entity && entry2.mutation.action === mutation.action && entry2.mutation.id === mutation.id && this.difference(
+      entry2.root && mutation.action === "Update" ? entry2.values : entry2.input,
+      this.canonical(mutation.payload ?? {}, entry2.references)
+    ) === void 0);
+    if (!entry) throw new PreparedMutationError();
+    return entry;
+  }
+  replay(request) {
+    if (!this.sealed) return void 0;
+    this.validate();
+    const entry = this.entry(request), actual = request.mutation, expected = entry.mutation;
+    if (entry.status !== "prepared") throw new PreparedMutationError();
+    if (actual.entity !== expected.entity || actual.action !== expected.action) throw new PreparedMutationError();
+    if (actual.id !== expected.id) throw new PreparedMutationError("id");
+    if (actual.action !== "Create" && entityVersion(actual.version !== void 0 ? actual.version : actual.expectedVersion) !== (expected.version ?? expected.expectedVersion)) throw new PreparedMutationError("version");
+    if (request.comment !== expected.comment) throw new PreparedMutationError("comment");
+    let field = this.difference(
+      entry.root && actual.action === "Update" ? entry.values : entry.input,
+      this.canonical(actual.payload ?? {}, entry.references)
+    );
+    if (field !== void 0) throw new PreparedMutationError(field);
+    field = this.difference(entry.loaded, this.canonical(request.loadedValues(), entry.references));
+    if (field !== void 0) throw new PreparedMutationError(field);
+    return {
+      ...expected,
+      ledgerKey: actual.ledgerKey,
+      ledgerRoot: actual.ledgerRoot,
+      payload: snapshotQuery(this.materialize(entry.values.values()))
+    };
+  }
+  providerResult(request, result) {
+    if (!this.sealed) return;
+    this.validate();
+    const entry = this.entry(request);
+    if (entry.status !== "prepared") throw new PreparedMutationError();
+    entry.result = { id: result.id, version: result.version };
+    entry.status = "executed";
+    if (!this.sources.some((source) => source.root === entry.root && keyOf(source.key) === keyOf(entry.key))) entry.status = "applied";
+  }
+  applied(root, oldKey, newKey) {
+    if (!this.sealed) return;
+    const entry = this.entries.find((entry2) => entry2.root === root && keyOf(this.resolved(entry2.key)) === keyOf(oldKey));
+    if (!entry || entry.status !== "executed" || entry.result?.id !== newKey.id || oldKey.entity !== newKey.entity) throw new PreparedMutationError("id");
+    if (keyOf(oldKey) !== keyOf(newKey)) {
+      if (entry.mutation.action !== "Create" || this.aliases.has(keyOf(entry.key))) throw new PreparedMutationError("id");
+      this.aliases.set(keyOf(entry.key), { ...newKey });
+    }
+    entry.status = "applied";
+    entry.state = this.rootState(root, newKey, entry.references);
+    for (const source of this.sources) if (source.root === root && keyOf(source.key) === keyOf(oldKey)) {
+      source.key = { ...newKey };
+      source.native = new LoadedScalarSnapshot(this.canonical(source.read(), source.references));
+      source.state = this.rootState(root, newKey, source.references);
+    }
+  }
+  committed(root, key) {
+    for (const entry of this.entries) if (entry.root === root && keyOf(this.resolved(entry.key)) === keyOf(key)) {
+      entry.status = "committed";
+      entry.state = this.rootState(root, key, entry.references);
+    }
+    for (const source of this.sources) if (source.root === root && keyOf(source.key) === keyOf(key)) source.state = this.rootState(root, key, source.references);
+  }
+  complete() {
+    if (!this.sealed) return;
+    this.validate();
+    if (this.entries.some((entry) => entry.status !== "applied" && entry.status !== "committed")) throw new PreparedMutationError();
+  }
+};
 
 // src/core/request-intent.ts
 var mutationSnapshots = /* @__PURE__ */ new WeakMap();
@@ -825,12 +1352,12 @@ var RequestIntentError = class extends Error {
     this.name = "RequestIntentError";
   }
 };
-function requireText(value, field, kind) {
+function requireText(value, field, kind2) {
   if (typeof value !== "string" || /^\p{White_Space}*$/u.test(value)) {
     throw new RequestIntentError(
       field === "comment" ? "REQUEST_COMMENT_REQUIRED" : "QUERY_PURPOSE_REQUIRED",
       field,
-      kind
+      kind2
     );
   }
   return value;
@@ -1046,6 +1573,8 @@ var MutationRequest = class {
     __privateAdd(this, _mutation);
     __privateSet(this, _intent2, new MutationIntent(intent === void 0 ? mutation?.comment : intent?.comment));
     __privateSet(this, _mutation, { ...mutation });
+    if (mutation.payload && typeof mutation.payload === "object")
+      __privateGet(this, _mutation).payload = { ...mutation.payload };
     Object.defineProperty(__privateGet(this, _mutation), "comment", {
       value: __privateGet(this, _intent2).comment,
       enumerable: true,
@@ -1071,6 +1600,16 @@ var MutationRequest = class {
   /** @internal Does not become part of the write payload or policy input. */
   loadedValues() {
     return mutationSnapshots.get(this)?.values() ?? {};
+  }
+  /** @internal Checker-only detached provenance, not caller input or write payload. */
+  bindCheckerLoadedValues(mutation) {
+    Object.defineProperty(mutation, "loadedValues", {
+      value: Object.freeze({ ...this.loadedValues() }),
+      enumerable: false,
+      writable: false,
+      configurable: false
+    });
+    return mutation;
   }
   /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
   get graphSession() {
@@ -1106,16 +1645,85 @@ var MutationRequest = class {
 };
 _intent2 = new WeakMap();
 _mutation = new WeakMap();
-var _intent3, _bindings;
+var _intent3, _bindings, _preparedCount, _sealed, _prepared;
 var GraphMutationSession = class {
   constructor(intent) {
     __privateAdd(this, _intent3);
     __privateAdd(this, _bindings);
+    __privateAdd(this, _preparedCount, 0);
+    __privateAdd(this, _sealed, false);
+    __privateAdd(this, _prepared, new PreparedGraphState());
     __privateSet(this, _intent3, new MutationIntent(intent?.comment));
     Object.freeze(this);
   }
   get intent() {
     return __privateGet(this, _intent3);
+  }
+  /** @internal Only generated complete traversal may seal a prepared plan. */
+  sealPreparedGraph() {
+    __privateGet(this, _prepared).seal();
+    __privateSet(this, _sealed, true);
+  }
+  get isPreparedSealed() {
+    return __privateGet(this, _sealed);
+  }
+  get preparedRootEntity() {
+    return __privateGet(this, _prepared).rootEntity;
+  }
+  /** @internal Generated graph registration carries no Context-owned ledger. */
+  registerSource(object, root, key, references, read) {
+    __privateGet(this, _prepared).register(object, root, key, references, read);
+  }
+  sourceMembers(objects) {
+    return __privateGet(this, _prepared).members(objects);
+  }
+  captureInputSources() {
+    __privateGet(this, _prepared).captureInput();
+  }
+  bindExecutionReference(read) {
+    __privateGet(this, _prepared).bind(read);
+  }
+  bindExecutionMetadata(read) {
+    __privateGet(this, _prepared).bindMetadata(read);
+  }
+  capturePreparedMutation(request, mutation, references) {
+    return __privateGet(this, _prepared).remember(request, mutation, references);
+  }
+  replayPreparedMutation(request) {
+    return __privateGet(this, _prepared).replay(request);
+  }
+  validatePreparedSources() {
+    __privateGet(this, _prepared).validate();
+  }
+  recordPreparedResult(request, result) {
+    __privateGet(this, _prepared).providerResult(request, result);
+  }
+  acceptPreparedResult(root, oldKey, newKey) {
+    __privateGet(this, _prepared).applied(root, oldKey, newKey);
+  }
+  finishPreparedCommit(root, key) {
+    __privateGet(this, _prepared).committed(root, key);
+  }
+  requirePreparedComplete() {
+    __privateGet(this, _prepared).complete();
+  }
+  get isPreparedEmpty() {
+    return __privateGet(this, _sealed) && __privateGet(this, _preparedCount) === 0;
+  }
+  /** @internal Manual unsealed graphs retain their existing transaction behavior. */
+  recordPreparedMutation() {
+    if (__privateGet(this, _sealed)) throw new Error("GRAPH_PREPARATION_SEALED: cannot add mutations after complete preparation");
+    __privateWrapper(this, _preparedCount)._++;
+  }
+  /** @internal A sealed empty plan must never admit an unplanned write. */
+  requireMutationAllowed() {
+    if (this.isPreparedEmpty) throw new Error("GRAPH_PREPARATION_EMPTY: complete graph has no admitted mutations");
+  }
+  /** @internal Admission always precedes cancellation, including unknown baselines. */
+  discardRestoredFields(layout, root, key, snapshot) {
+    if (layout.entity !== key.entity) throw new Error("MUTATION_LAYOUT_OWNER_MISMATCH");
+    layout.validate(root.change(key), !root.isNew(key));
+    snapshot?.discardRestoredFields(root, key);
   }
   request(mutation, parent, localComment) {
     if (parent && scopeOwners.get(parent) !== this)
@@ -1135,6 +1743,9 @@ var GraphMutationSession = class {
 };
 _intent3 = new WeakMap();
 _bindings = new WeakMap();
+_preparedCount = new WeakMap();
+_sealed = new WeakMap();
+_prepared = new WeakMap();
 var GraphCommittedError = class extends Error {
   constructor(cause) {
     super("GRAPH_ALREADY_COMMITTED: post-commit processing failed; do not retry as an uncommitted mutation");
@@ -1276,6 +1887,19 @@ var MutationPolicyRuntimeState = class {
     }
     this.consume(operationMatchKey(mutation, operation));
     return { snapshot: this.graphSnapshot };
+  }
+  /** @internal Review the complete detached plan before transaction entry. */
+  prepareGraphReview(context, rootEntity) {
+    if (!this.graphActive || this.graphReviewed || this.preflight.length === 0) return;
+    const operations = this.preflight;
+    this.graphSnapshot = this.review(context, this.plan(
+      rootEntity ?? this.rootEntity ?? operations[0].entity,
+      this.auditReason,
+      operations
+    ));
+    this.remaining.clear();
+    for (const signature of this.preflightKeys) this.remaining.set(signature, (this.remaining.get(signature) ?? 0) + 1);
+    this.graphReviewed = true;
   }
   ensureGraphComplete() {
     if (this.graphReviewed && this.remaining.size) {
@@ -1538,6 +2162,30 @@ var UserContext = class {
     this.locale = "en";
     this.i18nCatalog = I18nCatalog.builtin;
   }
+  withInternalIdGenerator(generator) {
+    if (!generator || typeof generator.generateId !== "function") {
+      throw new TypeError("Internal ID generator must provide generateId(entity, context)");
+    }
+    return this.insertResource("idGenerator", generator);
+  }
+  /** Reserve before constructing an entity. Failure must never choose another allocator. */
+  async generateInternalId(entity) {
+    if (typeof entity !== "string" || !entity.trim() || entity !== entity.trim()) {
+      throw new TypeError("Internal ID entity type is required");
+    }
+    if (this.resources.has("idGenerator")) {
+      const generator = this.getResource("idGenerator");
+      if (!generator || typeof generator.generateId !== "function") {
+        throw new TypeError("Configured internal ID generator must provide generateId(entity, context)");
+      }
+      return internalId(await generator.generateId(entity, this));
+    }
+    const service = this.requireResource("dataService");
+    if (typeof service.reserveInternalId !== "function") {
+      throw new TypeError("Configured data service must provide reserveInternalId(entity, context)");
+    }
+    return internalId(await service.reserveInternalId(entity, this));
+  }
   withBusinessClock(clock) {
     if (!clock || typeof clock.now !== "function") throw new TypeError("Business clock must provide now()");
     this.businessClock = clock;
@@ -1583,8 +2231,16 @@ var UserContext = class {
     if (!store) throw new Error("ID set pagination store is required");
     return this.insertResource("idSetPaginationStore", store);
   }
-  translateCheckResults(results) {
-    return results.map((result) => this.i18nCatalog.translate(result, this.locale));
+  translateCheckResults(results, declaringEntityType) {
+    if (!results.length) return results;
+    const scope = prepareCheckerResults(results, declaringEntityType);
+    try {
+      const translated = scope.values.map((result) => this.i18nCatalog.translate(result, this.locale));
+      results.splice(0, results.length, ...scope.finish(translated));
+      return results;
+    } finally {
+      scope.close();
+    }
   }
   withMutationPolicyRegistry(registry) {
     if (!registry || typeof registry.resolve !== "function") {
@@ -1613,6 +2269,10 @@ var UserContext = class {
   /** @internal Used by governed data-service graph orchestration. */
   beginMutationPolicyGraph() {
     this.mutationPolicy.beginGraph();
+  }
+  /** @internal Generated post-Fix snapshots are reviewed before provider work. */
+  prepareMutationPolicyGraph(rootEntity) {
+    this.mutationPolicy.prepareGraphReview(this, rootEntity);
   }
   /** @internal Used by generated preflight after Checker/Fix. */
   recordMutationPolicyPreflight(mutation) {
@@ -1692,6 +2352,9 @@ var UserContext = class {
     const root = this.getResource("activeRoot");
     if (!root) throw new ContextRootError("missing", expectedType);
     if (root.entity !== expectedType) throw new ContextRootError("type_mismatch", expectedType, root);
+    const id = root.id;
+    const valid = typeof id === "number" ? Number.isSafeInteger(id) && id > 0 : typeof id === "bigint" ? id > 0n : typeof id === "string" && /^[1-9][0-9]*$/.test(id);
+    if (!valid) throw new ContextRootError("invalid_id", expectedType, root);
     return root;
   }
   /**
@@ -1768,549 +2431,26 @@ var UserContext = class {
   }
 };
 
-// src/core/checker.ts
-var CheckException = class extends Error {
-  constructor(violations) {
-    super(`Check failed: ${violations.map((v) => v.message ?? `${v.ruleId}:${v.location}`).join("; ")}`);
-    this.violations = violations;
-    this.name = "CheckException";
-  }
-};
-
-// src/core/ast.ts
-var SortDirection = /* @__PURE__ */ ((SortDirection2) => {
-  SortDirection2["Asc"] = "Asc";
-  SortDirection2["Desc"] = "Desc";
-  return SortDirection2;
-})(SortDirection || {});
-var OrderBy = class _OrderBy {
-  constructor(field, expr, direction) {
-    this.field = field;
-    this.expr = expr;
-    this.direction = direction;
-  }
-  static new(field, direction) {
-    return new _OrderBy(field, null, direction);
-  }
-  static expr(expr, direction) {
-    return new _OrderBy("", expr, direction);
-  }
-  static asc(field) {
-    return _OrderBy.new(field, "Asc" /* Asc */);
-  }
-  static desc(field) {
-    return _OrderBy.new(field, "Desc" /* Desc */);
-  }
-};
-var AggregationCacheOptions = class _AggregationCacheOptions {
-  constructor(enabledValue, cacheExpiredMillis, propagateValue, propagateCacheExpiredMillis) {
-    this.enabledValue = enabledValue;
-    this.cacheExpiredMillis = cacheExpiredMillis;
-    this.propagateValue = propagateValue;
-    this.propagateCacheExpiredMillis = propagateCacheExpiredMillis;
-  }
-  static enabled(cacheExpiredMillis) {
-    return new _AggregationCacheOptions(true, cacheExpiredMillis, false, 0);
-  }
-  propagate(cacheExpiredMillis) {
-    this.propagateValue = true;
-    this.propagateCacheExpiredMillis = cacheExpiredMillis;
-    return this;
-  }
-};
-var SelectQuery = class _SelectQuery {
-  constructor(entity) {
-    this.hardLimitValue = 1e4;
-    this.filterCondition = null;
-    this.limitValue = 0;
-    this.offsetValue = 0;
-    this.orderItems = [];
-    this.selectItems = [];
-    this.properties = [];
-    this.joins = [];
-    this.groupByItems = [];
-    this.aggregateItems = [];
-    this.facets = [];
-    this.relations = [];
-    this.relationAggregates = [];
-    this.entity = entity;
-    Object.defineProperty(this, "hardLimitValue", { enumerable: false, writable: true, value: 1e4 });
-    Object.defineProperty(this, "continuousPageFetchOptions", { enumerable: false, writable: true, value: void 0 });
-    Object.defineProperty(this, "continuousPageRuntimeContext", { enumerable: false, writable: true, value: void 0 });
-    Object.defineProperty(this, "idSetPaginationOptions", { enumerable: false, writable: true, value: void 0 });
-    Object.defineProperty(this, "idSetPaginationRuntimeContext", { enumerable: false, writable: true, value: void 0 });
-    Object.defineProperty(this, "topNProbeThreshold", { enumerable: false, writable: true, value: void 0 });
-  }
-  comment(text) {
-    this.commentText = text;
-    return this;
-  }
-  purpose(text) {
-    this.purposeText = text;
-    return this;
-  }
-  facetBy(facetName, relationName, request, includeAllFacets = true, operation) {
-    this.facets.push({
-      facetName,
-      relationName,
-      query: request.toQuery(),
-      includeAllFacets,
-      operation
-    });
-    return this;
-  }
-  clone() {
-    const copy = snapshotQuery(this);
-    for (const field of ["commentText", "purposeText", "_comment", "_purpose"]) {
-      const descriptor = Object.getOwnPropertyDescriptor(copy, field);
-      if (descriptor && "value" in descriptor && descriptor.configurable) {
-        Object.defineProperty(copy, field, { ...descriptor, writable: true });
-      }
-    }
-    return copy;
-  }
-  filter(condition) {
-    this.filterCondition = condition;
-    return this;
-  }
-  limit(limit) {
-    if (!Number.isSafeInteger(limit) || limit < 1) {
-      throw new Error("QUERY_INVALID_LIMIT: limit must be a positive safe integer");
-    }
-    this.limitValue = limit;
-    return this;
-  }
-  optimizeForContinuousPageFetch() {
-    return this.optimizeForContinuousPageFetchWith("default", 600);
-  }
-  optimizeForContinuousPageFetchWith(namespace, ttlSeconds) {
-    if (!namespace?.trim()) throw new Error("continuous page namespace must not be empty");
-    if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) throw new Error("continuous page ttlSeconds must be a positive integer");
-    this.continuousPageFetchOptions = { namespace, ttlSeconds };
-    return this;
-  }
-  bindContinuousPageRuntime(runtime) {
-    this.continuousPageRuntimeContext = runtime;
-    return this;
-  }
-  localContinuousPageOptions() {
-    return this.continuousPageFetchOptions;
-  }
-  localContinuousPageRuntime() {
-    return this.continuousPageRuntimeContext;
-  }
-  clearContinuousPageRuntime() {
-    this.continuousPageRuntimeContext = void 0;
-    return this;
-  }
-  optimizePaginationWithIdSet() {
-    return this.optimizePaginationWithIdSetConfig("default", 600, 3e6);
-  }
-  optimizePaginationWithIdSetConfig(namespace, ttlSeconds, maxIds) {
-    if (!namespace?.trim()) throw new Error("ID set namespace must not be empty");
-    if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) throw new Error("ID set ttlSeconds must be a positive integer");
-    if (!Number.isSafeInteger(maxIds) || maxIds <= 0) throw new Error("ID set maxIds must be a positive integer");
-    this.idSetPaginationOptions = { namespace, ttlSeconds, maxIds };
-    return this;
-  }
-  bindIdSetPaginationRuntime(runtime) {
-    this.idSetPaginationRuntimeContext = runtime;
-    return this;
-  }
-  localIdSetPaginationOptions() {
-    return this.idSetPaginationOptions;
-  }
-  localIdSetPaginationRuntime() {
-    return this.idSetPaginationRuntimeContext;
-  }
-  clearIdSetPaginationRuntime() {
-    this.idSetPaginationRuntimeContext = void 0;
-    return this;
-  }
-  topNProbeParentThreshold(threshold) {
-    if (!Number.isSafeInteger(threshold) || threshold < 0) {
-      throw new Error("topNProbeParentThreshold must be a non-negative safe integer");
-    }
-    this.topNProbeThreshold = threshold;
-    return this;
-  }
-  localTopNProbeParentThreshold() {
-    return this.topNProbeThreshold;
-  }
-  prepareForList() {
-    if (!Number.isSafeInteger(this.offsetValue) || this.offsetValue < 0) {
-      throw new Error("QUERY_INVALID_OFFSET: offset must be a non-negative safe integer");
-    }
-    if (this.limitValue && (!Number.isSafeInteger(this.limitValue) || this.limitValue < 1)) {
-      throw new Error("QUERY_INVALID_LIMIT: limit must be a positive safe integer");
-    }
-    this.applyListLimit(this.hardLimitValue);
-    return this;
-  }
-  forExactCount(alias = "__teaql_total") {
-    const count = new _SelectQuery(this.entity);
-    count.filterCondition = snapshotQuery(this.filterCondition);
-    count.commentText = this.commentText;
-    count.purposeText = this.purposeText;
-    count.aggregate("Count", "id", alias);
-    retainQueryDiagnosticOrigin(this, count);
-    return count;
-  }
-  applyListLimit(ceiling) {
-    if (!this.limitValue) this.limitValue = ceiling;
-    if (this.limitValue > ceiling) {
-      throw new Error(`QUERY_HARD_LIMIT_EXCEEDED: requested limit ${this.limitValue} exceeds hard limit ${ceiling}`);
-    }
-    for (const relation of this.relations) {
-      relation.query?.applyListLimit(1e4);
-    }
-  }
-  offset(offset) {
-    if (!Number.isSafeInteger(offset) || offset < 0) {
-      throw new Error("QUERY_INVALID_OFFSET: offset must be a non-negative safe integer");
-    }
-    this.offsetValue = offset;
-    return this;
-  }
-  relation(name) {
-    this.relations.push({ name });
-    return this;
-  }
-  relationQuery(name, query, localKey = "id", foreignKey = "id", many = true, operation) {
-    this.relations.push({ name, query, localKey, foreignKey, many, operation });
-    return this;
-  }
-  relationAggregate(relationName, alias, query, singleResult = true, operation) {
-    this.relationAggregates.push({ relationName, alias, query, singleResult, operation });
-    return this;
-  }
-  order(orderBy) {
-    this.orderItems.push(orderBy);
-    return this;
-  }
-  select(items) {
-    this.selectItems.push(...items);
-    return this;
-  }
-  enableAggregationCacheFor(cacheExpiredMillis) {
-    this.aggregationCache = AggregationCacheOptions.enabled(cacheExpiredMillis);
-    return this;
-  }
-  propagateAggregationCache(cacheExpiredMillis) {
-    if (!this.aggregationCache) {
-      this.aggregationCache = AggregationCacheOptions.enabled(0);
-    }
-    this.aggregationCache.propagate(cacheExpiredMillis);
-    return this;
-  }
-  aggregate(functionName, field, alias) {
-    this.aggregateItems.push({ function: functionName, field, alias });
-    return this;
-  }
-  groupBy(item) {
-    this.groupByItems.push(item);
-    return this;
-  }
-};
-var MutationQuery = class {
-  constructor(entity, action, payload, id, comment, expectedVersion) {
-    this.entity = entity;
-    this.action = action;
-    this.payload = payload;
-    this.id = id;
-    this.comment = comment;
-    this.expectedVersion = expectedVersion;
-  }
-};
-
-// src/core/runtime-module.ts
-function mergeRuntimeBootstrap(left, right) {
-  const leftRoot = left.defaultDomainRoot;
-  const rightRoot = right.defaultDomainRoot;
-  if (leftRoot && rightRoot && (leftRoot.entity !== rightRoot.entity || leftRoot.id !== rightRoot.id)) {
-    throw new Error("Cannot compose Runtime Modules with different Default Domain Roots");
-  }
-  const constants = /* @__PURE__ */ new Map();
-  for (const value of [...left.constants ?? [], ...right.constants ?? []]) {
-    constants.set(`${value.entity}:${value.id}`, value);
-  }
-  return {
-    defaultDomainRoot: rightRoot ?? leftRoot,
-    constants: [...constants.values()],
-    ensure: left.ensure && right.ensure ? async (context) => {
-      await left.ensure(context);
-      await right.ensure(context);
-    } : right.ensure ?? left.ensure
-  };
-}
-var RuntimeModule = class _RuntimeModule {
-  constructor(schemas = {}, checkers = {}, bootstrap = {}) {
-    this.schemas = Object.freeze({ ...schemas });
-    this.checkers = Object.freeze({ ...checkers });
-    this.bootstrap = Object.freeze({
-      defaultDomainRoot: bootstrap.defaultDomainRoot,
-      constants: Object.freeze([...bootstrap.constants ?? []]),
-      ensure: bootstrap.ensure
-    });
-  }
-  and(other) {
-    return new _RuntimeModule(
-      { ...this.schemas, ...other.schemas },
-      { ...this.checkers, ...other.checkers },
-      mergeRuntimeBootstrap(this.bootstrap, other.bootstrap)
-    );
-  }
-};
-
-// src/core/smart-list.ts
-var SmartList = class _SmartList extends Array {
-  static get [Symbol.species]() {
-    return Array;
-  }
-  constructor(data = [], options = {}) {
-    if (typeof data === "number") super(data);
-    else super(...data);
-    Object.setPrototypeOf(this, _SmartList.prototype);
-    this.totalCount = options.totalCount;
-    this.aggregations = options.aggregations ?? {};
-    this.summary = options.summary ?? {};
-    this.facets = options.facets ?? {};
-    this.isLoaded = options.isLoaded ?? true;
-  }
-  static empty() {
-    return new _SmartList([], { isLoaded: false });
-  }
-  get data() {
-    return this;
-  }
-  withTotalCount(totalCount) {
-    this.totalCount = totalCount;
-    return this;
-  }
-  withFacet(name, facet) {
-    this.facets[name] = facet;
-    return this;
-  }
-  facet(name) {
-    return this.facets[name];
-  }
-  totalCountOrLength() {
-    return this.totalCount ?? this.length;
-  }
-};
-
-// src/core/facet.ts
-function snakeCase(value) {
-  return value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
-}
-function scalarId(value) {
-  if (value && typeof value === "object") {
-    const record = value;
-    return record.id ?? record.Id;
-  }
-  return value;
-}
-function relationId(row, relationName) {
-  const snake = snakeCase(relationName);
-  for (const key of [relationName, `${relationName}Id`, snake, `${snake}_id`]) {
-    const value = scalarId(row[key]);
-    if (value !== void 0 && value !== null) return value;
-  }
-  return void 0;
-}
-function emptyAggregateValue(aggregate) {
-  const fn = aggregate.function.toLowerCase();
-  return fn === "count" ? 0 : null;
-}
-function compareAggregateValues(left, right) {
-  if (typeof left === "number" && typeof right === "number") return left - right;
-  if (left instanceof Date && right instanceof Date) return left.getTime() - right.getTime();
-  return String(left).localeCompare(String(right));
-}
-async function executeFacetAggregatesFallback(service, prepareQuery, request, outerQuery, relationName, aggregates) {
-  const membershipQuery = outerQuery.clone();
-  membershipQuery.facets = [];
-  membershipQuery.relations = [];
-  membershipQuery.relationAggregates = [];
-  membershipQuery.orderItems = [];
-  membershipQuery.aggregateItems = [];
-  membershipQuery.groupByItems = [];
-  membershipQuery.offsetValue = 0;
-  membershipQuery.limitValue = 0;
-  membershipQuery.selectItems = [.../* @__PURE__ */ new Set([
-    relationName,
-    ...aggregates.map((aggregate) => aggregate.field)
-  ])];
-  membershipQuery.comment(`aggregate ${relationName}`);
-  retainQueryDiagnosticOrigin(outerQuery, membershipQuery);
-  const memberships = await service.executeQuery(
-    request.deriveHelper(prepareQuery(membershipQuery), `aggregate ${relationName}`).query
-  );
-  const result = /* @__PURE__ */ new Map();
-  const averageCounts = /* @__PURE__ */ new Map();
-  for (const row of memberships) {
-    const id = relationId(row, relationName);
-    if (id === void 0 || id === null) continue;
-    const key = String(id);
-    const values = result.get(key) ?? {};
-    const counts = averageCounts.get(key) ?? {};
-    for (const aggregate of aggregates) {
-      const fn = aggregate.function.toLowerCase();
-      const raw = row[aggregate.field];
-      if (fn === "count") {
-        if (raw !== void 0 && raw !== null) {
-          values[aggregate.alias] = Number(values[aggregate.alias] ?? 0) + 1;
-        }
-      } else if (fn === "sum" || fn === "avg") {
-        if (raw !== void 0 && raw !== null) {
-          const numeric = Number(raw);
-          if (!Number.isFinite(numeric)) {
-            throw new Error(`Facet aggregate ${aggregate.alias} requires numeric values`);
-          }
-          values[aggregate.alias] = Number(values[aggregate.alias] ?? 0) + numeric;
-          if (fn === "avg") counts[aggregate.alias] = (counts[aggregate.alias] ?? 0) + 1;
-        }
-      } else if (fn === "min" || fn === "max") {
-        if (raw !== void 0 && raw !== null) {
-          const current = values[aggregate.alias];
-          const comparison = current === void 0 || current === null ? 0 : compareAggregateValues(raw, current);
-          if (current === void 0 || current === null || fn === "min" && comparison < 0 || fn === "max" && comparison > 0) {
-            values[aggregate.alias] = raw;
-          }
-        }
-      } else {
-        throw new Error(`Unsupported facet aggregate: ${aggregate.function}`);
-      }
-    }
-    result.set(key, values);
-    averageCounts.set(key, counts);
-  }
-  for (const [key, values] of result) {
-    const counts = averageCounts.get(key) ?? {};
-    for (const aggregate of aggregates) {
-      if (aggregate.function.toLowerCase() !== "avg") continue;
-      const count = counts[aggregate.alias] ?? 0;
-      values[aggregate.alias] = count ? Number(values[aggregate.alias] ?? 0) / count : null;
-    }
-  }
-  return result;
-}
-async function executeRelationFacets(service, prepareQuery, outerQuery, facets) {
-  const request = new QueryRequest(outerQuery);
-  outerQuery = request.query;
-  const result = {};
-  for (const facet of facets) {
-    const operation = request.deriveOperation(outerQuery, facet.operation ?? {
-      kind: "facet",
-      relation: facet.relationName,
-      alias: facet.facetName
-    });
-    const nestedRequest = operation.deriveChild(facet.query.clone(), facet.relationName);
-    const nestedQuery = nestedRequest.query;
-    const nestedFacets = nestedQuery.facets;
-    nestedQuery.facets = [];
-    const requestedAggregates = nestedQuery.aggregateItems.map((item) => ({
-      function: String(item.function),
-      field: String(item.field),
-      alias: String(item.alias)
-    }));
-    const executedAggregates = requestedAggregates.length ? requestedAggregates : [{ function: "Count", field: "id", alias: "__teaql_facet_membership_count" }];
-    let aggregateValues;
-    if (service.executeFacetAggregates) {
-      aggregateValues = await service.executeFacetAggregates(
-        operation.deriveHelper(
-          prepareQuery(outerQuery.clone()),
-          `aggregate ${facet.relationName}`
-        ).query,
-        facet.relationName,
-        executedAggregates
-      );
-    } else if (service.executeFacetMembership && executedAggregates.every((item) => item.function.toLowerCase() === "count")) {
-      const counts = await service.executeFacetMembership(
-        operation.deriveHelper(
-          prepareQuery(outerQuery.clone()),
-          `aggregate ${facet.relationName}`
-        ).query,
-        facet.relationName
-      );
-      aggregateValues = new Map([...counts].map(([key, count]) => [
-        key,
-        Object.fromEntries(executedAggregates.map((item) => [item.alias, count]))
-      ]));
-    } else {
-      aggregateValues = await executeFacetAggregatesFallback(
-        service,
-        prepareQuery,
-        operation,
-        outerQuery,
-        facet.relationName,
-        executedAggregates
-      );
-    }
-    nestedQuery.aggregateItems = [];
-    nestedQuery.groupByItems = [];
-    for (const aggregate of nestedQuery.relationAggregates) {
-      if (aggregate.query.entity !== outerQuery.entity) continue;
-      const membership = outerQuery.clone();
-      membership.selectItems = ["id"];
-      membership.properties = [];
-      membership.relations = [];
-      membership.relationAggregates = [];
-      membership.facets = [];
-      membership.aggregateItems = [];
-      membership.groupByItems = [];
-      membership.orderItems = [];
-      membership.offsetValue = 0;
-      membership.limitValue = 0;
-      const filter = { id: { $inSubquery: { query: membership, field: "id" } } };
-      aggregate.query.filterCondition = aggregate.query.filterCondition ? { $and: [aggregate.query.filterCondition, filter] } : filter;
-      retainQueryDiagnosticOrigin(outerQuery, aggregate.query);
-    }
-    if (!facet.includeAllFacets) {
-      const membership = { id: { $in: [...aggregateValues.keys()] } };
-      nestedQuery.filterCondition = nestedQuery.filterCondition ? { $and: [nestedQuery.filterCondition, membership] } : membership;
-    }
-    retainQueryDiagnosticOrigin(outerQuery, nestedQuery);
-    const rows = await service.executeQuery(nestedRequest.withQuery(prepareQuery(nestedQuery)).query);
-    const decorated = rows.map((row) => {
-      const key = String(scalarId(row.id ?? row.Id));
-      const values = aggregateValues.get(key);
-      const copy = { ...row };
-      for (const aggregate of requestedAggregates) {
-        copy[aggregate.alias] = values?.[aggregate.alias] ?? emptyAggregateValue(aggregate);
-      }
-      return copy;
-    }).filter((row) => facet.includeAllFacets || aggregateValues.has(String(scalarId(row.id ?? row.Id))));
-    const list = new SmartList(decorated);
-    if (nestedFacets.length) {
-      list.facets = await executeRelationFacets(
-        service,
-        prepareQuery,
-        nestedRequest.withQuery(nestedQuery).query,
-        nestedFacets
-      );
-    }
-    result[facet.facetName] = list;
-  }
-  return result;
-}
-
 export {
-  decimal,
-  compareDecimals,
-  decimalOrderKey,
-  addDecimals,
   long,
   compareLongs,
   longOrderKey,
-  localTime,
+  CheckException,
+  renderJsonFieldName,
+  ObjectLocation,
+  MutationVersionError,
+  entityVersion,
+  nextEntityVersion,
   SystemBusinessClock,
   FixedBusinessClock,
+  credentialName,
+  translateCheckerResults,
   locales,
   UnsupportedLocaleError,
   parseLocale,
   checkResultToWire,
   I18nCatalog,
+  internalId,
   contextSchemaCapability,
   cloneTraceNodes,
   MutationTraceScope,
@@ -2318,14 +2458,16 @@ export {
   canonicalSQLTracePath,
   queryTraceSource,
   debugSQL,
-  credentialName,
   retainSQLLogProvenance,
   inheritSQLLogBindings,
   projectSQLLog,
   projectSafeSQLLog,
   queryDiagnosticOrigin,
   retainQueryDiagnosticOrigin,
+  snapshotQuery,
+  LoadedEntityIdentityError,
   LoadedScalarSnapshot,
+  PreparedMutationError,
   queryOperationComment,
   RequestIntentError,
   QueryIntent,
@@ -2342,16 +2484,6 @@ export {
   DelegatingMutationGovernanceSink,
   MutationPolicyRuntimeState,
   ContextRootError,
-  UserContext,
-  CheckException,
-  SortDirection,
-  OrderBy,
-  AggregationCacheOptions,
-  SelectQuery,
-  MutationQuery,
-  mergeRuntimeBootstrap,
-  RuntimeModule,
-  SmartList,
-  executeRelationFacets
+  UserContext
 };
-//# sourceMappingURL=chunk-6LOIUUTO.js.map
+//# sourceMappingURL=chunk-D2TPHZDJ.js.map

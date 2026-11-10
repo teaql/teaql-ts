@@ -1,13 +1,5 @@
 import type { SQLExecutionMetadata } from '../sql/core';
-export declare const PLAINTEXT_LOG_ENV = "TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS";
-export declare const PLAINTEXT_LOG_ACK = "I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK";
-/** Business-field masking; credentials always need complete redaction instead. */
-export declare function maskAuditValue(value: string): string;
-export declare function plaintextLogsEnabled(): boolean;
-export declare function credentialName(name: string): boolean;
-export declare function hasCredentials(value: unknown): boolean;
-export declare function logValueStrings(value: unknown): string[];
-export declare function scrubLogText(text: string | undefined, values: readonly string[]): string | undefined;
+export { PLAINTEXT_LOG_ENV, PLAINTEXT_LOG_ACK, maskAuditValue, credentialName, hasCredentials, logValueStrings, plaintextLogsEnabled, scrubLogText } from './value-privacy';
 /** @internal Keep result reprojection safe without serializing raw provenance. */
 export declare function retainSQLLogProvenance(metadata: SQLExecutionMetadata, bindings?: SQLLogBindingSource, intentValues?: readonly unknown[]): void;
 /** Internal SQL compiler/runtime plumbing, never a request or wire option. */

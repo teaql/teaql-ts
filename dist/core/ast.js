@@ -55,6 +55,8 @@ class SelectQuery {
         this.facets = [];
         this.relations = [];
         this.relationAggregates = [];
+        /** Query semantics, not authorization: Context policies still apply to every row. */
+        this.deletionVisibility = 'live';
         this.entity = entity;
         // Local runtime policy must never cross the federation JSON boundary.
         Object.defineProperty(this, 'hardLimitValue', { enumerable: false, writable: true, value: 10000 });
@@ -98,6 +100,8 @@ class SelectQuery {
         this.filterCondition = condition;
         return this;
     }
+    withDeletedRows() { this.deletionVisibility = 'all'; return this; }
+    deletedRowsOnly() { this.deletionVisibility = 'deleted'; return this; }
     limit(limit) {
         if (!Number.isSafeInteger(limit) || limit < 1) {
             throw new Error('QUERY_INVALID_LIMIT: limit must be a positive safe integer');
@@ -162,6 +166,7 @@ class SelectQuery {
         count.filterCondition = (0, query_snapshot_1.snapshotQuery)(this.filterCondition);
         count.commentText = this.commentText;
         count.purposeText = this.purposeText;
+        count.deletionVisibility = this.deletionVisibility;
         count.aggregate('Count', 'id', alias);
         (0, query_snapshot_1.retainQueryDiagnosticOrigin)(this, count);
         return count;
@@ -218,7 +223,16 @@ class SelectQuery {
         this.aggregateItems.push({ function: functionName, field, alias });
         return this;
     }
-    groupBy(item) {
+    groupBy(item, alias) {
+        if (alias !== undefined) {
+            if (typeof alias !== 'string' || !alias.trim())
+                throw new TypeError('Group alias must be a non-empty string');
+            const existing = this.groupByAliases?.[item];
+            if (existing !== undefined && existing !== alias)
+                throw new Error('Grouping field already has a different alias');
+            this.groupByAliases ?? (this.groupByAliases = Object.create(null));
+            this.groupByAliases[item] = alias;
+        }
         this.groupByItems.push(item);
         return this;
     }

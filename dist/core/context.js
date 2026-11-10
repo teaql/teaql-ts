@@ -4,6 +4,8 @@ exports.UserContext = exports.ContextRootError = void 0;
 const business_clock_1 = require("./business-clock");
 const object_storage_1 = require("./object-storage");
 const i18n_1 = require("./i18n");
+const checker_privacy_1 = require("./checker-privacy");
+const internal_id_1 = require("./internal-id");
 const schema_capability_1 = require("./schema-capability");
 const mutation_policy_1 = require("./mutation-policy");
 const resourceIdentities = new WeakMap();
@@ -64,6 +66,30 @@ class UserContext {
         this.locale = 'en';
         this.i18nCatalog = i18n_1.I18nCatalog.builtin;
     }
+    withInternalIdGenerator(generator) {
+        if (!generator || typeof generator.generateId !== 'function') {
+            throw new TypeError('Internal ID generator must provide generateId(entity, context)');
+        }
+        return this.insertResource('idGenerator', generator);
+    }
+    /** Reserve before constructing an entity. Failure must never choose another allocator. */
+    async generateInternalId(entity) {
+        if (typeof entity !== 'string' || !entity.trim() || entity !== entity.trim()) {
+            throw new TypeError('Internal ID entity type is required');
+        }
+        if (this.resources.has('idGenerator')) {
+            const generator = this.getResource('idGenerator');
+            if (!generator || typeof generator.generateId !== 'function') {
+                throw new TypeError('Configured internal ID generator must provide generateId(entity, context)');
+            }
+            return (0, internal_id_1.internalId)(await generator.generateId(entity, this));
+        }
+        const service = this.requireResource('dataService');
+        if (typeof service.reserveInternalId !== 'function') {
+            throw new TypeError('Configured data service must provide reserveInternalId(entity, context)');
+        }
+        return (0, internal_id_1.internalId)(await service.reserveInternalId(entity, this));
+    }
     withBusinessClock(clock) {
         if (!clock || typeof clock.now !== 'function')
             throw new TypeError('Business clock must provide now()');
@@ -95,7 +121,19 @@ class UserContext {
             throw new Error('ID set pagination store is required');
         return this.insertResource('idSetPaginationStore', store);
     }
-    translateCheckResults(results) { return results.map(result => this.i18nCatalog.translate(result, this.locale)); }
+    translateCheckResults(results, declaringEntityType) {
+        if (!results.length)
+            return results;
+        const scope = (0, checker_privacy_1.prepareCheckerResults)(results, declaringEntityType);
+        try {
+            const translated = scope.values.map(result => this.i18nCatalog.translate(result, this.locale));
+            results.splice(0, results.length, ...scope.finish(translated));
+            return results;
+        }
+        finally {
+            scope.close();
+        }
+    }
     withMutationPolicyRegistry(registry) {
         if (!registry || typeof registry.resolve !== 'function') {
             throw new TypeError('mutation policy registry must expose resolve(requestKey)');
@@ -122,6 +160,8 @@ class UserContext {
     }
     /** @internal Used by governed data-service graph orchestration. */
     beginMutationPolicyGraph() { this.mutationPolicy.beginGraph(); }
+    /** @internal Generated post-Fix snapshots are reviewed before provider work. */
+    prepareMutationPolicyGraph(rootEntity) { this.mutationPolicy.prepareGraphReview(this, rootEntity); }
     /** @internal Used by generated preflight after Checker/Fix. */
     recordMutationPolicyPreflight(mutation) {
         this.mutationPolicy.recordPreflight(mutation);
@@ -195,6 +235,14 @@ class UserContext {
             throw new ContextRootError('missing', expectedType);
         if (root.entity !== expectedType)
             throw new ContextRootError('type_mismatch', expectedType, root);
+        // A request root must identify a persisted object, never an unset/temporary
+        // key or a rounded JS number. Exact wide strings/bigints keep their type;
+        // the provider remains responsible for its supported numeric range.
+        const id = root.id;
+        const valid = typeof id === 'number' ? Number.isSafeInteger(id) && id > 0
+            : typeof id === 'bigint' ? id > 0n : typeof id === 'string' && /^[1-9][0-9]*$/.test(id);
+        if (!valid)
+            throw new ContextRootError('invalid_id', expectedType, root);
         return root;
     }
     /**

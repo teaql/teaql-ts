@@ -10,13 +10,16 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _QueryIntent_comment, _QueryIntent_purpose, _MutationIntent_comment, _QueryRequest_intent, _QueryRequest_query, _QueryRequest_parent, _QueryRequest_comment, _QueryRequest_name, _QueryRequest_operation, _QueryRequest_invocation, _MutationRequest_intent, _MutationRequest_mutation, _GraphMutationSession_intent, _GraphMutationSession_bindings;
+var _QueryIntent_comment, _QueryIntent_purpose, _MutationIntent_comment, _QueryRequest_intent, _QueryRequest_query, _QueryRequest_parent, _QueryRequest_comment, _QueryRequest_name, _QueryRequest_operation, _QueryRequest_invocation, _MutationRequest_intent, _MutationRequest_mutation, _GraphMutationSession_intent, _GraphMutationSession_bindings, _GraphMutationSession_preparedCount, _GraphMutationSession_sealed, _GraphMutationSession_prepared;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GraphCommittedError = exports.GraphMutationSession = exports.MutationRequest = exports.QueryRequest = exports.MutationIntent = exports.QueryIntent = exports.RequestIntentError = exports.queryOperationComment = void 0;
+exports.GraphCommittedError = exports.GraphMutationSession = exports.MutationRequest = exports.QueryRequest = exports.MutationIntent = exports.QueryIntent = exports.RequestIntentError = exports.queryOperationComment = exports.PreparedMutationError = void 0;
 const trace_chain_1 = require("./trace-chain");
 const log_privacy_1 = require("./log-privacy");
 const query_snapshot_1 = require("./query-snapshot");
 const loaded_scalar_snapshot_1 = require("./loaded-scalar-snapshot");
+const prepared_mutation_1 = require("./prepared-mutation");
+var prepared_mutation_2 = require("./prepared-mutation");
+Object.defineProperty(exports, "PreparedMutationError", { enumerable: true, get: function () { return prepared_mutation_2.PreparedMutationError; } });
 const mutationSnapshots = new WeakMap();
 // Only runtime-created snapshots carry provenance. No property supplied by a
 // JSON/builder caller can forge it, and no mutable trace stack lives on Context.
@@ -229,6 +232,10 @@ class MutationRequest {
         _MutationRequest_mutation.set(this, void 0);
         __classPrivateFieldSet(this, _MutationRequest_intent, new MutationIntent(intent === undefined ? mutation?.comment : intent?.comment), "f");
         __classPrivateFieldSet(this, _MutationRequest_mutation, { ...mutation }, "f");
+        // A request owns its top-level work record. Do not expose the immutable
+        // ledger snapshot as a writable execution payload or clone entity handles.
+        if (mutation.payload && typeof mutation.payload === 'object')
+            __classPrivateFieldGet(this, _MutationRequest_mutation, "f").payload = { ...mutation.payload };
         Object.defineProperty(__classPrivateFieldGet(this, _MutationRequest_mutation, "f"), 'comment', {
             value: __classPrivateFieldGet(this, _MutationRequest_intent, "f").comment, enumerable: true, writable: false, configurable: false,
         });
@@ -244,6 +251,14 @@ class MutationRequest {
     }
     /** @internal Does not become part of the write payload or policy input. */
     loadedValues() { return mutationSnapshots.get(this)?.values() ?? {}; }
+    /** @internal Checker-only detached provenance, not caller input or write payload. */
+    bindCheckerLoadedValues(mutation) {
+        Object.defineProperty(mutation, 'loadedValues', {
+            value: Object.freeze({ ...this.loadedValues() }),
+            enumerable: false, writable: false, configurable: false,
+        });
+        return mutation;
+    }
     /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
     get graphSession() { return graphRequests.get(this)?.session; }
     scopeFor(key) {
@@ -275,10 +290,52 @@ class GraphMutationSession {
     constructor(intent) {
         _GraphMutationSession_intent.set(this, void 0);
         _GraphMutationSession_bindings.set(this, void 0);
+        _GraphMutationSession_preparedCount.set(this, 0);
+        _GraphMutationSession_sealed.set(this, false);
+        _GraphMutationSession_prepared.set(this, new prepared_mutation_1.PreparedGraphState());
         __classPrivateFieldSet(this, _GraphMutationSession_intent, new MutationIntent(intent?.comment), "f");
         Object.freeze(this);
     }
     get intent() { return __classPrivateFieldGet(this, _GraphMutationSession_intent, "f"); }
+    /** @internal Only generated complete traversal may seal a prepared plan. */
+    sealPreparedGraph() { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").seal(); __classPrivateFieldSet(this, _GraphMutationSession_sealed, true, "f"); }
+    get isPreparedSealed() { return __classPrivateFieldGet(this, _GraphMutationSession_sealed, "f"); }
+    get preparedRootEntity() { return __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").rootEntity; }
+    /** @internal Generated graph registration carries no Context-owned ledger. */
+    registerSource(object, root, key, references, read) { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").register(object, root, key, references, read); }
+    sourceMembers(objects) { return __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").members(objects); }
+    captureInputSources() { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").captureInput(); }
+    bindExecutionReference(read) { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").bind(read); }
+    bindExecutionMetadata(read) { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").bindMetadata(read); }
+    capturePreparedMutation(request, mutation, references) {
+        return __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").remember(request, mutation, references);
+    }
+    replayPreparedMutation(request) { return __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").replay(request); }
+    validatePreparedSources() { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").validate(); }
+    recordPreparedResult(request, result) { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").providerResult(request, result); }
+    acceptPreparedResult(root, oldKey, newKey) { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").applied(root, oldKey, newKey); }
+    finishPreparedCommit(root, key) { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").committed(root, key); }
+    requirePreparedComplete() { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").complete(); }
+    get isPreparedEmpty() { return __classPrivateFieldGet(this, _GraphMutationSession_sealed, "f") && __classPrivateFieldGet(this, _GraphMutationSession_preparedCount, "f") === 0; }
+    /** @internal Manual unsealed graphs retain their existing transaction behavior. */
+    recordPreparedMutation() {
+        var _a;
+        if (__classPrivateFieldGet(this, _GraphMutationSession_sealed, "f"))
+            throw new Error('GRAPH_PREPARATION_SEALED: cannot add mutations after complete preparation');
+        __classPrivateFieldSet(this, _GraphMutationSession_preparedCount, (_a = __classPrivateFieldGet(this, _GraphMutationSession_preparedCount, "f"), _a++, _a), "f");
+    }
+    /** @internal A sealed empty plan must never admit an unplanned write. */
+    requireMutationAllowed() {
+        if (this.isPreparedEmpty)
+            throw new Error('GRAPH_PREPARATION_EMPTY: complete graph has no admitted mutations');
+    }
+    /** @internal Admission always precedes cancellation, including unknown baselines. */
+    discardRestoredFields(layout, root, key, snapshot) {
+        if (layout.entity !== key.entity)
+            throw new Error('MUTATION_LAYOUT_OWNER_MISMATCH');
+        layout.validate(root.change(key), !root.isNew(key));
+        snapshot?.discardRestoredFields(root, key);
+    }
     request(mutation, parent, localComment) {
         if (parent && scopeOwners.get(parent) !== this)
             throw new Error('GRAPH_TRACE_SCOPE_MISMATCH: parent scope belongs to another graph invocation');
@@ -294,7 +351,7 @@ class GraphMutationSession {
     get logBindings() { return __classPrivateFieldGet(this, _GraphMutationSession_bindings, "f"); }
 }
 exports.GraphMutationSession = GraphMutationSession;
-_GraphMutationSession_intent = new WeakMap(), _GraphMutationSession_bindings = new WeakMap();
+_GraphMutationSession_intent = new WeakMap(), _GraphMutationSession_bindings = new WeakMap(), _GraphMutationSession_preparedCount = new WeakMap(), _GraphMutationSession_sealed = new WeakMap(), _GraphMutationSession_prepared = new WeakMap();
 /** Database committed; retrying this operation as a rolled-back write is unsafe. */
 class GraphCommittedError extends Error {
     constructor(cause) {

@@ -1,9 +1,35 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.TextDiagnosticSQLLogSink = exports.debugSQL = exports.ensureOptimisticIdFloor = exports.canonicalRelationIndexes = void 0;
 const telemetry_1 = require("../core/telemetry");
 const checker_1 = require("../core/checker");
+const checker_privacy_1 = require("../core/checker-privacy");
+const mutation_field_layout_1 = require("../core/mutation-field-layout");
 const context_1 = require("../core/context");
+const internal_id_1 = require("../core/internal-id");
 const runtime_module_1 = require("../core/runtime-module");
 const schema_capability_1 = require("../core/schema-capability");
 const ast_1 = require("../core/ast");
@@ -17,7 +43,9 @@ const facet_1 = require("../core/facet");
 const smart_list_1 = require("../core/smart-list");
 const decimal_1 = require("../core/decimal");
 const long_1 = require("../core/long");
+const mutation_version_1 = require("../core/mutation-version");
 const local_time_1 = require("../core/local-time");
+const modeled_integer32_1 = require("../core/modeled-integer32");
 /** Canonical index for recent-child Top-N. Custom ordering needs an explicit model index. */
 function canonicalRelationIndexes(schemas) {
     const indexes = new Map();
@@ -188,6 +216,15 @@ class AbstractSQLTeaQLClient {
         this.bindOperandSources = new WeakMap();
         this.derivedQueryBindings = new WeakMap();
         this.derivedRelationAssembly = new WeakMap();
+        this.checkerPrivacyPolicy = (entity, field) => {
+            const schema = entity ? this.schemas[entity] : undefined;
+            if (!schema)
+                return undefined;
+            const native = Object.keys(schema.columns).find(name => name === field
+                || schema.columns[name].modelName === field || schema.columns[name].columnName === field) ?? field;
+            const policy = this.fieldLogPolicy(schema, native);
+            return policy === 'masked' || policy === 'credential' ? policy : undefined;
+        };
         this.auditEvents = [];
         this.diagnosticSQLLogSink = new TextDiagnosticSQLLogSink();
         this.queryLoggingEnabled = true;
@@ -200,6 +237,7 @@ class AbstractSQLTeaQLClient {
         this.graphCommitActions = [];
         this.graphRollbackActions = [];
         this.graphSaveTail = Promise.resolve();
+        (0, modeled_integer32_1.validateInteger32Schemas)(schemas);
         this.schemas = { ...schemas };
     }
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
@@ -210,6 +248,32 @@ class AbstractSQLTeaQLClient {
         return this;
     }
     setUserContext(context) { this.userContext = context; return this; }
+    /** Separate reservation transaction: no business mutation, Checker, Fix or audit. */
+    async reserveInternalId(entity, context) {
+        if (!(context instanceof context_1.UserContext))
+            throw new TypeError('UserContext is required for ID reservation');
+        this.schema(entity);
+        if (this.activeGraph)
+            throw new Error('Internal ID reservation is not allowed inside an active graph save');
+        const predecessor = this.graphSaveTail;
+        let release;
+        this.graphSaveTail = new Promise(resolve => { release = resolve; });
+        await predecessor;
+        try {
+            return await this.driver.transaction(async (session) => {
+                const id = (0, internal_id_1.internalId)(await this.driver.nextId(session, entity));
+                // The current SQL ID-space and floor implementations use JS numbers.
+                // Reject their exhausted range inside the transaction, never return a
+                // rounded/duplicate string or silently select a different allocator.
+                if (!Number.isSafeInteger(Number(id)))
+                    throw new RangeError('SQL internal ID space exhausted its exact integer range');
+                return id;
+            });
+        }
+        finally {
+            release();
+        }
+    }
     schema(entity) {
         const schema = this.schemas[entity];
         if (!schema)
@@ -232,6 +296,7 @@ class AbstractSQLTeaQLClient {
         const normalized = value?.id ?? value;
         if (normalized === undefined)
             return undefined;
+        this.requireFiniteFloatingPoint(normalized, column);
         if (column?.logicalType === 'decimal' && normalized !== null) {
             // Older generated schemas decode Decimal as number and still pass numeric
             // values into NUMERIC columns. Newly generated decode:decimal schemas
@@ -251,40 +316,71 @@ class AbstractSQLTeaQLClient {
             return this.driver.encode((0, local_time_1.localTime)(normalized), column);
         return this.driver.encode(normalized, column);
     }
-    decodeRow(entity, row, aggregateNames = []) {
+    requireFiniteFloatingPoint(value, column) {
+        if (column?.logicalType !== 'double' || value === null || value === undefined)
+            return;
+        // Float/Double use native JS numbers. JSON has no NaN/Infinity value;
+        // accepting one would silently turn a persisted value into wire null.
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new TypeError(`Invalid numeric field ${column.modelName ?? column.columnName}: expected a finite Float/Double number`);
+        }
+    }
+    validateFloatingMutation(mutation) {
+        // Unknown-entity reporting retains its existing position after the
+        // customer's Mutation Policy. There is no typed scalar to validate until
+        // model metadata exists; the later schema() guard still rejects it.
+        const schema = this.schemas[mutation.entity];
+        if (!schema)
+            return;
+        const record = this.toRuntimeMutationRecord(schema, mutation.payload || {});
+        for (const [field, value] of Object.entries(record))
+            this.requireFiniteFloatingPoint(value, schema.columns[field]);
+    }
+    decodeRow(entity, row, aggregateNames = [], groupAliases) {
         const schema = this.schema(entity);
         const result = { ...row };
+        const width = new modeled_integer32_1.ModeledInteger32Layout(entity, schema);
         for (const [field, column] of Object.entries(schema.columns)) {
-            const value = result[field];
+            if (groupAliases && !Object.prototype.hasOwnProperty.call(groupAliases, field))
+                continue;
+            const output = groupAliases?.[field] ?? field;
+            if (aggregateNames.some(aggregate => aggregate.name === output))
+                continue;
+            const value = result[output];
             if (value === null || value === undefined)
                 continue;
+            if (field === 'version') {
+                result[output] = (0, mutation_version_1.entityVersion)(value);
+                continue;
+            }
             if (column.decode === 'number')
-                result[field] = Number(value);
+                result[output] = Number(width.read(field, value));
+            this.requireFiniteFloatingPoint(result[output], column);
             if (column.decode === 'string')
-                result[field] = String(value);
+                result[output] = String(value);
             if (column.decode === 'decimal') {
                 if (typeof value !== 'string')
                     throw new TypeError(`Inexact Decimal readback for ${field}`);
-                result[field] = (0, decimal_1.decimal)(value);
+                result[output] = (0, decimal_1.decimal)(value);
             }
             if (column.decode === 'long') {
                 if (typeof value !== 'string' && typeof value !== 'bigint') {
                     throw new TypeError(`Inexact Long readback for ${field}`);
                 }
-                result[field] = (0, long_1.long)(value);
+                result[output] = (0, long_1.long)(value);
             }
             if (column.decode === 'time')
-                result[field] = (0, local_time_1.localTime)(value);
+                result[output] = (0, local_time_1.localTime)(value);
             if (column.decode === 'date') {
                 if (value instanceof Date)
-                    result[field] = column.logicalType === 'date'
+                    result[output] = column.logicalType === 'date'
                         ? value.toISOString().slice(0, 10) : value.toISOString();
                 else if (column.logicalType === 'datetime' && typeof value === 'number') {
-                    result[field] = new Date(value).toISOString();
+                    result[output] = new Date(value).toISOString();
                 }
             }
             if (column.logicalType === 'boolean')
-                result[field] = Boolean(value);
+                result[output] = Boolean(value);
         }
         for (const aggregate of aggregateNames) {
             const value = result[aggregate.name];
@@ -464,7 +560,8 @@ class AbstractSQLTeaQLClient {
         context.insertResource('bootstrapCategory', 'runtime-bootstrap');
         try {
             if (this.bootstrap.ensure) {
-                await this.bootstrap.ensure(context);
+                const { runGeneratedBootstrap } = await Promise.resolve().then(() => __importStar(require('../core/entity-creation')));
+                await runGeneratedBootstrap(context, this.bootstrap, () => this.bootstrap.ensure(context));
             }
             else {
                 await this.ensureBootstrapData();
@@ -517,9 +614,15 @@ class AbstractSQLTeaQLClient {
                 throw new Error(`Unknown bootstrap field ${record.entity}.${field}`);
             return {
                 column: column.columnName,
+                model: column.modelName ?? field,
+                original: value,
                 value: this.driver.encode(value, column),
             };
         });
+        // Legacy bootstrap declarations use schema-member keys. Their trusted
+        // metadata is adapted here; ordinary mutation requests still admit only
+        // canonical model keys and never receive this alias conversion.
+        const canonicalValues = Object.fromEntries(entries.map(entry => [entry.model, entry.original]));
         const query = new ast_1.SelectQuery(record.entity).filter({ id: { $eq: record.id } }).limit(1)
             .comment('inspect model bootstrap record').purpose('ensure model-defined root and constants');
         query.prepareForList();
@@ -527,14 +630,15 @@ class AbstractSQLTeaQLClient {
         // Reconciliation must see an existing tombstone too. Normal list SQL adds
         // version > 0 and would attempt a duplicate INSERT for a deleted constant.
         // This fixed primary-key lookup still owns validated query intent and logs.
-        const sql = `SELECT * FROM ${this.driver.identifier(schema.table)} WHERE ` +
+        const projection = Object.entries(schema.columns).map(([field, column]) => this.fieldProjection(field, column, column.columnName)).join(', ');
+        const sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
             `${this.driver.identifier(schema.columns.id?.columnName ?? 'id')} = ${this.driver.placeholder(1)}`;
         const values = [record.id];
         this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
         const current = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(request.query), () => session.query(sql, values));
         if (!current.rowCount) {
             return { entity: record.entity, action: 'Create', id: record.id, version: 0,
-                payload: { ...record.values } };
+                payload: canonicalValues };
         }
         const row = current.rows[0];
         const changed = entries.filter(entry => !sameBootstrapValue(row[entry.column], entry.value));
@@ -542,12 +646,20 @@ class AbstractSQLTeaQLClient {
             return undefined;
         // Checker sees the fully loaded object, not a partial update projection.
         return { entity: record.entity, action: 'Update', id: record.id,
-            version: Number(row[schema.columns.version?.columnName ?? 'version']),
-            payload: { ...this.decodeRowForSchema(schema, row), ...record.values } };
+            version: (0, mutation_version_1.entityVersion)(row[schema.columns.version?.columnName ?? 'version']),
+            payload: { ...Object.fromEntries(Object.entries(this.decodeRowForSchema(schema, row))
+                    .map(([field, value]) => [schema.columns[field]?.modelName ?? field, value])), ...canonicalValues } };
     }
-    async executeGraphSave(intent, work, prepare) {
+    async executeGraphSave(intent, work, prepare, admit) {
         // Root intent is mandatory before lifecycle initialization or provider work.
         const graph = new request_intent_1.GraphMutationSession(intent);
+        const executionContext = this.userContext;
+        graph.bindExecutionReference(() => this.userContext);
+        graph.bindExecutionMetadata(() => ({ schemas: this.schemas, checkerNames: Object.keys(this.checkers).sort() }));
+        for (const name of Object.keys(this.checkers)) {
+            graph.bindExecutionReference(() => this.checkers[name]);
+            graph.bindExecutionReference(() => this.checkers[name]?.checkAndFix);
+        }
         await this.telemetryStartup;
         const save = async () => {
             // Generated child saves call their within-graph entry point directly. Every
@@ -562,14 +674,33 @@ class AbstractSQLTeaQLClient {
             let mutationPolicyGraphStarted = false;
             let committed = false;
             try {
+                graph.validatePreparedSources();
                 this.graphCommitActions = [];
                 this.graphRollbackActions = [];
                 this.graphAuditActions = [];
-                this.userContext.insertResource('fixTime', this.userContext.businessTime());
-                this.userContext.beginFixEvidence();
-                fixEvidenceStarted = true;
-                this.userContext.beginMutationPolicyGraph();
+                // The synchronous generated pass runs inside the serialized save queue.
+                // No clock, Fix, policy or provider may precede whole-input admission.
+                const pending = admit?.(graph);
+                if (admit && typeof pending !== 'boolean')
+                    throw new Error('GRAPH_ADMISSION_RESULT_REQUIRED');
+                graph.captureInputSources();
+                if (pending === false) {
+                    graph.sealPreparedGraph();
+                    this.activeGraph = graph;
+                    try {
+                        return await work(graph);
+                    }
+                    finally {
+                        this.activeGraph = undefined;
+                    }
+                }
+                // Admission can reject another client sharing this Context. It must
+                // happen before capturing time or replacing the admitted graph's evidence.
+                executionContext.beginMutationPolicyGraph();
                 mutationPolicyGraphStarted = true;
+                executionContext.insertResource('fixTime', executionContext.businessTime());
+                executionContext.beginFixEvidence();
+                fixEvidenceStarted = true;
                 // Generated Checker/Fix is a preparation phase, not provider work. Keep
                 // the same graph capability and captured clock for the transaction, but
                 // reject invalid required values before opening it or allocating IDs.
@@ -580,12 +711,26 @@ class AbstractSQLTeaQLClient {
                 finally {
                     this.activeGraph = undefined;
                 }
+                if (prepare && !graph.isPreparedSealed)
+                    graph.sealPreparedGraph();
+                executionContext.prepareMutationPolicyGraph(graph.preparedRootEntity);
+                graph.validatePreparedSources();
+                if (graph.isPreparedEmpty) {
+                    this.activeGraph = graph;
+                    try {
+                        return await work(graph);
+                    }
+                    finally {
+                        this.activeGraph = undefined;
+                    }
+                }
                 const result = await this.driver.transaction(async (session) => {
                     this.graphMutationSession = session;
                     this.activeGraph = graph;
                     try {
                         const value = await work(graph);
-                        this.userContext.ensureMutationPolicyGraphComplete();
+                        graph.requirePreparedComplete();
+                        executionContext.ensureMutationPolicyGraphComplete();
                         return value;
                     }
                     finally {
@@ -628,10 +773,9 @@ class AbstractSQLTeaQLClient {
                 this.graphRollbackActions = [];
                 this.graphAuditActions = [];
                 if (mutationPolicyGraphStarted)
-                    this.userContext.endMutationPolicyGraph();
-                this.userContext.removeResource('fixTime');
+                    executionContext.endMutationPolicyGraph();
                 if (fixEvidenceStarted)
-                    this.userContext.finishFixEvidence();
+                    executionContext.removeResource('fixTime').finishFixEvidence();
                 release();
             }
         };
@@ -661,12 +805,15 @@ class AbstractSQLTeaQLClient {
     preflightMutation(mutation) {
         const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
         this.requireGraphOwnership(request);
+        request.graphSession?.recordPreparedMutation();
         mutation = this.checkAndFixMutation(request);
         if (request.graphSession) {
             const schema = this.schema(mutation.entity);
             request.graphSession.captureLogBindings(this.mutationLogBindings(request, mutation, schema));
         }
-        this.userContext.recordMutationPolicyPreflight(mutation);
+        const policyMutation = request.graphSession
+            ? request.graphSession.capturePreparedMutation(request, mutation, this.preparedReferences(mutation.entity)) : mutation;
+        this.userContext.recordMutationPolicyPreflight(policyMutation);
         return mutation;
     }
     mutationLogBindings(request, mutation, schema) {
@@ -681,40 +828,117 @@ class AbstractSQLTeaQLClient {
     checkAndFixMutation(mutation) {
         const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
         this.requireGraphOwnership(request);
+        const prepared = request.graphSession?.replayPreparedMutation(request);
+        if (prepared)
+            return prepared;
         mutation = request.mutation;
+        const schema = this.schemas[String(mutation.entity)];
+        // A schema-less denied operation must still reach the existing policy
+        // boundary. Do not invent model vocabulary or move its rejection priority.
+        if (schema) {
+            const fields = new mutation_field_layout_1.MutationFieldLayout(String(mutation.entity), Object.entries(schema.columns).map(([name, column]) => column.modelName ?? name));
+            fields.validate(mutation.payload ?? {}, mutation.action === 'Update');
+            if (mutation.ledgerKey && mutation.ledgerRoot) {
+                if (mutation.ledgerKey.entity !== mutation.entity)
+                    throw new Error('MUTATION_LAYOUT_OWNER_MISMATCH');
+                fields.validate(mutation.ledgerRoot.change(mutation.ledgerKey), mutation.action === 'Update');
+            }
+        }
+        const originalVersion = schema ? this.checkedMutationVersion(mutation) : undefined;
         // The ledger exposes immutable snapshots. Fixers receive a mutable working
         // payload and every derived value is copied back into the graph ledger.
         mutation = { ...mutation, payload: { ...(mutation?.payload ?? {}) } };
+        request.bindCheckerLoadedValues(mutation);
         Object.defineProperty(mutation, 'comment', { value: request.comment, enumerable: true });
-        const checker = this.checkers[String(mutation.entity)];
-        if (!checker)
-            return mutation;
+        const declaringEntityType = String(mutation.entity);
+        const width = new modeled_integer32_1.ModeledInteger32Layout(declaringEntityType, schema);
+        const checker = this.checkers[declaringEntityType];
+        if (!checker) {
+            const violations = width.checkMutation(mutation.payload || {});
+            if (violations.length)
+                throw new checker_1.CheckException(violations);
+            this.validateFloatingMutation(mutation);
+            return this.sealMutationVersion(mutation, schema ? originalVersion : undefined, Boolean(schema));
+        }
         const results = [];
         const ownsFixTime = this.userContext.getResource('fixTime') === undefined;
         if (ownsFixTime)
             this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
         try {
             checker.checkAndFix(this.userContext, mutation, results);
-            if (mutation.ledgerKey && mutation.ledgerRoot) {
-                for (const [field, value] of Object.entries(mutation.payload || {})) {
-                    mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
-                }
+            if (schema && (mutation.action !== request.mutation.action
+                || this.checkedMutationVersion(mutation) !== originalVersion)) {
+                throw new mutation_version_1.MutationVersionError('invalid_type');
             }
-            this.userContext.translateCheckResults(results);
+            width.checkMutation(mutation.payload || {}, results);
+            (0, checker_privacy_1.translateCheckerResults)(this.userContext, results, declaringEntityType, this.checkerPrivacyPolicy, [request.loadedValues(), request.mutation.payload ?? {}, mutation.payload ?? {}]);
             if (results.length)
                 throw new checker_1.CheckException(results);
-            return mutation;
+            // This same path runs in generated graph preparation, before transaction,
+            // ID allocation or provider calls. Encoding alone would reject too late.
+            this.validateFloatingMutation(mutation);
+            // Delete carries a loaded record for validation/audit, not field writes.
+            // Copying it into pending intent would make a rolled-back deletion look
+            // like an illegal id/version edit on the next graph-save attempt.
+            if (mutation.action !== 'Delete' && mutation.ledgerKey && mutation.ledgerRoot) {
+                for (const [field, value] of Object.entries(mutation.payload || {}))
+                    mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+            }
+            return this.sealMutationVersion(mutation, originalVersion, Boolean(schema));
         }
         finally {
             if (ownsFixTime)
                 this.userContext.removeResource('fixTime').finishFixEvidence();
         }
     }
+    preparedReferences(entity) {
+        const schema = this.schemas[entity];
+        return Object.fromEntries(Object.values(schema?.relations ?? {}).filter(relation => !relation.many)
+            .map(relation => [schema.columns[relation.localKey]?.modelName ?? relation.localKey, relation.targetEntity]));
+    }
+    sealMutationVersion(mutation, original, modeled) {
+        if (modeled && ['Create', 'Update', 'Delete', 'Recover'].includes(mutation.action)) {
+            Object.defineProperties(mutation, {
+                version: { value: original, enumerable: true, writable: false, configurable: false },
+                expectedVersion: { value: original, enumerable: mutation.expectedVersion !== undefined, writable: false, configurable: false },
+                action: { value: mutation.action, enumerable: true, writable: false, configurable: false },
+            });
+        }
+        return mutation;
+    }
+    /** Validate original state before Fix/policy/clock/provider. Missing originals
+     * retain the explicit trusted administrative SQL path, never a fake version. */
+    checkedMutationVersion(mutation) {
+        if (mutation.action === 'Create') {
+            (0, mutation_version_1.nextEntityVersion)('Create');
+            return undefined;
+        }
+        if (!['Update', 'Delete', 'Recover'].includes(mutation.action))
+            return undefined;
+        const supplied = mutation.version !== undefined, expected = mutation.expectedVersion !== undefined;
+        if (!supplied && !expected) {
+            if (mutation.action === 'Recover')
+                throw new mutation_version_1.MutationVersionError('invalid_type', 'Recover');
+            return undefined;
+        }
+        const original = (0, mutation_version_1.entityVersion)(supplied ? mutation.version : mutation.expectedVersion);
+        if (supplied && expected && original !== (0, mutation_version_1.entityVersion)(mutation.expectedVersion))
+            throw new mutation_version_1.MutationVersionError('invalid_type');
+        (0, mutation_version_1.nextEntityVersion)(mutation.action, original);
+        return original;
+    }
+    /** Preserve integer storage while asking JS drivers for exact version text. */
+    fieldProjection(field, column, alias = field) {
+        const sql = this.driver.identifier(column.columnName);
+        const exact = field === 'version' ? `CAST(${sql} AS ${this.driver.databaseKind === 'mysql' ? 'CHAR' : 'TEXT'})` : sql;
+        return `${exact} AS ${this.driver.identifier(alias)}`;
+    }
     async executeMutation(mutation) {
         await this.telemetryStartup;
         // Validate before Checker, policy, telemetry and transaction/provider work.
         const request = mutation instanceof request_intent_1.MutationRequest ? mutation : new request_intent_1.MutationRequest(mutation);
         this.requireGraphOwnership(request);
+        request.graphSession?.requireMutationAllowed();
         if (this.activeGraph && !this.graphMutationSession) {
             throw new Error('Graph preparation cannot execute mutations before its transaction');
         }
@@ -751,7 +975,7 @@ class AbstractSQLTeaQLClient {
                         if (mutation.id) {
                             await this.driver.ensureIdFloor(session, mutation.entity, id);
                         }
-                        const version = Number(mutation.version || 0) + 1;
+                        const version = (0, mutation_version_1.nextEntityVersion)('Create');
                         const record = { ...mutationRecord, id, version };
                         const fields = Object.keys(schema.columns)
                             .filter(field => record[field] !== undefined);
@@ -782,8 +1006,10 @@ class AbstractSQLTeaQLClient {
                         const predicates = [
                             `${this.driver.identifier('id')} = ${this.driver.placeholder(values.length)}`,
                         ];
-                        if (mutation.version !== undefined && mutation.version !== null) {
-                            this.bindValue(values, Number(mutation.version), this.fieldLogPolicy(schema, 'version'));
+                        const original = this.checkedMutationVersion(mutation);
+                        predicates.push(`${versionColumn} > 0`, `${versionColumn} < 9223372036854775807`);
+                        if (original !== undefined) {
+                            this.bindValue(values, original, this.fieldLogPolicy(schema, 'version'));
                             predicates.push(`${versionColumn} = ${this.driver.placeholder(values.length)}`);
                         }
                         const sql = `UPDATE ${table} SET ${assignments.join(', ')} ` +
@@ -797,26 +1023,29 @@ class AbstractSQLTeaQLClient {
                         return {
                             success: true,
                             id: String(mutation.id),
-                            version: Number(persistedRecord.version),
+                            version: (0, mutation_version_1.entityVersion)(persistedRecord.version),
                             persistedRecord,
                         };
                     }
-                    if (mutation.action === 'Delete') {
+                    if (mutation.action === 'Delete' || mutation.action === 'Recover') {
                         const versionColumn = this.driver.identifier('version');
                         const values = [String(mutation.id)];
                         this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
                         const predicates = [
                             `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`,
                         ];
-                        if (mutation.version !== undefined && mutation.version !== null) {
-                            this.bindValue(values, Number(mutation.version), this.fieldLogPolicy(schema, 'version'));
+                        const original = this.checkedMutationVersion(mutation), recovering = mutation.action === 'Recover';
+                        predicates.push(`${versionColumn} ${recovering ? '<' : '>'} 0`);
+                        if (original !== undefined) {
+                            this.bindValue(values, original, this.fieldLogPolicy(schema, 'version'));
                             predicates.push(`${this.driver.identifier('version')} = ` +
                                 this.driver.placeholder(values.length));
                         }
-                        const sql = `UPDATE ${table} SET ${versionColumn} = -(${versionColumn} + 1) ` +
+                        const sql = `UPDATE ${table} SET ${versionColumn} = -${versionColumn} ${recovering ? '+' : '-'} 1 ` +
                             `WHERE ${predicates.join(' AND ')}`;
-                        const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, 'delete', String(mutation.id), diagnosticBindings);
-                        const result = await this.executeLoggedSQL('delete', sql, values, intent, () => session.query(sql, values), undefined, statements);
+                        const operation = recovering ? 'update' : 'delete';
+                        const intent = mutationLogIntent(request, mutation, this.driver.databaseKind, operation, String(mutation.id), diagnosticBindings);
+                        const result = await this.executeLoggedSQL(operation, sql, values, intent, () => session.query(sql, values), undefined, statements);
                         if (result.rowCount !== 1) {
                             throw new Error(`Optimistic lock failed or ${mutation.entity}(${mutation.id}) does not exist`);
                         }
@@ -824,13 +1053,14 @@ class AbstractSQLTeaQLClient {
                         return {
                             success: true,
                             id: String(mutation.id),
-                            version: Number(persistedRecord.version),
-                            deleted: true,
+                            version: (0, mutation_version_1.entityVersion)(persistedRecord.version),
+                            deleted: !recovering,
                             persistedRecord,
                         };
                     }
                     throw new Error(`Unsupported mutation action: ${mutation.action}`);
                 }));
+                request.graphSession?.recordPreparedResult(request, result);
                 const auditProjection = request.auditProjection({ entity: String(mutation.entity), id: result.id }, mutation.payload, diagnosticBindings);
                 const event = Object.freeze({
                     entity: mutation.entity,
@@ -880,7 +1110,7 @@ class AbstractSQLTeaQLClient {
         return scope.run ? scope.run(work) : work();
     }
     async readPersistedRecord(session, schema, id, intent, writeSQL, writeValues, statements) {
-        const projection = Object.entries(schema.columns).map(([field, column]) => `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`).join(', ');
+        const projection = Object.entries(schema.columns).map(([field, column]) => this.fieldProjection(field, column)).join(', ');
         const sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)} WHERE ` +
             `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`;
         const values = [id];
@@ -930,12 +1160,19 @@ class AbstractSQLTeaQLClient {
     }
     decodeRowForSchema(schema, row) {
         const result = { ...row };
+        const entityType = Object.keys(this.schemas).find(name => this.schemas[name] === schema) ?? 'Unknown';
+        const width = new modeled_integer32_1.ModeledInteger32Layout(entityType, schema);
         for (const [field, column] of Object.entries(schema.columns)) {
             const value = result[field];
             if (value === null || value === undefined)
                 continue;
+            if (field === 'version') {
+                result[field] = (0, mutation_version_1.entityVersion)(value);
+                continue;
+            }
             if (column.decode === 'number')
-                result[field] = Number(value);
+                result[field] = Number(width.read(field, value));
+            this.requireFiniteFloatingPoint(result[field], column);
             if (column.decode === 'string')
                 result[field] = String(value);
             if (column.decode === 'decimal') {
@@ -1158,7 +1395,31 @@ class AbstractSQLTeaQLClient {
         new request_intent_1.QueryIntent(query?.commentText ?? query?._comment, query?.purposeText ?? query?._purpose);
         const schema = this.schema(query.entity);
         const values = [];
-        const groupProperties = this.groupBy(query);
+        const groupProperties = [...new Set(this.groupBy(query))];
+        const aggregates = this.aggregates(query);
+        const aliases = query.groupByAliases;
+        if (aliases !== undefined) {
+            if (aliases === null || typeof aliases !== 'object' || Array.isArray(aliases))
+                throw new Error('Invalid group aliases');
+            for (const [field, alias] of Object.entries(aliases)) {
+                if (!groupProperties.includes(field))
+                    throw new Error('Group alias refers to an ungrouped field');
+                if (typeof alias !== 'string' || !alias.trim())
+                    throw new Error('Group alias must be a non-empty string');
+            }
+        }
+        const groupAliases = aggregates.length || groupProperties.length
+            ? Object.fromEntries(groupProperties.map(field => [field,
+                aliases && Object.prototype.hasOwnProperty.call(aliases, field) ? aliases[field] : field]))
+            : undefined;
+        const outputNames = [...Object.values(groupAliases ?? {}), ...aggregates.map(item => item.retName)];
+        const outputs = new Set();
+        for (const name of outputNames) {
+            this.driver.identifier(name);
+            if (outputs.has(name))
+                throw new Error('Duplicate grouped or aggregate output alias');
+            outputs.add(name);
+        }
         const groupFields = groupProperties.map(field => {
             if (!schema.columns[field])
                 throw new Error(`Unknown group field: ${field}`);
@@ -1177,7 +1438,7 @@ class AbstractSQLTeaQLClient {
             return sql;
         });
         const groupProjection = groupProperties.map(field => `${this.driver.identifier(schema.columns[field].columnName)} AS ` +
-            this.driver.identifier(field));
+            this.driver.identifier(groupAliases[field]));
         const aggregateNames = [];
         const requestedFields = Array.isArray(query.selectItems) && query.selectItems.length
             ? [...new Set(['id', 'version', ...query.selectItems])]
@@ -1204,10 +1465,9 @@ class AbstractSQLTeaQLClient {
         }
         let projection = requestedFields.map(field => {
             const column = schema.columns[field];
-            return `${this.driver.identifier(column.columnName)} AS ${this.driver.identifier(field)}`;
+            return this.fieldProjection(field, column);
         }).join(', ');
-        const aggregates = this.aggregates(query);
-        if (aggregates.length) {
+        if (aggregates.length || groupProperties.length) {
             const aggregateProjection = aggregates.map(aggregate => {
                 if (!schema.columns[aggregate.field]) {
                     throw new Error(`Unknown aggregate field: ${aggregate.field}`);
@@ -1266,8 +1526,11 @@ class AbstractSQLTeaQLClient {
         let sql = `SELECT ${projection} FROM ${this.driver.identifier(schema.table)}`;
         const filters = this.filters(query);
         const predicates = filters.map(expression => this.compileExpression(expression, schema, values));
-        if (schema.columns.version) {
-            predicates.push(`${this.driver.identifier(schema.columns.version.columnName)} > 0`);
+        const visibility = query.deletionVisibility ?? 'live';
+        if (!['live', 'all', 'deleted'].includes(visibility))
+            throw new Error('QUERY_INVALID_DELETION_VISIBILITY');
+        if (schema.columns.version && visibility !== 'all') {
+            predicates.push(`${this.driver.identifier(schema.columns.version.columnName)} ${visibility === 'deleted' ? '<' : '>'} 0`);
         }
         if (predicates.length) {
             sql += ` WHERE ${predicates.join(' AND ')}`;
@@ -1305,7 +1568,7 @@ class AbstractSQLTeaQLClient {
         }
         if (recordTrace)
             this.sqlTrace.push(sql);
-        return { sql, values, aggregateNames };
+        return { sql, values, aggregateNames, groupAliases };
     }
     async executeQuery(query) {
         const request = query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query);
@@ -1368,6 +1631,7 @@ class AbstractSQLTeaQLClient {
                 const facetValueQuery = facet.query.clone();
                 facetValueQuery.aggregateItems = [];
                 facetValueQuery.groupByItems = [];
+                facetValueQuery.groupByAliases = undefined;
                 stack.push(facetValueQuery);
             }
         }
@@ -1392,10 +1656,10 @@ class AbstractSQLTeaQLClient {
                 const idSetPrepared = internal ? { query, execution: undefined } : await this.prepareIdSetPage(query, inherited);
                 const prepared = internal ? idSetPrepared : await this.prepareContinuousPage(idSetPrepared.query);
                 query = new request_intent_1.QueryRequest(query).withQuery(prepared.query).query;
-                const { sql, values, aggregateNames } = await this.compileQuery(query, true, assembly ? [assembly.field] : []);
+                const { sql, values, aggregateNames, groupAliases } = await this.compileQuery(query, true, assembly ? [assembly.field] : []);
                 inherited = await this.queryTreeBindings(query, sql, values, inherited);
                 const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query), () => this.driver.query(sql, values), inherited);
-                const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames));
+                const rows = result.rows.map(row => this.decodeRow(query.entity, row, aggregateNames, groupAliases));
                 if (idSetPrepared.execution?.pageIds) {
                     const positions = new Map(idSetPrepared.execution.pageIds.map((id, index) => [String(id), index]));
                     rows.sort((left, right) => (positions.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER)
@@ -1559,6 +1823,7 @@ class AbstractSQLTeaQLClient {
         query.limitValue = 0;
         query.selectItems = [];
         query.groupByItems = [relationName];
+        query.groupByAliases = undefined;
         query.aggregateItems = aggregates.map(aggregate => ({ ...aggregate }));
         query[this.internalQueryToken] = true;
         const rows = await this.executeQuery(query);
@@ -1584,7 +1849,7 @@ class AbstractSQLTeaQLClient {
         });
         const rows = await this.executeQuery(countRequest.query);
         const value = rows[0]?.[alias];
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
+        if (rows.length !== 1 || typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
             throw new Error(`TeaQL provider did not return exact count alias ${alias}`);
         }
         return value;
@@ -1687,7 +1952,7 @@ class AbstractSQLTeaQLClient {
         if (Array.isArray(query.facets) && query.facets.length > 0) {
             throw new Error('QRY-F01_STREAM_UNSUPPORTED: execute facets with executeForList');
         }
-        const { sql, values, aggregateNames } = await this.compileQuery(query);
+        const { sql, values, aggregateNames, groupAliases } = await this.compileQuery(query);
         const inherited = await this.queryTreeBindings(query, sql, values);
         const queryScope = (0, telemetry_1.startRuntimeOperation)(this.runtimeTelemetry, { family: 'query',
             name: `${String(query.entity)}.stream`, attributes: { 'teaql.entity.type': String(query.entity) } });
@@ -1713,7 +1978,7 @@ class AbstractSQLTeaQLClient {
                 const next = await (providerScope.run ? providerScope.run(() => iterator.next()) : iterator.next());
                 if (next.done)
                     break;
-                chunk.push(this.decodeRow(query.entity, next.value, aggregateNames));
+                chunk.push(this.decodeRow(query.entity, next.value, aggregateNames, groupAliases));
                 if (chunk.length === chunkSize) {
                     await this.enhanceQueryRows(chunk, query, descendantBindings);
                     delivered += chunk.length;

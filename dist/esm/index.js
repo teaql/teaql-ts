@@ -1,5 +1,25 @@
 import {
+  EntityCreation,
+  EntityCreationError,
+  runGeneratedBootstrap
+} from "./chunks/chunk-6MDL2SPS.js";
+import {
   AggregationCacheOptions,
+  ModeledInteger32Layout,
+  MutationFieldLayout,
+  MutationQuery,
+  OrderBy,
+  RuntimeModule,
+  SelectQuery,
+  SmartList,
+  SortDirection,
+  executeRelationFacets,
+  integer32Error,
+  localTime,
+  mergeRuntimeBootstrap,
+  validateInteger32Schemas
+} from "./chunks/chunk-4RL2SBSG.js";
+import {
   CheckException,
   ContextRootError,
   DelegatingMutationGovernanceSink,
@@ -9,45 +29,47 @@ import {
   GraphCommittedError,
   GraphMutationSession,
   I18nCatalog,
+  LoadedEntityIdentityError,
   LoadedScalarSnapshot,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
   MutationIntent,
   MutationPolicyError,
   MutationPolicyRuntimeState,
-  MutationQuery,
   MutationRequest,
   MutationTraceScope,
-  OrderBy,
+  MutationVersionError,
+  ObjectLocation,
+  PreparedMutationError,
   QueryIntent,
   QueryRequest,
   RequestIntentError,
-  RuntimeModule,
-  SelectQuery,
-  SmartList,
-  SortDirection,
   SystemBusinessClock,
   UnsupportedLocaleError,
   UserContext,
-  addDecimals,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
-  compareDecimals,
   compareLongs,
-  decimal,
-  decimalOrderKey,
-  executeRelationFacets,
-  localTime,
+  contextSchemaCapability,
+  entityVersion,
+  internalId,
   locales,
   long,
   longOrderKey,
-  mergeRuntimeBootstrap,
   mutationScopeForEntity,
+  nextEntityVersion,
   parseLocale,
   queryOperationComment,
-  queryTraceSource
-} from "./chunks/chunk-6LOIUUTO.js";
+  queryTraceSource,
+  renderJsonFieldName
+} from "./chunks/chunk-D2TPHZDJ.js";
+import {
+  addDecimals,
+  compareDecimals,
+  decimal,
+  decimalOrderKey
+} from "./chunks/chunk-2M5YIPLE.js";
 import {
   MAX_OBJECT_PUT_SIZE,
   ObjectContent,
@@ -58,7 +80,7 @@ import {
   ObjectReadUrlOptions,
   ObjectStorage,
   StorageError
-} from "./chunks/chunk-MJFGQZSQ.js";
+} from "./chunks/chunk-QG6ZEHP2.js";
 import {
   NOOP_RUNTIME_TELEMETRY,
   injectRuntimeContext,
@@ -67,7 +89,12 @@ import {
   safeRuntimeOperation,
   startRuntimeOperation
 } from "./chunks/chunk-WEYNFMW2.js";
-import "./chunks/chunk-AQT573VW.js";
+import {
+  __privateAdd,
+  __privateGet,
+  __privateSet,
+  __privateWrapper
+} from "./chunks/chunk-UNAWFD3C.js";
 
 // src/core/value.ts
 var Values = {
@@ -126,7 +153,7 @@ var EntityRoot = class {
   set(key, field, value) {
     if (!field.trim()) throw new TypeError("field is required");
     const id = identity(key);
-    const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: {} };
+    const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: /* @__PURE__ */ Object.create(null) };
     entry.values[field] = value;
     this.changes.set(id, entry);
   }
@@ -138,6 +165,15 @@ var EntityRoot = class {
   }
   change(key) {
     return Object.freeze({ ...this.changes.get(identity(key))?.values ?? {} });
+  }
+  /** @internal Remove only the exact intents observed during baseline comparison. */
+  discardFields(key, observed) {
+    const id = identity(key), entry = this.changes.get(id);
+    if (!entry) return;
+    for (const [field, value] of Object.entries(observed)) {
+      if (Object.prototype.hasOwnProperty.call(entry.values, field) && Object.is(entry.values[field], value)) delete entry.values[field];
+    }
+    if (!Object.keys(entry.values).length) this.changes.delete(id);
   }
   mergeFrom(other) {
     if (other === this) return;
@@ -204,12 +240,14 @@ var EntityRoot = class {
       throw new Error("ENTITY_VERSION_CONFLICT: one graph cannot contain different loaded versions of the same typed entity");
     }
   }
-  setOriginalVersion(key, version) {
+  setOriginalVersion(key, input) {
+    const version = entityVersion(input);
     this.requireMatchingVersion(key, version);
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
   }
   /** @internal Accept only the authoritative result after this key committed. */
-  acceptCommittedVersion(key, version) {
+  acceptCommittedVersion(key, input) {
+    const version = entityVersion(input);
     if (this.hasPending(key)) throw new Error("ENTITY_COMMIT_PENDING: clear committed changes before accepting the persisted version");
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
   }
@@ -235,61 +273,6 @@ var EntityRoot = class {
     this.newKeys.clear();
     this.deletedKeys.clear();
     this.traces.clear();
-  }
-};
-
-// src/core/object-location.ts
-function lowerCamel(name) {
-  const parts = name.split("_");
-  return parts[0] + parts.slice(1).map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join("");
-}
-function renderJsonFieldName(name, profile) {
-  if (profile === "snake_case") return name;
-  const camel = lowerCamel(name);
-  if (profile === "camelCase" || !camel) return camel;
-  return camel[0].toUpperCase() + camel.slice(1);
-}
-function escapeJsonPointer(value) {
-  return value.replace(/~/g, "~0").replace(/\//g, "~1");
-}
-var ObjectLocation = class _ObjectLocation {
-  constructor(segments) {
-    this.segments = segments;
-  }
-  static root() {
-    return new _ObjectLocation([]);
-  }
-  static property(name) {
-    return _ObjectLocation.root().property(name);
-  }
-  property(name) {
-    return new _ObjectLocation([...this.segments, { kind: "property", name }]);
-  }
-  index(index) {
-    return new _ObjectLocation([...this.segments, { kind: "index", index }]);
-  }
-  prefixedBy(prefix) {
-    return new _ObjectLocation([...prefix.segments, ...this.segments]);
-  }
-  modelPath() {
-    return this.render((name) => name);
-  }
-  nativePath() {
-    return this.render(lowerCamel);
-  }
-  instancePath(profile = "camelCase") {
-    return this.segments.map((segment) => segment.kind === "index" ? String(segment.index) : escapeJsonPointer(renderJsonFieldName(segment.name, profile))).map((value) => `/${value}`).join("");
-  }
-  toString() {
-    return this.nativePath();
-  }
-  render(propertyName) {
-    let result = "";
-    for (const segment of this.segments) {
-      if (segment.kind === "index") result += `[${segment.index}]`;
-      else result += `${result ? "." : ""}${propertyName(segment.name)}`;
-    }
-    return result;
   }
 };
 
@@ -335,7 +318,7 @@ function normalizeWireInput(input, metadata, parentPointer = "") {
   const sourceInstancePaths = {};
   const submitted = /* @__PURE__ */ new Map();
   for (const [submittedName, value] of Object.entries(input)) {
-    const pointer = `${parentPointer}/${escapeJsonPointer2(submittedName)}`;
+    const pointer = `${parentPointer}/${escapeJsonPointer(submittedName)}`;
     const field = lookup.get(submittedName);
     if (!field) {
       throw new WireInputError(
@@ -354,7 +337,7 @@ function normalizeWireInput(input, metadata, parentPointer = "") {
     }
     submitted.set(field.canonicalName, submittedName);
     values[field.canonicalName] = value;
-    if (submittedName !== field.wireName) {
+    if (submittedName !== field.wireName || parentPointer !== "") {
       sourceInstancePaths[field.canonicalName] = pointer;
     }
   }
@@ -376,13 +359,14 @@ function encodeWireOutput(values, metadata) {
 }
 function retainSubmittedPaths(results, normalized) {
   return results.map((result) => {
-    const firstProperty = result.location.segments.find((segment) => segment.kind === "property");
+    if (result.location.segments.length !== 1) return { ...result };
+    const firstProperty = result.location.segments[0];
     if (!firstProperty || firstProperty.kind !== "property") return { ...result };
     const sourceInstancePath = normalized.sourceInstancePaths[firstProperty.name];
     return sourceInstancePath === void 0 ? { ...result } : { ...result, sourceInstancePath };
   });
 }
-function escapeJsonPointer2(value) {
+function escapeJsonPointer(value) {
   return value.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
@@ -648,6 +632,85 @@ var LocalCache = class {
   }
 };
 var localCache = new LocalCache();
+
+// src/core/context-schema-provider.ts
+var _bootstrap, _installed, _pending, _tail;
+var ContextSchemaProvider = class {
+  constructor() {
+    __privateAdd(this, _bootstrap, {});
+    __privateAdd(this, _installed, false);
+    __privateAdd(this, _pending, 0);
+    __privateAdd(this, _tail, Promise.resolve());
+  }
+  installBootstrap(bootstrap) {
+    if (__privateGet(this, _pending)) throw new Error("SCHEMA_INSTALL_DURING_RECONCILIATION");
+    const merged = mergeRuntimeBootstrap(__privateGet(this, _bootstrap), bootstrap);
+    __privateSet(this, _bootstrap, merged);
+    __privateSet(this, _installed, true);
+  }
+  async [contextSchemaCapability](context) {
+    if (context.requireResource("dataService") !== this) throw new Error("SCHEMA_CONTEXT_PROVIDER_MISMATCH");
+    if (!__privateGet(this, _installed)) throw new Error("SCHEMA_RUNTIME_MODULE_REQUIRED");
+    const bootstrap = __privateGet(this, _bootstrap);
+    if (!bootstrap.ensure && (bootstrap.defaultDomainRoot || bootstrap.constants?.length)) {
+      throw new Error("SCHEMA_GENERATED_BOOTSTRAP_REQUIRED");
+    }
+    const predecessor = __privateGet(this, _tail);
+    let release;
+    __privateSet(this, _tail, new Promise((resolve) => {
+      release = resolve;
+    }));
+    __privateWrapper(this, _pending)._++;
+    await predecessor;
+    let restore, actor, category;
+    let captured = false, failed = false, failure;
+    try {
+      actor = context.getResource("bootstrapActor");
+      category = context.getResource("bootstrapCategory");
+      captured = true;
+      restore = this.enterSchemaContext(context);
+      if (typeof restore !== "function") throw new TypeError("SCHEMA_CONTEXT_RESTORE_REQUIRED");
+      await this.ensurePhysicalSchema(context);
+      context.insertResource("bootstrapActor", "teaql-generated-bootstrap");
+      context.insertResource("bootstrapCategory", "runtime-bootstrap");
+      await runGeneratedBootstrap(context, bootstrap, async () => {
+        await bootstrap.ensure?.(context);
+      });
+    } catch (error) {
+      failed = true;
+      failure = error;
+    } finally {
+      const cleanup = (work) => {
+        try {
+          work();
+        } catch (error) {
+          if (!failed) {
+            failed = true;
+            failure = error;
+          }
+        }
+      };
+      if (captured) {
+        cleanup(() => {
+          if (actor === void 0) context.removeResource("bootstrapActor");
+          else context.insertResource("bootstrapActor", actor);
+        });
+        cleanup(() => {
+          if (category === void 0) context.removeResource("bootstrapCategory");
+          else context.insertResource("bootstrapCategory", category);
+        });
+      }
+      if (typeof restore === "function") cleanup(restore);
+      __privateWrapper(this, _pending)._--;
+      release();
+    }
+    if (failed) throw failure;
+  }
+};
+_bootstrap = new WeakMap();
+_installed = new WeakMap();
+_pending = new WeakMap();
+_tail = new WeakMap();
 
 // src/meta/descriptors.ts
 var DataType = /* @__PURE__ */ ((DataType2) => {
@@ -2385,12 +2448,15 @@ export {
   AggregationCacheOptions,
   CheckException,
   ContextRootError,
+  ContextSchemaProvider,
   ContextTools,
   ContextToolsBuilder,
   DataType,
   DelegatingMutationGovernanceSink,
   DelegatingMutationPolicyApprovalProvider,
   DelegatingMutationPolicyRegistry,
+  EntityCreation,
+  EntityCreationError,
   EntityDescriptor,
   EntityRoot,
   ExpressionPath,
@@ -2400,17 +2466,21 @@ export {
   GraphMutationSession,
   HTTP_TOOL,
   I18nCatalog,
+  LoadedEntityIdentityError,
   LoadedScalarSnapshot,
   LocalCache,
   MAX_OBJECT_PUT_SIZE,
   MISSING_MUTATION_POLICY,
   MISSING_MUTATION_POLICY_APPROVAL,
+  ModeledInteger32Layout,
+  MutationFieldLayout,
   MutationIntent,
   MutationPolicyError,
   MutationPolicyRuntimeState,
   MutationQuery,
   MutationRequest,
   MutationTraceScope,
+  MutationVersionError,
   NOOP_RUNTIME_TELEMETRY,
   ObjectContent,
   ObjectKey,
@@ -2421,6 +2491,7 @@ export {
   ObjectReadUrlOptions,
   ObjectStorage,
   OrderBy,
+  PreparedMutationError,
   PropertyDescriptor,
   QueryIntent,
   QueryParser,
@@ -2451,8 +2522,11 @@ export {
   decimal,
   decimalOrderKey,
   encodeWireOutput,
+  entityVersion,
   executeRelationFacets,
   injectRuntimeContext,
+  integer32Error,
+  internalId,
   localCache,
   localTime,
   locales,
@@ -2462,6 +2536,7 @@ export {
   mergeGeneratedScalarSearch,
   mergeRuntimeBootstrap,
   mutationScopeForEntity,
+  nextEntityVersion,
   normalizeDynamicSearch,
   normalizeWireInput,
   observeRuntimeOperation,
@@ -2472,6 +2547,7 @@ export {
   retainSubmittedPaths,
   runtimeErrorCategory,
   safeRuntimeOperation,
-  startRuntimeOperation
+  startRuntimeOperation,
+  validateInteger32Schemas
 };
 //# sourceMappingURL=index.js.map

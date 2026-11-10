@@ -4,16 +4,20 @@ import {
   canonicalRelationIndexes,
   ensureOptimisticIdFloor,
   standardAggregateFunction
-} from "../chunks/chunk-LQXL6EAD.js";
+} from "../chunks/chunk-ZLU3HZMD.js";
 import "../chunks/chunk-LGSUBUWZ.js";
 import {
-  decimal,
-  localTime,
+  localTime
+} from "../chunks/chunk-4RL2SBSG.js";
+import {
   long
-} from "../chunks/chunk-6LOIUUTO.js";
-import "../chunks/chunk-MJFGQZSQ.js";
+} from "../chunks/chunk-D2TPHZDJ.js";
+import {
+  decimal
+} from "../chunks/chunk-2M5YIPLE.js";
+import "../chunks/chunk-QG6ZEHP2.js";
 import "../chunks/chunk-WEYNFMW2.js";
-import "../chunks/chunk-AQT573VW.js";
+import "../chunks/chunk-UNAWFD3C.js";
 
 // src/sql/browser-sqlite.ts
 var BrowserSQLiteTransport = class {
@@ -110,6 +114,18 @@ var BrowserSQLiteDriver = class _BrowserSQLiteDriver {
   }
   aggregateFunction(name) {
     return standardAggregateFunction(name);
+  }
+  decimalComparison(columnSql, operator, placeholder) {
+    return `teaql_decimal_cmp(${columnSql}, ${placeholder}) ${operator} 0`;
+  }
+  decimalOrderExpression(columnSql) {
+    return `teaql_decimal_order_key(${columnSql})`;
+  }
+  decimalAggregateFunction(name) {
+    const functions = { sum: "teaql_decimal_sum", min: "teaql_decimal_min", max: "teaql_decimal_max" };
+    const result = functions[name.toLowerCase()];
+    if (!result) throw new Error(`EXACT_DECIMAL_UNSUPPORTED: ${name} requires an explicit exact rounding policy`);
+    return result;
   }
   longComparison(columnSql, operator, placeholder) {
     return `CAST(${columnSql} AS INTEGER) ${operator} CAST(${placeholder} AS INTEGER)`;

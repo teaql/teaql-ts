@@ -5,7 +5,7 @@ import {
   telemetryNotice
 } from "./chunk-LGSUBUWZ.js";
 import "./chunk-WEYNFMW2.js";
-import "./chunk-AQT573VW.js";
+import "./chunk-UNAWFD3C.js";
 
 // src/telemetry/standard-node-sdk.ts
 import { context, ROOT_CONTEXT, defaultTextMapSetter } from "@opentelemetry/api";
@@ -643,4 +643,4 @@ function createStandardNodePipeline(serviceName, endpoint) {
 export {
   createStandardNodePipeline
 };
-//# sourceMappingURL=standard-node-sdk-CX5SOKI2.js.map
+//# sourceMappingURL=standard-node-sdk-ANGBVLCD.js.map

@@ -1,65 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.projectSafeSQLLog = exports.projectSQLLog = exports.inheritSQLLogBindings = exports.privateLogValueStrings = exports.retainSQLLogProvenance = exports.scrubLogText = exports.logValueStrings = exports.hasCredentials = exports.credentialName = exports.plaintextLogsEnabled = exports.maskAuditValue = exports.PLAINTEXT_LOG_ACK = exports.PLAINTEXT_LOG_ENV = void 0;
+exports.projectSafeSQLLog = exports.projectSQLLog = exports.inheritSQLLogBindings = exports.privateLogValueStrings = exports.retainSQLLogProvenance = exports.scrubLogText = exports.plaintextLogsEnabled = exports.logValueStrings = exports.hasCredentials = exports.credentialName = exports.maskAuditValue = exports.PLAINTEXT_LOG_ACK = exports.PLAINTEXT_LOG_ENV = void 0;
 const log_rendering_1 = require("../sql/log-rendering");
-exports.PLAINTEXT_LOG_ENV = 'TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS';
-exports.PLAINTEXT_LOG_ACK = 'I_UNDERSTAND_SENSITIVE_DATA_MAY_BE_WRITTEN_TO_DISK';
+const value_privacy_1 = require("./value-privacy");
+var value_privacy_2 = require("./value-privacy");
+Object.defineProperty(exports, "PLAINTEXT_LOG_ENV", { enumerable: true, get: function () { return value_privacy_2.PLAINTEXT_LOG_ENV; } });
+Object.defineProperty(exports, "PLAINTEXT_LOG_ACK", { enumerable: true, get: function () { return value_privacy_2.PLAINTEXT_LOG_ACK; } });
+Object.defineProperty(exports, "maskAuditValue", { enumerable: true, get: function () { return value_privacy_2.maskAuditValue; } });
+Object.defineProperty(exports, "credentialName", { enumerable: true, get: function () { return value_privacy_2.credentialName; } });
+Object.defineProperty(exports, "hasCredentials", { enumerable: true, get: function () { return value_privacy_2.hasCredentials; } });
+Object.defineProperty(exports, "logValueStrings", { enumerable: true, get: function () { return value_privacy_2.logValueStrings; } });
+Object.defineProperty(exports, "plaintextLogsEnabled", { enumerable: true, get: function () { return value_privacy_2.plaintextLogsEnabled; } });
+Object.defineProperty(exports, "scrubLogText", { enumerable: true, get: function () { return value_privacy_2.scrubLogText; } });
 const redacted = '[REDACTED]';
 const redactedSQL = '[REDACTED SQL; NOT REPLAYABLE]';
 const debugLabel = '-- TeaQL DEBUG PLAINTEXT; EXPLICIT OPT-IN\n';
-let warned = false;
-/** Business-field masking; credentials always need complete redaction instead. */
-function maskAuditValue(value) {
-    const scalars = Array.from(value);
-    if (scalars.length < 8 || /^[0-9]+$/.test(value))
-        return '*'.repeat(scalars.length);
-    return scalars.slice(0, 2).join('') + '*'.repeat(scalars.length - 4) + scalars.slice(-2).join('');
-}
-exports.maskAuditValue = maskAuditValue;
-function plaintextLogsEnabled() {
-    // Browsers have no trusted process environment: remain redacted there.
-    const environment = globalThis.process?.env;
-    const enabled = environment?.[exports.PLAINTEXT_LOG_ENV] === exports.PLAINTEXT_LOG_ACK;
-    if (enabled && !warned) {
-        warned = true;
-        console.warn('TeaQL: sensitive plaintext logging enabled; application data may be written to disk. Authentication secrets remain redacted.');
-    }
-    return enabled;
-}
-exports.plaintextLogsEnabled = plaintextLogsEnabled;
-function credentialName(name) {
-    const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return ['password', 'passwd', 'passphrase', 'privatekey', 'secret', 'accesstoken',
-        'refreshtoken', 'idtoken', 'apikey', 'authorization', 'credential', 'sessiontoken',
-        'magiclinktoken'].some(word => normalized.includes(word));
-}
-exports.credentialName = credentialName;
-function hasCredentials(value) {
-    if (Array.isArray(value))
-        return value.some(hasCredentials);
-    if (value && typeof value === 'object') {
-        return Object.entries(value).some(([key, child]) => credentialName(key) || hasCredentials(child));
-    }
-    return false;
-}
-exports.hasCredentials = hasCredentials;
-function logValueStrings(value) {
-    if (value === undefined || value === null || value === '')
-        return [];
-    if (Array.isArray(value))
-        return value.flatMap(logValueStrings);
-    if (value instanceof Date)
-        return [value.toISOString()];
-    if (typeof value === 'object')
-        return Object.values(value).flatMap(logValueStrings);
-    return [String(value)];
-}
-exports.logValueStrings = logValueStrings;
-function scrubLogText(text, values) {
-    return [...new Set(values)].sort((a, b) => b.length - a.length)
-        .reduce((result, value) => result?.split(value).join(redacted), text);
-}
-exports.scrubLogText = scrubLogText;
 const projections = new WeakMap();
 // A debug record can later reach a sink after debug is disabled. Keep only its
 // already-safe alternative, never raw source parameters/provenance on a record.
@@ -74,10 +29,10 @@ exports.retainSQLLogProvenance = retainSQLLogProvenance;
 function bindingPolicies(metadata) {
     const supplied = metadata.parameterLogPolicies;
     const valid = !!supplied && supplied.length === metadata.parameters.length;
-    const credentialStatement = credentialName(metadata.parameterizedSQL)
+    const credentialStatement = (0, value_privacy_1.credentialName)(metadata.parameterizedSQL)
         && (metadata.sqlOrigin !== 'generated' || !valid);
     return metadata.parameters.map((value, index) => {
-        if (credentialStatement || hasCredentials(value))
+        if (credentialStatement || (0, value_privacy_1.hasCredentials)(value))
             return 'credential';
         const policy = valid ? supplied[index] : undefined;
         return policy === 'plain' || policy === 'masked' || policy === 'credential' ? policy : 'unknown';
@@ -91,7 +46,7 @@ function privateLogValueStrings(source) {
     if (!source)
         return [];
     const policies = bindingPolicies(source);
-    return source.parameters.flatMap((value, index) => bindingIsMasked(policies[index], false) ? logValueStrings(value) : []);
+    return source.parameters.flatMap((value, index) => bindingIsMasked(policies[index], false) ? (0, value_privacy_1.logValueStrings)(value) : []);
 }
 exports.privateLogValueStrings = privateLogValueStrings;
 function copyLogValue(value) {
@@ -116,20 +71,8 @@ function inheritSQLLogBindings(source, inherited) {
     });
 }
 exports.inheritSQLLogBindings = inheritSQLLogBindings;
-function businessMask(value) {
-    if (value === null || value === undefined)
-        return null;
-    if (Array.isArray(value))
-        return value.map(businessMask);
-    if (value && typeof value === 'object' && 'type' in value) {
-        return businessMask(value.value);
-    }
-    if (typeof value === 'object' && !(value instanceof Date))
-        return redacted;
-    return maskAuditValue(value instanceof Date ? value.toISOString() : String(value));
-}
 function projectSQLLog(metadata, inherited, intentValues = []) {
-    const allow = plaintextLogsEnabled() && metadata.logMode !== 'masked';
+    const allow = (0, value_privacy_1.plaintextLogsEnabled)() && metadata.logMode !== 'masked';
     const prior = projections.get(metadata);
     // Safe projections cannot recover raw values. If debug gets disabled, reproject.
     if (prior !== undefined && (!prior || allow))
@@ -169,24 +112,24 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
     const policiesValid = !supplied || supplied.length === metadata.parameters.length;
     // Compiler-owned bindings identify credentials individually. Selecting a
     // credential column must not override unrelated ordinary/masked policies.
-    const credentialStatement = credentialName(metadata.parameterizedSQL)
+    const credentialStatement = (0, value_privacy_1.credentialName)(metadata.parameterizedSQL)
         && (metadata.sqlOrigin !== 'generated' || !supplied || !policiesValid);
     const policies = bindingPolicies(metadata);
     const masked = policies.map(policy => bindingIsMasked(policy, allow));
-    const secrets = metadata.parameters.flatMap((value, index) => masked[index] ? logValueStrings(value) : []);
+    const secrets = metadata.parameters.flatMap((value, index) => masked[index] ? (0, value_privacy_1.logValueStrings)(value) : []);
     if (inherited) {
         const inheritedPolicies = bindingPolicies(inherited);
-        secrets.push(...inherited.parameters.flatMap((value, index) => bindingIsMasked(inheritedPolicies[index], allow) ? logValueStrings(value) : []));
+        secrets.push(...inherited.parameters.flatMap((value, index) => bindingIsMasked(inheritedPolicies[index], allow) ? (0, value_privacy_1.logValueStrings)(value) : []));
     }
-    const intentSecrets = [...secrets, ...intentValues.flatMap(logValueStrings)];
+    const intentSecrets = [...secrets, ...intentValues.flatMap(value_privacy_1.logValueStrings)];
     // Copies/serialization discard the private safe alternative. Their old debug
     // intent has unknown provenance, so fail closed when returning to safe mode.
     const unknownDebugIntent = !allow && metadata.logMode === 'debug-plaintext' && !inherited;
-    const intentText = (value) => unknownDebugIntent && value ? redacted : scrubLogText(value, intentSecrets);
+    const intentText = (value) => unknownDebugIntent && value ? redacted : (0, value_privacy_1.scrubLogText)(value, intentSecrets);
     const safeValues = metadata.parameters.map((value, index) => {
         if (!masked[index])
             return copyLogValue(value);
-        return policies[index] === 'masked' ? businessMask(value) : redacted;
+        return policies[index] === 'masked' ? (0, value_privacy_1.businessMask)(value) : redacted;
     });
     const bareTemplate = metadata.parameterizedSQL.replace(/\$[0-9]+|@p[0-9]+/gi, '?');
     // Unclassified literal SQL needs a real parser/provenance before it is safe to log.
@@ -214,7 +157,7 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
         ...metadata,
         ...(metadata.statements ? { statements: Object.freeze(metadata.statements.map(statement => projectWithPolicy(statement, allow, inheritSQLLogBindings(metadata, inherited), intentValues))) } : {}),
         parameterizedSQL: unsafeSQL ? redactedSQL : metadata.sqlOrigin === 'generated'
-            ? metadata.parameterizedSQL : scrubLogText(metadata.parameterizedSQL, secrets),
+            ? metadata.parameterizedSQL : (0, value_privacy_1.scrubLogText)(metadata.parameterizedSQL, secrets),
         parameters: Object.freeze(safeValues),
         parameterLogPolicies: Object.freeze(policies),
         maskedParameters: Object.freeze(masked),
@@ -228,7 +171,7 @@ function projectWithPolicy(metadata, allow, inherited, intentValues = []) {
         // Counts are operational metadata, not a copy of a masked numeric binding.
         resultSummary: metadata.resultCount !== undefined ? `${metadata.resultCount} rows returned`
             : metadata.affectedRows !== undefined ? `${metadata.affectedRows} rows affected`
-                : scrubLogText(metadata.resultSummary, secrets),
+                : (0, value_privacy_1.scrubLogText)(metadata.resultSummary, secrets),
         tracePath: Object.freeze(metadata.tracePath.map(frame => Object.freeze(Object.fromEntries(Object.entries(frame).map(([key, value]) => [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))),
         ...(metadata.traceChain ? { traceChain: Object.freeze(metadata.traceChain.map(node => Object.freeze(Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key !== 'entityId' && typeof value === 'string' ? intentText(value) : value]))))) } : {}),
         // Typed identity is structural (as in the audit event's id), not prose.

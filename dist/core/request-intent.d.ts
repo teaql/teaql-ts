@@ -1,8 +1,10 @@
 import type { MutationQuery, SelectQuery } from './ast';
 import { TraceNode, MutationTraceScope } from './trace-chain';
-import type { EntityKey } from './entity-root';
+import type { EntityKey, EntityRoot } from './entity-root';
 import type { SQLLogBindingSource } from './log-privacy';
 import { LoadedScalarSnapshot } from './loaded-scalar-snapshot';
+import { MutationFieldLayout } from './mutation-field-layout';
+export { PreparedMutationError } from './prepared-mutation';
 export type QueryOperation = Readonly<{
     kind: 'named-count' | 'facet' | 'relation-count' | 'relation-select' | 'aggregate' | 'pagination';
     /** Exact generator-supplied native method; absent for a low-level runtime operation. */
@@ -84,6 +86,8 @@ export declare class MutationRequest<T extends object = MutationQuery> {
     withLoadedSnapshot(snapshot: LoadedScalarSnapshot): this;
     /** @internal Does not become part of the write payload or policy input. */
     loadedValues(): Readonly<Record<string, unknown>>;
+    /** @internal Checker-only detached provenance, not caller input or write payload. */
+    bindCheckerLoadedValues<M extends object>(mutation: M): M;
     /** Runtime-owned execution capability; raw mutation fields cannot forge it. */
     get graphSession(): GraphMutationSession | undefined;
     scopeFor(key: EntityKey): MutationTraceScope;
@@ -99,6 +103,30 @@ export declare class GraphMutationSession {
     #private;
     constructor(intent: MutationIntent);
     get intent(): MutationIntent;
+    /** @internal Only generated complete traversal may seal a prepared plan. */
+    sealPreparedGraph(): void;
+    get isPreparedSealed(): boolean;
+    get preparedRootEntity(): string | undefined;
+    /** @internal Generated graph registration carries no Context-owned ledger. */
+    registerSource(object: object, root: EntityRoot, key: EntityKey, references: Readonly<Record<string, string>>, read: () => Record<string, unknown>): void;
+    sourceMembers(objects: readonly object[]): readonly symbol[];
+    captureInputSources(): void;
+    bindExecutionReference(read: () => unknown): void;
+    bindExecutionMetadata(read: () => Record<string, unknown>): void;
+    capturePreparedMutation(request: MutationRequest<any>, mutation: any, references: Readonly<Record<string, string>>): any;
+    replayPreparedMutation(request: MutationRequest<any>): any | undefined;
+    validatePreparedSources(): void;
+    recordPreparedResult(request: MutationRequest<any>, result: any): void;
+    acceptPreparedResult(root: EntityRoot, oldKey: EntityKey, newKey: EntityKey): void;
+    finishPreparedCommit(root: EntityRoot, key: EntityKey): void;
+    requirePreparedComplete(): void;
+    get isPreparedEmpty(): boolean;
+    /** @internal Manual unsealed graphs retain their existing transaction behavior. */
+    recordPreparedMutation(): void;
+    /** @internal A sealed empty plan must never admit an unplanned write. */
+    requireMutationAllowed(): void;
+    /** @internal Admission always precedes cancellation, including unknown baselines. */
+    discardRestoredFields(layout: MutationFieldLayout, root: EntityRoot, key: EntityKey, snapshot: LoadedScalarSnapshot | undefined): void;
     request<T extends object>(mutation: T, parent?: MutationTraceScope, localComment?: string): MutationRequest<T>;
     /** @internal Preflight snapshots bind provenance for all siblings before SQL. */
     captureLogBindings(source: SQLLogBindingSource): void;
@@ -111,5 +139,4 @@ export declare class GraphCommittedError extends Error {
     readonly committed = true;
     constructor(cause: unknown);
 }
-export {};
 //# sourceMappingURL=request-intent.d.ts.map

@@ -62,6 +62,7 @@ export declare class SelectQuery {
     properties: string[];
     joins: any[];
     groupByItems: string[];
+    groupByAliases?: Record<string, string>;
     aggregateItems: any[];
     aggregationCache?: AggregationCacheOptions;
     facets: FacetRequest[];
@@ -76,12 +77,16 @@ export declare class SelectQuery {
     relationAggregates: RelationAggregate[];
     commentText?: string;
     purposeText?: string;
+    /** Query semantics, not authorization: Context policies still apply to every row. */
+    deletionVisibility: 'live' | 'all' | 'deleted';
     constructor(entity: string);
     comment(text: string): this;
     purpose(text: string): this;
     facetBy(facetName: string, relationName: string, request: QuerySelection, includeAllFacets?: boolean, operation?: QueryOperation): this;
     clone(): SelectQuery;
     filter(condition: any): this;
+    withDeletedRows(): this;
+    deletedRowsOnly(): this;
     limit(limit: number): this;
     optimizeForContinuousPageFetch(): this;
     optimizeForContinuousPageFetchWith(namespace: string, ttlSeconds: number): this;
@@ -116,15 +121,16 @@ export declare class SelectQuery {
     enableAggregationCacheFor(cacheExpiredMillis: number): this;
     propagateAggregationCache(cacheExpiredMillis: number): this;
     aggregate(functionName: string, field: string, alias: string): this;
-    groupBy(item: string): this;
+    groupBy(item: string, alias?: string): this;
 }
+import type { EntityVersion } from './mutation-version';
 export declare class MutationQuery {
     entity: string;
-    action: "Create" | "Update" | "Delete";
+    action: "Create" | "Update" | "Delete" | "Recover";
     payload: any;
     id?: any;
     comment?: string | undefined;
-    expectedVersion?: number | undefined;
-    constructor(entity: string, action: "Create" | "Update" | "Delete", payload: any, id?: any, comment?: string | undefined, expectedVersion?: number | undefined);
+    expectedVersion?: EntityVersion | undefined;
+    constructor(entity: string, action: "Create" | "Update" | "Delete" | "Recover", payload: any, id?: any, comment?: string | undefined, expectedVersion?: EntityVersion | undefined);
 }
 //# sourceMappingURL=ast.d.ts.map

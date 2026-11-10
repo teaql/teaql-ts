@@ -44,6 +44,7 @@ async function executeFacetAggregatesFallback(service, prepareQuery, request, ou
     membershipQuery.orderItems = [];
     membershipQuery.aggregateItems = [];
     membershipQuery.groupByItems = [];
+    membershipQuery.groupByAliases = undefined;
     membershipQuery.offsetValue = 0;
     membershipQuery.limitValue = 0;
     membershipQuery.selectItems = [...new Set([
@@ -154,6 +155,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
         }
         nestedQuery.aggregateItems = [];
         nestedQuery.groupByItems = [];
+        nestedQuery.groupByAliases = undefined;
         for (const aggregate of nestedQuery.relationAggregates) {
             if (aggregate.query.entity !== outerQuery.entity)
                 continue;
@@ -167,6 +169,7 @@ async function executeRelationFacets(service, prepareQuery, outerQuery, facets) 
             membership.facets = [];
             membership.aggregateItems = [];
             membership.groupByItems = [];
+            membership.groupByAliases = undefined;
             membership.orderItems = [];
             membership.offsetValue = 0;
             membership.limitValue = 0;

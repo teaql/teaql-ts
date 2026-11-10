@@ -1,3 +1,4 @@
+import type { EntityVersion } from './mutation-version';
 export declare const MISSING_MUTATION_POLICY = "MUTATION-POLICY-001";
 export declare const MISSING_MUTATION_POLICY_APPROVAL = "MUTATION-POLICY-002";
 export type MutationOperationKind = 'create' | 'update' | 'delete' | 'recover';
@@ -10,7 +11,7 @@ export type MutationOperation = Readonly<{
     kind: MutationOperationKind;
     entity: string;
     entityId?: unknown;
-    originalVersion?: number;
+    originalVersion?: EntityVersion;
     changedValues: Readonly<Record<string, unknown>>;
 }>;
 export type MutationPlan = Readonly<{
@@ -106,6 +107,8 @@ export declare class MutationPolicyRuntimeState {
     endGraph(): void;
     recordPreflight(mutation: unknown): void;
     enterMutation(context: unknown, mutation: unknown): MutationExecution;
+    /** @internal Review the complete detached plan before transaction entry. */
+    prepareGraphReview(context: unknown, rootEntity?: string): void;
     ensureGraphComplete(): void;
     review(context: unknown, input: MutationPlan): MutationGovernanceSnapshot;
     private plan;

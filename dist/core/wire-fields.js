@@ -62,7 +62,9 @@ function normalizeWireInput(input, metadata, parentPointer = '') {
         }
         submitted.set(field.canonicalName, submittedName);
         values[field.canonicalName] = value;
-        if (submittedName !== field.wireName) {
+        // A standard child spelling still needs provenance when an ancestor's
+        // submitted path differs. The caller supplies the already-escaped boundary.
+        if (submittedName !== field.wireName || parentPointer !== '') {
             sourceInstancePaths[field.canonicalName] = pointer;
         }
     }
@@ -88,7 +90,12 @@ exports.encodeWireOutput = encodeWireOutput;
 /** Add submitted alias provenance to checker results without changing location identity. */
 function retainSubmittedPaths(results, normalized) {
     return results.map(result => {
-        const firstProperty = result.location.segments.find(segment => segment.kind === 'property');
+        // This map describes one object, not its descendants. A child boundary's
+        // complete pointer must survive graph prefixing; a parent alias alone
+        // cannot identify the offending leaf.
+        if (result.location.segments.length !== 1)
+            return { ...result };
+        const firstProperty = result.location.segments[0];
         if (!firstProperty || firstProperty.kind !== 'property')
             return { ...result };
         const sourceInstancePath = normalized.sourceInstancePaths[firstProperty.name];

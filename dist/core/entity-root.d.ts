@@ -1,4 +1,5 @@
 export type EntityId = string | number | bigint;
+import { EntityVersion, EntityVersionInput } from './mutation-version';
 export type EntityKey = Readonly<{
     entity: string;
     id: EntityId;
@@ -20,6 +21,8 @@ export declare class EntityRoot {
     set(key: EntityKey, field: string, value: unknown): void;
     snapshot(): EntityChange[];
     change(key: EntityKey): Readonly<Record<string, unknown>>;
+    /** @internal Remove only the exact intents observed during baseline comparison. */
+    discardFields(key: EntityKey, observed: Readonly<Record<string, unknown>>): void;
     mergeFrom(other: EntityRoot): void;
     /** Import one explicitly reached entity, never its foreign graph or ownership. */
     mergeEntityFrom(other: EntityRoot, key: EntityKey): void;
@@ -28,10 +31,10 @@ export declare class EntityRoot {
     rekey(oldKey: EntityKey, newKey: EntityKey): void;
     clearEntity(key: EntityKey): void;
     private requireMatchingVersion;
-    setOriginalVersion(key: EntityKey, version: number): void;
+    setOriginalVersion(key: EntityKey, input: EntityVersionInput): void;
     /** @internal Accept only the authoritative result after this key committed. */
-    acceptCommittedVersion(key: EntityKey, version: number): void;
-    originalVersion(key: EntityKey): number | undefined;
+    acceptCommittedVersion(key: EntityKey, input: EntityVersionInput): void;
+    originalVersion(key: EntityKey): EntityVersion | undefined;
     markAsNew(key: EntityKey): void;
     isNew(key: EntityKey): boolean;
     markAsDeleted(key: EntityKey): void;

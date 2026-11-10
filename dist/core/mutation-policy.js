@@ -128,6 +128,17 @@ class MutationPolicyRuntimeState {
         this.consume(operationMatchKey(mutation, operation));
         return { snapshot: this.graphSnapshot };
     }
+    /** @internal Review the complete detached plan before transaction entry. */
+    prepareGraphReview(context, rootEntity) {
+        if (!this.graphActive || this.graphReviewed || this.preflight.length === 0)
+            return;
+        const operations = this.preflight;
+        this.graphSnapshot = this.review(context, this.plan(rootEntity ?? this.rootEntity ?? operations[0].entity, this.auditReason, operations));
+        this.remaining.clear();
+        for (const signature of this.preflightKeys)
+            this.remaining.set(signature, (this.remaining.get(signature) ?? 0) + 1);
+        this.graphReviewed = true;
+    }
     ensureGraphComplete() {
         if (this.graphReviewed && this.remaining.size) {
             throw new MutationPolicyError('reviewed mutation plan contains operations that were not executed');

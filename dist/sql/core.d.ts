@@ -7,6 +7,7 @@ import type { QueryOperation } from '../core/request-intent';
 import { TraceNode } from '../core/trace-chain';
 import { SQLDatabaseKind, SQLParameterLogPolicy } from './log-rendering';
 import type { FacetAggregate } from '../core/facet';
+import { EntityVersion } from '../core/mutation-version';
 export type LogicalColumnType = 'boolean' | 'double' | 'decimal' | 'date' | 'datetime' | 'json' | 'integer' | 'long' | 'time' | 'text';
 export type ColumnSchema = {
     columnName: string;
@@ -14,6 +15,8 @@ export type ColumnSchema = {
     logicalType: LogicalColumnType;
     decode: 'string' | 'number' | 'decimal' | 'long' | 'time' | 'date' | 'native';
     nullable?: boolean;
+    /** Trusted model Integer domain; never applied to Long/ID/version/FK. */
+    integer32?: boolean;
     /** Trusted model/application log policy, never taken from a query payload. */
     logPolicy?: SQLParameterLogPolicy;
 };
@@ -44,7 +47,7 @@ export type SqlQueryResult = {
 export type MutationResult = {
     success: boolean;
     id: string;
-    version?: number;
+    version?: EntityVersion;
     deleted?: boolean;
     persistedRecord?: Record<string, unknown>;
     /** Trusted internal result; use policy projection before diagnostics. */
@@ -76,8 +79,9 @@ export interface TeaQLSqlDriver extends SqlSession {
 }
 export declare function ensureOptimisticIdFloor(session: SqlSession, placeholder: (index: number) => string, entity: string, floor: string): Promise<void>;
 export interface TeaQLDataService {
+    reserveInternalId(entity: string, context: UserContext): Promise<string>;
     withQueryRequest?<T>(query: SelectQuery, work: () => Promise<T>): Promise<T>;
-    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T>;
     preflightMutation(mutation: any): any;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
@@ -162,6 +166,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private readonly bindOperandSources;
     private readonly derivedQueryBindings;
     private readonly derivedRelationAssembly;
+    private readonly checkerPrivacyPolicy;
     private fieldLogPolicy;
     private bindValue;
     private queryLogBindings;
@@ -189,9 +194,13 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module: import('../core/runtime-module').RuntimeModule): this;
     setUserContext(context: UserContext): this;
+    /** Separate reservation transaction: no business mutation, Checker, Fix or audit. */
+    reserveInternalId(entity: string, context: UserContext): Promise<string>;
     private schema;
     private toRuntimeMutationRecord;
     private encode;
+    private requireFiniteFloatingPoint;
+    private validateFloatingMutation;
     private decodeRow;
     get auditTrace(): ReadonlyArray<Readonly<Record<string, unknown>>>;
     setAuditSink(sink: (event: Readonly<Record<string, unknown>>) => void | Promise<void>): this;
@@ -213,7 +222,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     protected invalidateSchemaState(): void;
     private ensureBootstrapData;
     private planBootstrapMutation;
-    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>): Promise<T>;
+    executeGraphSave<T>(intent: MutationIntent, work: (graph: GraphMutationSession) => Promise<T>, prepare?: (graph: GraphMutationSession) => void | Promise<void>, admit?: (graph: GraphMutationSession) => boolean): Promise<T>;
     afterGraphCommit(work: () => void): void;
     afterGraphRollback(work: () => void): void;
     private requireGraphOwnership;
@@ -221,6 +230,13 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     preflightMutation(mutation: any): any;
     private mutationLogBindings;
     private checkAndFixMutation;
+    private preparedReferences;
+    private sealMutationVersion;
+    /** Validate original state before Fix/policy/clock/provider. Missing originals
+     * retain the explicit trusted administrative SQL path, never a fake version. */
+    private checkedMutationVersion;
+    /** Preserve integer storage while asking JS drivers for exact version text. */
+    private fieldProjection;
     executeMutation(mutation: any): Promise<MutationResult>;
     private readPersistedRecord;
     private decodeRowForSchema;

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startBrowserSQLiteWorker = void 0;
 const sqlite_wasm_1 = __importDefault(require("@sqlite.org/sqlite-wasm"));
+const sqlite_wasm_scalars_1 = require("./sqlite-wasm-scalars");
 /**
  * Installs the TeaQL SQLite/WASM RPC loop in the current dedicated worker.
  * Call this once from an application-owned worker entry point.
@@ -13,6 +14,7 @@ function startBrowserSQLiteWorker(options = {}) {
     const scope = options.scope ?? globalThis;
     let sqlitePromise;
     let database;
+    let clearAggregateState;
     let openOptions;
     let tail = Promise.resolve();
     const sqlite = () => {
@@ -25,7 +27,7 @@ function startBrowserSQLiteWorker(options = {}) {
         return sqlitePromise;
     };
     const open = async (options = {}) => {
-        database?.close();
+        closeDatabase();
         const storage = options.storage ?? 'memory';
         const databaseName = options.databaseName ?? 'teaql-browser.sqlite3';
         const module = await sqlite();
@@ -38,10 +40,29 @@ function startBrowserSQLiteWorker(options = {}) {
             database = new module.oo1.OpfsDb(`/${databaseName}`, 'c');
         }
         else {
-            database = new module.oo1.DB(':memory:', 'ct');
+            // SQLite's 't' flag logs expanded SQL directly to the worker console,
+            // bypassing TeaQL's masking and diagnostics policy. Use TeaQL's logger.
+            database = new module.oo1.DB(':memory:', 'c');
         }
         openOptions = { storage, databaseName };
+        try {
+            clearAggregateState = (0, sqlite_wasm_scalars_1.installWasmDecimalFunctions)(database, module.capi);
+        }
+        catch (error) {
+            closeDatabase();
+            throw error;
+        }
         database.exec('PRAGMA foreign_keys = ON');
+    };
+    const closeDatabase = () => {
+        try {
+            database?.close();
+        }
+        finally {
+            database = undefined;
+            clearAggregateState?.();
+            clearAggregateState = undefined;
+        }
     };
     const requireDatabase = () => {
         if (!database)
@@ -54,12 +75,18 @@ function startBrowserSQLiteWorker(options = {}) {
         if (!Array.isArray(values))
             throw new TypeError('SQL bind values must be an array');
         const db = requireDatabase();
-        const rows = db.exec({
-            sql,
-            bind: values,
-            rowMode: 'object',
-            returnValue: 'resultRows',
-        });
+        let rows;
+        try {
+            rows = db.exec({
+                sql,
+                bind: values,
+                rowMode: 'object',
+                returnValue: 'resultRows',
+            });
+        }
+        finally {
+            clearAggregateState?.();
+        }
         const mutation = /^\s*(?:insert|update|delete|replace)\b/i.test(sql);
         return { rows, rowCount: rows.length || (mutation ? Number(db.changes()) : 0) };
     };
@@ -93,10 +120,8 @@ function startBrowserSQLiteWorker(options = {}) {
                 }
                 else if (request.operation === 'reset')
                     result = await reset();
-                else if (request.operation === 'close') {
-                    database?.close();
-                    database = undefined;
-                }
+                else if (request.operation === 'close')
+                    closeDatabase();
                 else
                     throw new Error(`Unsupported Browser SQLite operation: ${String(request.operation)}`);
                 scope.postMessage({

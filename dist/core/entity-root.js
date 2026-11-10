@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EntityRoot = void 0;
+const mutation_version_1 = require("./mutation-version");
 const identity = (key) => `${key.entity}\u0000${typeof key.id}:${String(key.id)}`;
 /** Pending mutation ledger shared by one generated object graph. */
 class EntityRoot {
@@ -20,7 +21,7 @@ class EntityRoot {
         if (!field.trim())
             throw new TypeError('field is required');
         const id = identity(key);
-        const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: {} };
+        const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: Object.create(null) };
         entry.values[field] = value;
         this.changes.set(id, entry);
     }
@@ -32,6 +33,18 @@ class EntityRoot {
     }
     change(key) {
         return Object.freeze({ ...(this.changes.get(identity(key))?.values ?? {}) });
+    }
+    /** @internal Remove only the exact intents observed during baseline comparison. */
+    discardFields(key, observed) {
+        const id = identity(key), entry = this.changes.get(id);
+        if (!entry)
+            return;
+        for (const [field, value] of Object.entries(observed)) {
+            if (Object.prototype.hasOwnProperty.call(entry.values, field) && Object.is(entry.values[field], value))
+                delete entry.values[field];
+        }
+        if (!Object.keys(entry.values).length)
+            this.changes.delete(id);
     }
     mergeFrom(other) {
         if (other === this)
@@ -118,12 +131,14 @@ class EntityRoot {
             throw new Error('ENTITY_VERSION_CONFLICT: one graph cannot contain different loaded versions of the same typed entity');
         }
     }
-    setOriginalVersion(key, version) {
+    setOriginalVersion(key, input) {
+        const version = (0, mutation_version_1.entityVersion)(input);
         this.requireMatchingVersion(key, version);
         this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
     }
     /** @internal Accept only the authoritative result after this key committed. */
-    acceptCommittedVersion(key, version) {
+    acceptCommittedVersion(key, input) {
+        const version = (0, mutation_version_1.entityVersion)(input);
         if (this.hasPending(key))
             throw new Error('ENTITY_COMMIT_PENDING: clear committed changes before accepting the persisted version');
         this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });

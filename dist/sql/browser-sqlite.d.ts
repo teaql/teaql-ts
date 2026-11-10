@@ -16,6 +16,9 @@ export declare class BrowserSQLiteDriver implements TeaQLSqlDriver {
     placeholder(_index: number): string;
     contains(columnSql: string, placeholder: string): string;
     aggregateFunction(name: string): string;
+    decimalComparison(columnSql: string, operator: string, placeholder: string): string;
+    decimalOrderExpression(columnSql: string): string;
+    decimalAggregateFunction(name: string): string;
     longComparison(columnSql: string, operator: string, placeholder: string): string;
     longOrderExpression(columnSql: string): string;
     encode(value: any, column?: ColumnSchema): any;
