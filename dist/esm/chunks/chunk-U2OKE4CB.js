@@ -12,7 +12,7 @@ import {
   localTime,
   mergeRuntimeBootstrap,
   validateInteger32Schemas
-} from "./chunk-7XDFNRIV.js";
+} from "./chunk-LF4LCUPB.js";
 import {
   CheckException,
   GraphCommittedError,
@@ -39,7 +39,7 @@ import {
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance,
   translateCheckerResults
-} from "./chunk-D2TPHZDJ.js";
+} from "./chunk-V4EWL6CG.js";
 import {
   decimal
 } from "./chunk-2M5YIPLE.js";
@@ -587,7 +587,7 @@ var AbstractSQLTeaQLClient = class {
     context.insertResource("bootstrapCategory", "runtime-bootstrap");
     try {
       if (this.bootstrap.ensure) {
-        const { runGeneratedBootstrap } = await import("./entity-creation-6ZV2BEXJ.js");
+        const { runGeneratedBootstrap } = await import("./entity-creation-MWZFHX45.js");
         await runGeneratedBootstrap(context, this.bootstrap, () => this.bootstrap.ensure(context));
       } else {
         await this.ensureBootstrapData();
@@ -723,7 +723,12 @@ var AbstractSQLTeaQLClient = class {
         if (graph.isPreparedEmpty) {
           this.activeGraph = graph;
           try {
-            return await work(graph);
+            const value = await work(graph);
+            graph.requirePreparedComplete();
+            executionContext.ensureMutationPolicyGraphComplete();
+            for (const action of this.graphCommitActions) await action();
+            committed = true;
+            return value;
           } finally {
             this.activeGraph = void 0;
           }
@@ -799,8 +804,14 @@ var AbstractSQLTeaQLClient = class {
   preflightMutation(mutation) {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
-    request.graphSession?.recordPreparedMutation();
     mutation = this.checkAndFixMutation(request);
+    const normalized = request.graphSession?.normalizePreparedMutation(mutation);
+    if (normalized?.restore) {
+      this.graphCommitActions.push(normalized.restore);
+      this.graphRollbackActions.push(normalized.restore);
+    }
+    if (normalized?.empty) return mutation;
+    request.graphSession?.recordPreparedMutation();
     if (request.graphSession) {
       const schema = this.schema(mutation.entity);
       request.graphSession.captureLogBindings(this.mutationLogBindings(request, mutation, schema));
@@ -2223,4 +2234,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-6PSFLS3X.js.map
+//# sourceMappingURL=chunk-U2OKE4CB.js.map

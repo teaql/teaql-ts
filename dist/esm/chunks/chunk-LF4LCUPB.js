@@ -8,7 +8,7 @@ import {
   long,
   retainQueryDiagnosticOrigin,
   snapshotQuery
-} from "./chunk-D2TPHZDJ.js";
+} from "./chunk-V4EWL6CG.js";
 import {
   decimal
 } from "./chunk-2M5YIPLE.js";
@@ -273,17 +273,24 @@ var ContextFix = class {
   /** @internal Runtime/generated-service entry; never inferred from field names. */
   static run(context, mutation, schema, work) {
     const columns = new Map(Object.entries(schema?.columns ?? {}).map(([name, column]) => [column.modelName ?? name, { ...column }]));
-    const eligible = mutation.action === "Create" || mutation.action === "Update" && Object.entries(mutation.payload ?? {}).some(([field, value]) => {
+    const hasBusinessChange = () => mutation.action === "Create" || mutation.action === "Update" && Object.entries(mutation.payload ?? {}).some(([field, value]) => {
       if (field === "id" || field === "version" || field.startsWith("_")) return false;
       const column = columns.get(field);
       if (column?.createFunction || column?.updateFunction) return false;
       if (!Object.prototype.hasOwnProperty.call(mutation.loadedValues ?? {}, field)) return true;
       return new LoadedScalarSnapshot({ [field]: mutation.loadedValues[field] }).changedField({ [field]: value }) !== void 0;
     });
+    const eligible = hasBusinessChange();
+    const before = [...columns].filter(([, column]) => column.createFunction || column.updateFunction).map(([field]) => ({ field, present: Object.prototype.hasOwnProperty.call(mutation.payload ?? {}, field), value: snapshotQuery(mutation.payload?.[field]) }));
     const previous = frames.get(mutation);
     frames.set(mutation, { context, eligible, columns, now: context.getResource("fixTime") });
     try {
-      return work();
+      const result = work();
+      if (mutation.action === "Update" && !hasBusinessChange()) for (const old of before) {
+        if (old.present) mutation.payload[old.field] = snapshotQuery(old.value);
+        else delete mutation.payload[old.field];
+      }
+      return result;
     } finally {
       if (previous) frames.set(mutation, previous);
       else frames.delete(mutation);
@@ -1017,4 +1024,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-7XDFNRIV.js.map
+//# sourceMappingURL=chunk-LF4LCUPB.js.map

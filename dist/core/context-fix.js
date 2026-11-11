@@ -16,7 +16,7 @@ class ContextFix {
     /** @internal Runtime/generated-service entry; never inferred from field names. */
     static run(context, mutation, schema, work) {
         const columns = new Map(Object.entries(schema?.columns ?? {}).map(([name, column]) => [column.modelName ?? name, { ...column }]));
-        const eligible = mutation.action === 'Create' || (mutation.action === 'Update' &&
+        const hasBusinessChange = () => mutation.action === 'Create' || (mutation.action === 'Update' &&
             Object.entries(mutation.payload ?? {}).some(([field, value]) => {
                 if (field === 'id' || field === 'version' || field.startsWith('_'))
                     return false;
@@ -27,10 +27,21 @@ class ContextFix {
                     return true;
                 return new loaded_scalar_snapshot_1.LoadedScalarSnapshot({ [field]: mutation.loadedValues[field] }).changedField({ [field]: value }) !== undefined;
             }));
+        const eligible = hasBusinessChange();
+        const before = [...columns].filter(([, column]) => column.createFunction || column.updateFunction)
+            .map(([field]) => ({ field, present: Object.prototype.hasOwnProperty.call(mutation.payload ?? {}, field), value: (0, query_snapshot_1.snapshotQuery)(mutation.payload?.[field]) }));
         const previous = frames.get(mutation);
         frames.set(mutation, { context, eligible, columns, now: context.getResource('fixTime') });
         try {
-            return work();
+            const result = work();
+            if (mutation.action === 'Update' && !hasBusinessChange())
+                for (const old of before) {
+                    if (old.present)
+                        mutation.payload[old.field] = (0, query_snapshot_1.snapshotQuery)(old.value);
+                    else
+                        delete mutation.payload[old.field];
+                }
+            return result;
         }
         finally {
             if (previous)

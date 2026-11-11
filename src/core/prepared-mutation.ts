@@ -110,6 +110,34 @@ export class PreparedGraphState {
     this.entries.push(entry);
     return {...mutation, id: mutation.id ?? mutation.ledgerKey?.id, payload: this.materialize(values.values(), true)};
   }
+  /** Normalize only an admitted generated source's exact typed baseline. Native
+   * repair is deferred until graph completion so preparation guards stay active. */
+  normalizeRestored(mutation: any): {empty:boolean;restore?:()=>void} | undefined {
+    if(this.sealed) throw new PreparedMutationError();
+    const root=mutation.ledgerRoot as EntityRoot|undefined, key=mutation.ledgerKey as EntityKey|undefined;
+    if(mutation.action!=='Update'||!root||!key) return;
+    const source=this.sources.find(item=>item.root===root&&keyOf(item.key)===keyOf(key));
+    const target=source?.object as {teaqlRestoreFixedValues?:(values:Readonly<Record<string,unknown>>)=>void}|undefined;
+    const restore=target?.teaqlRestoreFixedValues;
+    if(!source||typeof restore!=='function') return;
+    const snapshot=LoadedScalarSnapshot.forEntity(source.object);
+    let restored:Readonly<Record<string,unknown>>|undefined;
+    snapshot?.discardRestoredFields(root,key,values=>{restored=values;});
+    if(!restored) return;
+    mutation.payload={...root.change(key)};
+    const values=restored;
+    return {empty:!root.hasPending(key),restore:()=>{
+      this.assertNative(source);
+      // Authorize exactly the known restored scalar values, not an unrestricted
+      // refresh of the source fingerprint. Sibling commit guards must continue
+      // to reject unrelated identity, field, relation and comment changes.
+      const expected=new LoadedScalarSnapshot({...source.native!.values(),...this.canonical(values,source.references)});
+      restore.call(target,snapshotQuery(values));
+      const field=this.difference(expected,this.canonical(source.read(),source.references));
+      if(field!==undefined) throw new PreparedMutationError(field);
+      source.native=expected;
+    }};
+  }
   seal(): void {
     if (this.sealed) return;
     for (const source of this.sources) this.assertNative(source);

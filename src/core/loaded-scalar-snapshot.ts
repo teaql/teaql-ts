@@ -94,7 +94,8 @@ export class LoadedScalarSnapshot {
   }
 
   /** @internal Called only after model-field admission, before completeness and Fix. */
-  discardRestoredFields(root: EntityRoot, key: EntityKey): void {
+  discardRestoredFields(root: EntityRoot, key: EntityKey,
+    restore?: (values: Readonly<Record<string,unknown>>) => void): void {
     const owner = this.#owner;
     if (!owner || owner.key.entity !== key.entity || !Object.is(owner.key.id, key.id)
       || root.originalVersion(key) !== owner.version || root.isNew(key) || root.isDeleted(key)) return;
@@ -106,6 +107,7 @@ export class LoadedScalarSnapshot {
         && sameValue(original.value, value)) restored[field] = value;
     }
     root.discardFields(key, restored);
+    if(Object.keys(restored).length) restore?.(snapshotQuery(restored));
   }
 }
 

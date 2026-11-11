@@ -268,8 +268,14 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
 
     preflightMutation(mutation: any): any {
         const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
-        request.graphSession?.recordPreparedMutation();
         mutation = this.checkAndFixMutation(request);
+        const normalized = request.graphSession?.normalizePreparedMutation(mutation);
+        if (normalized?.restore) {
+            this.afterGraphCommit(normalized.restore);
+            this.afterGraphRollback(normalized.restore);
+        }
+        if (normalized?.empty) return mutation;
+        request.graphSession?.recordPreparedMutation();
         if (request.graphSession) {
             const values = [...Object.values(mutation.payload || {}), ...Object.values(request.loadedValues())];
             request.graphSession.captureLogBindings({ parameterizedSQL: "", sqlOrigin: "generated",

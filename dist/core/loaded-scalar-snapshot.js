@@ -107,7 +107,7 @@ class LoadedScalarSnapshot {
             loadedSnapshots.delete(entity);
     }
     /** @internal Called only after model-field admission, before completeness and Fix. */
-    discardRestoredFields(root, key) {
+    discardRestoredFields(root, key, restore) {
         const owner = __classPrivateFieldGet(this, _LoadedScalarSnapshot_owner, "f");
         if (!owner || owner.key.entity !== key.entity || !Object.is(owner.key.id, key.id)
             || root.originalVersion(key) !== owner.version || root.isNew(key) || root.isDeleted(key))
@@ -121,6 +121,8 @@ class LoadedScalarSnapshot {
                 restored[field] = value;
         }
         root.discardFields(key, restored);
+        if (Object.keys(restored).length)
+            restore?.((0, query_snapshot_1.snapshotQuery)(restored));
     }
 }
 exports.LoadedScalarSnapshot = LoadedScalarSnapshot;

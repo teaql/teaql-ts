@@ -31,6 +31,12 @@ export declare class PreparedGraphState {
     private assertRoot;
     private assertNative;
     remember(request: MutationRequest<any>, mutation: any, references: References): any;
+    /** Normalize only an admitted generated source's exact typed baseline. Native
+     * repair is deferred until graph completion so preparation guards stay active. */
+    normalizeRestored(mutation: any): {
+        empty: boolean;
+        restore?: () => void;
+    } | undefined;
     seal(): void;
     validate(): void;
     private entry;

@@ -28,6 +28,6 @@ export declare class LoadedScalarSnapshot {
     /** @internal Rollback restores provenance together with authoritative entity state. */
     static restoreFor(entity: object, snapshot: LoadedScalarSnapshot | undefined): void;
     /** @internal Called only after model-field admission, before completeness and Fix. */
-    discardRestoredFields(root: EntityRoot, key: EntityKey): void;
+    discardRestoredFields(root: EntityRoot, key: EntityKey, restore?: (values: Readonly<Record<string, unknown>>) => void): void;
 }
 //# sourceMappingURL=loaded-scalar-snapshot.d.ts.map

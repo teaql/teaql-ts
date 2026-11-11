@@ -114,6 +114,11 @@ export declare class GraphMutationSession {
     bindExecutionReference(read: () => unknown): void;
     bindExecutionMetadata(read: () => Record<string, unknown>): void;
     capturePreparedMutation(request: MutationRequest<any>, mutation: any, references: Readonly<Record<string, string>>): any;
+    /** @internal Only admitted generated sources can normalize repaired input. */
+    normalizePreparedMutation(mutation: any): {
+        empty: boolean;
+        restore?: () => void;
+    } | undefined;
     replayPreparedMutation(request: MutationRequest<any>): any | undefined;
     validatePreparedSources(): void;
     recordPreparedResult(request: MutationRequest<any>, result: any): void;

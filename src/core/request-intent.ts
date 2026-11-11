@@ -349,6 +349,10 @@ export class GraphMutationSession {
   capturePreparedMutation(request: MutationRequest<any>, mutation: any, references: Readonly<Record<string, string>>): any {
     return this.#prepared.remember(request, mutation, references);
   }
+  /** @internal Only admitted generated sources can normalize repaired input. */
+  normalizePreparedMutation(mutation:any):{empty:boolean;restore?:()=>void}|undefined {
+    return this.#prepared.normalizeRestored(mutation);
+  }
   replayPreparedMutation(request: MutationRequest<any>): any | undefined {return this.#prepared.replay(request);}
   validatePreparedSources(): void {this.#prepared.validate();}
   recordPreparedResult(request: MutationRequest<any>, result: any): void {this.#prepared.providerResult(request, result);}

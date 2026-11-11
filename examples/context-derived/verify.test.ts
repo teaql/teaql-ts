@@ -36,12 +36,14 @@ test.each(['sqlite','file'] as const)('generated Context Fix: %s provider',async
       }
     }
     const generated=GENERATED_RUNTIME_MODULE.checkers.Entry;
+    let normalizedName='first';
     client.install(new RuntimeModule({}, {Entry:{checkAndFix(ctx,mutation,results){
       for(const field of ['source_ip','opened_by','last_ip','changed_by']){
         if(mutation.action!=='Create' && (field==='source_ip'||field==='opened_by'))continue;
         ContextFix.apply(ctx,mutation,field,'identity');
       }
       generated.checkAndFix(ctx,mutation,results);
+      if(mutation.payload.name==='NORMALIZE')mutation.payload.name=normalizedName;
     }}}));
     let phase='A',failToken=false,invalidIP=false;
     const resolver:ContextFixResolver=(_ctx,input)=>{
@@ -78,6 +80,11 @@ test.each(['sqlite','file'] as const)('generated Context Fix: %s provider',async
     noWrites();expect(client.auditTrace).toHaveLength(audits);
     let stored=await load(id);expect(stored.version).toBe(version);expect(milliseconds(stored.touchedAt)).toBe(A.getTime());
     expect(stored.lastIp).toBe('A:last_ip');
+    first.updateName('NORMALIZE');clear();
+    await first.auditAs('Normalize the final business edit back to its persisted value').save(context);
+    noWrites();expect(client.auditTrace).toHaveLength(audits);
+    expect(first.name).toBe('first');expect(first.version).toBe(version);
+    expect(milliseconds(first.touchedAt)).toBe(A.getTime());
     first.updateName('n'.repeat(101));clear();await rejected(()=>first.auditAs('Reject invalid caller value').save(context),'/name');
     noWrites();expect(client.auditTrace).toHaveLength(audits);expect(first.name).toHaveLength(101);
     first.updateName('first');clear();await first.auditAs('Revert rejected edit and remain unchanged').save(context);noWrites();
@@ -106,6 +113,25 @@ test.each(['sqlite','file'] as const)('generated Context Fix: %s provider',async
     second.updateName('second');await parent.auditAs('Retry one independently changed child').save(context);
     expect(client.auditTrace).toHaveLength(audits+1);expect(parent.version).toBe(parentVersion);
     expect((await load(id)).lastIp).toBe('C:last_ip');expect((await load(second.id!)).lastIp).toBe('A:last_ip');
+
+    const mixedParents=await Q.catalogs().withIdIs('1').limit(1).comment('Load mixed normalization graph')
+      .purpose('Keep valid sibling writes and preparation guards').executeForList(context);
+    const mixed=mixedParents[0];first=await load(id);second=await load(second.id!);
+    mixed.entryList().push(first,second);normalizedName='graph edit';
+    const normalizedVersion=first.version;
+    first.updateName('NORMALIZE');second.updateName('mixed sibling');audits=client.auditTrace.length;clear();
+    await mixed.auditAs('Normalize one child while committing the other').save(context);
+    expect(client.auditTrace).toHaveLength(audits+1);expect(first.version).toBe(normalizedVersion);
+    expect(first.name).toBe('graph edit');expect(milliseconds(first.touchedAt)).toBe(C.getTime());
+    if(kind==='sqlite')expect(write.mock.calls.filter(args=>/^\s*UPDATE\s/i.test(String(args[0])))).toHaveLength(1);
+    else expect(write).toHaveBeenCalledTimes(1);
+
+    first.updateName('NORMALIZE');second.updateName('z'.repeat(101));audits=client.auditTrace.length;clear();
+    await rejected(()=>mixed.auditAs('Reject a sibling after normalizing another child').save(context),'/entryList/1/name');
+    noWrites();expect(client.auditTrace).toHaveLength(audits);
+    expect(first.name).toBe('graph edit');expect(second.name).toHaveLength(101);
+    second.updateName('mixed sibling');clear();
+    await mixed.auditAs('Restore the invalid sibling and remain a no-op').save(context);noWrites();
     process.stdout.write('TS_CONTEXT_FIX_CASE='+JSON.stringify({provider:kind,passed:true,noOpProviderCalls:0,
       failedCheckProviderCalls:0,updateAudits:1,typedQ:true,typedE:true,objectLocation:true,graphRollback:true})+'\n');
     write.mockRestore();transaction?.mockRestore();

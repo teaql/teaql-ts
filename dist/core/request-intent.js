@@ -310,6 +310,10 @@ class GraphMutationSession {
     capturePreparedMutation(request, mutation, references) {
         return __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").remember(request, mutation, references);
     }
+    /** @internal Only admitted generated sources can normalize repaired input. */
+    normalizePreparedMutation(mutation) {
+        return __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").normalizeRestored(mutation);
+    }
     replayPreparedMutation(request) { return __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").replay(request); }
     validatePreparedSources() { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").validate(); }
     recordPreparedResult(request, result) { __classPrivateFieldGet(this, _GraphMutationSession_prepared, "f").providerResult(request, result); }

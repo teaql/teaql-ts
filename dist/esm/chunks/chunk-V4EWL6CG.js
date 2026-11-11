@@ -1072,7 +1072,7 @@ var _LoadedScalarSnapshot = class _LoadedScalarSnapshot {
     else loadedSnapshots.delete(entity);
   }
   /** @internal Called only after model-field admission, before completeness and Fix. */
-  discardRestoredFields(root, key) {
+  discardRestoredFields(root, key, restore) {
     const owner = __privateGet(this, _owner);
     if (!owner || owner.key.entity !== key.entity || !Object.is(owner.key.id, key.id) || root.originalVersion(key) !== owner.version || root.isNew(key) || root.isDeleted(key)) return;
     const restored = /* @__PURE__ */ Object.create(null);
@@ -1081,6 +1081,7 @@ var _LoadedScalarSnapshot = class _LoadedScalarSnapshot {
       if (field !== "id" && field !== "version" && original && "value" in original && original.value !== void 0 && sameValue(original.value, value)) restored[field] = value;
     }
     root.discardFields(key, restored);
+    if (Object.keys(restored).length) restore?.(snapshotQuery(restored));
   }
 };
 _values = new WeakMap();
@@ -1231,6 +1232,33 @@ var PreparedGraphState = class {
     };
     this.entries.push(entry);
     return { ...mutation, id: mutation.id ?? mutation.ledgerKey?.id, payload: this.materialize(values.values(), true) };
+  }
+  /** Normalize only an admitted generated source's exact typed baseline. Native
+   * repair is deferred until graph completion so preparation guards stay active. */
+  normalizeRestored(mutation) {
+    if (this.sealed) throw new PreparedMutationError();
+    const root = mutation.ledgerRoot, key = mutation.ledgerKey;
+    if (mutation.action !== "Update" || !root || !key) return;
+    const source = this.sources.find((item) => item.root === root && keyOf(item.key) === keyOf(key));
+    const target = source?.object;
+    const restore = target?.teaqlRestoreFixedValues;
+    if (!source || typeof restore !== "function") return;
+    const snapshot = LoadedScalarSnapshot.forEntity(source.object);
+    let restored;
+    snapshot?.discardRestoredFields(root, key, (values2) => {
+      restored = values2;
+    });
+    if (!restored) return;
+    mutation.payload = { ...root.change(key) };
+    const values = restored;
+    return { empty: !root.hasPending(key), restore: () => {
+      this.assertNative(source);
+      const expected = new LoadedScalarSnapshot({ ...source.native.values(), ...this.canonical(values, source.references) });
+      restore.call(target, snapshotQuery(values));
+      const field = this.difference(expected, this.canonical(source.read(), source.references));
+      if (field !== void 0) throw new PreparedMutationError(field);
+      source.native = expected;
+    } };
   }
   seal() {
     if (this.sealed) return;
@@ -1688,6 +1716,10 @@ var GraphMutationSession = class {
   }
   capturePreparedMutation(request, mutation, references) {
     return __privateGet(this, _prepared).remember(request, mutation, references);
+  }
+  /** @internal Only admitted generated sources can normalize repaired input. */
+  normalizePreparedMutation(mutation) {
+    return __privateGet(this, _prepared).normalizeRestored(mutation);
   }
   replayPreparedMutation(request) {
     return __privateGet(this, _prepared).replay(request);
@@ -2486,4 +2518,4 @@ export {
   ContextRootError,
   UserContext
 };
-//# sourceMappingURL=chunk-D2TPHZDJ.js.map
+//# sourceMappingURL=chunk-V4EWL6CG.js.map

@@ -42,6 +42,12 @@ export class Entry {
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "Entry", id: (this as any)._ledgerId }; }
+    /** @internal Restore known equal scalars after the prepared graph completes. */
+    private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
+        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "bornAt", canonical: "born_at" }, { member: "touchedAt", canonical: "touched_at" }, { member: "sourceIp", canonical: "source_ip" }, { member: "lastIp", canonical: "last_ip" }, { member: "openedBy", canonical: "opened_by" }, { member: "changedBy", canonical: "changed_by" }, { member: "guardedToken", canonical: "guarded_token" }, { member: "version", canonical: "version" }]) {
+            if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
+        }
+    }
     private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
         if ((this as any)._root !== root) {
             root.mergeEntityFrom((this as any)._root, this.teaqlEntityKey());

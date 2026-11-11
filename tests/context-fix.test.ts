@@ -19,6 +19,7 @@ function fixture() {
   const schema:EntitySchema = {table:'probe_data',columns:{
     id:{columnName:'id',logicalType:'integer',decode:'string'},version:{columnName:'version',logicalType:'integer',decode:'number'},
     name:{columnName:'name',logicalType:'text',decode:'string'},
+    note:{columnName:'note',logicalType:'text',decode:'string'},
     bornAt:{columnName:'born_at',modelName:'born_at',logicalType:'datetime',decode:'date',createFunction:'now'},
     touchedAt:{columnName:'touched_at',modelName:'touched_at',logicalType:'datetime',decode:'date',createFunction:'now',updateFunction:'now'},
   }};
@@ -39,6 +40,10 @@ function fixture() {
         ContextFix.apply(ctx,mutation,field,fn);if(!present&&field in mutation.payload || present&&before!==mutation.payload[field])assignments++;}
     }
     if(mutation.payload.name==='INVALID') results.push({ruleId:'required',location:ObjectLocation.property('name')});
+    if(mutation.payload.name==='NORMALIZE'||mutation.payload.name==='REPAIR_OTHER') {
+      const other=mutation.payload.name==='REPAIR_OTHER';mutation.payload.name='same';
+      if(other)mutation.payload.note='business repair';
+    }
   }}}));
   const request=(payload:any,old:any={})=>new MutationRequest({entity:'Probe',id:'1',version:1,action:'Update',payload,comment:'Verify staged Context Fix'})
     .withLoadedSnapshot(new LoadedScalarSnapshot(old));
@@ -69,6 +74,14 @@ test('managed values and restored business fields do not independently enable Co
   f.context.insertResource('fixTime',timeB);
   ContextFix.run(f.context,mutation,f.schema,()=>ContextFix.apply(f.context,mutation,'last_ip','identity'));
   expect(mutation.payload).not.toHaveProperty('last_ip');
+});
+
+test('business normalization discards automatic Context but keeps another business repair',()=>{
+  const f=fixture();
+  expect(f.client.preflightMutation(f.request({name:'NORMALIZE'},{name:'same'})).payload).toEqual({name:'same'});
+  expect(f.client.preflightMutation(f.request({name:'REPAIR_OTHER'},{name:'same',note:'before'})).payload)
+    .toMatchObject({name:'same',note:'business repair',last_ip:'B:last_ip'});
+  expect(f.client.preflightMutation(f.request({name:'NORMALIZE'})).payload).toMatchObject({name:'same',last_ip:'B:last_ip'});
 });
 test('failed check preserves caller intent, discards automatic staging and permits retry',()=>{
   const f=fixture(), payload={name:'INVALID'};

@@ -872,7 +872,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       graph.validatePreparedSources();
       if (graph.isPreparedEmpty) {
         this.activeGraph = graph;
-        try { return await work(graph); }
+        try {
+          const value = await work(graph);
+          graph.requirePreparedComplete();
+          executionContext.ensureMutationPolicyGraphComplete();
+          // No provider transaction or committed mutation audit exists, but a
+          // successful business normalization still updates its typed view.
+          for (const action of this.graphCommitActions) await action();
+          committed = true;
+          return value;
+        }
         finally { this.activeGraph = undefined; }
       }
       const result = await this.driver.transaction(async session => {
@@ -941,8 +950,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   preflightMutation(mutation: any): any {
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
     this.requireGraphOwnership(request);
-    request.graphSession?.recordPreparedMutation();
     mutation = this.checkAndFixMutation(request);
+    const normalized=request.graphSession?.normalizePreparedMutation(mutation);
+    if(normalized?.restore) {
+      // Preparation precedes the physical SQL transaction. Ownership has
+      // already been checked above; public transaction callbacks stay guarded.
+      this.graphCommitActions.push(normalized.restore);
+      this.graphRollbackActions.push(normalized.restore);
+    }
+    if(normalized?.empty) return mutation;
+    request.graphSession?.recordPreparedMutation();
     if (request.graphSession) {
       const schema = this.schema(mutation.entity);
       request.graphSession.captureLogBindings(this.mutationLogBindings(request, mutation, schema));
