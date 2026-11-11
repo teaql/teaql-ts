@@ -9,6 +9,13 @@ const scratch=fs.mkdtempSync(path.join(os.tmpdir(),'teaql-ts-context-build-')),r
 const report={schema:'teaql.typescript-context-derived-mutation/v1',passed:false,rounds:[],publicPublication:false,runtimeSource:path.join(repo,'src')};
 function inputs(){
   const bytes=fs.readFileSync(path.join(fixture,'generated-files.json')),files=JSON.parse(bytes);
+  const actual=[];
+  function walk(directory){for(const name of fs.readdirSync(directory)){
+    const file=path.join(directory,name),stat=fs.lstatSync(file);assert(!stat.isSymbolicLink());
+    if(stat.isDirectory())walk(file);else{assert(stat.isFile());actual.push(path.relative(fixture,file));}
+  }}
+  walk(fixture);
+  assert.deepEqual(actual.sort(),[...Object.keys(files),'model.xml','generated-files.json'].sort(),'unexpected generated fixture input');
   for(const[name,hash]of Object.entries(files)){
     assert(!path.isAbsolute(name)&&!name.split('/').includes('..'));
     const file=path.join(fixture,name);assert.equal(fs.realpathSync(file),file);assert.equal(sha(fs.readFileSync(file)),hash,name);
