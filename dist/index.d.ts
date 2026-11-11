@@ -15,6 +15,7 @@ export * from './core/entity-root';
 export * from './core/loaded-scalar-snapshot';
 export * from './core/mutation-field-layout';
 export * from './core/checker';
+export * from './core/context-fix';
 export * from './core/object-location';
 export * from './core/wire-fields';
 export * from './core/dynamic-search';

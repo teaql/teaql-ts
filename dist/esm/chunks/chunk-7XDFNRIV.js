@@ -1,10 +1,17 @@
 import {
   CheckException,
+  LoadedScalarSnapshot,
   ObjectLocation,
   QueryRequest,
+  cloneTraceNodes,
+  entityVersion,
+  long,
   retainQueryDiagnosticOrigin,
   snapshotQuery
 } from "./chunk-D2TPHZDJ.js";
+import {
+  decimal
+} from "./chunk-2M5YIPLE.js";
 import {
   __privateAdd,
   __privateGet,
@@ -72,6 +79,167 @@ function localTime(value) {
   return fraction === "000000" ? value.slice(0, dot) : `${value.slice(0, dot)}.${fraction}`;
 }
 
+// src/core/entity-root.ts
+var identity = (key) => `${key.entity}\0${typeof key.id}:${String(key.id)}`;
+var EntityRoot = class {
+  constructor() {
+    this.changes = /* @__PURE__ */ new Map();
+    this.originalVersions = /* @__PURE__ */ new Map();
+    this.newKeys = /* @__PURE__ */ new Map();
+    this.deletedKeys = /* @__PURE__ */ new Map();
+    this.traces = /* @__PURE__ */ new Map();
+  }
+  /** A complete per-entity lineage replaces, rather than extends, graph fallback. */
+  setTraceChain(key, nodes) {
+    this.traces.set(identity(key), { key: Object.freeze({ ...key }), nodes: cloneTraceNodes(nodes) });
+  }
+  traceChain(key) {
+    return this.traces.get(identity(key))?.nodes;
+  }
+  set(key, field, value) {
+    if (!field.trim()) throw new TypeError("field is required");
+    const id = identity(key);
+    const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: /* @__PURE__ */ Object.create(null) };
+    entry.values[field] = value;
+    this.changes.set(id, entry);
+  }
+  snapshot() {
+    return [...this.changes.values()].map((entry) => ({
+      key: Object.freeze({ ...entry.key }),
+      values: Object.freeze({ ...entry.values })
+    }));
+  }
+  change(key) {
+    return Object.freeze({ ...this.changes.get(identity(key))?.values ?? {} });
+  }
+  /** @internal A save-attempt undo of selected fields on one typed identity.
+   * No lifecycle/version/trace changes or unrelated caller edits are reverted. */
+  captureFields(key, fields) {
+    const id = identity(key), before = this.changes.get(id)?.values ?? {};
+    const captured = new Map(fields.map((field) => [field, {
+      present: Object.prototype.hasOwnProperty.call(before, field),
+      value: snapshotQuery(before[field])
+    }]));
+    return () => {
+      const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: /* @__PURE__ */ Object.create(null) };
+      for (const [field, value] of captured) {
+        if (value.present) entry.values[field] = snapshotQuery(value.value);
+        else delete entry.values[field];
+      }
+      if (Object.keys(entry.values).length) this.changes.set(id, entry);
+      else this.changes.delete(id);
+    };
+  }
+  /** @internal Remove only the exact intents observed during baseline comparison. */
+  discardFields(key, observed) {
+    const id = identity(key), entry = this.changes.get(id);
+    if (!entry) return;
+    for (const [field, value] of Object.entries(observed)) {
+      if (Object.prototype.hasOwnProperty.call(entry.values, field) && Object.is(entry.values[field], value)) delete entry.values[field];
+    }
+    if (!Object.keys(entry.values).length) this.changes.delete(id);
+  }
+  mergeFrom(other) {
+    if (other === this) return;
+    for (const entry of other.snapshotVersions()) this.requireMatchingVersion(entry.key, entry.version);
+    for (const entry of other.snapshot()) for (const [field, value] of Object.entries(entry.values)) this.set(entry.key, field, value);
+    for (const key of other.newKeys.values()) this.markAsNew(key);
+    for (const key of other.deletedKeys.values()) this.markAsDeleted(key);
+    for (const entry of other.snapshotVersions()) this.setOriginalVersion(entry.key, entry.version);
+    for (const entry of other.traces.values()) this.setTraceChain(entry.key, entry.nodes);
+  }
+  /** Import one explicitly reached entity, never its foreign graph or ownership. */
+  mergeEntityFrom(other, key) {
+    if (other === this) return;
+    const version = other.originalVersion(key);
+    if (version !== void 0) this.requireMatchingVersion(key, version);
+    for (const [field, value] of Object.entries(other.change(key))) this.set(key, field, value);
+    if (other.isNew(key)) this.markAsNew(key);
+    if (other.isDeleted(key)) this.markAsDeleted(key);
+    if (version !== void 0) this.setOriginalVersion(key, version);
+    const trace = other.traceChain(key);
+    if (trace) this.setTraceChain(key, trace);
+  }
+  hasPending(key) {
+    const id = identity(key);
+    return this.newKeys.has(id) || this.deletedKeys.has(id) || Object.keys(this.changes.get(id)?.values ?? {}).length > 0;
+  }
+  snapshotVersions() {
+    return [...this.originalVersions.values()];
+  }
+  rekey(oldKey, newKey) {
+    const oldId = identity(oldKey);
+    const newId = identity(newKey);
+    if (oldId === newId) return;
+    const loadedVersion = this.originalVersion(oldKey);
+    if (loadedVersion !== void 0) this.requireMatchingVersion(newKey, loadedVersion);
+    const entry = this.changes.get(oldId);
+    if (entry) {
+      this.changes.delete(oldId);
+      for (const [field, value] of Object.entries(entry.values)) this.set(newKey, field, value);
+    }
+    const version = this.originalVersions.get(oldId);
+    if (version !== void 0) {
+      this.originalVersions.delete(oldId);
+      this.originalVersions.set(newId, { key: Object.freeze({ ...newKey }), version: version.version });
+    }
+    if (this.newKeys.delete(oldId)) this.newKeys.set(newId, Object.freeze({ ...newKey }));
+    if (this.deletedKeys.delete(oldId)) this.deletedKeys.set(newId, Object.freeze({ ...newKey }));
+    const trace = this.traces.get(oldId);
+    if (trace) {
+      this.traces.delete(oldId);
+      this.setTraceChain(newKey, trace.nodes);
+    }
+  }
+  clearEntity(key) {
+    const id = identity(key);
+    this.changes.delete(id);
+    this.newKeys.delete(id);
+    this.deletedKeys.delete(id);
+    this.traces.delete(id);
+  }
+  requireMatchingVersion(key, version) {
+    const original = this.originalVersion(key);
+    if (original !== void 0 && original !== version) {
+      throw new Error("ENTITY_VERSION_CONFLICT: one graph cannot contain different loaded versions of the same typed entity");
+    }
+  }
+  setOriginalVersion(key, input) {
+    const version = entityVersion(input);
+    this.requireMatchingVersion(key, version);
+    this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
+  }
+  /** @internal Accept only the authoritative result after this key committed. */
+  acceptCommittedVersion(key, input) {
+    const version = entityVersion(input);
+    if (this.hasPending(key)) throw new Error("ENTITY_COMMIT_PENDING: clear committed changes before accepting the persisted version");
+    this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
+  }
+  originalVersion(key) {
+    return this.originalVersions.get(identity(key))?.version;
+  }
+  markAsNew(key) {
+    this.newKeys.set(identity(key), Object.freeze({ ...key }));
+  }
+  isNew(key) {
+    return this.newKeys.has(identity(key));
+  }
+  markAsDeleted(key) {
+    const id = identity(key);
+    this.changes.delete(id);
+    this.deletedKeys.set(id, Object.freeze({ ...key }));
+  }
+  isDeleted(key) {
+    return this.deletedKeys.has(identity(key));
+  }
+  clearCommitted() {
+    this.changes.clear();
+    this.newKeys.clear();
+    this.deletedKeys.clear();
+    this.traces.clear();
+  }
+};
+
 // src/core/mutation-field-layout.ts
 var _fields, _immutable;
 var MutationFieldLayout = class {
@@ -98,6 +266,108 @@ var MutationFieldLayout = class {
 };
 _fields = new WeakMap();
 _immutable = new WeakMap();
+
+// src/core/context-fix.ts
+var frames = /* @__PURE__ */ new WeakMap();
+var ContextFix = class {
+  /** @internal Runtime/generated-service entry; never inferred from field names. */
+  static run(context, mutation, schema, work) {
+    const columns = new Map(Object.entries(schema?.columns ?? {}).map(([name, column]) => [column.modelName ?? name, { ...column }]));
+    const eligible = mutation.action === "Create" || mutation.action === "Update" && Object.entries(mutation.payload ?? {}).some(([field, value]) => {
+      if (field === "id" || field === "version" || field.startsWith("_")) return false;
+      const column = columns.get(field);
+      if (column?.createFunction || column?.updateFunction) return false;
+      if (!Object.prototype.hasOwnProperty.call(mutation.loadedValues ?? {}, field)) return true;
+      return new LoadedScalarSnapshot({ [field]: mutation.loadedValues[field] }).changedField({ [field]: value }) !== void 0;
+    });
+    const previous = frames.get(mutation);
+    frames.set(mutation, { context, eligible, columns, now: context.getResource("fixTime") });
+    try {
+      return work();
+    } finally {
+      if (previous) frames.set(mutation, previous);
+      else frames.delete(mutation);
+    }
+  }
+  static apply(context, mutation, field, functionName, args = []) {
+    const frame = frames.get(mutation);
+    const invalid = () => new CheckException([{
+      ruleId: "invalid_type",
+      entityType: String(mutation.entity),
+      location: ObjectLocation.property(field),
+      message: `Context Fix failed at ${mutation.entity}.${field}`
+    }]);
+    if (!frame || frame.context !== context) throw invalid();
+    if (!frame.eligible) return;
+    const column = frame.columns.get(field);
+    const declared = mutation.action === "Create" ? column?.createFunction : column?.updateFunction;
+    if (!column || !declared || declared !== functionName) throw invalid();
+    try {
+      const resolver = context.getResource("contextFixResolver");
+      let value;
+      if (resolver) value = resolver(context, Object.freeze({
+        entity: String(mutation.entity),
+        field,
+        function: functionName,
+        arguments: Object.freeze([...args]),
+        action: mutation.action,
+        now: new Date(frame.now.getTime())
+      }));
+      else if (functionName === "now") value = new Date(frame.now.getTime());
+      else if (functionName === "uniStr") {
+        const bytes = new Uint8Array(16);
+        globalThis.crypto.getRandomValues(bytes);
+        value = (args[0] ?? "") + Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+      } else throw invalid();
+      if (value instanceof Promise) {
+        void value.catch(() => void 0);
+        throw invalid();
+      }
+      if (!this.validValue(column, value)) throw invalid();
+      mutation.payload[field] = snapshotQuery(value);
+      context.recordFixEvidence({
+        entityType: String(mutation.entity),
+        modelPath: field,
+        source: functionName === "now" ? "clock" : "context",
+        sourceLabel: functionName === "now" ? "graphClock" : `contextFunction:${functionName}`
+      });
+    } catch {
+      throw invalid();
+    }
+  }
+  /** @internal Register with a graph's failure actions before publishing Fix. */
+  static captureUndo(mutation, schema) {
+    if (!(mutation.ledgerRoot instanceof EntityRoot) || !mutation.ledgerKey) return void 0;
+    const fields = Object.entries(schema?.columns ?? {}).filter(([, column]) => column.createFunction || column.updateFunction).map(([name, column]) => column.modelName ?? name);
+    return fields.length ? mutation.ledgerRoot.captureFields(mutation.ledgerKey, fields) : void 0;
+  }
+  static validValue(column, value) {
+    if (value === null) return true;
+    switch (column.logicalType) {
+      case "text":
+        return typeof value === "string";
+      case "datetime":
+      case "date":
+        return value instanceof Date && Number.isFinite(value.getTime());
+      case "boolean":
+        return typeof value === "boolean";
+      case "double":
+        return typeof value === "number" && Number.isFinite(value);
+      case "integer":
+        return typeof value === "number" && Number.isSafeInteger(value);
+      case "decimal":
+        return typeof value === "string" && decimal(value) === value;
+      case "long":
+        return typeof value === "string" && long(value) === value;
+      case "time":
+        return typeof value === "string" && localTime(value) === value;
+      case "json":
+        return value !== void 0 && !(value instanceof Promise);
+      default:
+        return false;
+    }
+  }
+};
 
 // src/core/ast.ts
 var SortDirection = /* @__PURE__ */ ((SortDirection2) => {
@@ -734,7 +1004,9 @@ export {
   ModeledInteger32Layout,
   validateInteger32Schemas,
   localTime,
+  EntityRoot,
   MutationFieldLayout,
+  ContextFix,
   SortDirection,
   OrderBy,
   AggregationCacheOptions,
@@ -745,4 +1017,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-4RL2SBSG.js.map
+//# sourceMappingURL=chunk-7XDFNRIV.js.map

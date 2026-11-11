@@ -32,6 +32,7 @@ __exportStar(require("./core/entity-root"), exports);
 __exportStar(require("./core/loaded-scalar-snapshot"), exports);
 __exportStar(require("./core/mutation-field-layout"), exports);
 __exportStar(require("./core/checker"), exports);
+__exportStar(require("./core/context-fix"), exports);
 __exportStar(require("./core/object-location"), exports);
 __exportStar(require("./core/wire-fields"), exports);
 __exportStar(require("./core/dynamic-search"), exports);

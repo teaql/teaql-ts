@@ -19,6 +19,9 @@ export type ColumnSchema = {
     integer32?: boolean;
     /** Trusted model/application log policy, never taken from a query payload. */
     logPolicy?: SQLParameterLogPolicy;
+    /** Trusted model ownership of automatic Context assignments. */
+    createFunction?: string;
+    updateFunction?: string;
 };
 export type EntitySchema = {
     table: string;

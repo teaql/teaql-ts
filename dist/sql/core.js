@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.standardAggregateFunction = exports.assertSafeIdentifier = exports.AbstractSQLTeaQLClient = exports.SQLExecutionEvidenceStore = exports.TextDiagnosticSQLLogSink = exports.debugSQL = exports.ensureOptimisticIdFloor = exports.canonicalRelationIndexes = void 0;
 const telemetry_1 = require("../core/telemetry");
 const checker_1 = require("../core/checker");
+const context_fix_1 = require("../core/context-fix");
 const checker_privacy_1 = require("../core/checker-privacy");
 const mutation_field_layout_1 = require("../core/mutation-field-layout");
 const context_1 = require("../core/context");
@@ -865,7 +866,7 @@ class AbstractSQLTeaQLClient {
         if (ownsFixTime)
             this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
         try {
-            checker.checkAndFix(this.userContext, mutation, results);
+            context_fix_1.ContextFix.run(this.userContext, mutation, schema, () => checker.checkAndFix(this.userContext, mutation, results));
             if (schema && (mutation.action !== request.mutation.action
                 || this.checkedMutationVersion(mutation) !== originalVersion)) {
                 throw new mutation_version_1.MutationVersionError('invalid_type');
@@ -881,6 +882,9 @@ class AbstractSQLTeaQLClient {
             // Copying it into pending intent would make a rolled-back deletion look
             // like an illegal id/version edit on the next graph-save attempt.
             if (mutation.action !== 'Delete' && mutation.ledgerKey && mutation.ledgerRoot) {
+                const undo = context_fix_1.ContextFix.captureUndo(mutation, schema);
+                if (request.graphSession && undo)
+                    this.graphRollbackActions.push(undo);
                 for (const [field, value] of Object.entries(mutation.payload || {}))
                     mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
             }

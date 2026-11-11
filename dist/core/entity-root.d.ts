@@ -21,6 +21,9 @@ export declare class EntityRoot {
     set(key: EntityKey, field: string, value: unknown): void;
     snapshot(): EntityChange[];
     change(key: EntityKey): Readonly<Record<string, unknown>>;
+    /** @internal A save-attempt undo of selected fields on one typed identity.
+     * No lifecycle/version/trace changes or unrelated caller edits are reverted. */
+    captureFields(key: EntityKey, fields: readonly string[]): () => void;
     /** @internal Remove only the exact intents observed during baseline comparison. */
     discardFields(key: EntityKey, observed: Readonly<Record<string, unknown>>): void;
     mergeFrom(other: EntityRoot): void;

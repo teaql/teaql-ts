@@ -1,5 +1,6 @@
 export type EntityId = string | number | bigint;
 import {EntityVersion, EntityVersionInput, entityVersion} from './mutation-version';
+import {snapshotQuery} from './query-snapshot';
 
 export type EntityKey = Readonly<{ entity: string; id: EntityId }>;
 export type EntityChange = Readonly<{ key: EntityKey; values: Readonly<Record<string, unknown>> }>;
@@ -37,6 +38,23 @@ export class EntityRoot {
 
   change(key: EntityKey): Readonly<Record<string, unknown>> {
     return Object.freeze({ ...(this.changes.get(identity(key))?.values ?? {}) });
+  }
+
+  /** @internal A save-attempt undo of selected fields on one typed identity.
+   * No lifecycle/version/trace changes or unrelated caller edits are reverted. */
+  captureFields(key: EntityKey, fields: readonly string[]): () => void {
+    const id = identity(key), before = this.changes.get(id)?.values ?? {};
+    const captured = new Map(fields.map(field => [field, {
+      present: Object.prototype.hasOwnProperty.call(before, field), value: snapshotQuery(before[field]),
+    }]));
+    return () => {
+      const entry = this.changes.get(id) ?? {key: Object.freeze({...key}), values: Object.create(null)};
+      for (const [field, value] of captured) {
+        if (value.present) entry.values[field] = snapshotQuery(value.value);
+        else delete entry.values[field];
+      }
+      if (Object.keys(entry.values).length) this.changes.set(id,entry); else this.changes.delete(id);
+    };
   }
 
   /** @internal Remove only the exact intents observed during baseline comparison. */

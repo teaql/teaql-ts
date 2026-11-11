@@ -2,6 +2,7 @@ import {
   telemetryNotice
 } from "./chunk-LGSUBUWZ.js";
 import {
+  ContextFix,
   ModeledInteger32Layout,
   MutationFieldLayout,
   OrderBy,
@@ -11,7 +12,7 @@ import {
   localTime,
   mergeRuntimeBootstrap,
   validateInteger32Schemas
-} from "./chunk-4RL2SBSG.js";
+} from "./chunk-7XDFNRIV.js";
 import {
   CheckException,
   GraphCommittedError,
@@ -853,7 +854,7 @@ var AbstractSQLTeaQLClient = class {
     const ownsFixTime = this.userContext.getResource("fixTime") === void 0;
     if (ownsFixTime) this.userContext.insertResource("fixTime", this.userContext.businessTime()).beginFixEvidence();
     try {
-      checker.checkAndFix(this.userContext, mutation, results);
+      ContextFix.run(this.userContext, mutation, schema, () => checker.checkAndFix(this.userContext, mutation, results));
       if (schema && (mutation.action !== request.mutation.action || this.checkedMutationVersion(mutation) !== originalVersion)) {
         throw new MutationVersionError("invalid_type");
       }
@@ -868,6 +869,8 @@ var AbstractSQLTeaQLClient = class {
       if (results.length) throw new CheckException(results);
       this.validateFloatingMutation(mutation);
       if (mutation.action !== "Delete" && mutation.ledgerKey && mutation.ledgerRoot) {
+        const undo = ContextFix.captureUndo(mutation, schema);
+        if (request.graphSession && undo) this.graphRollbackActions.push(undo);
         for (const [field, value] of Object.entries(mutation.payload || {})) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
       }
       return this.sealMutationVersion(mutation, originalVersion, Boolean(schema));
@@ -2220,4 +2223,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-ZLU3HZMD.js.map
+//# sourceMappingURL=chunk-6PSFLS3X.js.map

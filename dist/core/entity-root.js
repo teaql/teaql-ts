@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EntityRoot = void 0;
 const mutation_version_1 = require("./mutation-version");
+const query_snapshot_1 = require("./query-snapshot");
 const identity = (key) => `${key.entity}\u0000${typeof key.id}:${String(key.id)}`;
 /** Pending mutation ledger shared by one generated object graph. */
 class EntityRoot {
@@ -33,6 +34,27 @@ class EntityRoot {
     }
     change(key) {
         return Object.freeze({ ...(this.changes.get(identity(key))?.values ?? {}) });
+    }
+    /** @internal A save-attempt undo of selected fields on one typed identity.
+     * No lifecycle/version/trace changes or unrelated caller edits are reverted. */
+    captureFields(key, fields) {
+        const id = identity(key), before = this.changes.get(id)?.values ?? {};
+        const captured = new Map(fields.map(field => [field, {
+                present: Object.prototype.hasOwnProperty.call(before, field), value: (0, query_snapshot_1.snapshotQuery)(before[field]),
+            }]));
+        return () => {
+            const entry = this.changes.get(id) ?? { key: Object.freeze({ ...key }), values: Object.create(null) };
+            for (const [field, value] of captured) {
+                if (value.present)
+                    entry.values[field] = (0, query_snapshot_1.snapshotQuery)(value.value);
+                else
+                    delete entry.values[field];
+            }
+            if (Object.keys(entry.values).length)
+                this.changes.set(id, entry);
+            else
+                this.changes.delete(id);
+        };
     }
     /** @internal Remove only the exact intents observed during baseline comparison. */
     discardFields(key, observed) {

@@ -6,6 +6,7 @@ import {
   startRuntimeOperation,
 } from '../core/telemetry';
 import { CheckException, EntityChecker } from '../core/checker';
+import { ContextFix } from '../core/context-fix';
 import { translateCheckerResults } from '../core/checker-privacy';
 import { MutationFieldLayout } from '../core/mutation-field-layout';
 import { UserContext } from '../core/context';
@@ -54,6 +55,9 @@ export type ColumnSchema = {
   integer32?: boolean;
   /** Trusted model/application log policy, never taken from a query payload. */
   logPolicy?: SQLParameterLogPolicy;
+  /** Trusted model ownership of automatic Context assignments. */
+  createFunction?: string;
+  updateFunction?: string;
 };
 
 export type EntitySchema = {
@@ -994,7 +998,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const ownsFixTime = this.userContext.getResource<Date>('fixTime') === undefined;
     if (ownsFixTime) this.userContext.insertResource('fixTime', this.userContext.businessTime()).beginFixEvidence();
     try {
-      checker.checkAndFix(this.userContext, mutation, results);
+      ContextFix.run(this.userContext, mutation, schema, () => checker.checkAndFix(this.userContext, mutation, results));
       if (schema && (mutation.action !== request.mutation.action
         || this.checkedMutationVersion(mutation) !== originalVersion)) {
         throw new MutationVersionError('invalid_type');
@@ -1010,6 +1014,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       // Copying it into pending intent would make a rolled-back deletion look
       // like an illegal id/version edit on the next graph-save attempt.
       if (mutation.action !== 'Delete' && mutation.ledgerKey && mutation.ledgerRoot) {
+        const undo = ContextFix.captureUndo(mutation, schema);
+        if (request.graphSession && undo) this.graphRollbackActions.push(undo);
         for (const [field, value] of Object.entries(mutation.payload || {})) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
       }
       return this.sealMutationVersion(mutation, originalVersion, Boolean(schema));
