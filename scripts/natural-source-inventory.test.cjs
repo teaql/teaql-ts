@@ -25,5 +25,8 @@ test('source symlinks and symlink ancestors are rejected',()=>fixture(directory=
   assert.throws(()=>sourceFiles(directory),/non-file source/);
   fs.unlinkSync(path.join(directory,'src/index.ts'));fs.writeFileSync(path.join(directory,'src/index.ts'),'export const value = 1;\n');
   fs.renameSync(path.join(directory,'src'),path.join(directory,'real-src'));fs.symlinkSync('real-src',path.join(directory,'src'),'dir');
-  assert.throws(()=>sourceFiles(directory),/symlink ancestor/);
+  // Git can enumerate the untracked directory symlink itself before the
+  // tracked child. Either entry must be rejected; exact enumeration order is
+  // not part of the source-origin contract.
+  assert.throws(()=>sourceFiles(directory),/symlink ancestor|non-file source input: src/);
 }));
