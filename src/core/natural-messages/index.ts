@@ -3,8 +3,10 @@ import {ObjectLocation} from '../object-location';
 import {checkerInputLength, checkerRenderingWasAutomatic, checkerTemplateLiteral, markCheckerRendering} from '../checker-privacy';
 import {CheckerMessageCatalog, MessageSelection, MessageShape, SafeArguments, projectMessageSelection} from './catalog';
 import {CheckerMessageWarning, CheckerPresentation, CheckerPresentationModel, MessageOutput, checkerCountingUnit, sanitize} from './presentation';
-export {CheckerMessageCatalog, MessageShape, MessageSelection, SafeArguments, ordinal} from './catalog';
-export {CheckerPresentation, CheckerPresentationModel, CheckerMessageWarning, MessageOutput} from './presentation';
+export {CheckerMessageCatalog, ordinal} from './catalog';
+export type {MessageShape, MessageSelection, SafeArguments} from './catalog';
+export {CheckerPresentation, CheckerPresentationModel} from './presentation';
+export type {CheckerMessageWarning, MessageOutput} from './presentation';
 
 export type CheckerMessageRequest=Readonly<{presentation:CheckerPresentation;catalog:CheckerMessageCatalog;selection:MessageSelection;arguments:SafeArguments}>;
 export type CheckerMessageRenderer=(request:CheckerMessageRequest)=>MessageOutput;
