@@ -17,7 +17,7 @@ export type CheckerMessageConfiguration=Readonly<{
 export type CheckerValidationOrigin=Readonly<{model:CheckerPresentationModel;entity:string}>;
 const token=Symbol('TeaQL.NaturalCheckerPresentation');
 type LegacyNode=string|Readonly<{argument:string}>;
-type PreparedMessage=Readonly<{selection?:MessageSelection;legacy?:readonly LegacyNode[];catalog:CheckerMessageCatalog;generic:boolean}>;
+type PreparedMessage=Readonly<{selection?:MessageSelection;legacy?:readonly LegacyNode[];catalog:CheckerMessageCatalog;generic:boolean;application:boolean}>;
 type MessagePlan=Readonly<{literal?:string;locales?:Readonly<Record<Locale,Readonly<Record<MessageShape,PreparedMessage>>>>}>;
 const bindings=new WeakMap<object,Readonly<{presentation:CheckerPresentation;automaticMessage?:string;plan?:MessagePlan}>>();
 type Bound=CheckResult&{[token]?:object};
@@ -67,9 +67,25 @@ function preparePlan(config:CheckerMessageConfiguration,result:CheckResult,rule:
     if(selection&&application)selection=projectMessageSelection(selection,project);
     const effective=selection?.locale??locale;
     if(!patterns.has(effective))patterns.set(effective,config.catalog.projectPatterns(effective,project));
-    return [shape,Object.freeze({selection,legacy,catalog:patterns.get(effective)!,generic})];
+    return [shape,Object.freeze({selection,legacy,catalog:patterns.get(effective)!,generic,application})];
   })))])) as Record<Locale,Readonly<Record<MessageShape,PreparedMessage>>>;
   return Object.freeze({locales:Object.freeze(prepared)});
+}
+function projectPlan(plan:MessagePlan,project:(literal:string)=>string):MessagePlan {
+  if(plan.literal!==undefined)return Object.freeze({literal:project(plan.literal)});
+  const prepared:Partial<Record<Locale,Readonly<Record<MessageShape,PreparedMessage>>>>={};
+  for(const locale of locales){
+    const shapes:Partial<Record<MessageShape,PreparedMessage>>={};
+    for(const shape of ['one','two','deep'] as const){
+      const item=plan.locales![locale][shape];
+      shapes[shape]=Object.freeze({...item,
+        selection:item.application&&item.selection?projectMessageSelection(item.selection,project):item.selection,
+        legacy:item.legacy&&Object.freeze(item.legacy.map(node=>typeof node==='string'?project(node):node)),
+        catalog:item.catalog.projectPatterns(item.selection?.locale??locale,project)});
+    }
+    prepared[locale]=Object.freeze(shapes as Record<MessageShape,PreparedMessage>);
+  }
+  return Object.freeze({locales:Object.freeze(prepared as Record<Locale,Readonly<Record<MessageShape,PreparedMessage>>>) });
 }
 function safeArguments(result:CheckResult,locale:Locale):SafeArguments {
   return Object.freeze({system:scalar(result.systemValue),input:scalar(result.inputValue),input_len:String(checkerInputLength(result)),unit:checkerCountingUnit(locale,'scalar')});
@@ -102,6 +118,7 @@ export function renderNaturalCheckerResult(config:CheckerMessageConfiguration,re
   const rule=ruleKeys[result.ruleId.toLowerCase()]??`checker.${result.ruleId.toLowerCase()}`;
   const locale=parseLocale(config.locale); // Invalid explicit Locale remains a typed error.
   let plan:MessagePlan|undefined=automatic(result)?previous?.plan:undefined;
+  if(plan)plan=projectPlan(plan,literal=>checkerTemplateLiteral(result,literal));
   try{
     let output:MessageOutput;
     if(plan)output=renderPlan(plan,presentation,result,locale);

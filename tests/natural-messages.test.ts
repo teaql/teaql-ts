@@ -240,3 +240,14 @@ test('legacy projected literals survive relocation and explicit customer replace
   expect(final.message).toBe(`Private [REDACTED]: entryList[1].password expects 50; got ${secret.length}`);
   const replaced=ctx.translateCheckResults([{...final,message:'Customer replacement'}])[0];expect(replaced.message).toBe('Customer replacement');
 });
+
+test('a retained custom plan reprojects newly sensitive values in a later batch',()=>{
+  const secret='newly-sensitive-literal';
+  const ctx=context().installCheckerMessageCatalog(catalog({en:{rules:{'checker.minLength':{
+    one:`{field} needs {system} {unit}; got {input_len}. Private ${secret}`}}}}));
+  const source=ctx.translateCheckResultsFrom('Entry',[{ruleId:'min_length',location:location(['password']),inputValue:'old-private',systemValue:50}])[0];
+  expect(source.message).toContain(secret); // Ordinary application text in the first invocation.
+  const output=ctx.translateCheckResults([source,{ruleId:'required',location:location(['password']),inputValue:secret}])[0];
+  expect(output.message).not.toContain(secret);expect(output.message).toContain('Private [REDACTED]');
+  expect(output.message).toContain(String('old-private'.length));expect(output.inputValue).toBe('[REDACTED]');
+});

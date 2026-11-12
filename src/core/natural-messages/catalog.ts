@@ -148,7 +148,7 @@ export class CheckerMessageCatalog {
   private patterns(locale:Locale):Patterns{return this.#locales[locale]?.patterns??CheckerMessageCatalog.builtin.#locales[locale]!.patterns!;}
   /** A finite location-pattern view; no raw application template is retained. */
   projectPatterns(locale:Locale,project:(text:string)=>string):CheckerMessageCatalog {
-    const patterns=this.#locales[locale]?.patterns;if(!this.#application||!patterns)return CheckerMessageCatalog.builtin;
+    const patterns=this.#locales[locale]?.patterns;if(this===CheckerMessageCatalog.builtin||!patterns)return CheckerMessageCatalog.builtin;
     const safe=(nodes:Template)=>Object.freeze(nodes.map(node=>typeof node==='string'?project(node):node));
     return new CheckerMessageCatalog(Object.freeze({[locale]:Object.freeze({rules:Object.freeze({}),patterns:Object.freeze({
       reference:safe(patterns.reference),item:safe(patterns.item),separator:project(patterns.separator)})})}),false);
