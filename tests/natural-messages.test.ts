@@ -178,3 +178,65 @@ test('graph boundary rerenders an automatically relocated error without changing
   expect(error).toBeInstanceOf(CheckException);expect(error.violations[0].message).toBe('The name of the 2nd entry is required.');
   expect(error.message).toContain('2nd entry');expect(checkResultToWire(error.violations[0]).instancePath).toBe('/entryList/1/name');
 });
+
+test('graph relocation cannot invoke a custom renderer again without its original redactions',()=>{
+  const secret='graph-provider-private';let calls=0;
+  const ctx=context().installCheckerMessageRenderer(()=>{calls++;return {message:'Provider echoed '+secret,warnings:[]};});
+  const source=ctx.translateCheckResultsFrom('Entry',[{ruleId:'min_length',location:location(['password']),inputValue:secret,systemValue:50}])[0];
+  expect(source.message).not.toContain(secret);
+  const config=ctx.captureCheckerMessages(),moved={...source,location:location(['entry_list',1,'password'])};
+  const final=ctx.renderCheckerGraphResults([moved],config,Object.freeze({model:config.model,entity:'Catalog'}))[0];
+  expect(final.message).not.toContain(secret);expect(calls).toBe(1);expect(final.location.instancePath()).toBe('/entryList/1/password');
+});
+
+test('a later graph depth uses a preprojected application template, not raw catalog text',()=>{
+  const secret='graph-template-private';
+  const ctx=context().installCheckerMessageCatalog(catalog({en:{rules:{'checker.minLength':{two:`The {field} of {object} needs {system} {unit}; got {input_len}. Private ${secret}`}}}}));
+  const source=ctx.translateCheckResultsFrom('Entry',[{ruleId:'min_length',location:location(['password']),inputValue:secret,systemValue:50}])[0];
+  const config=ctx.captureCheckerMessages(),moved={...source,location:location(['entry_list',1,'password'])};
+  const final=ctx.renderCheckerGraphResults([moved],config,Object.freeze({model:config.model,entity:'Catalog'}))[0];
+  expect(final.message).not.toContain(secret);expect(final.message).toContain('Private [REDACTED]');
+  expect(final.message).toContain('2nd entry');expect(final.message).toContain(String(secret.length));
+});
+
+test('a retained error changes Locale using already projected application plans',()=>{
+  const secret='later-locale-private';
+  const ctx=context().installCheckerMessageCatalog(catalog({'zh-CN':{rules:{'checker.minLength':{
+    two:`{object}的{field}至少{system}{unit}，当前{input_len}；${secret}`}}}}));
+  const source=ctx.translateCheckResultsFrom('Entry',[{ruleId:'min_length',location:location(['password']),inputValue:secret,systemValue:50}])[0];
+  ctx.setLocaleCode('zh-CN');
+  const config=ctx.captureCheckerMessages(),final=ctx.renderCheckerGraphResults([{...source,location:location(['entry_list',1,'password'])}],config,
+    Object.freeze({model:config.model,entity:'Catalog'}))[0];
+  expect(final.message).toContain('第2条明细');expect(final.message).toContain('[REDACTED]');
+  expect(final.message).not.toContain(secret);expect(final.message).toContain(String(secret.length));
+});
+
+test('later owner patterns project literals without corrupting numeric arguments',()=>{
+  const ctx=context().installCheckerMessageCatalog(catalog({en:{locationPatterns:{
+    reference:'Private 1 {relation}',item:'Private 1 the {ordinal} {relation}',separator:' → '}}}));
+  const source=ctx.translateCheckResultsFrom('Entry',[{ruleId:'min_length',location:location(['password']),inputValue:'1',systemValue:12}])[0];
+  const config=ctx.captureCheckerMessages(),final=ctx.renderCheckerGraphResults([{...source,location:location(['entry_list',1,'password'])}],config,
+    Object.freeze({model:config.model,entity:'Catalog'}))[0];
+  expect(final.message).toContain('Private [REDACTED] the 2nd entry');
+  expect(final.message).toContain('12 Unicode scalar values');expect(final.message).toContain('current length is 1.');
+});
+
+test('renderer-retained template selections contain projected nodes after the invocation closes',()=>{
+  const secret='retained-selection-private';let retained:CheckerMessageRequest|undefined;
+  const ctx=context().installCheckerMessageCatalog(catalog({en:{rules:{'checker.required':{one:`Private ${secret} {field}`}}}}))
+    .installCheckerMessageRenderer(request=>{retained=request;return request.presentation.render(request.catalog,request.selection,request.arguments);});
+  const source=ctx.translateCheckResultsFrom('Entry',[{ruleId:'required',location:location(['password']),inputValue:secret}])[0];
+  expect(source.message).toBe('Private [REDACTED] password');
+  expect(retained!.selection.render({field:'password'})).toBe('Private [REDACTED] password');
+});
+
+test('legacy projected literals survive relocation and explicit customer replacement wins',()=>{
+  const secret='legacy-plan-private';
+  const ctx=context().installI18nCatalog(new I18nCatalog({schema:'teaql.i18n/v1',defaultLocale:'en',locales:{en:{
+    messages:{'checker.minLength':`Private ${secret}: {location} expects {system}; got {input_len}`},vocabulary:{}}}},I18nCatalog.builtin));
+  const source=ctx.translateCheckResultsFrom('Entry',[{ruleId:'min_length',location:location(['password']),inputValue:secret,systemValue:50}])[0];
+  const config=ctx.captureCheckerMessages(),moved={...source,location:location(['entry_list',1,'password'])};
+  const final=ctx.renderCheckerGraphResults([moved],config,Object.freeze({model:config.model,entity:'Catalog'}))[0];
+  expect(final.message).toBe(`Private [REDACTED]: entryList[1].password expects 50; got ${secret.length}`);
+  const replaced=ctx.translateCheckResults([{...final,message:'Customer replacement'}])[0];expect(replaced.message).toBe('Customer replacement');
+});

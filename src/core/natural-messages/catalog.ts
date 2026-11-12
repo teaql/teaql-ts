@@ -6,6 +6,16 @@ export type SafeArguments = Readonly<Record<string,string>>;
 type Node = string | Readonly<{argument:string}>;
 type Template = readonly Node[];
 export type MessageSelection = Readonly<{locale:Locale; render:(args:SafeArguments,literal?:(text:string)=>string)=>string}>;
+const selectionTemplates=new WeakMap<MessageSelection,Template>();
+function selectionFor(locale:Locale,template:Template):MessageSelection {
+  const selection=Object.freeze({locale,render:(args:SafeArguments,literal?:(text:string)=>string)=>render(template,args,literal)});
+  selectionTemplates.set(selection,template);return selection;
+}
+/** Project now, retaining only safe nodes, never a callback over the invocation. */
+export function projectMessageSelection(selection:MessageSelection,project:(text:string)=>string):MessageSelection {
+  const template=selectionTemplates.get(selection);if(!template)return invalid();
+  return selectionFor(selection.locale,Object.freeze(template.map(node=>typeof node==='string'?project(node):node)));
+}
 type Patterns = Readonly<{reference:Template;item:Template;separator:string}>;
 type LocaleEntry = Readonly<{rules:Readonly<Record<string,Readonly<Partial<Record<MessageShape,Template>>>>>; patterns?:Patterns}>;
 const invalid = ():never => {throw new TypeError('Invalid Checker message catalog');};
@@ -128,7 +138,7 @@ export class CheckerMessageCatalog {
   }
   lookup(locale:Locale,rule:string,shape:MessageShape):MessageSelection|undefined {
     const template=this.#locales[locale]?.rules[rule]?.[shape];
-    return template&&Object.freeze({locale,render:(args:SafeArguments,literal?:(text:string)=>string)=>render(template,args,literal)});
+    return template&&selectionFor(locale,template);
   }
   override(locale:Locale,rule:string,shape:MessageShape):MessageSelection|undefined {return this.#application?this.lookup(locale,rule,shape):undefined;}
   select(locale:Locale,rule:string,shape:MessageShape):MessageSelection {
@@ -136,6 +146,13 @@ export class CheckerMessageCatalog {
     return CheckerMessageCatalog.builtin.lookup(locale,'checker.invalid',shape)!;
   }
   private patterns(locale:Locale):Patterns{return this.#locales[locale]?.patterns??CheckerMessageCatalog.builtin.#locales[locale]!.patterns!;}
+  /** A finite location-pattern view; no raw application template is retained. */
+  projectPatterns(locale:Locale,project:(text:string)=>string):CheckerMessageCatalog {
+    const patterns=this.#locales[locale]?.patterns;if(!this.#application||!patterns)return CheckerMessageCatalog.builtin;
+    const safe=(nodes:Template)=>Object.freeze(nodes.map(node=>typeof node==='string'?project(node):node));
+    return new CheckerMessageCatalog(Object.freeze({[locale]:Object.freeze({rules:Object.freeze({}),patterns:Object.freeze({
+      reference:safe(patterns.reference),item:safe(patterns.item),separator:project(patterns.separator)})})}),false);
+  }
   reference(locale:Locale,relation:string):string{return render(this.patterns(locale).reference,{relation});}
   item(locale:Locale,relation:string,index:number,classifier:string):string {
     if(!Number.isSafeInteger(index)||index<0)return invalid();const position=BigInt(index)+1n;
