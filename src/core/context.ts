@@ -3,6 +3,9 @@ import { BusinessClock, SystemBusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
 import { prepareCheckerResults } from './checker-privacy';
+import {CheckerMessageCatalog, CheckerMessageConfiguration, CheckerMessageRenderer, CheckerMessageWarning,
+  CheckerPresentationModel, CheckerValidationOrigin, bindCheckerOrigin, renderNaturalCheckerResult,
+  standardCheckerMessageRenderer} from './natural-messages';
 import { internalId, InternalIdGenerator, InternalIdReservationService } from './internal-id';
 import {
   contextSchemaCapability,
@@ -140,6 +143,41 @@ export class UserContext {
   public idSetPaginationCountAccuracy: 'EXACT' | 'LOWER_BOUND' | 'UNKNOWN' = 'UNKNOWN';
   public locale: Locale = 'en';
   public i18nCatalog: I18nCatalog = I18nCatalog.builtin;
+  private naturalCatalog=CheckerMessageCatalog.builtin;
+  private naturalModel=CheckerPresentationModel.empty;
+  private naturalRenderer:CheckerMessageRenderer=standardCheckerMessageRenderer;
+  private naturalWarning:(code:CheckerMessageWarning)=>void=code=>console.warn(code);
+
+  get checkerPresentationModel():CheckerPresentationModel{return this.naturalModel;}
+  installCheckerPresentationModel(model:CheckerPresentationModel):this {
+    if(!(model instanceof CheckerPresentationModel))throw new TypeError('Checker presentation model required');
+    this.naturalModel=model;return this;
+  }
+  installCheckerMessageCatalog(source:string):this {
+    const catalog=CheckerMessageCatalog.fromJson(source);this.naturalCatalog=catalog;return this;
+  }
+  installCheckerMessageRenderer(renderer:CheckerMessageRenderer):this {
+    if(typeof renderer!=='function')throw new TypeError('Checker renderer required');this.naturalRenderer=renderer;return this;
+  }
+  installCheckerMessageWarning(sink:(code:CheckerMessageWarning)=>void):this {
+    if(typeof sink!=='function')throw new TypeError('Checker warning sink required');this.naturalWarning=sink;return this;
+  }
+  /** Immutable configuration, not a closure capturing this Context. */
+  captureCheckerMessages(defaultModel=CheckerPresentationModel.empty):CheckerMessageConfiguration {
+    return Object.freeze({model:this.naturalModel===CheckerPresentationModel.empty?defaultModel:this.naturalModel,
+      catalog:this.naturalCatalog,legacy:this.i18nCatalog,locale:parseLocale(this.locale),renderer:this.naturalRenderer,warning:this.naturalWarning});
+  }
+  translateCheckResultsFrom(origin:string,results:CheckResult[]):CheckResult[] {
+    const bound=bindCheckerOrigin(results,Object.freeze({model:this.naturalModel,entity:origin}));
+    results.splice(0,results.length,...bound);return this.translateCheckResults(results);
+  }
+  /** Runtime graph boundary supplies an already-captured immutable origin. */
+  renderCheckerGraphResults(results:readonly CheckResult[],config:CheckerMessageConfiguration,origin:CheckerValidationOrigin):CheckResult[] {
+    if(config.legacy.translate!==I18nCatalog.prototype.translate||this.translateCheckResults!==UserContext.prototype.translateCheckResults)return [...results];
+    const scope=prepareCheckerResults(results),warnings=new Set<CheckerMessageWarning>();
+    try{return scope.finish(scope.values.map(result=>renderNaturalCheckerResult(config,result,warnings,origin)));}
+    finally{scope.close();}
+  }
 
   setLocaleCode(code: string): this { const locale = parseLocale(code); this.locale = locale; return this; }
   setLanguageCode(code: string): this { return this.setLocaleCode(code); }
@@ -152,7 +190,11 @@ export class UserContext {
     if (!results.length) return results;
     const scope = prepareCheckerResults(results, declaringEntityType);
     try {
-      const translated = scope.values.map(result => this.i18nCatalog.translate(result, this.locale));
+      // Existing subclass/duck-typed catalog hooks remain authoritative. Their
+      // results still pass the same final privacy projection.
+      const custom=this.i18nCatalog.translate!==I18nCatalog.prototype.translate;
+      const config=this.captureCheckerMessages(),warnings=new Set<CheckerMessageWarning>();
+      const translated = scope.values.map(result => custom?this.i18nCatalog.translate(result,this.locale):renderNaturalCheckerResult(config,result,warnings));
       results.splice(0, results.length, ...scope.finish(translated));
       return results;
     } finally { scope.close(); }

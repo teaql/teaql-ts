@@ -58,7 +58,7 @@ test('credentials and credential constraints are always redacted without model m
   expect(result.inputValue).toBe('[REDACTED]'); expect(result.systemValue).toBe('[REDACTED]');
 });
 test('credential length keeps its original Unicode-scalar length and numeric bound', () => {
-  for (const [locale, phrase] of [['en', 'is 6'], ['zh-CN', '实际长度为 6']]) {
+  for (const [locale, phrase] of [['en', 'is 6'], ['zh-CN', '当前长度为6']]) {
     const result = new UserContext().setLocaleCode(locale).translateCheckResults([
       { ruleId: 'min_length', location: ObjectLocation.property('password'), inputValue: '密钥🔑abc', systemValue: 12 },
     ])[0];
@@ -129,8 +129,9 @@ test('retranslated safe errors preserve original length through spread, relocati
   const relocated = context.setLocaleCode('zh-CN').translateCheckResults([
     { ...original, location: original.location.prefixedBy(ObjectLocation.property('order_item_list').index(2)) },
   ])[0];
-  expect(relocated.inputValue).toBe('[REDACTED]'); expect(relocated.message).toContain('实际长度为 6');
-  expect(relocated.message).toContain('orderItemList[2].password'); expect(relocated.systemValue).toBe(12);
+  expect(relocated.inputValue).toBe('[REDACTED]'); expect(relocated.message).toContain('当前长度为6');
+  expect(relocated.message).toContain('第3项order item list');
+  expect(relocated.location.instancePath()).toBe('/orderItemList/2/password'); expect(relocated.systemValue).toBe(12);
 });
 test('a short credential cannot corrupt generated expected bounds or validation lengths', () => {
   const result = new UserContext().translateCheckResults([
@@ -184,7 +185,7 @@ test('built-in rule vocabulary is public even if a credential has the same spell
     { ruleId: 'required', location: ObjectLocation.property('password'), inputValue: 'required', systemValue: 'required' },
   ])[0];
   expect(result.inputValue).toBe('[REDACTED]'); expect(result.systemValue).toBe('[REDACTED]');
-  expect(result.message).toBe('The password is required');
+  expect(result.message).toBe('The password is required.\nLocation: current object');
 });
 test('custom template literals are scrubbed without rewriting numeric substitutions', () => {
   const context = new UserContext().installI18nCatalog(new I18nCatalog({ schema: 'teaql.i18n/v1', defaultLocale: 'en',

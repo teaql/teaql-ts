@@ -16,6 +16,7 @@ export class I18nCatalog{
  static readonly builtin=new I18nCatalog(builtinJson as CatalogData);
  constructor(private readonly data:CatalogData,private readonly fallback?:I18nCatalog){if(data.schema!=='teaql.i18n/v1')throw new Error('Unsupported i18n schema');Object.keys(data.locales).forEach(parseLocale);}
  message(locale:Locale,key:string):string{return this.data.locales[locale]?.messages[key]??this.fallback?.data.locales[locale]?.messages[key]??this.data.locales.en?.messages[key]??this.fallback?.data.locales.en?.messages[key]??key;}
+ applicationMessage(locale:Locale,key:string):string|undefined{return this===I18nCatalog.builtin?undefined:this.data.locales[locale]?.messages[key];}
  translate(result:CheckResult,locale:Locale):CheckResult{
   const keys:Record<string,string>={required:'checker.required',min:'checker.min',max:'checker.max',min_str_len:'checker.minLength',min_length:'checker.minLength',max_str_len:'checker.maxLength',max_length:'checker.maxLength'};
   const key=keys[result.ruleId.toLowerCase()]??`checker.${result.ruleId.toLowerCase()}`;

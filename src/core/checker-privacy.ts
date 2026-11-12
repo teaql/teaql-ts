@@ -4,7 +4,7 @@ import { businessMask, credentialName, hasCredentials, logValueStrings, plaintex
 /** Internal per-client metadata lookup, never stored on a shared UserContext. */
 export type CheckerPrivacyPolicy = (entityType: string | undefined, field: string) => 'masked' | 'credential' | undefined;
 type Kind = 'masked' | 'credential' | undefined;
-type Presentation = { masked?: boolean; value?: unknown; length?: number; kind?: Kind; message?: string };
+type Presentation = { masked?: boolean; value?: unknown; length?: number; kind?: Kind; message?: string; automatic?:boolean };
 const presentationToken = Symbol('TeaQL.CheckerPresentation');
 // Tokens survive an application spread/relocation. Values contain only already
 // projected inputs, numeric lengths and safe display text, never original input.
@@ -62,7 +62,7 @@ function project(r: CheckResult, declaring: string | undefined, policy: CheckerP
   ];
   const masked = !!alreadySafe || !Object.is(input, r.inputValue);
   const state: Presentation = masked ? { masked: true, value: input, length: originalLength(r), kind: alreadySafe ? old!.kind : classification } : {};
-  if (!changed && old?.message !== undefined && old.message === r.message) state.message = old.message;
+  if (!changed && old?.message !== undefined && old.message === r.message) {state.message = old.message;state.automatic=old.automatic;}
   return { value, state, changed, secrets };
 }
 function redactions(values: readonly string[]): string[] {
@@ -114,8 +114,11 @@ export function checkerTemplateLiteral(result: CheckResult, text: string): strin
 export function markCheckerRendering(result: CheckResult): void {
   const scope = active.get(result);
   if (scope && Object.is(scope.input, result.inputValue) && Object.is(scope.system, result.systemValue)) {
-    retain(result, { ...metadata(result), message: result.message });
+    retain(result, { ...metadata(result), message: result.message, automatic:true });
   }
+}
+export function checkerRenderingWasAutomatic(result:CheckResult):boolean {
+  const state=metadata(result);return state?.automatic===true&&state.message===result.message;
 }
 /** Invoke the unchanged customer Context hook, then reproject its output. */
 export function translateCheckerResults(context: { translateCheckResults(r: CheckResult[], entity?: string): CheckResult[] },

@@ -8,6 +8,7 @@ import {
 import { CheckException, EntityChecker } from '../core/checker';
 import { ContextFix } from '../core/context-fix';
 import { translateCheckerResults } from '../core/checker-privacy';
+import {CheckerPresentationModel, CheckerValidationOrigin, CheckerMessageConfiguration, bindCheckerOrigin} from '../core/natural-messages';
 import { MutationFieldLayout } from '../core/mutation-field-layout';
 import { UserContext } from '../core/context';
 import { internalId } from '../core/internal-id';
@@ -407,6 +408,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private standardTelemetryHandle?: import('../telemetry/standard-node').StandardTelemetryHandle;
   private customTelemetry = false;
   private readonly checkers: Record<string, EntityChecker> = {};
+  private checkerPresentationModel=CheckerPresentationModel.empty;
   private userContext = new UserContext();
   private bootstrap: RuntimeBootstrap = {};
   private graphMutationSession?: SqlSession;
@@ -424,9 +426,11 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module: import('../core/runtime-module').RuntimeModule): this {
+    const presentation=this.checkerPresentationModel.merge(module.checkerPresentationModel);
     Object.assign(this.schemas, module.schemas);
     Object.assign(this.checkers, module.checkers);
     this.bootstrap = mergeRuntimeBootstrap(this.bootstrap, module.bootstrap);
+    this.checkerPresentationModel=presentation;
     return this;
   }
 
@@ -822,6 +826,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const graph = new GraphMutationSession(intent);
     const executionContext = this.userContext;
     graph.bindExecutionReference(() => this.userContext);
+    graph.bindExecutionReference(() => this.checkerPresentationModel);
     graph.bindExecutionMetadata(() => ({schemas: this.schemas, checkerNames: Object.keys(this.checkers).sort()}));
     for (const name of Object.keys(this.checkers)) {
       graph.bindExecutionReference(() => this.checkers[name]);
@@ -840,6 +845,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     let fixEvidenceStarted = false;
     let mutationPolicyGraphStarted = false;
     let committed = false;
+    let checkerOrigin:CheckerValidationOrigin|undefined;
+    let checkerConfig:CheckerMessageConfiguration|undefined;
     try {
       graph.validatePreparedSources();
       this.graphCommitActions = [];
@@ -849,6 +856,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       // No clock, Fix, policy or provider may precede whole-input admission.
       const pending = admit?.(graph);
       if (admit && typeof pending !== 'boolean') throw new Error('GRAPH_ADMISSION_RESULT_REQUIRED');
+      // Registering sources during admission establishes the graph root. Retain
+      // immutable metadata now, not Context state or a live entity traversal.
+      checkerConfig=executionContext.captureCheckerMessages(this.checkerPresentationModel);
+      if(graph.preparedRootEntity)checkerOrigin=Object.freeze({model:checkerConfig.model,entity:graph.preparedRootEntity});
       graph.captureInputSources();
       if (pending === false) {
         graph.sealPreparedGraph(); this.activeGraph = graph;
@@ -910,6 +921,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         for (const action of [...this.graphRollbackActions].reverse()) {
           try { action(); } catch { /* independent rollback restorations continue */ }
         }
+      }
+      if(error instanceof CheckException&&checkerOrigin&&checkerConfig){
+        error.refreshPresentation(executionContext.renderCheckerGraphResults(error.violations,checkerConfig,checkerOrigin));
       }
       throw error;
     } finally {
@@ -1021,6 +1035,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         throw new MutationVersionError('invalid_type');
       }
       width.checkMutation(mutation.payload || {},results);
+      const origin=Object.freeze({model:this.userContext.captureCheckerMessages(this.checkerPresentationModel).model,entity:declaringEntityType});
+      results.splice(0,results.length,...bindCheckerOrigin(results,origin));
       translateCheckerResults(this.userContext, results, declaringEntityType, this.checkerPrivacyPolicy,
         [request.loadedValues(), request.mutation.payload ?? {}, mutation.payload ?? {}]);
       if (results.length) throw new CheckException(results);

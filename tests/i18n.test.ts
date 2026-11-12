@@ -38,9 +38,10 @@ test('relocation rerenders every built-in rule in the original locale without ch
     const source = {...rule, entityType: 'ReviewedItem', sourceInstancePath: '/old~1items/2/product~0name'};
     const original = context.translateCheckResults([source])[0];
     const relocated = context.translateCheckResults([{...original, location: original.location.prefixedBy(prefix)}])[0];
-    const expected = I18nCatalog.builtin.translate({...source, location: source.location.prefixedBy(prefix)}, locale);
+    const expected = new UserContext().setLocaleCode(locale).translateCheckResults([{...source, location: source.location.prefixedBy(prefix)}])[0];
     expect(relocated.message).toBe(expected.message);
-    expect(relocated.message).toContain(relocated.location.nativePath());
+    expect(relocated.location.instancePath()).toBe(source.location.prefixedBy(prefix).instancePath());
+    expect(relocated.message).not.toBe(original.message);
     expect(relocated.entityType).toBe(source.entityType);
     expect(relocated.sourceInstancePath).toBe(source.sourceInstancePath);
     expect(relocated.systemValue).toBe(source.systemValue);

@@ -69,7 +69,8 @@ test('checker preserves a specialized nested type, canonical indices and submitt
   expect(failure).toBeInstanceOf(CheckException);
   expect(failure!.violations[0]).toMatchObject(result);
   expect(failure!.violations[0].location).toBe(location);
-  expect(failure!.message).toContain('orderItemList[1].productName');
+  expect(failure!.message).toContain('The product name is required.\nLocation: the 2nd order item list');
+  expect(failure!.violations[0].location.instancePath()).toBe('/orderItemList/1/productName');
   expect(driver.transactions).toBe(0); expect(driver.statements).toEqual([]);
 });
 
