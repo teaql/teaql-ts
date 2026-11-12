@@ -16,6 +16,9 @@ Only `better-sqlite3` and `esbuild` install scripts are enabled in the disposabl
 execution manifest. The candidate manifest and dependency versions do not change.
 Build outputs and dependencies are removed after owned child processes exit;
 compact logs, source hashes, response JSON and both data stores remain.
+Source snapshots exclude only the rebuilt `dist/` tree. Missing actual source,
+source symlinks and symlink ancestors still fail the gate; three focused tests
+check that boundary before dependency installation.
 
 The complete unedited Catalog/Entry library in `fixture/` is produced by
 `TypescriptNaturalMessagesGenerationTest`. The model supplies Chinese labels and

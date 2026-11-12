@@ -1,12 +1,13 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const {createOwnedRunner,ownedBytes}=require('../examples/fix-e-alignment/owned-command.cjs');
+const {sourceFiles,selection}=require('./natural-source-inventory.cjs');
 const repo=path.resolve(__dirname,'..'),args=process.argv.slice(2),index=args.indexOf('--output');
 assert(index>=0&&args[index+1],'--output /new/evidence/path is required');
 const output=path.resolve(args[index+1]);assert(!fs.existsSync(output),'never overwrite retained evidence');fs.mkdirSync(output,{recursive:true});
 const scratch=fs.mkdtempSync(path.join(os.tmpdir(),'teaql-ts-natural-build-')),runtime=path.join(scratch,'source'),runner=createOwnedRunner();
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-function files(){return [...new Set(cp.execFileSync('git',['ls-files','-z','--cached','--others','--exclude-standard'],{cwd:repo}).toString().split('\0').filter(Boolean))].sort();}
+function files(){return sourceFiles(repo);}
 function source(){return Object.fromEntries(files().map(name=>{const f=path.join(repo,name);assert(fs.lstatSync(f).isFile()&&!fs.lstatSync(f).isSymbolicLink());return [name,sha(fs.readFileSync(f))];}));}
 const report={scope:'local-source',passed:false,commands:[],publicPublication:false};
 async function run(name,command,timeout=300000,env={}){
@@ -20,7 +21,7 @@ async function main(){
   try{
     const disk=fs.statfsSync(scratch);assert(disk.bavail*disk.bsize>3*1024**3);
     report.freeBytesBefore=disk.bavail*disk.bsize;report.sourceCommit=cp.execFileSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).trim();
-    report.sourceHashes=source();report.node=process.version;report.scratch=scratch;
+    report.sourceSelection=selection;report.sourceHashes=source();report.node=process.version;report.scratch=scratch;
     for(const name of files()){
       const from=path.join(repo,name),to=path.join(runtime,name);fs.mkdirSync(path.dirname(to),{recursive:true});fs.copyFileSync(from,to);fs.chmodSync(to,fs.statSync(from).mode&0o777);
     }
@@ -30,6 +31,7 @@ async function main(){
     pkg.allowScripts={'better-sqlite3@13.0.3':true,'esbuild@0.28.2':true};
     fs.writeFileSync(manifest,JSON.stringify(pkg,null,2)+'\n');
     report.dependencyScriptPolicy={sourceEdited:false,allowScripts:pkg.allowScripts,executionManifestSha256:sha(fs.readFileSync(manifest))};
+    await run('source-inventory-tests',[process.execPath,'--test','scripts/natural-source-inventory.test.cjs']);
     await run('dependencies',['npm','ci','--offline','--no-audit','--fund=false']);
     await run('typecheck',[process.execPath,path.join(runtime,'node_modules/typescript/bin/tsc'),'--noEmit']);
     const jest=[process.execPath,path.join(runtime,'node_modules/jest/bin/jest.js'),'--config',path.join(runtime,'jest.config.cjs'),'--runInBand','--cacheDirectory',path.join(scratch,'jest')];
