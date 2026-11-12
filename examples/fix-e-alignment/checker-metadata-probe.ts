@@ -8,6 +8,16 @@ import { GENERATED_RUNTIME_MODULE } from 'generated/runtime-module';
 import Database from 'better-sqlite3';
 import { readFileSync } from 'node:fs';
 
+/** Human text uses readable labels; wire locations retain the technical identity. */
+function expectReadableDefaultMessage(violation: CheckResult): void {
+  if (violation.ruleId === 'invalid_type') return; // Explicit full-load policy text.
+  const leaf = [...violation.location.segments].reverse().find(segment => segment.kind === 'property');
+  if (leaf?.kind === 'property') {
+    expect(violation.message).toContain(leaf.name.replace(/_/g, ' '));
+    if (leaf.name.includes('_')) expect(violation.message).not.toContain(violation.location.nativePath());
+  }
+}
+
 /** Actual generated audited saves, not manually constructed validation errors. */
 export async function verifyCheckerMetadata(filename: string): Promise<void> {
   const context = new UserContext().withBusinessClock(new FixedBusinessClock(new Date('2032-02-29T10:15:30Z')));
@@ -93,13 +103,12 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
       for (const violation of observation.violations) {
         expect(violation.entityType).toBe(observation.entityType);
         expect(violation.message).toBeTruthy();
-        if (violation.ruleId !== 'invalid_type') {
-          expect(violation.message).toContain(violation.location.nativePath());
-        }
+        expectReadableDefaultMessage(violation);
         for (const profile of profiles) {
           const wire = checkResultToWire(violation, profile);
           expect(wire.entityType).toBe(observation.entityType);
           expect(wire.location).toEqual(violation.location.segments);
+          expect(wire.instancePath).toBe(violation.location.instancePath(profile));
         }
       }
     }
@@ -138,7 +147,7 @@ export async function verifyFileCheckerMetadata(filename: string): Promise<void>
       for (const violation of failure!.violations) expect(violation.entityType).toBe(entityType);
       process.stdout.write('CORE_FILE_CHECKER_METADATA_CASE=' + JSON.stringify({scenario, entityType,
         results: failure!.violations.map(result => checkResultToWire(result)), persistCalls: 0, auditEvents: 0}) + '\n');
-      for (const violation of failure!.violations) expect(violation.message).toContain(violation.location.nativePath());
+      for (const violation of failure!.violations) expectReadableDefaultMessage(violation);
     };
     const omitted = await owner();
     await invalid('create-required', () => omitted.auditAs('Reject a file-backed required-field omission').save(context), 'PurchaseOrder');

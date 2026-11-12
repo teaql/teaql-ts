@@ -85,6 +85,10 @@ async function main(){
       assert.equal(fileRows.filter(row=>row.name==='renamed').length,2);assert.equal(fileRows.filter(row=>row.name==='first').length,2);
       report.fileRows=fileRows.map(row=>({name:row.name,version:row.version}));report.fileDatabaseSha256=sha(fs.readFileSync(fileDatabase));
     }
+    if(args.includes('--fix-e')){
+      await run('fix-e-example',[process.execPath,'examples/fix-e-alignment/verify-local.cjs'],300000,
+        {TEAQL_FIX_E_EVIDENCE_DIR:path.join(output,'fix-e-alignment')});
+    }
     for(const [name,digest] of Object.entries(report.sourceHashes))if(name.startsWith('src/'))assert.equal(sha(fs.readFileSync(path.join(runtime,name))),digest,'build changed source: '+name);
     assert.deepEqual(source(),report.sourceHashes,'candidate changed during execution');report.passed=true;
   }catch(error){report.error=error.stack;process.exitCode=1;console.error(error.stack);}
