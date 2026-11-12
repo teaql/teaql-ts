@@ -72,6 +72,39 @@ test('model metadata rejects ambiguous aliases and conflicting modules without r
   const module=new RuntimeModule().withCheckerPresentation(base).and(new RuntimeModule().withCheckerPresentation(base));expect(module.checkerPresentationModel).toBe(base);
 });
 
+test('adapter entry uses passive model and checked-value privacy without retaining either on Context',()=>{
+  const ctx=new UserContext().installCheckerMessageWarning(()=>{}),passive=model(),secret='opaque private name';
+  let calls=0;
+  ctx.installCheckerMessageRenderer(request=>{
+    calls++;expect(request.arguments.input).not.toBe(secret);expect(request.arguments.input_len).toBe('19');
+    return {message:`Private explanation ${secret}`,warnings:[]};
+  });
+  const errors:CheckResult[]=[{ruleId:'max_length',location:location(['name']),inputValue:secret,systemValue:8}];
+  const returned=ctx.translateCheckResultsFrom('Entry',errors,{defaultModel:passive,
+    privacyPolicy:(_entity,field)=>field==='name'?'masked':undefined,checkedValues:[{name:secret}]});
+  expect(returned).toBe(errors);expect(calls).toBe(1);
+  expect(errors[0].entityType).toBe('Entry');expect(errors[0].message).not.toContain(secret);
+  expect(JSON.stringify(errors.map(result=>checkResultToWire(result)))).not.toContain(secret);
+  expect(ctx.checkerPresentationModel).toBe(CheckerPresentationModel.empty);
+  const config=ctx.captureCheckerMessages(passive),origin=Object.freeze({model:passive,entity:'Catalog'});
+  const relocated=ctx.renderCheckerGraphResults([{...errors[0],location:location(['entry_list',1,'name'])}],config,origin);
+  expect(calls).toBe(1);expect(relocated[0].message).not.toContain(secret);
+});
+
+test('adapter entry preserves the existing Context hook once and projects custom root messages',()=>{
+  const secret='root-private-input';
+  class CustomContext extends UserContext {
+    calls=0;
+    translateCheckResults(results:CheckResult[],declaring?:string):CheckResult[]{
+      this.calls++;expect(declaring).toBe('Entry');return results.map(result=>({...result,message:`Customer ${secret}`}));
+    }
+  }
+  const ctx=new CustomContext(),results:CheckResult[]=[{ruleId:'custom_rule',location:ObjectLocation.root()}];
+  ctx.translateCheckResultsFrom('Entry',results,{defaultModel:model(),privacyPolicy:()=> 'masked',checkedValues:[{name:secret}]});
+  expect(ctx.calls).toBe(1);expect(results[0].entityType).toBe('Entry');expect(results[0].message).not.toContain(secret);
+  expect(ctx.checkerPresentationModel).toBe(CheckerPresentationModel.empty);
+});
+
 test('English ordinals and machine indices are independent including safe-integer boundary',()=>{
   for(const [n,expected] of [[1n,'1st'],[2n,'2nd'],[3n,'3rd'],[11n,'11th'],[12n,'12th'],[13n,'13th'],[21n,'21st']] as const)expect(ordinal(n)).toBe(expected);
   const path=location(['entry_list',Number.MAX_SAFE_INTEGER,'name']);

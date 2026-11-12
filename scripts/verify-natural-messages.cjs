@@ -53,30 +53,35 @@ async function main(){
       }}main().catch(error=>{console.error(error);process.exitCode=1;});`);
     await run('artifacts',[process.execPath,smoke]);
     if(args.includes('--example')){
-      const example=path.join(runtime,'examples/natural-messages'),fixture=path.join(runtime,'examples/context-derived/fixture');
+      const example=path.join(runtime,'examples/natural-messages'),fixture=path.join(example,'fixture');
       const manifest=JSON.parse(fs.readFileSync(path.join(fixture,'generated-files.json')));
       for(const [name,hash] of Object.entries(manifest))assert.equal(sha(fs.readFileSync(path.join(fixture,name))),hash,'generated library changed: '+name);
       report.fixture=manifest;
       const config=path.join(scratch,'example-jest.cjs'),tsconfig=path.join(scratch,'example-tsconfig.json');
       fs.writeFileSync(tsconfig,JSON.stringify({extends:path.join(runtime,'tsconfig.json'),compilerOptions:{types:['node','jest'],typeRoots:[path.join(runtime,'node_modules/@types')],baseUrl:runtime,
-        paths:{'teaql-ts':[path.join(runtime,'src/index.ts')],'teaql-ts/*':[path.join(runtime,'src/*')],'context-generated/*':[path.join(fixture,'src/*')]}}}));
+        paths:{'teaql-ts':[path.join(runtime,'src/index.ts')],'teaql-ts/*':[path.join(runtime,'src/*')],'natural-generated/*':[path.join(fixture,'src/*')]}}}));
       fs.writeFileSync(config,'module.exports='+JSON.stringify({rootDir:runtime,roots:[example],testEnvironment:'node',testMatch:['**/examples/natural-messages/verify.test.ts'],
-        moduleNameMapper:{'^teaql-ts$':path.join(runtime,'src/index.ts'),'^teaql-ts/(.*)$':path.join(runtime,'src/$1'),'^context-generated/(.*)$':path.join(fixture,'src/$1')},
+        moduleNameMapper:{'^teaql-ts$':path.join(runtime,'src/index.ts'),'^teaql-ts/(.*)$':path.join(runtime,'src/$1'),'^natural-generated/(.*)$':path.join(fixture,'src/$1')},
         transform:{'^.+\\.tsx?$':['ts-jest',{tsconfig}]}})+';\n');
-      const database=path.join(output,'example.sqlite');report.rounds=[];
+      const database=path.join(output,'example.sqlite'),fileDatabase=path.join(output,'example.json');report.rounds=[];
       for(const round of [1,2]){
         const log=await run('example-'+round,[process.execPath,path.join(runtime,'node_modules/jest/bin/jest.js'),'--config',config,'--runInBand','--cacheDirectory',path.join(scratch,'example-jest')],120000,
-          {TEAQL_EXPECTED_RUNTIME_ENTRY:path.join(runtime,'src/index.ts'),TEAQL_NATURAL_MESSAGES_DB:database});
+          {TEAQL_EXPECTED_RUNTIME_ENTRY:path.join(runtime,'src/index.ts'),TEAQL_NATURAL_MESSAGES_DB:database,TEAQL_NATURAL_MESSAGES_FILE:fileDatabase});
         const responses=[...log.matchAll(/^TS_NATURAL_RESPONSE=(.+)$/gm)].map(match=>JSON.parse(match[1]));
         const checks=[...log.matchAll(/^TS_NATURAL_SQLITE_PASS=(.+)$/gm)].map(match=>JSON.parse(match[1]));
-        assert.equal(responses.length,3);assert.equal(checks.length,1);assert.equal(checks[0].passed,true);
+        assert.equal(responses.length,8);assert.equal(checks.length,2);
+        assert.deepEqual(checks.map(check=>check.provider).sort(),['file','sqlite']);
+        for(const check of checks){assert.equal(check.passed,true);assert.equal(check.automaticMetadata,true);assert.equal(check.rendererCalls,1);assert.equal(check.unchangedParent,true);}
         fs.writeFileSync(path.join(output,'responses-'+round+'.json'),JSON.stringify(responses,null,2)+'\n');
-        report.rounds.push({round,...checks[0]});
+        report.rounds.push({round,checks});
       }
       const oracle=path.join(scratch,'readback.cjs');fs.writeFileSync(oracle,`const Database=require(${JSON.stringify(path.join(runtime,'node_modules/better-sqlite3'))});const db=new Database(${JSON.stringify(database)},{readonly:true});try{console.log(JSON.stringify(db.prepare('SELECT name,version FROM entry_data ORDER BY id').all()));}finally{db.close();}`);
       const rows=JSON.parse(await run('sqlite-readback',[process.execPath,oracle]));
       assert.equal(rows.filter(row=>row.name==='renamed').length,2);assert.equal(rows.filter(row=>row.name==='first').length,2);
       report.sqliteRows=rows;report.sameDatabase=true;report.databaseSha256=sha(fs.readFileSync(database));
+      const fileState=JSON.parse(fs.readFileSync(fileDatabase)),fileRows=Object.values(fileState.data.Entry);
+      assert.equal(fileRows.filter(row=>row.name==='renamed').length,2);assert.equal(fileRows.filter(row=>row.name==='first').length,2);
+      report.fileRows=fileRows.map(row=>({name:row.name,version:row.version}));report.fileDatabaseSha256=sha(fs.readFileSync(fileDatabase));
     }
     for(const [name,digest] of Object.entries(report.sourceHashes))if(name.startsWith('src/'))assert.equal(sha(fs.readFileSync(path.join(runtime,name))),digest,'build changed source: '+name);
     assert.deepEqual(source(),report.sourceHashes,'candidate changed during execution');report.passed=true;

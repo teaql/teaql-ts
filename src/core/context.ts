@@ -2,7 +2,7 @@ import { SelectQuery } from './ast';
 import { BusinessClock, SystemBusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
-import { prepareCheckerResults } from './checker-privacy';
+import { CheckerPrivacyPolicy, prepareCheckerResults, translateCheckerResults } from './checker-privacy';
 import {CheckerMessageCatalog, CheckerMessageConfiguration, CheckerMessageRenderer, CheckerMessageWarning,
   CheckerPresentationModel, CheckerValidationOrigin, bindCheckerOrigin, renderNaturalCheckerResult,
   standardCheckerMessageRenderer} from './natural-messages';
@@ -21,6 +21,12 @@ import {
 } from './mutation-policy';
 
 type Cursor = { cursorId: string; boundary: any; expiresAt: number };
+/** Trusted adapter inputs for one synchronous Checker invocation, never retained by Context. */
+export type CheckerMessageInput = Readonly<{
+  defaultModel?: CheckerPresentationModel;
+  privacyPolicy?: CheckerPrivacyPolicy;
+  checkedValues?: readonly Readonly<Record<string, unknown>>[];
+}>;
 export type RetainedIdSet = { ids: BigUint64Array; expiresAt: number };
 export interface IdSetPaginationStore {
   get(key: string): RetainedIdSet | undefined;
@@ -167,9 +173,12 @@ export class UserContext {
     return Object.freeze({model:this.naturalModel===CheckerPresentationModel.empty?defaultModel:this.naturalModel,
       catalog:this.naturalCatalog,legacy:this.i18nCatalog,locale:parseLocale(this.locale),renderer:this.naturalRenderer,warning:this.naturalWarning});
   }
-  translateCheckResultsFrom(origin:string,results:CheckResult[]):CheckResult[] {
-    const bound=bindCheckerOrigin(results,Object.freeze({model:this.naturalModel,entity:origin}));
-    results.splice(0,results.length,...bound);return this.translateCheckResults(results);
+  translateCheckResultsFrom(origin:string,results:CheckResult[],input:CheckerMessageInput={}):CheckResult[] {
+    const model=this.captureCheckerMessages(input.defaultModel).model;
+    const bound=bindCheckerOrigin(results,Object.freeze({model,entity:origin}));
+    results.splice(0,results.length,...bound);
+    translateCheckerResults(this,results,origin,input.privacyPolicy??(()=>undefined),input.checkedValues??[]);
+    return results;
   }
   /** Runtime graph boundary supplies an already-captured immutable origin. */
   renderCheckerGraphResults(results:readonly CheckResult[],config:CheckerMessageConfiguration,origin:CheckerValidationOrigin):CheckResult[] {

@@ -1,0 +1,11 @@
+{
+  "schema": "teaql.generated-natural-checker-fixture/v1",
+  "generatorCommit": "ff5d00f5",
+  "scope": "typescript-node-lib-core",
+  "test": "TypescriptNaturalMessagesGenerationTest",
+  "generationEvidence": "2026-11-12-natural-checker-typescript-generation-qualified",
+  "runtimeTarget": "0.5.0-dev.0",
+  "dependencyBinding": "repository-local source via the controlled Jest module mapper",
+  "sourceFixtureEdited": false,
+  "publicPublication": false
+}
