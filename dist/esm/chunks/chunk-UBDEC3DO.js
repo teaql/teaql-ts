@@ -19,9 +19,9 @@ function long(value) {
   if (typeof value !== "string" && typeof value !== "bigint") {
     throw new TypeError("Long requires a signed 64-bit integer string or bigint");
   }
-  const text = String(value);
-  if (!LONG_TEXT.test(text)) throw new TypeError("Long requires a canonical integer string");
-  const exact = BigInt(text);
+  const text2 = String(value);
+  if (!LONG_TEXT.test(text2)) throw new TypeError("Long requires a canonical integer string");
+  const exact = BigInt(text2);
   if (exact < MIN_LONG || exact > MAX_LONG) throw new RangeError("Long is outside signed 64-bit range");
   return exact.toString();
 }
@@ -35,13 +35,26 @@ function longOrderKey(value) {
 }
 
 // src/core/checker.ts
-var CheckException = class extends Error {
+var _CheckException = class _CheckException extends Error {
   constructor(violations) {
     super(`Check failed: ${violations.map((v) => v.message ?? `${v.ruleId}:${v.location}`).join("; ")}`);
     this.violations = violations;
     this.name = "CheckException";
+    const owned = [...violations];
+    Object.defineProperty(this, "violations", { value: owned, enumerable: true });
+    _CheckException.owned.set(this, owned);
+  }
+  /** @internal Preserve the exception identity when the graph finishes relocation. */
+  refreshPresentation(results) {
+    const owned = _CheckException.owned.get(this);
+    if (!owned) return;
+    if (results.length === owned.length && results.every((result, index) => result.message === owned[index].message)) return;
+    owned.splice(0, owned.length, ...results);
+    this.message = `Check failed: ${results.map((v) => v.message ?? `${v.ruleId}:${v.location}`).join("; ")}`;
   }
 };
+_CheckException.owned = /* @__PURE__ */ new WeakMap();
+var CheckException = _CheckException;
 
 // src/core/object-location.ts
 function lowerCamel(name) {
@@ -231,8 +244,8 @@ function objectStrings(value, seen) {
   }
   return [String(value)];
 }
-function scrubLogText(text, values) {
-  return [...new Set(values)].sort((a, b) => b.length - a.length).reduce((result, value) => result?.split(value).join(redacted), text);
+function scrubLogText(text2, values) {
+  return [...new Set(values)].sort((a, b) => b.length - a.length).reduce((result, value) => result?.split(value).join(redacted), text2);
 }
 function businessMask(value, seen = /* @__PURE__ */ new WeakSet()) {
   if (value === null || value === void 0) return null;
@@ -255,13 +268,13 @@ var presentationToken = /* @__PURE__ */ Symbol("TeaQL.CheckerPresentation");
 var presentations = /* @__PURE__ */ new WeakMap();
 var active = /* @__PURE__ */ new WeakMap();
 var metadata = (r) => {
-  const token = r[presentationToken];
-  return token && presentations.get(token);
+  const token2 = r[presentationToken];
+  return token2 && presentations.get(token2);
 };
 function retain(r, value) {
-  const token = Object.freeze({});
-  presentations.set(token, value);
-  Object.defineProperty(r, presentationToken, { value: token, enumerable: true, configurable: true });
+  const token2 = Object.freeze({});
+  presentations.set(token2, value);
+  Object.defineProperty(r, presentationToken, { value: token2, enumerable: true, configurable: true });
 }
 function originalLength(r) {
   const state = metadata(r);
@@ -302,7 +315,10 @@ function project(r, declaring, policy, allow) {
   ];
   const masked = !!alreadySafe || !Object.is(input, r.inputValue);
   const state = masked ? { masked: true, value: input, length: originalLength(r), kind: alreadySafe ? old.kind : classification } : {};
-  if (!changed && old?.message !== void 0 && old.message === r.message) state.message = old.message;
+  if (!changed && old?.message !== void 0 && old.message === r.message) {
+    state.message = old.message;
+    state.automatic = old.automatic;
+  }
   return { value, state, changed, secrets };
 }
 function redactions(values) {
@@ -342,14 +358,18 @@ function prepareCheckerResults(results, declaring, policy, checkedValues = []) {
 function checkerInputLength(result) {
   return active.get(result)?.length ?? originalLength(result);
 }
-function checkerTemplateLiteral(result, text) {
-  return scrubLogText(text, active.get(result)?.redactions ?? []) ?? "";
+function checkerTemplateLiteral(result, text2) {
+  return scrubLogText(text2, active.get(result)?.redactions ?? []) ?? "";
 }
 function markCheckerRendering(result) {
   const scope = active.get(result);
   if (scope && Object.is(scope.input, result.inputValue) && Object.is(scope.system, result.systemValue)) {
-    retain(result, { ...metadata(result), message: result.message });
+    retain(result, { ...metadata(result), message: result.message, automatic: true });
   }
+}
+function checkerRenderingWasAutomatic(result) {
+  const state = metadata(result);
+  return state?.automatic === true && state.message === result.message;
 }
 function translateCheckerResults(context, results, declaring, policy, checkedValues = []) {
   if (!results.length) {
@@ -561,9 +581,12 @@ var _I18nCatalog = class _I18nCatalog {
   message(locale, key) {
     return this.data.locales[locale]?.messages[key] ?? this.fallback?.data.locales[locale]?.messages[key] ?? this.data.locales.en?.messages[key] ?? this.fallback?.data.locales.en?.messages[key] ?? key;
   }
+  applicationMessage(locale, key) {
+    return this === _I18nCatalog.builtin ? void 0 : this.data.locales[locale]?.messages[key];
+  }
   translate(result, locale) {
-    const keys = { required: "checker.required", min: "checker.min", max: "checker.max", min_str_len: "checker.minLength", min_length: "checker.minLength", max_str_len: "checker.maxLength", max_length: "checker.maxLength" };
-    const key = keys[result.ruleId.toLowerCase()] ?? `checker.${result.ruleId.toLowerCase()}`;
+    const keys2 = { required: "checker.required", min: "checker.min", max: "checker.max", min_str_len: "checker.minLength", min_length: "checker.minLength", max_str_len: "checker.maxLength", max_length: "checker.maxLength" };
+    const key = keys2[result.ruleId.toLowerCase()] ?? `checker.${result.ruleId.toLowerCase()}`;
     const template = this.message(locale, key);
     if (template === key && result.message?.trim()) return result;
     const input = String(result.inputValue);
@@ -582,6 +605,1271 @@ var _I18nCatalog = class _I18nCatalog {
 _I18nCatalog.builtin = new _I18nCatalog(builtin_messages_v1_default);
 var I18nCatalog = _I18nCatalog;
 
+// src/core/natural-messages/builtin-v1.json
+var builtin_v1_default = {
+  schema: "teaql.checker-messages/v1",
+  defaultLocale: "en",
+  locales: {
+    en: {
+      rules: {
+        "checker.required": {
+          one: "The {field} is required.",
+          two: "The {field} of {object} is required.",
+          deep: "The {field} is required.\nLocation: {objectPath}"
+        },
+        "checker.min": {
+          one: "The {field} must be at least {system}.",
+          two: "The {field} of {object} must be at least {system}.",
+          deep: "The {field} must be at least {system}.\nLocation: {objectPath}"
+        },
+        "checker.max": {
+          one: "The {field} must not exceed {system}.",
+          two: "The {field} of {object} must not exceed {system}.",
+          deep: "The {field} must not exceed {system}.\nLocation: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "The {field} must contain at least {system} {unit}; its current length is {input_len}.",
+          two: "The {field} of {object} must contain at least {system} {unit}; its current length is {input_len}.",
+          deep: "The {field} must contain at least {system} {unit}; its current length is {input_len}.\nLocation: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "The {field} must not exceed {system} {unit}; its current length is {input_len}.",
+          two: "The {field} of {object} must not exceed {system} {unit}; its current length is {input_len}.",
+          deep: "The {field} must not exceed {system} {unit}; its current length is {input_len}.\nLocation: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "The {field} is invalid.",
+          two: "The {field} of {object} is invalid.",
+          deep: "The {field} is invalid.\nLocation: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "the {relation}",
+        item: "the {ordinal} {relation}",
+        separator: " \u2192 "
+      }
+    },
+    "zh-CN": {
+      rules: {
+        "checker.required": {
+          one: "\u8BF7\u586B\u5199{field}\u3002",
+          two: "\u8BF7\u586B\u5199{object}\u7684{field}\u3002",
+          deep: "\u8BF7\u586B\u5199{field}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.min": {
+          one: "{field}\u4E0D\u5F97\u5C0F\u4E8E{system}\u3002",
+          two: "{object}\u7684{field}\u4E0D\u5F97\u5C0F\u4E8E{system}\u3002",
+          deep: "{field}\u4E0D\u5F97\u5C0F\u4E8E{system}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.max": {
+          one: "{field}\u4E0D\u5F97\u5927\u4E8E{system}\u3002",
+          two: "{object}\u7684{field}\u4E0D\u5F97\u5927\u4E8E{system}\u3002",
+          deep: "{field}\u4E0D\u5F97\u5927\u4E8E{system}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.minLength": {
+          one: "{field}\u81F3\u5C11\u9700\u8981{system}{unit}\uFF0C\u5F53\u524D\u957F\u5EA6\u4E3A{input_len}\u3002",
+          two: "{object}\u7684{field}\u81F3\u5C11\u9700\u8981{system}{unit}\uFF0C\u5F53\u524D\u957F\u5EA6\u4E3A{input_len}\u3002",
+          deep: "{field}\u81F3\u5C11\u9700\u8981{system}{unit}\uFF0C\u5F53\u524D\u957F\u5EA6\u4E3A{input_len}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.maxLength": {
+          one: "{field}\u6700\u591A\u5141\u8BB8{system}{unit}\uFF0C\u5F53\u524D\u957F\u5EA6\u4E3A{input_len}\u3002",
+          two: "{object}\u7684{field}\u6700\u591A\u5141\u8BB8{system}{unit}\uFF0C\u5F53\u524D\u957F\u5EA6\u4E3A{input_len}\u3002",
+          deep: "{field}\u6700\u591A\u5141\u8BB8{system}{unit}\uFF0C\u5F53\u524D\u957F\u5EA6\u4E3A{input_len}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.invalid": {
+          one: "{field}\u65E0\u6548\u3002",
+          two: "{object}\u7684{field}\u65E0\u6548\u3002",
+          deep: "{field}\u65E0\u6548\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "\u7B2C{position}{classifier}{relation}",
+        separator: " \u2192 "
+      }
+    },
+    "zh-TW": {
+      rules: {
+        "checker.required": {
+          one: "\u8ACB\u586B\u5BEB{field}\u3002",
+          two: "\u8ACB\u586B\u5BEB{object}\u7684{field}\u3002",
+          deep: "\u8ACB\u586B\u5BEB{field}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.min": {
+          one: "{field}\u4E0D\u5F97\u5C0F\u65BC{system}\u3002",
+          two: "{object}\u7684{field}\u4E0D\u5F97\u5C0F\u65BC{system}\u3002",
+          deep: "{field}\u4E0D\u5F97\u5C0F\u65BC{system}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.max": {
+          one: "{field}\u4E0D\u5F97\u5927\u65BC{system}\u3002",
+          two: "{object}\u7684{field}\u4E0D\u5F97\u5927\u65BC{system}\u3002",
+          deep: "{field}\u4E0D\u5F97\u5927\u65BC{system}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.minLength": {
+          one: "{field}\u81F3\u5C11\u9700\u8981{system}{unit}\uFF0C\u76EE\u524D\u9577\u5EA6\u70BA{input_len}\u3002",
+          two: "{object}\u7684{field}\u81F3\u5C11\u9700\u8981{system}{unit}\uFF0C\u76EE\u524D\u9577\u5EA6\u70BA{input_len}\u3002",
+          deep: "{field}\u81F3\u5C11\u9700\u8981{system}{unit}\uFF0C\u76EE\u524D\u9577\u5EA6\u70BA{input_len}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.maxLength": {
+          one: "{field}\u6700\u591A\u5141\u8A31{system}{unit}\uFF0C\u76EE\u524D\u9577\u5EA6\u70BA{input_len}\u3002",
+          two: "{object}\u7684{field}\u6700\u591A\u5141\u8A31{system}{unit}\uFF0C\u76EE\u524D\u9577\u5EA6\u70BA{input_len}\u3002",
+          deep: "{field}\u6700\u591A\u5141\u8A31{system}{unit}\uFF0C\u76EE\u524D\u9577\u5EA6\u70BA{input_len}\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        },
+        "checker.invalid": {
+          one: "{field}\u7121\u6548\u3002",
+          two: "{object}\u7684{field}\u7121\u6548\u3002",
+          deep: "{field}\u7121\u6548\u3002\n\u4F4D\u7F6E\uFF1A{objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "\u7B2C{position}{classifier}{relation}",
+        separator: " \u2192 "
+      }
+    },
+    ja: {
+      rules: {
+        "checker.required": {
+          one: "{field}\u306F\u5FC5\u9808\u3067\u3059\u3002",
+          two: "{object}\u306E{field}\u306F\u5FC5\u9808\u3067\u3059\u3002",
+          deep: "{field}\u306F\u5FC5\u9808\u3067\u3059\u3002\n\u5834\u6240: {objectPath}"
+        },
+        "checker.min": {
+          one: "{field}\u306F{system}\u4EE5\u4E0A\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002",
+          two: "{object}\u306E{field}\u306F{system}\u4EE5\u4E0A\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002",
+          deep: "{field}\u306F{system}\u4EE5\u4E0A\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002\n\u5834\u6240: {objectPath}"
+        },
+        "checker.max": {
+          one: "{field}\u306F{system}\u4EE5\u4E0B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002",
+          two: "{object}\u306E{field}\u306F{system}\u4EE5\u4E0B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002",
+          deep: "{field}\u306F{system}\u4EE5\u4E0B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002\n\u5834\u6240: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "{field}\u306B\u306F\u5C11\u306A\u304F\u3068\u3082{system}{unit}\u304C\u5FC5\u8981\u3067\u3059\u3002\u73FE\u5728\u306E\u9577\u3055\u306F{input_len}\u3067\u3059\u3002",
+          two: "{object}\u306E{field}\u306B\u306F\u5C11\u306A\u304F\u3068\u3082{system}{unit}\u304C\u5FC5\u8981\u3067\u3059\u3002\u73FE\u5728\u306E\u9577\u3055\u306F{input_len}\u3067\u3059\u3002",
+          deep: "{field}\u306B\u306F\u5C11\u306A\u304F\u3068\u3082{system}{unit}\u304C\u5FC5\u8981\u3067\u3059\u3002\u73FE\u5728\u306E\u9577\u3055\u306F{input_len}\u3067\u3059\u3002\n\u5834\u6240: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "{field}\u306F\u6700\u5927{system}{unit}\u3067\u3059\u3002\u73FE\u5728\u306E\u9577\u3055\u306F{input_len}\u3067\u3059\u3002",
+          two: "{object}\u306E{field}\u306F\u6700\u5927{system}{unit}\u3067\u3059\u3002\u73FE\u5728\u306E\u9577\u3055\u306F{input_len}\u3067\u3059\u3002",
+          deep: "{field}\u306F\u6700\u5927{system}{unit}\u3067\u3059\u3002\u73FE\u5728\u306E\u9577\u3055\u306F{input_len}\u3067\u3059\u3002\n\u5834\u6240: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "{field}\u304C\u7121\u52B9\u3067\u3059\u3002",
+          two: "{object}\u306E{field}\u304C\u7121\u52B9\u3067\u3059\u3002",
+          deep: "{field}\u304C\u7121\u52B9\u3067\u3059\u3002\n\u5834\u6240: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{position}\u756A\u76EE\u306E{relation}",
+        separator: " \u2192 "
+      }
+    },
+    ko: {
+      rules: {
+        "checker.required": {
+          one: "{field} \uD56D\uBAA9\uC740 \uD544\uC218\uC785\uB2C8\uB2E4.",
+          two: "{object}\uC758 {field} \uD56D\uBAA9\uC740 \uD544\uC218\uC785\uB2C8\uB2E4.",
+          deep: "{field} \uD56D\uBAA9\uC740 \uD544\uC218\uC785\uB2C8\uB2E4.\n\uC704\uCE58: {objectPath}"
+        },
+        "checker.min": {
+          one: "{field} \uAC12\uC740 {system} \uC774\uC0C1\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4.",
+          two: "{object}\uC758 {field} \uAC12\uC740 {system} \uC774\uC0C1\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4.",
+          deep: "{field} \uAC12\uC740 {system} \uC774\uC0C1\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4.\n\uC704\uCE58: {objectPath}"
+        },
+        "checker.max": {
+          one: "{field} \uAC12\uC740 {system} \uC774\uD558\uC5EC\uC57C \uD569\uB2C8\uB2E4.",
+          two: "{object}\uC758 {field} \uAC12\uC740 {system} \uC774\uD558\uC5EC\uC57C \uD569\uB2C8\uB2E4.",
+          deep: "{field} \uAC12\uC740 {system} \uC774\uD558\uC5EC\uC57C \uD569\uB2C8\uB2E4.\n\uC704\uCE58: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "{field} \uAE38\uC774\uB294 \uCD5C\uC18C {system} {unit}\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4. \uD604\uC7AC \uAE38\uC774\uB294 {input_len}\uC785\uB2C8\uB2E4.",
+          two: "{object}\uC758 {field} \uAE38\uC774\uB294 \uCD5C\uC18C {system} {unit}\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4. \uD604\uC7AC \uAE38\uC774\uB294 {input_len}\uC785\uB2C8\uB2E4.",
+          deep: "{field} \uAE38\uC774\uB294 \uCD5C\uC18C {system} {unit}\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4. \uD604\uC7AC \uAE38\uC774\uB294 {input_len}\uC785\uB2C8\uB2E4.\n\uC704\uCE58: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "{field} \uAE38\uC774\uB294 \uCD5C\uB300 {system} {unit}\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4. \uD604\uC7AC \uAE38\uC774\uB294 {input_len}\uC785\uB2C8\uB2E4.",
+          two: "{object}\uC758 {field} \uAE38\uC774\uB294 \uCD5C\uB300 {system} {unit}\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4. \uD604\uC7AC \uAE38\uC774\uB294 {input_len}\uC785\uB2C8\uB2E4.",
+          deep: "{field} \uAE38\uC774\uB294 \uCD5C\uB300 {system} {unit}\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4. \uD604\uC7AC \uAE38\uC774\uB294 {input_len}\uC785\uB2C8\uB2E4.\n\uC704\uCE58: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "{field} \uD56D\uBAA9\uC774 \uC720\uD6A8\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+          two: "{object}\uC758 {field} \uD56D\uBAA9\uC774 \uC720\uD6A8\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+          deep: "{field} \uD56D\uBAA9\uC774 \uC720\uD6A8\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.\n\uC704\uCE58: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{position}\uBC88\uC9F8 {relation}",
+        separator: " \u2192 "
+      }
+    },
+    de: {
+      rules: {
+        "checker.required": {
+          one: "Das Feld {field} ist erforderlich.",
+          two: "Das Feld {field} bei {object} ist erforderlich.",
+          deep: "Das Feld {field} ist erforderlich.\nPosition: {objectPath}"
+        },
+        "checker.min": {
+          one: "Das Feld {field} muss mindestens {system} betragen.",
+          two: "Das Feld {field} bei {object} muss mindestens {system} betragen.",
+          deep: "Das Feld {field} muss mindestens {system} betragen.\nPosition: {objectPath}"
+        },
+        "checker.max": {
+          one: "Das Feld {field} darf h\xF6chstens {system} betragen.",
+          two: "Das Feld {field} bei {object} darf h\xF6chstens {system} betragen.",
+          deep: "Das Feld {field} darf h\xF6chstens {system} betragen.\nPosition: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "Das Feld {field} muss mindestens {system} {unit} enthalten; die aktuelle L\xE4nge ist {input_len}.",
+          two: "Das Feld {field} bei {object} muss mindestens {system} {unit} enthalten; die aktuelle L\xE4nge ist {input_len}.",
+          deep: "Das Feld {field} muss mindestens {system} {unit} enthalten; die aktuelle L\xE4nge ist {input_len}.\nPosition: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "Das Feld {field} darf h\xF6chstens {system} {unit} enthalten; die aktuelle L\xE4nge ist {input_len}.",
+          two: "Das Feld {field} bei {object} darf h\xF6chstens {system} {unit} enthalten; die aktuelle L\xE4nge ist {input_len}.",
+          deep: "Das Feld {field} darf h\xF6chstens {system} {unit} enthalten; die aktuelle L\xE4nge ist {input_len}.\nPosition: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "Das Feld {field} ist ung\xFCltig.",
+          two: "Das Feld {field} bei {object} ist ung\xFCltig.",
+          deep: "Das Feld {field} ist ung\xFCltig.\nPosition: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} Nr. {position}",
+        separator: " \u2192 "
+      }
+    },
+    fr: {
+      rules: {
+        "checker.required": {
+          one: "Le champ {field} est obligatoire.",
+          two: "Le champ {field} de {object} est obligatoire.",
+          deep: "Le champ {field} est obligatoire.\nEmplacement: {objectPath}"
+        },
+        "checker.min": {
+          one: "Le champ {field} doit \xEAtre au moins \xE9gal \xE0 {system}.",
+          two: "Le champ {field} de {object} doit \xEAtre au moins \xE9gal \xE0 {system}.",
+          deep: "Le champ {field} doit \xEAtre au moins \xE9gal \xE0 {system}.\nEmplacement: {objectPath}"
+        },
+        "checker.max": {
+          one: "Le champ {field} ne doit pas d\xE9passer {system}.",
+          two: "Le champ {field} de {object} ne doit pas d\xE9passer {system}.",
+          deep: "Le champ {field} ne doit pas d\xE9passer {system}.\nEmplacement: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "Le champ {field} doit contenir au moins {system} {unit} ; sa longueur actuelle est {input_len}.",
+          two: "Le champ {field} de {object} doit contenir au moins {system} {unit} ; sa longueur actuelle est {input_len}.",
+          deep: "Le champ {field} doit contenir au moins {system} {unit} ; sa longueur actuelle est {input_len}.\nEmplacement: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "Le champ {field} ne doit pas d\xE9passer {system} {unit} ; sa longueur actuelle est {input_len}.",
+          two: "Le champ {field} de {object} ne doit pas d\xE9passer {system} {unit} ; sa longueur actuelle est {input_len}.",
+          deep: "Le champ {field} ne doit pas d\xE9passer {system} {unit} ; sa longueur actuelle est {input_len}.\nEmplacement: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "Le champ {field} est invalide.",
+          two: "Le champ {field} de {object} est invalide.",
+          deep: "Le champ {field} est invalide.\nEmplacement: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} n\xB0 {position}",
+        separator: " \u2192 "
+      }
+    },
+    es: {
+      rules: {
+        "checker.required": {
+          one: "El campo {field} es obligatorio.",
+          two: "El campo {field} de {object} es obligatorio.",
+          deep: "El campo {field} es obligatorio.\nUbicaci\xF3n: {objectPath}"
+        },
+        "checker.min": {
+          one: "El campo {field} debe ser al menos {system}.",
+          two: "El campo {field} de {object} debe ser al menos {system}.",
+          deep: "El campo {field} debe ser al menos {system}.\nUbicaci\xF3n: {objectPath}"
+        },
+        "checker.max": {
+          one: "El campo {field} no debe superar {system}.",
+          two: "El campo {field} de {object} no debe superar {system}.",
+          deep: "El campo {field} no debe superar {system}.\nUbicaci\xF3n: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "El campo {field} debe contener al menos {system} {unit}; su longitud actual es {input_len}.",
+          two: "El campo {field} de {object} debe contener al menos {system} {unit}; su longitud actual es {input_len}.",
+          deep: "El campo {field} debe contener al menos {system} {unit}; su longitud actual es {input_len}.\nUbicaci\xF3n: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "El campo {field} no debe superar {system} {unit}; su longitud actual es {input_len}.",
+          two: "El campo {field} de {object} no debe superar {system} {unit}; su longitud actual es {input_len}.",
+          deep: "El campo {field} no debe superar {system} {unit}; su longitud actual es {input_len}.\nUbicaci\xF3n: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "El campo {field} no es v\xE1lido.",
+          two: "El campo {field} de {object} no es v\xE1lido.",
+          deep: "El campo {field} no es v\xE1lido.\nUbicaci\xF3n: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} n.\xBA {position}",
+        separator: " \u2192 "
+      }
+    },
+    pt: {
+      rules: {
+        "checker.required": {
+          one: "O campo {field} \xE9 obrigat\xF3rio.",
+          two: "O campo {field} de {object} \xE9 obrigat\xF3rio.",
+          deep: "O campo {field} \xE9 obrigat\xF3rio.\nLocaliza\xE7\xE3o: {objectPath}"
+        },
+        "checker.min": {
+          one: "O campo {field} deve ser pelo menos {system}.",
+          two: "O campo {field} de {object} deve ser pelo menos {system}.",
+          deep: "O campo {field} deve ser pelo menos {system}.\nLocaliza\xE7\xE3o: {objectPath}"
+        },
+        "checker.max": {
+          one: "O campo {field} n\xE3o deve exceder {system}.",
+          two: "O campo {field} de {object} n\xE3o deve exceder {system}.",
+          deep: "O campo {field} n\xE3o deve exceder {system}.\nLocaliza\xE7\xE3o: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "O campo {field} deve conter pelo menos {system} {unit}; o comprimento atual \xE9 {input_len}.",
+          two: "O campo {field} de {object} deve conter pelo menos {system} {unit}; o comprimento atual \xE9 {input_len}.",
+          deep: "O campo {field} deve conter pelo menos {system} {unit}; o comprimento atual \xE9 {input_len}.\nLocaliza\xE7\xE3o: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "O campo {field} n\xE3o deve exceder {system} {unit}; o comprimento atual \xE9 {input_len}.",
+          two: "O campo {field} de {object} n\xE3o deve exceder {system} {unit}; o comprimento atual \xE9 {input_len}.",
+          deep: "O campo {field} n\xE3o deve exceder {system} {unit}; o comprimento atual \xE9 {input_len}.\nLocaliza\xE7\xE3o: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "O campo {field} \xE9 inv\xE1lido.",
+          two: "O campo {field} de {object} \xE9 inv\xE1lido.",
+          deep: "O campo {field} \xE9 inv\xE1lido.\nLocaliza\xE7\xE3o: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} n.\xBA {position}",
+        separator: " \u2192 "
+      }
+    },
+    ar: {
+      rules: {
+        "checker.required": {
+          one: "\u0627\u0644\u062D\u0642\u0644 {field} \u0645\u0637\u0644\u0648\u0628.",
+          two: "\u0627\u0644\u062D\u0642\u0644 {field} \u0641\u064A {object} \u0645\u0637\u0644\u0648\u0628.",
+          deep: "\u0627\u0644\u062D\u0642\u0644 {field} \u0645\u0637\u0644\u0648\u0628.\n\u0627\u0644\u0645\u0648\u0642\u0639: {objectPath}"
+        },
+        "checker.min": {
+          one: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u062A\u0642\u0644 \u0642\u064A\u0645\u0629 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system}.",
+          two: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u062A\u0642\u0644 \u0642\u064A\u0645\u0629 \u0627\u0644\u062D\u0642\u0644 {field} \u0641\u064A {object} \u0639\u0646 {system}.",
+          deep: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u062A\u0642\u0644 \u0642\u064A\u0645\u0629 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system}.\n\u0627\u0644\u0645\u0648\u0642\u0639: {objectPath}"
+        },
+        "checker.max": {
+          one: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u062A\u0632\u064A\u062F \u0642\u064A\u0645\u0629 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system}.",
+          two: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u062A\u0632\u064A\u062F \u0642\u064A\u0645\u0629 \u0627\u0644\u062D\u0642\u0644 {field} \u0641\u064A {object} \u0639\u0646 {system}.",
+          deep: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u062A\u0632\u064A\u062F \u0642\u064A\u0645\u0629 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system}.\n\u0627\u0644\u0645\u0648\u0642\u0639: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u064A\u0642\u0644 \u0637\u0648\u0644 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system} {unit}\u061B \u0627\u0644\u0637\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0647\u0648 {input_len}.",
+          two: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u064A\u0642\u0644 \u0637\u0648\u0644 \u0627\u0644\u062D\u0642\u0644 {field} \u0641\u064A {object} \u0639\u0646 {system} {unit}\u061B \u0627\u0644\u0637\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0647\u0648 {input_len}.",
+          deep: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u064A\u0642\u0644 \u0637\u0648\u0644 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system} {unit}\u061B \u0627\u0644\u0637\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0647\u0648 {input_len}.\n\u0627\u0644\u0645\u0648\u0642\u0639: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u064A\u0632\u064A\u062F \u0637\u0648\u0644 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system} {unit}\u061B \u0627\u0644\u0637\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0647\u0648 {input_len}.",
+          two: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u064A\u0632\u064A\u062F \u0637\u0648\u0644 \u0627\u0644\u062D\u0642\u0644 {field} \u0641\u064A {object} \u0639\u0646 {system} {unit}\u061B \u0627\u0644\u0637\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0647\u0648 {input_len}.",
+          deep: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u064A\u0632\u064A\u062F \u0637\u0648\u0644 \u0627\u0644\u062D\u0642\u0644 {field} \u0639\u0646 {system} {unit}\u061B \u0627\u0644\u0637\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0647\u0648 {input_len}.\n\u0627\u0644\u0645\u0648\u0642\u0639: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "\u0627\u0644\u062D\u0642\u0644 {field} \u063A\u064A\u0631 \u0635\u0627\u0644\u062D.",
+          two: "\u0627\u0644\u062D\u0642\u0644 {field} \u0641\u064A {object} \u063A\u064A\u0631 \u0635\u0627\u0644\u062D.",
+          deep: "\u0627\u0644\u062D\u0642\u0644 {field} \u063A\u064A\u0631 \u0635\u0627\u0644\u062D.\n\u0627\u0644\u0645\u0648\u0642\u0639: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} \u0631\u0642\u0645 {position}",
+        separator: " \u2192 "
+      }
+    },
+    th: {
+      rules: {
+        "checker.required": {
+          one: "\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38{field}",
+          two: "\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38{field}\u0E02\u0E2D\u0E07{object}",
+          deep: "\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38{field}\n\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07: {objectPath}"
+        },
+        "checker.min": {
+          one: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 {system}",
+          two: "{field}\u0E02\u0E2D\u0E07{object}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 {system}",
+          deep: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 {system}\n\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07: {objectPath}"
+        },
+        "checker.max": {
+          one: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 {system}",
+          two: "{field}\u0E02\u0E2D\u0E07{object}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 {system}",
+          deep: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 {system}\n\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 {system} {unit} \u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E04\u0E37\u0E2D {input_len}",
+          two: "{field}\u0E02\u0E2D\u0E07{object}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 {system} {unit} \u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E04\u0E37\u0E2D {input_len}",
+          deep: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 {system} {unit} \u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E04\u0E37\u0E2D {input_len}\n\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 {system} {unit} \u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E04\u0E37\u0E2D {input_len}",
+          two: "{field}\u0E02\u0E2D\u0E07{object}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 {system} {unit} \u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E04\u0E37\u0E2D {input_len}",
+          deep: "{field}\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 {system} {unit} \u0E04\u0E27\u0E32\u0E21\u0E22\u0E32\u0E27\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E04\u0E37\u0E2D {input_len}\n\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "{field}\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07",
+          two: "{field}\u0E02\u0E2D\u0E07{object}\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07",
+          deep: "{field}\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\n\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation}\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48 {position}",
+        separator: " \u2192 "
+      }
+    },
+    id: {
+      rules: {
+        "checker.required": {
+          one: "Kolom {field} wajib diisi.",
+          two: "Kolom {field} pada {object} wajib diisi.",
+          deep: "Kolom {field} wajib diisi.\nLokasi: {objectPath}"
+        },
+        "checker.min": {
+          one: "Nilai {field} minimal {system}.",
+          two: "Nilai {field} pada {object} minimal {system}.",
+          deep: "Nilai {field} minimal {system}.\nLokasi: {objectPath}"
+        },
+        "checker.max": {
+          one: "Nilai {field} maksimal {system}.",
+          two: "Nilai {field} pada {object} maksimal {system}.",
+          deep: "Nilai {field} maksimal {system}.\nLokasi: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "Panjang {field} minimal {system} {unit}; panjang saat ini {input_len}.",
+          two: "Panjang {field} pada {object} minimal {system} {unit}; panjang saat ini {input_len}.",
+          deep: "Panjang {field} minimal {system} {unit}; panjang saat ini {input_len}.\nLokasi: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "Panjang {field} maksimal {system} {unit}; panjang saat ini {input_len}.",
+          two: "Panjang {field} pada {object} maksimal {system} {unit}; panjang saat ini {input_len}.",
+          deep: "Panjang {field} maksimal {system} {unit}; panjang saat ini {input_len}.\nLokasi: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "Kolom {field} tidak valid.",
+          two: "Kolom {field} pada {object} tidak valid.",
+          deep: "Kolom {field} tidak valid.\nLokasi: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} ke-{position}",
+        separator: " \u2192 "
+      }
+    },
+    fil: {
+      rules: {
+        "checker.required": {
+          one: "Kinakailangan ang {field}.",
+          two: "Kinakailangan ang {field} ng {object}.",
+          deep: "Kinakailangan ang {field}.\nLokasyon: {objectPath}"
+        },
+        "checker.min": {
+          one: "Ang {field} ay dapat hindi bababa sa {system}.",
+          two: "Ang {field} ng {object} ay dapat hindi bababa sa {system}.",
+          deep: "Ang {field} ay dapat hindi bababa sa {system}.\nLokasyon: {objectPath}"
+        },
+        "checker.max": {
+          one: "Ang {field} ay dapat hindi lumampas sa {system}.",
+          two: "Ang {field} ng {object} ay dapat hindi lumampas sa {system}.",
+          deep: "Ang {field} ay dapat hindi lumampas sa {system}.\nLokasyon: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "Ang {field} ay dapat may hindi bababa sa {system} {unit}; ang kasalukuyang haba ay {input_len}.",
+          two: "Ang {field} ng {object} ay dapat may hindi bababa sa {system} {unit}; ang kasalukuyang haba ay {input_len}.",
+          deep: "Ang {field} ay dapat may hindi bababa sa {system} {unit}; ang kasalukuyang haba ay {input_len}.\nLokasyon: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "Ang {field} ay dapat may hindi hihigit sa {system} {unit}; ang kasalukuyang haba ay {input_len}.",
+          two: "Ang {field} ng {object} ay dapat may hindi hihigit sa {system} {unit}; ang kasalukuyang haba ay {input_len}.",
+          deep: "Ang {field} ay dapat may hindi hihigit sa {system} {unit}; ang kasalukuyang haba ay {input_len}.\nLokasyon: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "Hindi wasto ang {field}.",
+          two: "Hindi wasto ang {field} ng {object}.",
+          deep: "Hindi wasto ang {field}.\nLokasyon: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} bilang {position}",
+        separator: " \u2192 "
+      }
+    },
+    uk: {
+      rules: {
+        "checker.required": {
+          one: "\u041F\u043E\u043B\u0435 {field} \u0454 \u043E\u0431\u043E\u0432\u2019\u044F\u0437\u043A\u043E\u0432\u0438\u043C.",
+          two: "\u041F\u043E\u043B\u0435 {field} \u0434\u043B\u044F {object} \u0454 \u043E\u0431\u043E\u0432\u2019\u044F\u0437\u043A\u043E\u0432\u0438\u043C.",
+          deep: "\u041F\u043E\u043B\u0435 {field} \u0454 \u043E\u0431\u043E\u0432\u2019\u044F\u0437\u043A\u043E\u0432\u0438\u043C.\n\u0420\u043E\u0437\u0442\u0430\u0448\u0443\u0432\u0430\u043D\u043D\u044F: {objectPath}"
+        },
+        "checker.min": {
+          one: "\u0417\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043E\u043B\u044F {field} \u043C\u0430\u0454 \u0431\u0443\u0442\u0438 \u043D\u0435 \u043C\u0435\u043D\u0448\u0435 {system}.",
+          two: "\u0417\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043E\u043B\u044F {field} \u0434\u043B\u044F {object} \u043C\u0430\u0454 \u0431\u0443\u0442\u0438 \u043D\u0435 \u043C\u0435\u043D\u0448\u0435 {system}.",
+          deep: "\u0417\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043E\u043B\u044F {field} \u043C\u0430\u0454 \u0431\u0443\u0442\u0438 \u043D\u0435 \u043C\u0435\u043D\u0448\u0435 {system}.\n\u0420\u043E\u0437\u0442\u0430\u0448\u0443\u0432\u0430\u043D\u043D\u044F: {objectPath}"
+        },
+        "checker.max": {
+          one: "\u0417\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043E\u043B\u044F {field} \u043C\u0430\u0454 \u0431\u0443\u0442\u0438 \u043D\u0435 \u0431\u0456\u043B\u044C\u0448\u0435 {system}.",
+          two: "\u0417\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043E\u043B\u044F {field} \u0434\u043B\u044F {object} \u043C\u0430\u0454 \u0431\u0443\u0442\u0438 \u043D\u0435 \u0431\u0456\u043B\u044C\u0448\u0435 {system}.",
+          deep: "\u0417\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043E\u043B\u044F {field} \u043C\u0430\u0454 \u0431\u0443\u0442\u0438 \u043D\u0435 \u0431\u0456\u043B\u044C\u0448\u0435 {system}.\n\u0420\u043E\u0437\u0442\u0430\u0448\u0443\u0432\u0430\u043D\u043D\u044F: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "\u041F\u043E\u043B\u0435 {field} \u043C\u0430\u0454 \u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0449\u043E\u043D\u0430\u0439\u043C\u0435\u043D\u0448\u0435 {system} {unit}; \u043F\u043E\u0442\u043E\u0447\u043D\u0430 \u0434\u043E\u0432\u0436\u0438\u043D\u0430 \u2014 {input_len}.",
+          two: "\u041F\u043E\u043B\u0435 {field} \u0434\u043B\u044F {object} \u043C\u0430\u0454 \u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0449\u043E\u043D\u0430\u0439\u043C\u0435\u043D\u0448\u0435 {system} {unit}; \u043F\u043E\u0442\u043E\u0447\u043D\u0430 \u0434\u043E\u0432\u0436\u0438\u043D\u0430 \u2014 {input_len}.",
+          deep: "\u041F\u043E\u043B\u0435 {field} \u043C\u0430\u0454 \u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0449\u043E\u043D\u0430\u0439\u043C\u0435\u043D\u0448\u0435 {system} {unit}; \u043F\u043E\u0442\u043E\u0447\u043D\u0430 \u0434\u043E\u0432\u0436\u0438\u043D\u0430 \u2014 {input_len}.\n\u0420\u043E\u0437\u0442\u0430\u0448\u0443\u0432\u0430\u043D\u043D\u044F: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "\u041F\u043E\u043B\u0435 {field} \u043C\u0430\u0454 \u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u043D\u0435 \u0431\u0456\u043B\u044C\u0448\u0435 {system} {unit}; \u043F\u043E\u0442\u043E\u0447\u043D\u0430 \u0434\u043E\u0432\u0436\u0438\u043D\u0430 \u2014 {input_len}.",
+          two: "\u041F\u043E\u043B\u0435 {field} \u0434\u043B\u044F {object} \u043C\u0430\u0454 \u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u043D\u0435 \u0431\u0456\u043B\u044C\u0448\u0435 {system} {unit}; \u043F\u043E\u0442\u043E\u0447\u043D\u0430 \u0434\u043E\u0432\u0436\u0438\u043D\u0430 \u2014 {input_len}.",
+          deep: "\u041F\u043E\u043B\u0435 {field} \u043C\u0430\u0454 \u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u043D\u0435 \u0431\u0456\u043B\u044C\u0448\u0435 {system} {unit}; \u043F\u043E\u0442\u043E\u0447\u043D\u0430 \u0434\u043E\u0432\u0436\u0438\u043D\u0430 \u2014 {input_len}.\n\u0420\u043E\u0437\u0442\u0430\u0448\u0443\u0432\u0430\u043D\u043D\u044F: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "\u041F\u043E\u043B\u0435 {field} \u0454 \u043D\u0435\u0434\u0456\u0439\u0441\u043D\u0438\u043C.",
+          two: "\u041F\u043E\u043B\u0435 {field} \u0434\u043B\u044F {object} \u0454 \u043D\u0435\u0434\u0456\u0439\u0441\u043D\u0438\u043C.",
+          deep: "\u041F\u043E\u043B\u0435 {field} \u0454 \u043D\u0435\u0434\u0456\u0439\u0441\u043D\u0438\u043C.\n\u0420\u043E\u0437\u0442\u0430\u0448\u0443\u0432\u0430\u043D\u043D\u044F: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} \u2116 {position}",
+        separator: " \u2192 "
+      }
+    },
+    vi: {
+      rules: {
+        "checker.required": {
+          one: "Tr\u01B0\u1EDDng {field} l\xE0 b\u1EAFt bu\u1ED9c.",
+          two: "Tr\u01B0\u1EDDng {field} c\u1EE7a {object} l\xE0 b\u1EAFt bu\u1ED9c.",
+          deep: "Tr\u01B0\u1EDDng {field} l\xE0 b\u1EAFt bu\u1ED9c.\nV\u1ECB tr\xED: {objectPath}"
+        },
+        "checker.min": {
+          one: "Gi\xE1 tr\u1ECB {field} ph\u1EA3i \xEDt nh\u1EA5t l\xE0 {system}.",
+          two: "Gi\xE1 tr\u1ECB {field} c\u1EE7a {object} ph\u1EA3i \xEDt nh\u1EA5t l\xE0 {system}.",
+          deep: "Gi\xE1 tr\u1ECB {field} ph\u1EA3i \xEDt nh\u1EA5t l\xE0 {system}.\nV\u1ECB tr\xED: {objectPath}"
+        },
+        "checker.max": {
+          one: "Gi\xE1 tr\u1ECB {field} kh\xF4ng \u0111\u01B0\u1EE3c v\u01B0\u1EE3t qu\xE1 {system}.",
+          two: "Gi\xE1 tr\u1ECB {field} c\u1EE7a {object} kh\xF4ng \u0111\u01B0\u1EE3c v\u01B0\u1EE3t qu\xE1 {system}.",
+          deep: "Gi\xE1 tr\u1ECB {field} kh\xF4ng \u0111\u01B0\u1EE3c v\u01B0\u1EE3t qu\xE1 {system}.\nV\u1ECB tr\xED: {objectPath}"
+        },
+        "checker.minLength": {
+          one: "\u0110\u1ED9 d\xE0i {field} ph\u1EA3i \xEDt nh\u1EA5t l\xE0 {system} {unit}; \u0111\u1ED9 d\xE0i hi\u1EC7n t\u1EA1i l\xE0 {input_len}.",
+          two: "\u0110\u1ED9 d\xE0i {field} c\u1EE7a {object} ph\u1EA3i \xEDt nh\u1EA5t l\xE0 {system} {unit}; \u0111\u1ED9 d\xE0i hi\u1EC7n t\u1EA1i l\xE0 {input_len}.",
+          deep: "\u0110\u1ED9 d\xE0i {field} ph\u1EA3i \xEDt nh\u1EA5t l\xE0 {system} {unit}; \u0111\u1ED9 d\xE0i hi\u1EC7n t\u1EA1i l\xE0 {input_len}.\nV\u1ECB tr\xED: {objectPath}"
+        },
+        "checker.maxLength": {
+          one: "\u0110\u1ED9 d\xE0i {field} kh\xF4ng \u0111\u01B0\u1EE3c v\u01B0\u1EE3t qu\xE1 {system} {unit}; \u0111\u1ED9 d\xE0i hi\u1EC7n t\u1EA1i l\xE0 {input_len}.",
+          two: "\u0110\u1ED9 d\xE0i {field} c\u1EE7a {object} kh\xF4ng \u0111\u01B0\u1EE3c v\u01B0\u1EE3t qu\xE1 {system} {unit}; \u0111\u1ED9 d\xE0i hi\u1EC7n t\u1EA1i l\xE0 {input_len}.",
+          deep: "\u0110\u1ED9 d\xE0i {field} kh\xF4ng \u0111\u01B0\u1EE3c v\u01B0\u1EE3t qu\xE1 {system} {unit}; \u0111\u1ED9 d\xE0i hi\u1EC7n t\u1EA1i l\xE0 {input_len}.\nV\u1ECB tr\xED: {objectPath}"
+        },
+        "checker.invalid": {
+          one: "Tr\u01B0\u1EDDng {field} kh\xF4ng h\u1EE3p l\u1EC7.",
+          two: "Tr\u01B0\u1EDDng {field} c\u1EE7a {object} kh\xF4ng h\u1EE3p l\u1EC7.",
+          deep: "Tr\u01B0\u1EDDng {field} kh\xF4ng h\u1EE3p l\u1EC7.\nV\u1ECB tr\xED: {objectPath}"
+        }
+      },
+      locationPatterns: {
+        reference: "{relation}",
+        item: "{relation} th\u1EE9 {position}",
+        separator: " \u2192 "
+      }
+    }
+  }
+};
+
+// src/core/natural-messages/catalog.ts
+var selectionTemplates = /* @__PURE__ */ new WeakMap();
+function selectionFor(locale, template) {
+  const selection = Object.freeze({ locale, render: (args, literal) => render(template, args, literal) });
+  selectionTemplates.set(selection, template);
+  return selection;
+}
+function projectMessageSelection(selection, project2) {
+  const template = selectionTemplates.get(selection);
+  if (!template) return invalid();
+  return selectionFor(selection.locale, Object.freeze(template.map((node) => typeof node === "string" ? project2(node) : node)));
+}
+var invalid = () => {
+  throw new TypeError("Invalid Checker message catalog");
+};
+var own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+function object(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
+  return value;
+}
+function text(value) {
+  if (typeof value !== "string" || !value.trim()) return invalid();
+  return value;
+}
+function keys(value, allowed) {
+  if (Object.keys(value).some((key) => !allowed.includes(key))) invalid();
+}
+function strictJson(source) {
+  if (typeof source !== "string") return invalid();
+  let offset = 0;
+  const whitespace = () => {
+    while (/[\t\n\r ]/.test(source[offset] ?? "x")) offset++;
+  };
+  function string() {
+    if (source[offset] !== '"') return invalid();
+    const start = offset++;
+    while (offset < source.length) {
+      const c = source[offset++];
+      if (c === '"') {
+        try {
+          return JSON.parse(source.slice(start, offset));
+        } catch {
+          return invalid();
+        }
+      }
+      if (c === "\\") offset++;
+    }
+    return invalid();
+  }
+  function value() {
+    whitespace();
+    if (source[offset] === "{") {
+      offset++;
+      whitespace();
+      const result2 = /* @__PURE__ */ Object.create(null), seen = /* @__PURE__ */ new Set();
+      if (source[offset] === "}") {
+        offset++;
+        return result2;
+      }
+      for (; ; ) {
+        whitespace();
+        const name = string();
+        if (seen.has(name)) return invalid();
+        seen.add(name);
+        whitespace();
+        if (source[offset++] !== ":") return invalid();
+        result2[name] = value();
+        whitespace();
+        const next = source[offset++];
+        if (next === "}") return result2;
+        if (next !== ",") return invalid();
+      }
+    }
+    if (source[offset] === "[") {
+      offset++;
+      whitespace();
+      const result2 = [];
+      if (source[offset] === "]") {
+        offset++;
+        return result2;
+      }
+      for (; ; ) {
+        result2.push(value());
+        whitespace();
+        const next = source[offset++];
+        if (next === "]") return result2;
+        if (next !== ",") return invalid();
+      }
+    }
+    if (source[offset] === '"') return string();
+    const token2 = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(source.slice(offset));
+    if (!token2) return invalid();
+    offset += token2[0].length;
+    try {
+      return JSON.parse(token2[0]);
+    } catch {
+      return invalid();
+    }
+  }
+  const result = value();
+  whitespace();
+  if (offset !== source.length) return invalid();
+  return result;
+}
+function compile(source, allowed, required) {
+  const input = text(source), nodes = [], seen = /* @__PURE__ */ new Set();
+  let literal = "";
+  for (let i = 0; i < input.length; ) {
+    const c = input[i];
+    if ((c === "{" || c === "}") && input[i + 1] === c) {
+      literal += c;
+      i += 2;
+      continue;
+    }
+    if (c === "}") return invalid();
+    if (c !== "{") {
+      literal += c;
+      i++;
+      continue;
+    }
+    const end = input.indexOf("}", i + 1);
+    if (end < 0) return invalid();
+    const name = input.slice(i + 1, end);
+    if (!allowed.includes(name)) return invalid();
+    if (literal) nodes.push(literal);
+    nodes.push(Object.freeze({ argument: name }));
+    literal = "";
+    seen.add(name);
+    i = end + 1;
+  }
+  if (literal) nodes.push(literal);
+  if (required.some((name) => !seen.has(name))) return invalid();
+  return Object.freeze(nodes);
+}
+function render(template, args, literal) {
+  return template.map((node) => typeof node === "string" ? literal ? literal(node) : node : args[node.argument] ?? "-").join("");
+}
+function ordinal(position) {
+  const last = position % 100n, ending = last >= 11n && last <= 13n ? "th" : position % 10n === 1n ? "st" : position % 10n === 2n ? "nd" : position % 10n === 3n ? "rd" : "th";
+  return String(position) + ending;
+}
+var _locales, _application;
+var _CheckerMessageCatalog = class _CheckerMessageCatalog {
+  constructor(data, application) {
+    __privateAdd(this, _locales);
+    __privateAdd(this, _application);
+    __privateSet(this, _locales, data);
+    __privateSet(this, _application, application);
+    Object.freeze(this);
+  }
+  static fromJson(source) {
+    return this.parse(source, false);
+  }
+  static parse(source, complete) {
+    const root = object(strictJson(source));
+    keys(root, ["schema", "defaultLocale", "locales"]);
+    if (root.schema !== "teaql.checker-messages/v1" || root.defaultLocale !== "en") return invalid();
+    const entries = /* @__PURE__ */ Object.create(null);
+    for (const [code, value] of Object.entries(object(root.locales))) {
+      const locale = parseLocale(code);
+      if (own(entries, locale)) return invalid();
+      const entry = object(value);
+      keys(entry, ["rules", "locationPatterns"]);
+      const rules = /* @__PURE__ */ Object.create(null);
+      for (const [rule, shapes] of Object.entries(entry.rules === void 0 ? {} : object(entry.rules))) {
+        if (!rule.startsWith("checker.") || rule.length === 8) return invalid();
+        const templates = /* @__PURE__ */ Object.create(null);
+        for (const [shape, source2] of Object.entries(object(shapes))) {
+          if (!["one", "two", "deep"].includes(shape)) return invalid();
+          let allowed = ["field", "system", "input", "input_len", "unit"];
+          const required = ["field"];
+          if (["checker.required", "checker.invalid"].includes(rule)) allowed = ["field"];
+          else if (["checker.min", "checker.max"].includes(rule)) {
+            allowed = ["field", "system", "input"];
+            required.push("system");
+          } else if (["checker.minLength", "checker.maxLength"].includes(rule)) {
+            allowed = ["field", "system", "input_len", "unit"];
+            required.push("system", "input_len", "unit");
+          }
+          if (shape !== "one") {
+            const owner = shape === "two" ? "object" : "objectPath";
+            allowed.push(owner);
+            required.push(owner);
+          }
+          templates[shape] = compile(source2, allowed, required);
+        }
+        rules[rule] = Object.freeze(templates);
+      }
+      let patterns;
+      if (entry.locationPatterns !== void 0) {
+        const p = object(entry.locationPatterns);
+        keys(p, ["reference", "item", "separator"]);
+        const reference = compile(p.reference, ["relation"], ["relation"]), item = compile(p.item, ["relation", "position", "ordinal", "classifier"], ["relation"]);
+        if (!item.some((node) => typeof node !== "string" && ["position", "ordinal"].includes(node.argument))) return invalid();
+        const separator = text(p.separator);
+        if (/[{}\r\n\u0000-\u001f\u007f-\u009f]/u.test(separator)) return invalid();
+        patterns = Object.freeze({ reference, item, separator });
+      }
+      entries[locale] = Object.freeze({ rules: Object.freeze(rules), patterns });
+    }
+    if (complete) for (const locale of locales) {
+      const entry = entries[locale];
+      if (!entry?.patterns) return invalid();
+      for (const rule of ["checker.required", "checker.min", "checker.max", "checker.minLength", "checker.maxLength", "checker.invalid"])
+        for (const shape of ["one", "two", "deep"]) if (!entry.rules[rule]?.[shape]) return invalid();
+    }
+    return new _CheckerMessageCatalog(Object.freeze(entries), !complete);
+  }
+  lookup(locale, rule, shape) {
+    const template = __privateGet(this, _locales)[locale]?.rules[rule]?.[shape];
+    return template && selectionFor(locale, template);
+  }
+  override(locale, rule, shape) {
+    return __privateGet(this, _application) ? this.lookup(locale, rule, shape) : void 0;
+  }
+  select(locale, rule, shape) {
+    for (const candidate of [locale, "en"]) {
+      const selected = this.lookup(candidate, rule, shape) ?? _CheckerMessageCatalog.builtin.lookup(candidate, rule, shape);
+      if (selected) return selected;
+    }
+    return _CheckerMessageCatalog.builtin.lookup(locale, "checker.invalid", shape);
+  }
+  patterns(locale) {
+    return __privateGet(this, _locales)[locale]?.patterns ?? __privateGet(_CheckerMessageCatalog.builtin, _locales)[locale].patterns;
+  }
+  /** A finite location-pattern view; no raw application template is retained. */
+  projectPatterns(locale, project2) {
+    const patterns = __privateGet(this, _locales)[locale]?.patterns;
+    if (this === _CheckerMessageCatalog.builtin || !patterns) return _CheckerMessageCatalog.builtin;
+    const safe = (nodes) => Object.freeze(nodes.map((node) => typeof node === "string" ? project2(node) : node));
+    return new _CheckerMessageCatalog(Object.freeze({ [locale]: Object.freeze({ rules: Object.freeze({}), patterns: Object.freeze({
+      reference: safe(patterns.reference),
+      item: safe(patterns.item),
+      separator: project2(patterns.separator)
+    }) }) }), false);
+  }
+  reference(locale, relation) {
+    return render(this.patterns(locale).reference, { relation });
+  }
+  item(locale, relation, index, classifier) {
+    if (!Number.isSafeInteger(index) || index < 0) return invalid();
+    const position = BigInt(index) + 1n;
+    return render(this.patterns(locale).item, { relation, position: String(position), ordinal: ordinal(position), classifier });
+  }
+  separator(locale) {
+    return this.patterns(locale).separator;
+  }
+};
+_locales = new WeakMap();
+_application = new WeakMap();
+_CheckerMessageCatalog.builtin = _CheckerMessageCatalog.parse(JSON.stringify(builtin_v1_default), true);
+var CheckerMessageCatalog = _CheckerMessageCatalog;
+
+// src/core/natural-messages/presentation-defaults-v1.json
+var presentation_defaults_v1_default = {
+  schema: "teaql.checker-presentation/v1",
+  locales: {
+    en: {
+      currentObject: "current object",
+      utf16: "UTF-16 code units",
+      scalar: "Unicode scalar values",
+      byte: "bytes"
+    },
+    "zh-CN": {
+      currentObject: "\u5F53\u524D\u5BF9\u8C61",
+      utf16: "\u4E2A UTF-16 \u4EE3\u7801\u5355\u5143",
+      scalar: "\u4E2A Unicode \u6807\u91CF\u503C",
+      byte: "\u5B57\u8282"
+    },
+    "zh-TW": {
+      currentObject: "\u76EE\u524D\u7269\u4EF6",
+      utf16: "\u500B UTF-16 \u7A0B\u5F0F\u78BC\u55AE\u5143",
+      scalar: "\u500B Unicode \u7D14\u91CF\u503C",
+      byte: "\u4F4D\u5143\u7D44"
+    },
+    ja: {
+      currentObject: "\u73FE\u5728\u306E\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8",
+      utf16: "UTF-16\u30B3\u30FC\u30C9\u5358\u4F4D",
+      scalar: "Unicode\u30B9\u30AB\u30E9\u30FC\u5024",
+      byte: "\u30D0\u30A4\u30C8"
+    },
+    ko: {
+      currentObject: "\uD604\uC7AC \uAC1D\uCCB4",
+      utf16: "UTF-16 \uCF54\uB4DC \uB2E8\uC704",
+      scalar: "\uC720\uB2C8\uCF54\uB4DC \uC2A4\uCE7C\uB77C \uAC12",
+      byte: "\uBC14\uC774\uD2B8"
+    },
+    de: {
+      currentObject: "aktuelles Objekt",
+      utf16: "UTF-16-Codeeinheiten",
+      scalar: "Unicode-Skalarwerte",
+      byte: "Bytes"
+    },
+    fr: {
+      currentObject: "objet actuel",
+      utf16: "unit\xE9s de code UTF-16",
+      scalar: "valeurs scalaires Unicode",
+      byte: "octets"
+    },
+    es: {
+      currentObject: "objeto actual",
+      utf16: "unidades de c\xF3digo UTF-16",
+      scalar: "valores escalares Unicode",
+      byte: "bytes"
+    },
+    pt: {
+      currentObject: "objeto atual",
+      utf16: "unidades de c\xF3digo UTF-16",
+      scalar: "valores escalares Unicode",
+      byte: "bytes"
+    },
+    ar: {
+      currentObject: "\u0627\u0644\u0643\u0627\u0626\u0646 \u0627\u0644\u062D\u0627\u0644\u064A",
+      utf16: "\u0648\u062D\u062F\u0627\u062A \u062A\u0631\u0645\u064A\u0632 UTF-16",
+      scalar: "\u0642\u064A\u0645 Unicode \u0627\u0644\u0642\u064A\u0627\u0633\u064A\u0629",
+      byte: "\u0628\u0627\u064A\u062A"
+    },
+    th: {
+      currentObject: "\u0E2D\u0E2D\u0E1A\u0E40\u0E08\u0E47\u0E01\u0E15\u0E4C\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19",
+      utf16: "\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E23\u0E2B\u0E31\u0E2A UTF-16",
+      scalar: "\u0E04\u0E48\u0E32\u0E2A\u0E40\u0E01\u0E25\u0E32\u0E23\u0E4C Unicode",
+      byte: "\u0E44\u0E1A\u0E15\u0E4C"
+    },
+    id: {
+      currentObject: "objek saat ini",
+      utf16: "unit kode UTF-16",
+      scalar: "nilai skalar Unicode",
+      byte: "bita"
+    },
+    fil: {
+      currentObject: "kasalukuyang bagay",
+      utf16: "yunit ng code na UTF-16",
+      scalar: "scalar na halaga ng Unicode",
+      byte: "byte"
+    },
+    uk: {
+      currentObject: "\u043F\u043E\u0442\u043E\u0447\u043D\u0438\u0439 \u043E\u0431\u2019\u0454\u043A\u0442",
+      utf16: "\u043A\u043E\u0434\u043E\u0432\u0438\u0445 \u043E\u0434\u0438\u043D\u0438\u0446\u044C UTF-16",
+      scalar: "\u0441\u043A\u0430\u043B\u044F\u0440\u043D\u0438\u0445 \u0437\u043D\u0430\u0447\u0435\u043D\u044C Unicode",
+      byte: "\u0431\u0430\u0439\u0442\u0456\u0432"
+    },
+    vi: {
+      currentObject: "\u0111\u1ED1i t\u01B0\u1EE3ng hi\u1EC7n t\u1EA1i",
+      utf16: "\u0111\u01A1n v\u1ECB m\xE3 UTF-16",
+      scalar: "gi\xE1 tr\u1ECB v\xF4 h\u01B0\u1EDBng Unicode",
+      byte: "byte"
+    }
+  }
+};
+
+// src/core/natural-messages/presentation.ts
+var invalid2 = () => {
+  throw new TypeError("Invalid Checker presentation metadata");
+};
+function sanitize(value) {
+  return value.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, " ").trim();
+}
+function labels(value) {
+  const result = /* @__PURE__ */ Object.create(null);
+  for (const [code, label] of Object.entries(object(value))) {
+    const locale = parseLocale(code);
+    if (Object.prototype.hasOwnProperty.call(result, locale)) return invalid2();
+    result[locale] = text(label);
+  }
+  return Object.freeze(result);
+}
+var defaults = presentation_defaults_v1_default.locales;
+for (const locale of locales) {
+  for (const value of Object.values(defaults[locale])) if (!value || sanitize(value) !== value) invalid2();
+  Object.freeze(defaults[locale]);
+}
+Object.freeze(defaults);
+function checkerCountingUnit(locale, unit) {
+  return defaults[locale][unit];
+}
+var _fields;
+var Entity = class {
+  constructor(value) {
+    __privateAdd(this, _fields);
+    const data = object(value);
+    keys(data, ["labels", "fields"]);
+    this.labels = labels(data.labels ?? {});
+    if (!Array.isArray(data.fields)) throw new TypeError("Invalid Checker presentation fields");
+    const index = /* @__PURE__ */ new Map();
+    const canonical = [];
+    for (const value2 of data.fields) {
+      const source = object(value2);
+      keys(source, ["name", "targetType", "labels", "classifiers", "aliases"]);
+      const name = text(source.name), targetType = source.targetType === void 0 ? void 0 : text(source.targetType);
+      if (source.aliases !== void 0 && !Array.isArray(source.aliases)) throw new TypeError("Invalid Checker presentation aliases");
+      const aliases2 = Object.freeze((source.aliases ?? []).map(text));
+      const field = Object.freeze({ name, targetType, labels: labels(source.labels ?? {}), classifiers: labels(source.classifiers ?? {}), aliases: aliases2 });
+      for (const identity of [name, ...aliases2]) {
+        if (index.has(identity)) throw new TypeError("Ambiguous Checker presentation identity");
+        index.set(identity, field);
+      }
+      canonical.push(field);
+    }
+    __privateSet(this, _fields, index);
+    const sorted = (data2) => Object.entries(data2).sort(([a], [b]) => a.localeCompare(b));
+    this.fingerprint = JSON.stringify([sorted(this.labels), canonical.sort((a, b) => a.name.localeCompare(b.name)).map((f) => [f.name, f.targetType, sorted(f.labels), sorted(f.classifiers), [...f.aliases].sort()])]);
+    Object.freeze(this);
+  }
+  field(name) {
+    return __privateGet(this, _fields).get(name);
+  }
+};
+_fields = new WeakMap();
+var _entities, _current;
+var _CheckerPresentationModel = class _CheckerPresentationModel {
+  constructor(revision, entities, current) {
+    this.revision = revision;
+    __privateAdd(this, _entities);
+    __privateAdd(this, _current);
+    __privateSet(this, _entities, entities);
+    __privateSet(this, _current, current);
+    Object.freeze(this);
+  }
+  static fromJson(source) {
+    const root = object(strictJson(source));
+    keys(root, ["schema", "revision", "entities", "currentObject"]);
+    if (root.schema !== "teaql.checker-model/v1") return invalid2();
+    const revision = text(root.revision), entities = /* @__PURE__ */ new Map();
+    for (const [identity, value] of Object.entries(object(root.entities))) {
+      text(identity);
+      entities.set(identity, new Entity(value));
+    }
+    return new _CheckerPresentationModel(revision, entities, Object.freeze({ ...__privateGet(this.empty, _current), ...labels(root.currentObject ?? {}) }));
+  }
+  entity(name) {
+    return name === void 0 ? void 0 : __privateGet(this, _entities).get(name);
+  }
+  currentLabels() {
+    return __privateGet(this, _current);
+  }
+  merge(other) {
+    if (this === _CheckerPresentationModel.empty) return other;
+    if (other === _CheckerPresentationModel.empty || this === other) return this;
+    const entities = new Map(__privateGet(this, _entities));
+    let changed = false;
+    for (const [key, entity] of __privateGet(other, _entities)) {
+      const previous = entities.get(key);
+      if (previous && previous.fingerprint !== entity.fingerprint) return invalid2();
+      if (!previous) {
+        entities.set(key, entity);
+        changed = true;
+      }
+    }
+    for (const locale of locales) if (__privateGet(this, _current)[locale] !== __privateGet(other, _current)[locale]) return invalid2();
+    return changed ? new _CheckerPresentationModel(this.revision + "+" + other.revision, entities, __privateGet(this, _current)) : this;
+  }
+};
+_entities = new WeakMap();
+_current = new WeakMap();
+_CheckerPresentationModel.empty = new _CheckerPresentationModel("unconfigured", /* @__PURE__ */ new Map(), Object.freeze(Object.fromEntries(locales.map((locale) => [locale, defaults[locale].currentObject]))));
+var CheckerPresentationModel = _CheckerPresentationModel;
+var _steps;
+var _CheckerPresentation = class _CheckerPresentation {
+  constructor(model, origin, shape, steps) {
+    this.model = model;
+    this.origin = origin;
+    this.shape = shape;
+    __privateAdd(this, _steps);
+    __privateSet(this, _steps, steps);
+    Object.freeze(this);
+  }
+  static capture(model, origin, location) {
+    let entity = model.entity(origin), unusual = !entity;
+    const steps = [];
+    for (const segment of location.segments) {
+      if (segment.kind === "property") {
+        const field = entity?.field(segment.name);
+        entity = model.entity(field?.targetType);
+        steps.push({ identity: segment.name, field, indices: [] });
+      } else {
+        if (!Number.isSafeInteger(segment.index) || segment.index < 0) return invalid2();
+        if (!steps.length) {
+          steps.push({ indices: [] });
+          unusual = true;
+        }
+        const step = steps[steps.length - 1];
+        step.indices.push(segment.index);
+        if (step.indices.length > 1) unusual = true;
+      }
+    }
+    if (!steps.length || steps[steps.length - 1].indices.length) unusual = true;
+    const shape = unusual || steps.length > 2 ? "deep" : steps.length === 1 ? "one" : "two";
+    return new _CheckerPresentation(model, origin, shape, Object.freeze(steps.map((step) => Object.freeze({ ...step, indices: Object.freeze(step.indices) }))));
+  }
+  relocate(location) {
+    return _CheckerPresentation.capture(this.model, this.origin, location);
+  }
+  render(catalog, selection, safe) {
+    const warnings = /* @__PURE__ */ new Set(), locale = selection.locale;
+    const vocabulary = (labels2, identity) => {
+      let label2 = labels2[locale];
+      if (!label2?.trim()) {
+        warnings.add("CHECKER_MESSAGE_LABEL_FALLBACK");
+        label2 = labels2.en;
+      }
+      const value = sanitize(label2?.trim() ? label2 : identity.replace(/_/g, " "));
+      if (value) return value;
+      warnings.add("CHECKER_MESSAGE_LABEL_FALLBACK");
+      return defaults[locale].currentObject;
+    };
+    const current = () => vocabulary(this.model.currentLabels(), "current object");
+    const rootEntity = this.model.entity(this.origin), root = rootEntity ? vocabulary(rootEntity.labels, this.origin) : current();
+    const label = (step) => vocabulary(step.field?.labels ?? {}, step.field?.name ?? step.identity ?? "current object");
+    const leaf = __privateGet(this, _steps)[__privateGet(this, _steps).length - 1];
+    const args = Object.fromEntries(["system", "input", "input_len", "unit"].filter((key) => Object.prototype.hasOwnProperty.call(safe, key)).map((key) => [key, safe[key]]));
+    args.field = leaf?.identity ? label(leaf) : root;
+    const ownerCount = __privateGet(this, _steps).length - (leaf?.identity && !leaf.indices.length ? 1 : 0), owners = [];
+    for (const step of __privateGet(this, _steps).slice(0, ownerCount)) {
+      const relation = step.identity ? label(step) : root;
+      if (!step.indices.length) owners.push(catalog.reference(locale, relation));
+      else for (let j = 0; j < step.indices.length; j++) owners.push(catalog.item(locale, j === 0 ? relation : current(), step.indices[j], sanitize(step.field?.classifiers[locale] ?? (locale === "zh-CN" || locale === "zh-TW" ? "\u9879" : ""))));
+    }
+    args.object = owners[0] ?? root;
+    args.objectPath = owners.length ? owners.join(catalog.separator(locale)) : root;
+    return Object.freeze({ message: selection.render(args), warnings: Object.freeze([...warnings]) });
+  }
+};
+_steps = new WeakMap();
+var CheckerPresentation = _CheckerPresentation;
+
+// src/core/natural-messages/index.ts
+var standardCheckerMessageRenderer = (request) => request.presentation.render(request.catalog, request.selection, request.arguments);
+var token = /* @__PURE__ */ Symbol("TeaQL.NaturalCheckerPresentation");
+var bindings = /* @__PURE__ */ new WeakMap();
+var binding = (result) => {
+  const key = result[token];
+  return key && bindings.get(key);
+};
+function retain2(result, presentation, automaticMessage, plan) {
+  const key = Object.freeze({});
+  bindings.set(key, Object.freeze({ presentation, automaticMessage, plan }));
+  Object.defineProperty(result, token, { value: key, enumerable: true, configurable: true });
+}
+function automatic(result) {
+  const state = binding(result);
+  return state?.automaticMessage !== void 0 && state.automaticMessage === result.message || checkerRenderingWasAutomatic(result);
+}
+function bindCheckerOrigin(results, origin) {
+  return results.map((result) => {
+    const copy = { ...result }, auto = automatic(result);
+    retain2(copy, CheckerPresentation.capture(origin.model, origin.entity, result.location), auto ? result.message : void 0, auto ? binding(result)?.plan : void 0);
+    return copy;
+  });
+}
+var ruleKeys = Object.freeze({ required: "checker.required", min: "checker.min", max: "checker.max", min_str_len: "checker.minLength", min_length: "checker.minLength", max_str_len: "checker.maxLength", max_length: "checker.maxLength" });
+function scalar(value) {
+  if (value === null) return "null";
+  if (value === void 0) return "undefined";
+  if (typeof value === "string") return sanitize(value);
+  if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") return String(value);
+  if (value instanceof Date && Object.getPrototypeOf(value) === Date.prototype && Number.isFinite(value.getTime())) return value.toISOString();
+  return "[value omitted]";
+}
+var warningCodes = ["CHECKER_MESSAGE_LABEL_FALLBACK", "CHECKER_MESSAGE_GENERIC_RULE", "CHECKER_MESSAGE_RENDER_FALLBACK"];
+function preparePlan(config, result, rule) {
+  const project2 = (text2) => checkerTemplateLiteral(result, text2);
+  const patterns = /* @__PURE__ */ new Map();
+  const prepared = Object.fromEntries(locales.map((locale) => [locale, Object.freeze(Object.fromEntries(["one", "two", "deep"].map((shape) => {
+    let selection, legacy, application = false;
+    for (const candidate of [locale, "en"]) {
+      selection = config.catalog.override(candidate, rule, shape);
+      if (selection) {
+        application = true;
+        break;
+      }
+      const text2 = config.legacy.applicationMessage(candidate, rule);
+      if (text2 !== void 0) {
+        legacy = Object.freeze(text2.split(/(\{(?:location|system|input|input_len)\})/g).map((part) => /^\{(?:location|system|input|input_len)\}$/.test(part) ? Object.freeze({ argument: part.slice(1, -1) }) : project2(part)));
+        break;
+      }
+      selection = CheckerMessageCatalog.builtin.lookup(candidate, rule, shape);
+      if (selection) break;
+    }
+    const generic = !selection && !legacy;
+    if (generic) selection = CheckerMessageCatalog.builtin.select(locale, "checker.invalid", shape);
+    if (selection && application) selection = projectMessageSelection(selection, project2);
+    const effective = selection?.locale ?? locale;
+    if (!patterns.has(effective)) patterns.set(effective, config.catalog.projectPatterns(effective, project2));
+    return [shape, Object.freeze({ selection, legacy, catalog: patterns.get(effective), generic, application })];
+  })))]));
+  return Object.freeze({ locales: Object.freeze(prepared) });
+}
+function projectPlan(plan, project2) {
+  if (plan.literal !== void 0) return Object.freeze({ literal: project2(plan.literal) });
+  const prepared = {};
+  for (const locale of locales) {
+    const shapes = {};
+    for (const shape of ["one", "two", "deep"]) {
+      const item = plan.locales[locale][shape];
+      shapes[shape] = Object.freeze({
+        ...item,
+        selection: item.application && item.selection ? projectMessageSelection(item.selection, project2) : item.selection,
+        legacy: item.legacy && Object.freeze(item.legacy.map((node) => typeof node === "string" ? project2(node) : node)),
+        catalog: item.catalog.projectPatterns(item.selection?.locale ?? locale, project2)
+      });
+    }
+    prepared[locale] = Object.freeze(shapes);
+  }
+  return Object.freeze({ locales: Object.freeze(prepared) });
+}
+function safeArguments(result, locale) {
+  return Object.freeze({ system: scalar(result.systemValue), input: scalar(result.inputValue), input_len: String(checkerInputLength(result)), unit: checkerCountingUnit(locale, "scalar") });
+}
+function renderPlan(plan, presentation, result, locale) {
+  if (plan.literal !== void 0) return Object.freeze({ message: plan.literal, warnings: Object.freeze([]) });
+  const item = plan.locales[locale][presentation.shape], args = safeArguments(result, item.selection?.locale ?? locale);
+  if (item.legacy) {
+    const values = { ...args, location: result.location.nativePath() };
+    return Object.freeze({ message: item.legacy.map((node) => typeof node === "string" ? node : values[node.argument] ?? "-").join(""), warnings: Object.freeze([]) });
+  }
+  const output = presentation.render(item.catalog, item.selection, args);
+  return item.generic ? Object.freeze({ ...output, warnings: Object.freeze([...output.warnings, "CHECKER_MESSAGE_GENERIC_RULE"]) }) : output;
+}
+function renderNaturalCheckerResult(config, result, warnings = /* @__PURE__ */ new Set(), force) {
+  if (result.message?.trim() && !automatic(result)) return result;
+  const warn = (code) => {
+    const known = warningCodes.includes(code) ? code : "CHECKER_MESSAGE_RENDER_FALLBACK";
+    if (!warnings.has(known)) {
+      warnings.add(known);
+      try {
+        config.warning(known);
+      } catch {
+      }
+    }
+  };
+  const previous = binding(result), model = force?.model ?? previous?.presentation.model ?? config.model;
+  const origin = force?.entity ?? previous?.presentation.origin;
+  let presentation;
+  try {
+    presentation = CheckerPresentation.capture(model, origin, result.location);
+  } catch {
+    warn("CHECKER_MESSAGE_RENDER_FALLBACK");
+    presentation = CheckerPresentation.capture(CheckerPresentationModel.empty, void 0, ObjectLocation.root());
+  }
+  const rule = ruleKeys[result.ruleId.toLowerCase()] ?? `checker.${result.ruleId.toLowerCase()}`;
+  const locale = parseLocale(config.locale);
+  let plan = automatic(result) ? previous?.plan : void 0;
+  if (plan) plan = projectPlan(plan, (literal) => checkerTemplateLiteral(result, literal));
+  try {
+    let output;
+    if (plan) output = renderPlan(plan, presentation, result, locale);
+    else {
+      plan = preparePlan(config, result, rule);
+      const item = plan.locales[locale][presentation.shape];
+      if (config.renderer === standardCheckerMessageRenderer || item.legacy) output = renderPlan(plan, presentation, result, locale);
+      else {
+        const request = Object.freeze({ presentation, catalog: item.catalog, selection: item.selection, arguments: safeArguments(result, item.selection.locale) });
+        const custom = config.renderer(request);
+        output = Object.freeze({ ...custom, message: checkerTemplateLiteral(result, custom.message) });
+        plan = Object.freeze({ literal: output.message });
+      }
+    }
+    if (!output || typeof output.message !== "string" || !output.message.trim()) throw new Error("Empty rendered message");
+    for (const warning of output.warnings) warn(warning);
+    result.message = output.message;
+  } catch {
+    warn("CHECKER_MESSAGE_RENDER_FALLBACK");
+    const fallback = presentation.render(CheckerMessageCatalog.builtin, CheckerMessageCatalog.builtin.select(locale, "checker.invalid", presentation.shape), {});
+    result.message = fallback.message;
+    for (const warning of fallback.warnings) warn(warning);
+    plan = Object.freeze({ literal: result.message });
+  }
+  retain2(result, presentation, result.message, plan);
+  markCheckerRendering(result);
+  return result;
+}
+
 // src/core/internal-id.ts
 function internalId(value) {
   if (typeof value === "number" && (!Number.isSafeInteger(value) || value <= 0)) {
@@ -590,10 +1878,10 @@ function internalId(value) {
   if (typeof value !== "string" && typeof value !== "number" && typeof value !== "bigint") {
     throw new TypeError("Internal ID must be an exact positive integer");
   }
-  const text = String(value);
-  if (!/^[1-9][0-9]*$/.test(text)) throw new TypeError("Internal ID must be a canonical positive integer");
-  if (BigInt(text) > (1n << 63n) - 1n) throw new RangeError("Internal ID exceeds signed 64-bit range");
-  return text;
+  const text2 = String(value);
+  if (!/^[1-9][0-9]*$/.test(text2)) throw new TypeError("Internal ID must be a canonical positive integer");
+  if (BigInt(text2) > (1n << 63n) - 1n) throw new RangeError("Internal ID exceeds signed 64-bit range");
+  return text2;
 }
 
 // src/core/schema-capability.ts
@@ -825,9 +2113,9 @@ var debugLabel = "-- TeaQL DEBUG PLAINTEXT; EXPLICIT OPT-IN\n";
 var projections = /* @__PURE__ */ new WeakMap();
 var safeAlternatives = /* @__PURE__ */ new WeakMap();
 var rawProvenance = /* @__PURE__ */ new WeakMap();
-function retainSQLLogProvenance(metadata2, bindings, intentValues = []) {
+function retainSQLLogProvenance(metadata2, bindings2, intentValues = []) {
   rawProvenance.set(metadata2, {
-    bindings: bindings ? inheritSQLLogBindings(bindings) : void 0,
+    bindings: bindings2 ? inheritSQLLogBindings(bindings2) : void 0,
     intentValues: Object.freeze(intentValues.map(copyLogValue))
   });
 }
@@ -1100,9 +2388,9 @@ function sameValue(a, b, budget = { nodes: 4096 }, depth = 0) {
   if (!Array.isArray(a) && (Object.getPrototypeOf(a) !== Object.prototype && Object.getPrototypeOf(a) !== null || Object.getPrototypeOf(b) !== Object.prototype && Object.getPrototypeOf(b) !== null)) return false;
   if (Array.isArray(a) && a.length !== b.length) return false;
   const left = Object.getOwnPropertyDescriptors(a), right = Object.getOwnPropertyDescriptors(b);
-  const keys = Object.keys(left).filter((key) => left[key].enumerable);
-  if (keys.length !== Object.keys(right).filter((key) => right[key].enumerable).length) return false;
-  return keys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && right[key].enumerable && "value" in left[key] && "value" in right[key] && sameValue(left[key].value, right[key].value, budget, depth + 1));
+  const keys2 = Object.keys(left).filter((key) => left[key].enumerable);
+  if (keys2.length !== Object.keys(right).filter((key) => right[key].enumerable).length) return false;
+  return keys2.every((key) => Object.prototype.hasOwnProperty.call(right, key) && right[key].enumerable && "value" in left[key] && "value" in right[key] && sameValue(left[key].value, right[key].value, budget, depth + 1));
 }
 
 // src/core/prepared-mutation.ts
@@ -1136,17 +2424,17 @@ var PreparedGraphState = class {
   get size() {
     return this.entries.length;
   }
-  register(object, root, key, references, read) {
+  register(object2, root, key, references, read) {
     if (this.sealed) throw new PreparedMutationError();
-    if (this.objects.has(object)) return;
-    const source = { object, token: /* @__PURE__ */ Symbol("prepared entity"), root, key: { ...key }, origin: { ...key }, references, read };
-    this.objects.set(object, source);
+    if (this.objects.has(object2)) return;
+    const source = { object: object2, token: /* @__PURE__ */ Symbol("prepared entity"), root, key: { ...key }, origin: { ...key }, references, read };
+    this.objects.set(object2, source);
     this.tokens.set(source.token, source);
     this.sources.push(source);
   }
   members(objects) {
-    return objects.map((object) => {
-      const source = this.objects.get(object);
+    return objects.map((object2) => {
+      const source = this.objects.get(object2);
       if (!source) throw new PreparedMutationError();
       return source.token;
     });
@@ -1179,9 +2467,9 @@ var PreparedGraphState = class {
   }
   materialize(values, logical = false) {
     return Object.fromEntries(Object.entries(values).map(([field, value]) => {
-      const token = value && typeof value === "object" ? value[refField] : void 0;
-      if (typeof token !== "symbol") return [field, value];
-      const source = this.tokens.get(token);
+      const token2 = value && typeof value === "object" ? value[refField] : void 0;
+      if (typeof token2 !== "symbol") return [field, value];
+      const source = this.tokens.get(token2);
       if (!source) throw new PreparedMutationError(field);
       const target = this.resolved(source.origin);
       if (!logical && !this.aliases.has(keyOf(source.origin)) && source.root.isNew(source.key)) throw new PreparedMutationError(field);
@@ -1269,7 +2557,7 @@ var PreparedGraphState = class {
     this.validate();
   }
   validate() {
-    for (const binding of this.bindings) if (binding.read() !== binding.value) throw new PreparedMutationError("context");
+    for (const binding2 of this.bindings) if (binding2.read() !== binding2.value) throw new PreparedMutationError("context");
     for (const metadata2 of this.metadata) if (metadata2.value.changedField(metadata2.read()) !== void 0) throw new PreparedMutationError("metadata");
     for (const source of this.sources) {
       this.assertNative(source);
@@ -1428,7 +2716,7 @@ var MutationIntent = class {
 _comment2 = new WeakMap();
 var _intent, _query, _parent2, _comment3, _name, _operation, _invocation;
 var _QueryRequest = class _QueryRequest {
-  constructor(query, intent, binding) {
+  constructor(query, intent, binding2) {
     __privateAdd(this, _intent);
     __privateAdd(this, _query);
     __privateAdd(this, _parent2);
@@ -1440,14 +2728,14 @@ var _QueryRequest = class _QueryRequest {
     const previous = queryExecutionOwner(query);
     const previousOwner = previous instanceof _QueryRequest ? previous : void 0;
     __privateSet(this, _intent, intent === void 0 ? previousOwner?.intent ?? new QueryIntent(source?._comment ?? source?.commentText, source?._purpose ?? source?.purposeText) : new QueryIntent(intent?.comment, intent?.purpose));
-    if (binding && binding[requestBindingToken] !== true)
+    if (binding2 && binding2[requestBindingToken] !== true)
       throw new Error("QUERY_REQUEST_OWNERSHIP_INVALID: request binding is runtime-owned");
     const owner = previousOwner && previousOwner.intent.comment === __privateGet(this, _intent).comment && previousOwner.purpose === __privateGet(this, _intent).purpose ? previousOwner : void 0;
-    __privateSet(this, _invocation, binding?.invocation ?? (binding?.parent ? __privateGet(binding.parent, _invocation) : void 0) ?? (owner ? __privateGet(owner, _invocation) : void 0) ?? Object.freeze({}));
-    __privateSet(this, _parent2, binding ? binding.parent : owner?.parentRequest);
-    __privateSet(this, _comment3, requireText(binding?.comment ?? owner?.comment ?? __privateGet(this, _intent).comment, "comment", "query"));
-    __privateSet(this, _name, binding?.name ?? owner?.requestName ?? String(source.entity ?? "query"));
-    __privateSet(this, _operation, binding?.operation ?? owner?.operation);
+    __privateSet(this, _invocation, binding2?.invocation ?? (binding2?.parent ? __privateGet(binding2.parent, _invocation) : void 0) ?? (owner ? __privateGet(owner, _invocation) : void 0) ?? Object.freeze({}));
+    __privateSet(this, _parent2, binding2 ? binding2.parent : owner?.parentRequest);
+    __privateSet(this, _comment3, requireText(binding2?.comment ?? owner?.comment ?? __privateGet(this, _intent).comment, "comment", "query"));
+    __privateSet(this, _name, binding2?.name ?? owner?.requestName ?? String(source.entity ?? "query"));
+    __privateSet(this, _operation, binding2?.operation ?? owner?.operation);
     __privateSet(this, _query, snapshotQuery(query));
     const captured = __privateGet(this, _query);
     for (const [field, value] of [
@@ -1463,7 +2751,7 @@ var _QueryRequest = class _QueryRequest {
         writable: false
       });
     }
-    querySources.set(captured, cloneTraceNodes(binding?.source ?? owner?.traceSource ?? querySources.get(query) ?? queryTraceSource(String(source.entity), this.intent.comment, this.purpose)));
+    querySources.set(captured, cloneTraceNodes(binding2?.source ?? owner?.traceSource ?? querySources.get(query) ?? queryTraceSource(String(source.entity), this.intent.comment, this.purpose)));
     retainQueryExecutionOwner(captured, this);
     Object.freeze(this);
   }
@@ -1655,11 +2943,11 @@ var MutationRequest = class {
     return specific?.length ? cloneTraceNodes(specific) : this.scopeFor(key).recover();
   }
   /** Safe event projection; internal policy intent is never mutated. */
-  auditProjection(key, payload, bindings) {
+  auditProjection(key, payload, bindings2) {
     const secrets = [
       ...logValueStrings(payload),
       ...logValueStrings(__privateGet(this, _mutation).id),
-      ...bindings ? privateLogValueStrings(bindings) : logValueStrings(this.loadedValues()),
+      ...bindings2 ? privateLogValueStrings(bindings2) : logValueStrings(this.loadedValues()),
       ...privateLogValueStrings(this.graphSession?.logBindings)
     ];
     return Object.freeze({
@@ -1699,8 +2987,8 @@ var GraphMutationSession = class {
     return __privateGet(this, _prepared).rootEntity;
   }
   /** @internal Generated graph registration carries no Context-owned ledger. */
-  registerSource(object, root, key, references, read) {
-    __privateGet(this, _prepared).register(object, root, key, references, read);
+  registerSource(object2, root, key, references, read) {
+    __privateGet(this, _prepared).register(object2, root, key, references, read);
   }
   sourceMembers(objects) {
     return __privateGet(this, _prepared).members(objects);
@@ -1947,11 +3235,11 @@ var MutationPolicyRuntimeState = class {
     let source;
     let identity;
     let approvalStatus;
-    let warningCodes;
+    let warningCodes2;
     if (!policy) {
       source = "generated_default";
       approvalStatus = "not_applicable";
-      warningCodes = [MISSING_MUTATION_POLICY];
+      warningCodes2 = [MISSING_MUTATION_POLICY];
     } else {
       identity = freezeIdentity(policy.identity);
       const decision = policy.review(context, plan);
@@ -1966,7 +3254,7 @@ var MutationPolicyRuntimeState = class {
       source = "customer";
       const approval = this.profile.approvalProvider?.findApproval(identity);
       approvalStatus = validApproval(approval, identity) ? "approved" : "missing";
-      warningCodes = approvalStatus === "approved" ? [] : [MISSING_MUTATION_POLICY_APPROVAL];
+      warningCodes2 = approvalStatus === "approved" ? [] : [MISSING_MUTATION_POLICY_APPROVAL];
     }
     const snapshot = Object.freeze({
       executionId: plan.executionId,
@@ -1974,7 +3262,7 @@ var MutationPolicyRuntimeState = class {
       source,
       policy: identity,
       approvalStatus,
-      warningCodes: Object.freeze([...warningCodes]),
+      warningCodes: Object.freeze([...warningCodes2]),
       operations: Object.freeze(plan.operations.map((operation) => Object.freeze({
         kind: operation.kind,
         entity: operation.entity,
@@ -1982,7 +3270,7 @@ var MutationPolicyRuntimeState = class {
         changedFields: Object.freeze(Object.keys(operation.changedValues).sort())
       })))
     });
-    for (const code of warningCodes) this.emitWarning(context, snapshot, code);
+    for (const code of warningCodes2) this.emitWarning(context, snapshot, code);
     return snapshot;
   }
   plan(root, reason, operations) {
@@ -2141,11 +3429,11 @@ var resourceIdentities = /* @__PURE__ */ new WeakMap();
 var nextResourceIdentity = 1;
 function resourceIdentity(value) {
   if (!value || typeof value !== "object" && typeof value !== "function") return String(value);
-  const object = value;
-  let identity = resourceIdentities.get(object);
+  const object2 = value;
+  let identity = resourceIdentities.get(object2);
   if (!identity) {
     identity = nextResourceIdentity++;
-    resourceIdentities.set(object, identity);
+    resourceIdentities.set(object2, identity);
   }
   return String(identity);
 }
@@ -2158,7 +3446,7 @@ var ContextRootError = class extends Error {
     this.name = "ContextRootError";
   }
 };
-var UserContext = class {
+var UserContext = class _UserContext {
   constructor() {
     this.businessClock = new SystemBusinessClock();
     this.mutationPolicy = new MutationPolicyRuntimeState();
@@ -2193,6 +3481,10 @@ var UserContext = class {
     this.idSetPaginationCountAccuracy = "UNKNOWN";
     this.locale = "en";
     this.i18nCatalog = I18nCatalog.builtin;
+    this.naturalCatalog = CheckerMessageCatalog.builtin;
+    this.naturalModel = CheckerPresentationModel.empty;
+    this.naturalRenderer = standardCheckerMessageRenderer;
+    this.naturalWarning = (code) => console.warn(code);
   }
   withInternalIdGenerator(generator) {
     if (!generator || typeof generator.generateId !== "function") {
@@ -2246,6 +3538,57 @@ var UserContext = class {
     const service = this.requireResource("dataService");
     return service.withQueryRequest ? service.withQueryRequest(query, work) : work();
   }
+  get checkerPresentationModel() {
+    return this.naturalModel;
+  }
+  installCheckerPresentationModel(model) {
+    if (!(model instanceof CheckerPresentationModel)) throw new TypeError("Checker presentation model required");
+    this.naturalModel = model;
+    return this;
+  }
+  installCheckerMessageCatalog(source) {
+    const catalog = CheckerMessageCatalog.fromJson(source);
+    this.naturalCatalog = catalog;
+    return this;
+  }
+  installCheckerMessageRenderer(renderer) {
+    if (typeof renderer !== "function") throw new TypeError("Checker renderer required");
+    this.naturalRenderer = renderer;
+    return this;
+  }
+  installCheckerMessageWarning(sink) {
+    if (typeof sink !== "function") throw new TypeError("Checker warning sink required");
+    this.naturalWarning = sink;
+    return this;
+  }
+  /** Immutable configuration, not a closure capturing this Context. */
+  captureCheckerMessages(defaultModel = CheckerPresentationModel.empty) {
+    return Object.freeze({
+      model: this.naturalModel === CheckerPresentationModel.empty ? defaultModel : this.naturalModel,
+      catalog: this.naturalCatalog,
+      legacy: this.i18nCatalog,
+      locale: parseLocale(this.locale),
+      renderer: this.naturalRenderer,
+      warning: this.naturalWarning
+    });
+  }
+  translateCheckResultsFrom(origin, results, input = {}) {
+    const model = this.captureCheckerMessages(input.defaultModel).model;
+    const bound = bindCheckerOrigin(results, Object.freeze({ model, entity: origin }));
+    results.splice(0, results.length, ...bound);
+    translateCheckerResults(this, results, origin, input.privacyPolicy ?? (() => void 0), input.checkedValues ?? []);
+    return results;
+  }
+  /** Runtime graph boundary supplies an already-captured immutable origin. */
+  renderCheckerGraphResults(results, config, origin) {
+    if (config.legacy.translate !== I18nCatalog.prototype.translate || this.translateCheckResults !== _UserContext.prototype.translateCheckResults) return [...results];
+    const scope = prepareCheckerResults(results), warnings = /* @__PURE__ */ new Set();
+    try {
+      return scope.finish(scope.values.map((result) => renderNaturalCheckerResult(config, result, warnings, origin)));
+    } finally {
+      scope.close();
+    }
+  }
   setLocaleCode(code) {
     const locale = parseLocale(code);
     this.locale = locale;
@@ -2267,7 +3610,9 @@ var UserContext = class {
     if (!results.length) return results;
     const scope = prepareCheckerResults(results, declaringEntityType);
     try {
-      const translated = scope.values.map((result) => this.i18nCatalog.translate(result, this.locale));
+      const custom = this.i18nCatalog.translate !== I18nCatalog.prototype.translate;
+      const config = this.captureCheckerMessages(), warnings = /* @__PURE__ */ new Set();
+      const translated = scope.values.map((result) => custom ? this.i18nCatalog.translate(result, this.locale) : renderNaturalCheckerResult(config, result, warnings));
       results.splice(0, results.length, ...scope.finish(translated));
       return results;
     } finally {
@@ -2482,6 +3827,13 @@ export {
   parseLocale,
   checkResultToWire,
   I18nCatalog,
+  ordinal,
+  CheckerMessageCatalog,
+  CheckerPresentationModel,
+  CheckerPresentation,
+  standardCheckerMessageRenderer,
+  bindCheckerOrigin,
+  renderNaturalCheckerResult,
   internalId,
   contextSchemaCapability,
   cloneTraceNodes,
@@ -2518,4 +3870,4 @@ export {
   ContextRootError,
   UserContext
 };
-//# sourceMappingURL=chunk-V4EWL6CG.js.map
+//# sourceMappingURL=chunk-UBDEC3DO.js.map

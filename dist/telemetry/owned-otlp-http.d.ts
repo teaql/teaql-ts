@@ -14,7 +14,7 @@ export type Acknowledgement = {
 export declare function validateAcknowledgementBytes(bytes: Uint8Array, partial?: boolean): void;
 export declare function acknowledgementResult(signal: TelemetrySignal, response: Acknowledgement, submitted: number): {
     rejected: number;
-    kind: "partial_success" | "warning" | undefined;
+    kind: "warning" | "partial_success" | undefined;
 };
 /** Pipeline-owned agents, no global fetch/agent/SDK interception, retries or redirects. */
 export declare class OwnedOTLPHTTP {

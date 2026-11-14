@@ -2,8 +2,16 @@ import { SelectQuery } from './ast';
 import { BusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale } from './i18n';
+import { CheckerPrivacyPolicy } from './checker-privacy';
+import { CheckerMessageConfiguration, CheckerMessageRenderer, CheckerMessageWarning, CheckerPresentationModel, CheckerValidationOrigin } from './natural-messages';
 import { InternalIdGenerator } from './internal-id';
 import { MutationGovernanceSink, MutationGovernanceSnapshot, MutationPlan, MutationPolicyApprovalProvider, MutationPolicyRegistry } from './mutation-policy';
+/** Trusted adapter inputs for one synchronous Checker invocation, never retained by Context. */
+export type CheckerMessageInput = Readonly<{
+    defaultModel?: CheckerPresentationModel;
+    privacyPolicy?: CheckerPrivacyPolicy;
+    checkedValues?: readonly Readonly<Record<string, unknown>>[];
+}>;
 export type RetainedIdSet = {
     ids: BigUint64Array;
     expiresAt: number;
@@ -64,6 +72,20 @@ export declare class UserContext {
     idSetPaginationCountAccuracy: 'EXACT' | 'LOWER_BOUND' | 'UNKNOWN';
     locale: Locale;
     i18nCatalog: I18nCatalog;
+    private naturalCatalog;
+    private naturalModel;
+    private naturalRenderer;
+    private naturalWarning;
+    get checkerPresentationModel(): CheckerPresentationModel;
+    installCheckerPresentationModel(model: CheckerPresentationModel): this;
+    installCheckerMessageCatalog(source: string): this;
+    installCheckerMessageRenderer(renderer: CheckerMessageRenderer): this;
+    installCheckerMessageWarning(sink: (code: CheckerMessageWarning) => void): this;
+    /** Immutable configuration, not a closure capturing this Context. */
+    captureCheckerMessages(defaultModel?: CheckerPresentationModel): CheckerMessageConfiguration;
+    translateCheckResultsFrom(origin: string, results: CheckResult[], input?: CheckerMessageInput): CheckResult[];
+    /** Runtime graph boundary supplies an already-captured immutable origin. */
+    renderCheckerGraphResults(results: readonly CheckResult[], config: CheckerMessageConfiguration, origin: CheckerValidationOrigin): CheckResult[];
     setLocaleCode(code: string): this;
     setLanguageCode(code: string): this;
     installI18nCatalog(catalog: I18nCatalog): this;

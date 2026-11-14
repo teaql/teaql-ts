@@ -5,6 +5,7 @@ const business_clock_1 = require("./business-clock");
 const object_storage_1 = require("./object-storage");
 const i18n_1 = require("./i18n");
 const checker_privacy_1 = require("./checker-privacy");
+const natural_messages_1 = require("./natural-messages");
 const internal_id_1 = require("./internal-id");
 const schema_capability_1 = require("./schema-capability");
 const mutation_policy_1 = require("./mutation-policy");
@@ -65,6 +66,10 @@ class UserContext {
         this.idSetPaginationCountAccuracy = 'UNKNOWN';
         this.locale = 'en';
         this.i18nCatalog = i18n_1.I18nCatalog.builtin;
+        this.naturalCatalog = natural_messages_1.CheckerMessageCatalog.builtin;
+        this.naturalModel = natural_messages_1.CheckerPresentationModel.empty;
+        this.naturalRenderer = natural_messages_1.standardCheckerMessageRenderer;
+        this.naturalWarning = code => console.warn(code);
     }
     withInternalIdGenerator(generator) {
         if (!generator || typeof generator.generateId !== 'function') {
@@ -112,6 +117,54 @@ class UserContext {
         const service = this.requireResource('dataService');
         return service.withQueryRequest ? service.withQueryRequest(query, work) : work();
     }
+    get checkerPresentationModel() { return this.naturalModel; }
+    installCheckerPresentationModel(model) {
+        if (!(model instanceof natural_messages_1.CheckerPresentationModel))
+            throw new TypeError('Checker presentation model required');
+        this.naturalModel = model;
+        return this;
+    }
+    installCheckerMessageCatalog(source) {
+        const catalog = natural_messages_1.CheckerMessageCatalog.fromJson(source);
+        this.naturalCatalog = catalog;
+        return this;
+    }
+    installCheckerMessageRenderer(renderer) {
+        if (typeof renderer !== 'function')
+            throw new TypeError('Checker renderer required');
+        this.naturalRenderer = renderer;
+        return this;
+    }
+    installCheckerMessageWarning(sink) {
+        if (typeof sink !== 'function')
+            throw new TypeError('Checker warning sink required');
+        this.naturalWarning = sink;
+        return this;
+    }
+    /** Immutable configuration, not a closure capturing this Context. */
+    captureCheckerMessages(defaultModel = natural_messages_1.CheckerPresentationModel.empty) {
+        return Object.freeze({ model: this.naturalModel === natural_messages_1.CheckerPresentationModel.empty ? defaultModel : this.naturalModel,
+            catalog: this.naturalCatalog, legacy: this.i18nCatalog, locale: (0, i18n_1.parseLocale)(this.locale), renderer: this.naturalRenderer, warning: this.naturalWarning });
+    }
+    translateCheckResultsFrom(origin, results, input = {}) {
+        const model = this.captureCheckerMessages(input.defaultModel).model;
+        const bound = (0, natural_messages_1.bindCheckerOrigin)(results, Object.freeze({ model, entity: origin }));
+        results.splice(0, results.length, ...bound);
+        (0, checker_privacy_1.translateCheckerResults)(this, results, origin, input.privacyPolicy ?? (() => undefined), input.checkedValues ?? []);
+        return results;
+    }
+    /** Runtime graph boundary supplies an already-captured immutable origin. */
+    renderCheckerGraphResults(results, config, origin) {
+        if (config.legacy.translate !== i18n_1.I18nCatalog.prototype.translate || this.translateCheckResults !== UserContext.prototype.translateCheckResults)
+            return [...results];
+        const scope = (0, checker_privacy_1.prepareCheckerResults)(results), warnings = new Set();
+        try {
+            return scope.finish(scope.values.map(result => (0, natural_messages_1.renderNaturalCheckerResult)(config, result, warnings, origin)));
+        }
+        finally {
+            scope.close();
+        }
+    }
     setLocaleCode(code) { const locale = (0, i18n_1.parseLocale)(code); this.locale = locale; return this; }
     setLanguageCode(code) { return this.setLocaleCode(code); }
     installI18nCatalog(catalog) { if (!catalog)
@@ -126,7 +179,11 @@ class UserContext {
             return results;
         const scope = (0, checker_privacy_1.prepareCheckerResults)(results, declaringEntityType);
         try {
-            const translated = scope.values.map(result => this.i18nCatalog.translate(result, this.locale));
+            // Existing subclass/duck-typed catalog hooks remain authoritative. Their
+            // results still pass the same final privacy projection.
+            const custom = this.i18nCatalog.translate !== i18n_1.I18nCatalog.prototype.translate;
+            const config = this.captureCheckerMessages(), warnings = new Set();
+            const translated = scope.values.map(result => custom ? this.i18nCatalog.translate(result, this.locale) : (0, natural_messages_1.renderNaturalCheckerResult)(config, result, warnings));
             results.splice(0, results.length, ...scope.finish(translated));
             return results;
         }

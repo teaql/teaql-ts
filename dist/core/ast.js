@@ -177,9 +177,8 @@ class SelectQuery {
         if (this.limitValue > ceiling) {
             throw new Error(`QUERY_HARD_LIMIT_EXCEEDED: requested limit ${this.limitValue} exceeds hard limit ${ceiling}`);
         }
-        for (const relation of this.relations) {
-            relation.query?.applyListLimit(10000);
-        }
+        // This is the outer result ceiling, not a limit on nested contributors.
+        // Keep explicit child Top-N/offset unchanged.
     }
     offset(offset) {
         if (!Number.isSafeInteger(offset) || offset < 0) {

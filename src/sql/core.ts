@@ -1751,7 +1751,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const request = query instanceof QueryRequest ? query : new QueryRequest(query);
     // Keep the existing builder hard-limit normalization contract. Intent is
     // already validated; the private execution snapshot is normalized again.
-    if (!(query instanceof QueryRequest) && query?.[this.internalQueryToken] !== true
+    if (!request.parentRequest && !(query instanceof QueryRequest) && query?.[this.internalQueryToken] !== true
       && typeof query?.prepareForList === 'function') query.prepareForList();
     return this.executeQueryWithIntent<T>(request.query, this.derivedQueryBindings.get(query),
       this.derivedRelationAssembly.get(query));
@@ -1819,7 +1819,9 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       attributes: { 'teaql.entity.type': String(query?.entity || 'unknown') },
     });
     const work = async () => { try {
-    const internal = query?.[this.internalQueryToken] === true;
+    // Captured request ancestry is private runtime state, not a wire option.
+    // Facets and related statistical populations re-enter this list facade.
+    const internal = query?.[this.internalQueryToken] === true || new QueryRequest(query).parentRequest !== undefined;
     if (!internal) {
       if (typeof query?.prepareForList !== 'function') {
         throw new Error('TeaQL list execution requires the formal runtime SelectQuery');

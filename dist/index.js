@@ -37,6 +37,7 @@ __exportStar(require("./core/object-location"), exports);
 __exportStar(require("./core/wire-fields"), exports);
 __exportStar(require("./core/dynamic-search"), exports);
 __exportStar(require("./core/i18n"), exports);
+__exportStar(require("./core/natural-messages"), exports);
 __exportStar(require("./core/tools"), exports);
 __exportStar(require("./core/local-cache"), exports);
 __exportStar(require("./core/runtime-module"), exports);

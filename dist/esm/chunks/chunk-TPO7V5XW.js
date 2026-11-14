@@ -2,7 +2,7 @@ import {
   LoadedScalarSnapshot,
   UserContext,
   internalId
-} from "./chunk-V4EWL6CG.js";
+} from "./chunk-UBDEC3DO.js";
 
 // src/core/entity-creation.ts
 var reservations = /* @__PURE__ */ new WeakMap();
@@ -77,4 +77,4 @@ export {
   EntityCreation,
   runGeneratedBootstrap
 };
-//# sourceMappingURL=chunk-DEC24JLO.js.map
+//# sourceMappingURL=chunk-TPO7V5XW.js.map

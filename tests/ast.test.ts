@@ -34,16 +34,17 @@ describe('AST Classes', () => {
     expect(() => new SelectQuery('Order').offset(-1)).toThrow('QUERY_INVALID_OFFSET');
   });
 
-  it('uses a fixed 10,000 ceiling for every nested relation query', () => {
+  it('keeps the outer ceiling separate from nested business selections', () => {
     const nested = new SelectQuery('OrderLine');
     const query = new SelectQuery('Order').relationQuery('lines', nested);
 
     query.prepareForList();
     expect(query.limitValue).toBe(10_000);
-    expect(nested.limitValue).toBe(10_000);
+    expect(nested.limitValue).toBe(0);
 
     nested.limit(10_001);
-    expect(() => query.prepareForList()).toThrow('QUERY_HARD_LIMIT_EXCEEDED');
+    expect(() => query.prepareForList()).not.toThrow();
+    expect(nested.limitValue).toBe(10_001);
   });
 
   it('SelectQuery should build correctly', () => {

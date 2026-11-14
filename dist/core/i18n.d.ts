@@ -41,6 +41,7 @@ export declare class I18nCatalog {
     static readonly builtin: I18nCatalog;
     constructor(data: CatalogData, fallback?: I18nCatalog | undefined);
     message(locale: Locale, key: string): string;
+    applicationMessage(locale: Locale, key: string): string | undefined;
     translate(result: CheckResult, locale: Locale): CheckResult;
 }
 export {};

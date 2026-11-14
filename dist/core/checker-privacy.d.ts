@@ -10,6 +10,7 @@ export declare function prepareCheckerResults(results: readonly CheckResult[], d
 export declare function checkerInputLength(result: CheckResult): number;
 export declare function checkerTemplateLiteral(result: CheckResult, text: string): string;
 export declare function markCheckerRendering(result: CheckResult): void;
+export declare function checkerRenderingWasAutomatic(result: CheckResult): boolean;
 /** Invoke the unchanged customer Context hook, then reproject its output. */
 export declare function translateCheckerResults(context: {
     translateCheckResults(r: CheckResult[], entity?: string): CheckResult[];

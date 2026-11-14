@@ -28,6 +28,7 @@ const telemetry_1 = require("../core/telemetry");
 const checker_1 = require("../core/checker");
 const context_fix_1 = require("../core/context-fix");
 const checker_privacy_1 = require("../core/checker-privacy");
+const natural_messages_1 = require("../core/natural-messages");
 const mutation_field_layout_1 = require("../core/mutation-field-layout");
 const context_1 = require("../core/context");
 const internal_id_1 = require("../core/internal-id");
@@ -232,6 +233,7 @@ class AbstractSQLTeaQLClient {
         this.mutationLoggingEnabled = true;
         this.customTelemetry = false;
         this.checkers = {};
+        this.checkerPresentationModel = natural_messages_1.CheckerPresentationModel.empty;
         this.userContext = new context_1.UserContext();
         this.bootstrap = {};
         this.graphAuditActions = [];
@@ -243,9 +245,11 @@ class AbstractSQLTeaQLClient {
     }
     /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
     install(module) {
+        const presentation = this.checkerPresentationModel.merge(module.checkerPresentationModel);
         Object.assign(this.schemas, module.schemas);
         Object.assign(this.checkers, module.checkers);
         this.bootstrap = (0, runtime_module_1.mergeRuntimeBootstrap)(this.bootstrap, module.bootstrap);
+        this.checkerPresentationModel = presentation;
         return this;
     }
     setUserContext(context) { this.userContext = context; return this; }
@@ -656,6 +660,7 @@ class AbstractSQLTeaQLClient {
         const graph = new request_intent_1.GraphMutationSession(intent);
         const executionContext = this.userContext;
         graph.bindExecutionReference(() => this.userContext);
+        graph.bindExecutionReference(() => this.checkerPresentationModel);
         graph.bindExecutionMetadata(() => ({ schemas: this.schemas, checkerNames: Object.keys(this.checkers).sort() }));
         for (const name of Object.keys(this.checkers)) {
             graph.bindExecutionReference(() => this.checkers[name]);
@@ -674,6 +679,8 @@ class AbstractSQLTeaQLClient {
             let fixEvidenceStarted = false;
             let mutationPolicyGraphStarted = false;
             let committed = false;
+            let checkerOrigin;
+            let checkerConfig;
             try {
                 graph.validatePreparedSources();
                 this.graphCommitActions = [];
@@ -684,6 +691,11 @@ class AbstractSQLTeaQLClient {
                 const pending = admit?.(graph);
                 if (admit && typeof pending !== 'boolean')
                     throw new Error('GRAPH_ADMISSION_RESULT_REQUIRED');
+                // Registering sources during admission establishes the graph root. Retain
+                // immutable metadata now, not Context state or a live entity traversal.
+                checkerConfig = executionContext.captureCheckerMessages(this.checkerPresentationModel);
+                if (graph.preparedRootEntity)
+                    checkerOrigin = Object.freeze({ model: checkerConfig.model, entity: graph.preparedRootEntity });
                 graph.captureInputSources();
                 if (pending === false) {
                     graph.sealPreparedGraph();
@@ -774,6 +786,9 @@ class AbstractSQLTeaQLClient {
                         }
                         catch { /* independent rollback restorations continue */ }
                     }
+                }
+                if (error instanceof checker_1.CheckException && checkerOrigin && checkerConfig) {
+                    error.refreshPresentation(executionContext.renderCheckerGraphResults(error.violations, checkerConfig, checkerOrigin));
                 }
                 throw error;
             }
@@ -889,6 +904,8 @@ class AbstractSQLTeaQLClient {
                 throw new mutation_version_1.MutationVersionError('invalid_type');
             }
             width.checkMutation(mutation.payload || {}, results);
+            const origin = Object.freeze({ model: this.userContext.captureCheckerMessages(this.checkerPresentationModel).model, entity: declaringEntityType });
+            results.splice(0, results.length, ...(0, natural_messages_1.bindCheckerOrigin)(results, origin));
             (0, checker_privacy_1.translateCheckerResults)(this.userContext, results, declaringEntityType, this.checkerPrivacyPolicy, [request.loadedValues(), request.mutation.payload ?? {}, mutation.payload ?? {}]);
             if (results.length)
                 throw new checker_1.CheckException(results);
@@ -1595,7 +1612,7 @@ class AbstractSQLTeaQLClient {
         const request = query instanceof request_intent_1.QueryRequest ? query : new request_intent_1.QueryRequest(query);
         // Keep the existing builder hard-limit normalization contract. Intent is
         // already validated; the private execution snapshot is normalized again.
-        if (!(query instanceof request_intent_1.QueryRequest) && query?.[this.internalQueryToken] !== true
+        if (!request.parentRequest && !(query instanceof request_intent_1.QueryRequest) && query?.[this.internalQueryToken] !== true
             && typeof query?.prepareForList === 'function')
             query.prepareForList();
         return this.executeQueryWithIntent(request.query, this.derivedQueryBindings.get(query), this.derivedRelationAssembly.get(query));
@@ -1667,7 +1684,9 @@ class AbstractSQLTeaQLClient {
         });
         const work = async () => {
             try {
-                const internal = query?.[this.internalQueryToken] === true;
+                // Captured request ancestry is private runtime state, not a wire option.
+                // Facets and related statistical populations re-enter this list facade.
+                const internal = query?.[this.internalQueryToken] === true || new request_intent_1.QueryRequest(query).parentRequest !== undefined;
                 if (!internal) {
                     if (typeof query?.prepareForList !== 'function') {
                         throw new Error('TeaQL list execution requires the formal runtime SelectQuery');

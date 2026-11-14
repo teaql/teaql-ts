@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.translateCheckerResults = exports.markCheckerRendering = exports.checkerTemplateLiteral = exports.checkerInputLength = exports.prepareCheckerResults = void 0;
+exports.translateCheckerResults = exports.checkerRenderingWasAutomatic = exports.markCheckerRendering = exports.checkerTemplateLiteral = exports.checkerInputLength = exports.prepareCheckerResults = void 0;
 const value_privacy_1 = require("./value-privacy");
 const presentationToken = Symbol('TeaQL.CheckerPresentation');
 // Tokens survive an application spread/relocation. Values contain only already
@@ -65,8 +65,10 @@ function project(r, declaring, policy, allow) {
     ];
     const masked = !!alreadySafe || !Object.is(input, r.inputValue);
     const state = masked ? { masked: true, value: input, length: originalLength(r), kind: alreadySafe ? old.kind : classification } : {};
-    if (!changed && old?.message !== undefined && old.message === r.message)
+    if (!changed && old?.message !== undefined && old.message === r.message) {
         state.message = old.message;
+        state.automatic = old.automatic;
+    }
     return { value, state, changed, secrets };
 }
 function redactions(values) {
@@ -123,10 +125,15 @@ exports.checkerTemplateLiteral = checkerTemplateLiteral;
 function markCheckerRendering(result) {
     const scope = active.get(result);
     if (scope && Object.is(scope.input, result.inputValue) && Object.is(scope.system, result.systemValue)) {
-        retain(result, { ...metadata(result), message: result.message });
+        retain(result, { ...metadata(result), message: result.message, automatic: true });
     }
 }
 exports.markCheckerRendering = markCheckerRendering;
+function checkerRenderingWasAutomatic(result) {
+    const state = metadata(result);
+    return state?.automatic === true && state.message === result.message;
+}
+exports.checkerRenderingWasAutomatic = checkerRenderingWasAutomatic;
 /** Invoke the unchanged customer Context hook, then reproject its output. */
 function translateCheckerResults(context, results, declaring, policy, checkedValues = []) {
     if (!results.length) {

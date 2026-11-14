@@ -31,6 +31,7 @@ class I18nCatalog {
         Object.keys(data.locales).forEach(parseLocale);
     }
     message(locale, key) { return this.data.locales[locale]?.messages[key] ?? this.fallback?.data.locales[locale]?.messages[key] ?? this.data.locales.en?.messages[key] ?? this.fallback?.data.locales.en?.messages[key] ?? key; }
+    applicationMessage(locale, key) { return this === I18nCatalog.builtin ? undefined : this.data.locales[locale]?.messages[key]; }
     translate(result, locale) {
         const keys = { required: 'checker.required', min: 'checker.min', max: 'checker.max', min_str_len: 'checker.minLength', min_length: 'checker.minLength', max_str_len: 'checker.maxLength', max_length: 'checker.maxLength' };
         const key = keys[result.ruleId.toLowerCase()] ?? `checker.${result.ruleId.toLowerCase()}`;

@@ -184,6 +184,7 @@ export declare abstract class AbstractSQLTeaQLClient implements TeaQLDataService
     private standardTelemetryHandle?;
     private customTelemetry;
     private readonly checkers;
+    private checkerPresentationModel;
     private userContext;
     private bootstrap;
     private graphMutationSession?;

@@ -12,9 +12,10 @@ import {
   localTime,
   mergeRuntimeBootstrap,
   validateInteger32Schemas
-} from "./chunk-LF4LCUPB.js";
+} from "./chunk-VKH24R3W.js";
 import {
   CheckException,
+  CheckerPresentationModel,
   GraphCommittedError,
   GraphMutationSession,
   MutationIntent,
@@ -23,6 +24,7 @@ import {
   QueryIntent,
   QueryRequest,
   UserContext,
+  bindCheckerOrigin,
   canonicalSQLTracePath,
   cloneTraceNodes,
   contextSchemaCapability,
@@ -39,7 +41,7 @@ import {
   retainQueryDiagnosticOrigin,
   retainSQLLogProvenance,
   translateCheckerResults
-} from "./chunk-V4EWL6CG.js";
+} from "./chunk-UBDEC3DO.js";
 import {
   decimal
 } from "./chunk-2M5YIPLE.js";
@@ -237,6 +239,7 @@ var AbstractSQLTeaQLClient = class {
     this.mutationLoggingEnabled = true;
     this.customTelemetry = false;
     this.checkers = {};
+    this.checkerPresentationModel = CheckerPresentationModel.empty;
     this.userContext = new UserContext();
     this.bootstrap = {};
     this.graphAuditActions = [];
@@ -278,9 +281,11 @@ var AbstractSQLTeaQLClient = class {
   }
   /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module) {
+    const presentation = this.checkerPresentationModel.merge(module.checkerPresentationModel);
     Object.assign(this.schemas, module.schemas);
     Object.assign(this.checkers, module.checkers);
     this.bootstrap = mergeRuntimeBootstrap(this.bootstrap, module.bootstrap);
+    this.checkerPresentationModel = presentation;
     return this;
   }
   setUserContext(context) {
@@ -587,7 +592,7 @@ var AbstractSQLTeaQLClient = class {
     context.insertResource("bootstrapCategory", "runtime-bootstrap");
     try {
       if (this.bootstrap.ensure) {
-        const { runGeneratedBootstrap } = await import("./entity-creation-MWZFHX45.js");
+        const { runGeneratedBootstrap } = await import("./entity-creation-LHWMRKH7.js");
         await runGeneratedBootstrap(context, this.bootstrap, () => this.bootstrap.ensure(context));
       } else {
         await this.ensureBootstrapData();
@@ -673,6 +678,7 @@ var AbstractSQLTeaQLClient = class {
     const graph = new GraphMutationSession(intent);
     const executionContext = this.userContext;
     graph.bindExecutionReference(() => this.userContext);
+    graph.bindExecutionReference(() => this.checkerPresentationModel);
     graph.bindExecutionMetadata(() => ({ schemas: this.schemas, checkerNames: Object.keys(this.checkers).sort() }));
     for (const name of Object.keys(this.checkers)) {
       graph.bindExecutionReference(() => this.checkers[name]);
@@ -689,6 +695,8 @@ var AbstractSQLTeaQLClient = class {
       let fixEvidenceStarted = false;
       let mutationPolicyGraphStarted = false;
       let committed = false;
+      let checkerOrigin;
+      let checkerConfig;
       try {
         graph.validatePreparedSources();
         this.graphCommitActions = [];
@@ -696,6 +704,8 @@ var AbstractSQLTeaQLClient = class {
         this.graphAuditActions = [];
         const pending = admit?.(graph);
         if (admit && typeof pending !== "boolean") throw new Error("GRAPH_ADMISSION_RESULT_REQUIRED");
+        checkerConfig = executionContext.captureCheckerMessages(this.checkerPresentationModel);
+        if (graph.preparedRootEntity) checkerOrigin = Object.freeze({ model: checkerConfig.model, entity: graph.preparedRootEntity });
         graph.captureInputSources();
         if (pending === false) {
           graph.sealPreparedGraph();
@@ -767,6 +777,9 @@ var AbstractSQLTeaQLClient = class {
             } catch {
             }
           }
+        }
+        if (error instanceof CheckException && checkerOrigin && checkerConfig) {
+          error.refreshPresentation(executionContext.renderCheckerGraphResults(error.violations, checkerConfig, checkerOrigin));
         }
         throw error;
       } finally {
@@ -870,6 +883,8 @@ var AbstractSQLTeaQLClient = class {
         throw new MutationVersionError("invalid_type");
       }
       width.checkMutation(mutation.payload || {}, results);
+      const origin = Object.freeze({ model: this.userContext.captureCheckerMessages(this.checkerPresentationModel).model, entity: declaringEntityType });
+      results.splice(0, results.length, ...bindCheckerOrigin(results, origin));
       translateCheckerResults(
         this.userContext,
         results,
@@ -1539,7 +1554,7 @@ var AbstractSQLTeaQLClient = class {
   }
   async executeQuery(query) {
     const request = query instanceof QueryRequest ? query : new QueryRequest(query);
-    if (!(query instanceof QueryRequest) && query?.[this.internalQueryToken] !== true && typeof query?.prepareForList === "function") query.prepareForList();
+    if (!request.parentRequest && !(query instanceof QueryRequest) && query?.[this.internalQueryToken] !== true && typeof query?.prepareForList === "function") query.prepareForList();
     return this.executeQueryWithIntent(
       request.query,
       this.derivedQueryBindings.get(query),
@@ -1599,7 +1614,7 @@ var AbstractSQLTeaQLClient = class {
     });
     const work = async () => {
       try {
-        const internal = query?.[this.internalQueryToken] === true;
+        const internal = query?.[this.internalQueryToken] === true || new QueryRequest(query).parentRequest !== void 0;
         if (!internal) {
           if (typeof query?.prepareForList !== "function") {
             throw new Error("TeaQL list execution requires the formal runtime SelectQuery");
@@ -2234,4 +2249,4 @@ export {
   assertSafeIdentifier,
   standardAggregateFunction
 };
-//# sourceMappingURL=chunk-U2OKE4CB.js.map
+//# sourceMappingURL=chunk-3EODCHRB.js.map

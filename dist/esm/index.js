@@ -2,7 +2,7 @@ import {
   EntityCreation,
   EntityCreationError,
   runGeneratedBootstrap
-} from "./chunks/chunk-DEC24JLO.js";
+} from "./chunks/chunk-TPO7V5XW.js";
 import {
   AggregationCacheOptions,
   ContextFix,
@@ -20,9 +20,12 @@ import {
   localTime,
   mergeRuntimeBootstrap,
   validateInteger32Schemas
-} from "./chunks/chunk-LF4LCUPB.js";
+} from "./chunks/chunk-VKH24R3W.js";
 import {
   CheckException,
+  CheckerMessageCatalog,
+  CheckerPresentation,
+  CheckerPresentationModel,
   ContextRootError,
   DelegatingMutationGovernanceSink,
   DelegatingMutationPolicyApprovalProvider,
@@ -49,6 +52,7 @@ import {
   SystemBusinessClock,
   UnsupportedLocaleError,
   UserContext,
+  bindCheckerOrigin,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
@@ -61,11 +65,14 @@ import {
   longOrderKey,
   mutationScopeForEntity,
   nextEntityVersion,
+  ordinal,
   parseLocale,
   queryOperationComment,
   queryTraceSource,
-  renderJsonFieldName
-} from "./chunks/chunk-V4EWL6CG.js";
+  renderJsonFieldName,
+  renderNaturalCheckerResult,
+  standardCheckerMessageRenderer
+} from "./chunks/chunk-UBDEC3DO.js";
 import {
   addDecimals,
   compareDecimals,
@@ -2306,6 +2313,9 @@ var TeaQLNotLoadedError = class _TeaQLNotLoadedError extends Error {
 export {
   AggregationCacheOptions,
   CheckException,
+  CheckerMessageCatalog,
+  CheckerPresentation,
+  CheckerPresentationModel,
   ContextFix,
   ContextRootError,
   ContextSchemaProvider,
@@ -2373,6 +2383,7 @@ export {
   Values,
   WireInputError,
   addDecimals,
+  bindCheckerOrigin,
   canonicalSQLTracePath,
   checkResultToWire,
   cloneTraceNodes,
@@ -2400,13 +2411,16 @@ export {
   normalizeDynamicSearch,
   normalizeWireInput,
   observeRuntimeOperation,
+  ordinal,
   parseLocale,
   queryOperationComment,
   queryTraceSource,
   renderJsonFieldName,
+  renderNaturalCheckerResult,
   retainSubmittedPaths,
   runtimeErrorCategory,
   safeRuntimeOperation,
+  standardCheckerMessageRenderer,
   startRuntimeOperation,
   validateInteger32Schemas
 };

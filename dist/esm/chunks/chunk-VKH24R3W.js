@@ -1,5 +1,6 @@
 import {
   CheckException,
+  CheckerPresentationModel,
   LoadedScalarSnapshot,
   ObjectLocation,
   QueryRequest,
@@ -8,7 +9,7 @@ import {
   long,
   retainQueryDiagnosticOrigin,
   snapshotQuery
-} from "./chunk-V4EWL6CG.js";
+} from "./chunk-UBDEC3DO.js";
 import {
   decimal
 } from "./chunk-2M5YIPLE.js";
@@ -571,9 +572,6 @@ var SelectQuery = class _SelectQuery {
     if (this.limitValue > ceiling) {
       throw new Error(`QUERY_HARD_LIMIT_EXCEEDED: requested limit ${this.limitValue} exceeds hard limit ${ceiling}`);
     }
-    for (const relation of this.relations) {
-      relation.query?.applyListLimit(1e4);
-    }
   }
   offset(offset) {
     if (!Number.isSafeInteger(offset) || offset < 0) {
@@ -661,10 +659,11 @@ function mergeRuntimeBootstrap(left, right) {
   };
 }
 var RuntimeModule = class _RuntimeModule {
-  constructor(schemas = {}, checkers = {}, bootstrap = {}) {
+  constructor(schemas = {}, checkers = {}, bootstrap = {}, checkerPresentationModel = CheckerPresentationModel.empty) {
     validateInteger32Schemas(schemas);
     this.schemas = Object.freeze({ ...schemas });
     this.checkers = Object.freeze({ ...checkers });
+    this.checkerPresentationModel = checkerPresentationModel;
     this.bootstrap = Object.freeze({
       defaultDomainRoot: bootstrap.defaultDomainRoot,
       constants: Object.freeze([...bootstrap.constants ?? []]),
@@ -675,8 +674,12 @@ var RuntimeModule = class _RuntimeModule {
     return new _RuntimeModule(
       { ...this.schemas, ...other.schemas },
       { ...this.checkers, ...other.checkers },
-      mergeRuntimeBootstrap(this.bootstrap, other.bootstrap)
+      mergeRuntimeBootstrap(this.bootstrap, other.bootstrap),
+      this.checkerPresentationModel.merge(other.checkerPresentationModel)
     );
+  }
+  withCheckerPresentation(model) {
+    return new _RuntimeModule({ ...this.schemas }, { ...this.checkers }, this.bootstrap, this.checkerPresentationModel.merge(model));
   }
 };
 
@@ -1024,4 +1027,4 @@ export {
   SmartList,
   executeRelationFacets
 };
-//# sourceMappingURL=chunk-LF4LCUPB.js.map
+//# sourceMappingURL=chunk-VKH24R3W.js.map

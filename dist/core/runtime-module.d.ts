@@ -1,6 +1,7 @@
 import type { EntitySchema } from '../sql/core';
 import type { EntityChecker } from './checker';
 import type { UserContext } from './context';
+import { CheckerPresentationModel } from './natural-messages';
 export type BootstrapEntity = Readonly<{
     entity: string;
     id: string;
@@ -21,7 +22,9 @@ export declare class RuntimeModule {
     readonly schemas: Readonly<Record<string, EntitySchema>>;
     readonly checkers: Readonly<Record<string, EntityChecker>>;
     readonly bootstrap: RuntimeBootstrap;
-    constructor(schemas?: Record<string, EntitySchema>, checkers?: Record<string, EntityChecker>, bootstrap?: RuntimeBootstrap);
+    readonly checkerPresentationModel: CheckerPresentationModel;
+    constructor(schemas?: Record<string, EntitySchema>, checkers?: Record<string, EntityChecker>, bootstrap?: RuntimeBootstrap, checkerPresentationModel?: CheckerPresentationModel);
     and(other: RuntimeModule): RuntimeModule;
+    withCheckerPresentation(model: CheckerPresentationModel): RuntimeModule;
 }
 //# sourceMappingURL=runtime-module.d.ts.map
