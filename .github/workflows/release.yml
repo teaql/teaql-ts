@@ -1,32 +1,67 @@
-name: Publish TypeScript package
+name: Promote qualified typescript packages
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "typescript-v*"
+    inputs:
+      release_tag:
+        description: Existing signed tag whose exact packages passed internal qualification
+        required: true
+        type: string
+      qualification_sha256:
+        description: SHA-256 of logging-qualification.json retained with the release evidence
+        required: true
+        type: string
+
+concurrency:
+  group: typescript-public-promotion
+  cancel-in-progress: false
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+      - name: Verify signed source and qualified package bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          QUALIFICATION_SHA256: ${{ inputs.qualification_sha256 }}
+        shell: bash
+        run: |
+          export GNUPGHOME="$RUNNER_TEMP/teaql-release-signatures"
+          mkdir -m 700 "$GNUPGHOME"
+          gpg --batch --import .github/release-signing-key.asc
+          python3 scripts/verify-qualified-release.py \
+            --tag "$RELEASE_TAG" --manifest-sha256 "$QUALIFICATION_SHA256" \
+            --language typescript --repository "$GITHUB_REPOSITORY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qualified-typescript-packages
+          path: qualified-packages/
+          if-no-files-found: error
+
   publish:
+    needs: verify
     runs-on: ubuntu-latest
     environment: npm
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: qualified-typescript-packages
+          path: qualified-packages/
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-          cache: npm
-      - run: npm ci
-      - name: Verify tag matches package version
-        run: test "${GITHUB_REF_NAME#typescript-v}" = "$(node -p 'require("./package.json").version')"
-      # Keep native SQLite lifecycle coverage deterministic and verify the
-      # current Node LTS used by generated TeaQL projects.
-      - run: npm test -- --runInBand
-      - run: npm run build
       - name: Upgrade npm for trusted publishing
         run: npm install --global npm@latest
-      - run: npm publish --access public
+      - name: Publish the verified tarball
+        run: npm publish qualified-packages/*.tgz --access public --provenance
