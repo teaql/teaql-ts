@@ -1,6 +1,6 @@
 {
   "name": "@teaql/teaql",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "TeaQL runtime and SQL data services for TypeScript",
   "files": [
     "dist",
@@ -16,12 +16,14 @@
     },
     ".": {
       "types": "./dist/index.d.ts",
+      "browser": "./dist/browser/index.js",
       "import": "./dist/esm/index.js",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./sql/core": {
       "types": "./dist/sql/core.d.ts",
+      "browser": "./dist/browser/sql/core.js",
       "import": "./dist/esm/sql/core.js",
       "require": "./dist/sql/core.js",
       "default": "./dist/sql/core.js"
@@ -46,18 +48,21 @@
     },
     "./sql/expo-sqlite": {
       "types": "./dist/sql/expo-sqlite.d.ts",
+      "browser": "./dist/browser/sql/expo-sqlite.js",
       "import": "./dist/esm/sql/expo-sqlite.js",
       "require": "./dist/sql/expo-sqlite.js",
       "default": "./dist/sql/expo-sqlite.js"
     },
     "./sql/browser-sqlite": {
       "types": "./dist/sql/browser-sqlite.d.ts",
+      "browser": "./dist/browser/sql/browser-sqlite.js",
       "import": "./dist/esm/sql/browser-sqlite.js",
       "require": "./dist/sql/browser-sqlite.js",
       "default": "./dist/sql/browser-sqlite.js"
     },
     "./sql/browser-sqlite-worker": {
       "types": "./dist/sql/browser-sqlite-worker.d.ts",
+      "browser": "./dist/browser/sql/browser-sqlite-worker.js",
       "import": "./dist/esm/sql/browser-sqlite-worker.js",
       "require": "./dist/sql/browser-sqlite-worker.js",
       "default": "./dist/sql/browser-sqlite-worker.js"
@@ -70,6 +75,7 @@
     },
     "./telemetry/opentelemetry": {
       "types": "./dist/telemetry/opentelemetry.d.ts",
+      "browser": "./dist/browser/telemetry/opentelemetry.js",
       "import": "./dist/esm/telemetry/opentelemetry.js",
       "require": "./dist/telemetry/opentelemetry.js",
       "default": "./dist/telemetry/opentelemetry.js"
@@ -77,7 +83,9 @@
   },
   "typesVersions": {
     "*": {
-      "object-storage/s3": ["dist/object-storage/s3.d.ts"],
+      "object-storage/s3": [
+        "dist/object-storage/s3.d.ts"
+      ],
       "sql/core": [
         "dist/sql/core.d.ts"
       ],
@@ -185,18 +193,42 @@
     "pg-query-stream": "^4.7.0"
   },
   "peerDependenciesMeta": {
-    "@aws-sdk/client-s3": { "optional": true },
-    "@aws-sdk/s3-request-presigner": { "optional": true },
-    "@opentelemetry/otlp-transformer": { "optional": true },
-    "@opentelemetry/core": { "optional": true },
-    "@opentelemetry/context-async-hooks": { "optional": true },
-    "@opentelemetry/exporter-logs-otlp-http": { "optional": true },
-    "@opentelemetry/exporter-metrics-otlp-http": { "optional": true },
-    "@opentelemetry/exporter-trace-otlp-http": { "optional": true },
-    "@opentelemetry/resources": { "optional": true },
-    "@opentelemetry/sdk-logs": { "optional": true },
-    "@opentelemetry/sdk-metrics": { "optional": true },
-    "@opentelemetry/sdk-trace-base": { "optional": true },
+    "@aws-sdk/client-s3": {
+      "optional": true
+    },
+    "@aws-sdk/s3-request-presigner": {
+      "optional": true
+    },
+    "@opentelemetry/otlp-transformer": {
+      "optional": true
+    },
+    "@opentelemetry/core": {
+      "optional": true
+    },
+    "@opentelemetry/context-async-hooks": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-logs-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-metrics-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-trace-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/resources": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-logs": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-metrics": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace-base": {
+      "optional": true
+    },
     "@opentelemetry/api": {
       "optional": true
     },

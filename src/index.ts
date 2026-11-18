@@ -27,6 +27,7 @@ export * from './core/runtime-module';
 export * from './core/context-schema-provider';
 export * from './core/smart-list';
 export * from './core/telemetry';
+export * from './core/runtime-logging';
 export { SelectQuery, MutationQuery, AggregationCacheOptions, OrderBy, SortDirection } from './core/ast';
 export type { TeaQLPage, QuerySelection, FacetRequest } from './core/ast';
 export { executeRelationFacets } from './core/facet';

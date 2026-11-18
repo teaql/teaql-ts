@@ -20,8 +20,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm install
-      - run: npm run build
+      # The canonical gate hashes the complete checked-in source before its
+      # isolated builds replace tracked dist chunks. Do not prebuild here.
+      - run: npm ci --no-audit --fund=false
       - name: Start dedicated S3 example fixture
         run: |
           docker run -d --name teaql-ts-example-s3 \

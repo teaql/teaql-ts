@@ -11,6 +11,7 @@ import { translateCheckerResults } from '../core/checker-privacy';
 import {CheckerPresentationModel, CheckerValidationOrigin, CheckerMessageConfiguration, bindCheckerOrigin} from '../core/natural-messages';
 import { MutationFieldLayout } from '../core/mutation-field-layout';
 import { UserContext } from '../core/context';
+import {RuntimeLogger, loggingTelemetry} from '../core/runtime-logging';
 import { internalId } from '../core/internal-id';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
 import type { BootstrapEntity, RuntimeBootstrap } from '../core/runtime-module';
@@ -221,7 +222,7 @@ export interface TeaQLDataService {
 
 export type SQLExecutionOperation = 'select' | 'insert' | 'update' | 'delete';
 /** Statement/cursor completion, not transaction commit or business success. */
-export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled';
+export type SQLExecutionOutcome = 'success' | 'failure' | 'cancelled' | 'retrying';
 
 type SQLLogIntent = { comment?: string; purpose?: string; auditReason?: string; tracePath?: readonly SQLTraceFrame[];
   traceChain?: readonly TraceNode[];
@@ -253,6 +254,8 @@ export type SQLExecutionMetadata = Readonly<{
   statements?: readonly SQLExecutionMetadata[];
   operation: SQLExecutionOperation;
   executionOutcome?: SQLExecutionOutcome;
+  /** Immutable statement identity, separate from SQL bindings and intent. */
+  telemetryCorrelation?: RuntimeExecutionCorrelation;
   comment?: string;
   purpose?: string;
   auditReason?: string;
@@ -309,6 +312,22 @@ export class TextDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
       (metadata.omissionReason ? `SQL omitted: ${metadata.omissionReason}\n` : '') +
       `Debug SQL: ${metadata.debugSQL}`,
     );
+  }
+}
+
+export class RuntimeDiagnosticSQLLogSink implements DiagnosticSQLLogSink {
+  constructor(private readonly logger: () => RuntimeLogger) {}
+  write(metadata: SQLExecutionMetadata): void {
+    const safe = projectSQLLog(metadata);
+    const outcome = safe.executionOutcome ?? 'unknown';
+    this.logger().write(outcome === 'failure' || outcome === 'cancelled' ? 'ERROR' : outcome === 'retrying' ? 'WARN' : 'INFO',
+      outcome === 'retrying' ? 'sql.retry' : `sql.${outcome}`, 'TeaQL SQL execution', {
+      category: 'SQL', outcome, sql: safe.debugSQL, comment: safe.comment, purpose: safe.purpose,
+      audit_reason: safe.auditReason, trace_chain: safe.traceChain, trace_path: safe.tracePath,
+      mutation_lineage: safe.mutationLineage, elapsed_us: safe.elapsedMicros,
+      result_count: safe.resultCount, affected_rows: safe.affectedRows, omission_reason: safe.omissionReason,
+      trace_id: safe.telemetryCorrelation?.traceId,
+    });
   }
 }
 
@@ -400,7 +419,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
   private telemetrySink?: RuntimeTelemetrySink;
-  private diagnosticSQLLogSink?: DiagnosticSQLLogSink = new TextDiagnosticSQLLogSink();
+  private diagnosticSQLLogSink?: DiagnosticSQLLogSink = new RuntimeDiagnosticSQLLogSink(() => this.userContext.runtimeLogger);
   private queryLoggingEnabled = true;
   private mutationLoggingEnabled = true;
   private runtimeTelemetry?: RuntimeTelemetry;
@@ -602,6 +621,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this;
   }
 
+  private operationTelemetry(): RuntimeTelemetry { return loggingTelemetry(this.runtimeTelemetry, this.userContext.runtimeLogger); }
+
   /** Node provider startup hook. Optional module initialization remains fail-open. */
   protected attachStandardTelemetryStartup(
     startup: Promise<import('../telemetry/standard-node').StandardTelemetryHandle | undefined>,
@@ -621,9 +642,14 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T> {
-    new QueryRequest(query); // Reject invalid intent before starting execution.
+    try { new QueryRequest(query); }
+    catch (error) {
+      this.userContext.runtimeLogger.write('WARN', 'query.rejected', 'TeaQL query rejected',
+        {category: 'SQL', outcome: 'rejected', error_code: 'request_intent'});
+      throw error;
+    }
     await this.telemetryStartup;
-    return observeRuntimeOperation(this.runtimeTelemetry, { family: 'query',
+    return observeRuntimeOperation(this.operationTelemetry(), { family: 'query',
       name: `${String(query.entity)}.request`, attributes: { 'teaql.entity.type': String(query.entity) } }, work,
       result => Array.isArray(result) ? { attributes: { 'teaql.result.cardinality': result.length } } : {});
   }
@@ -641,6 +667,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const { targetID, inheritedBindings, ...visibleIntent } = intent;
     const metadata = Object.freeze({
       operation, ...visibleIntent, executionOutcome,
+      telemetryCorrelation: correlation ? Object.freeze({traceId: correlation.traceId, spanId: correlation.spanId}) : undefined,
       traceChain: cloneTraceNodes(intent.traceChain ?? []),
       tracePath: sqlTraceFrames(intent.tracePath ?? []),
       ...(intent.traceChain ? { traceChain: cloneTraceNodes(intent.traceChain) } : {}),
@@ -695,7 +722,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     statements?: SQLExecutionMetadata[],
   ): Promise<SqlQueryResult> {
     await this.telemetryStartup;
-    const scope = startRuntimeOperation(this.runtimeTelemetry, { family: 'provider',
+    const scope = startRuntimeOperation(this.operationTelemetry(), { family: 'provider',
       name: `${this.driver.databaseKind}.${operation}`,
       attributes: { 'teaql.provider.kind': this.driver.databaseKind,
         'teaql.provider.execution': 'statement',
@@ -935,7 +962,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       release();
     }
     };
-    return observeRuntimeOperation(this.runtimeTelemetry, { family: 'mutation', name: 'graph.save',
+    return observeRuntimeOperation(this.operationTelemetry(), { family: 'mutation', name: 'graph.save',
       attributes: { 'teaql.entity.type': 'graph', 'teaql.mutation.kind': 'graph' } }, save);
   }
 
@@ -1107,7 +1134,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       throw new Error('Graph preparation cannot execute mutations before its transaction');
     }
     mutation = request.mutation;
-    const scope = startRuntimeOperation(this.runtimeTelemetry, {
+    const scope = startRuntimeOperation(this.operationTelemetry(), {
       family: 'mutation',
       name: `${String(mutation?.entity || 'unknown')}.${String(mutation?.action || 'unknown').toLowerCase()}`,
       attributes: {
@@ -1123,7 +1150,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       const diagnosticBindings = this.mutationLogBindings(request, mutation, schema);
       const table = this.driver.identifier(schema.table);
       const statements: SQLExecutionMetadata[] = [];
-      const result = await observeRuntimeOperation(this.runtimeTelemetry, {
+      const result = await observeRuntimeOperation(this.operationTelemetry(), {
         family: 'provider',
         name: `${this.driver.databaseKind}.mutation`,
         attributes: {
@@ -1266,7 +1293,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       });
       const publish = async () => {
         this.auditEvents.push(event);
-        if (this.auditSink) await observeRuntimeOperation(this.runtimeTelemetry, {
+        this.userContext.runtimeLogger.write('INFO', 'audit.event', 'TeaQL audit event', {category: 'AUDIT', outcome: 'success', audit: event});
+        if (this.auditSink) await observeRuntimeOperation(this.operationTelemetry(), {
           family: 'audit',
           name: `${mutation.entity}.audit`,
           attributes: {
@@ -1301,7 +1329,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       `${this.driver.identifier('id')} = ${this.driver.placeholder(1)}`;
     const values = [id];
     this.bindLogPolicies.set(values, [this.fieldLogPolicy(schema, 'id')]);
-    const scope = startRuntimeOperation(this.runtimeTelemetry, { family: 'provider',
+    const scope = startRuntimeOperation(this.operationTelemetry(), { family: 'provider',
       name: `${this.driver.databaseKind}.readback`, attributes: {
         'teaql.provider.execution': 'statement',
         'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query' } });
@@ -1813,7 +1841,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private async executeQueryWithIntent<T = any>(query: any, inherited?: SQLLogBindingSource,
     assembly?: RelationAssembly): Promise<T[]> {
     await this.telemetryStartup;
-    const scope = startRuntimeOperation(this.runtimeTelemetry, {
+    const scope = startRuntimeOperation(this.operationTelemetry(), {
       family: 'query',
       name: `${String(query?.entity || 'unknown')}.list`,
       attributes: { 'teaql.entity.type': String(query?.entity || 'unknown') },
@@ -2047,7 +2075,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const execution: any = { queryKey, offset, limit, direction: String(orders[0].direction).toLowerCase(), ttlSeconds: options.ttlSeconds, runtime, optimized: false };
     if (offset === 0) { runtime.observe('OFFSET_FALLBACK:FIRST_PAGE'); return { query: clone, execution }; }
     let cursor: any; try {
-      cursor = await observeRuntimeOperation(this.runtimeTelemetry, {
+      cursor = await observeRuntimeOperation(this.operationTelemetry(), {
         family: 'cache',
         name: 'continuous_page.get',
         attributes: { 'teaql.cache.operation': 'get' },
@@ -2065,7 +2093,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private async registerContinuousPage(_query: any, execution: any, rows: any[]): Promise<void> {
     if (!execution || rows.length !== execution.limit || !rows.length || rows[rows.length - 1].id === undefined) return;
     try {
-      await observeRuntimeOperation(this.runtimeTelemetry, {
+      await observeRuntimeOperation(this.operationTelemetry(), {
         family: 'cache',
         name: 'continuous_page.put',
         attributes: { 'teaql.cache.operation': 'put' },
@@ -2101,10 +2129,10 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     }
     const { sql, values, aggregateNames, groupAliases } = await this.compileQuery(query);
     const inherited = await this.queryTreeBindings(query, sql, values);
-    const queryScope = startRuntimeOperation(this.runtimeTelemetry, { family: 'query',
+    const queryScope = startRuntimeOperation(this.operationTelemetry(), { family: 'query',
       name: `${String(query.entity)}.stream`, attributes: { 'teaql.entity.type': String(query.entity) } });
     let providerScope!: RuntimeTelemetryScope;
-    const startProvider = async () => { providerScope = startRuntimeOperation(this.runtimeTelemetry, {
+    const startProvider = async () => { providerScope = startRuntimeOperation(this.operationTelemetry(), {
       family: 'provider', name: `${this.driver.databaseKind}.stream`, attributes: {
         'teaql.provider.execution': 'statement',
         'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query' } }); };
@@ -2204,7 +2232,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         ? providerAlwaysProbe
         : threshold > 0 && parentIds.length <= threshold);
       const selectedPlan = useProbes ? 'bounded_probes' : 'window';
-      const relationScope = startRuntimeOperation(this.runtimeTelemetry, {
+      const relationScope = startRuntimeOperation(this.operationTelemetry(), {
         family: 'relation_load',
         name: `${query.entity}.${String(load.name)}`,
         attributes: {
