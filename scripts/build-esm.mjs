@@ -2,7 +2,9 @@ import {rm, writeFile} from 'node:fs/promises';
 import {build} from 'esbuild';
 
 const output = new URL('../dist/esm/', import.meta.url);
+const browserOutput = new URL('../dist/browser/', import.meta.url);
 await rm(output, {recursive: true, force: true});
+await rm(browserOutput, {recursive: true, force: true});
 await build({
   entryPoints: {
     index: 'src/index.ts',
@@ -25,6 +27,16 @@ await build({
   platform: 'neutral',
   format: 'esm',
   target: 'es2020',
+  banner: {js: "import {createRequire as __teaqlCreateRequire} from 'node:module'; const require = __teaqlCreateRequire(import.meta.url);"},
   sourcemap: true,
 });
 await writeFile(new URL('package.json', output), '{"type":"module"}\n');
+// Browser exports share the public API and contain no Node loader imports.
+await build({
+  entryPoints: {index: 'src/index.ts', 'sql/core': 'src/sql/core.ts',
+    'sql/browser-sqlite': 'src/sql/browser-sqlite.ts', 'sql/browser-sqlite-worker': 'src/sql/browser-sqlite-worker.ts',
+    'sql/expo-sqlite': 'src/sql/expo-sqlite.ts', 'telemetry/opentelemetry': 'src/telemetry/opentelemetry.ts'},
+  outdir: 'dist/browser', bundle: true, splitting: true, chunkNames: 'chunks/[name]-[hash]',
+  packages: 'external', platform: 'neutral', format: 'esm', target: 'es2020', sourcemap: true,
+});
+await writeFile(new URL('package.json', browserOutput), '{"type":"module"}\n');

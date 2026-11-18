@@ -1,4 +1,5 @@
 import { SelectQuery } from './ast';
+import {RuntimeLogger, defaultRuntimeLogger} from './runtime-logging';
 import { BusinessClock, SystemBusinessClock } from './business-clock';
 import { ObjectStorage, ObjectStorageProvider, ObjectStorageObserver } from './object-storage';
 import { CheckResult, I18nCatalog, Locale, parseLocale } from './i18n';
@@ -64,6 +65,8 @@ export class ContextRootError extends Error {
 }
 
 export class UserContext {
+  readonly runtimeLogger: RuntimeLogger;
+  constructor(logger: RuntimeLogger = defaultRuntimeLogger()) { this.runtimeLogger = logger; }
   withInternalIdGenerator(generator: InternalIdGenerator): this {
     if (!generator || typeof generator.generateId !== 'function') {
       throw new TypeError('Internal ID generator must provide generateId(entity, context)');
@@ -152,7 +155,9 @@ export class UserContext {
   private naturalCatalog=CheckerMessageCatalog.builtin;
   private naturalModel=CheckerPresentationModel.empty;
   private naturalRenderer:CheckerMessageRenderer=standardCheckerMessageRenderer;
-  private naturalWarning:(code:CheckerMessageWarning)=>void=code=>console.warn(code);
+  private naturalWarning:(code:CheckerMessageWarning)=>void=code=>{
+    this.runtimeLogger.write('WARN', 'checker.warning', 'TeaQL checker warning', {category: 'VALIDATION', error_code: code});
+  };
 
   get checkerPresentationModel():CheckerPresentationModel{return this.naturalModel;}
   installCheckerPresentationModel(model:CheckerPresentationModel):this {
