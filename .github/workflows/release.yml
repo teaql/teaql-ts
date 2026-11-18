@@ -64,4 +64,4 @@ jobs:
       - name: Upgrade npm for trusted publishing
         run: npm install --global npm@latest
       - name: Publish the verified tarball
-        run: npm publish qualified-packages/*.tgz --access public --provenance
+        run: npm publish ./qualified-packages/*.tgz --access public --provenance
