@@ -1,10 +1,12 @@
-import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, EntityCreation, EntityCreationError, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Customer } from './Customer';
 import { OrderStatus } from './OrderStatus';
 import { CustomerOrder } from './CustomerOrder';
 import { Product } from './Product';
 import { OrderLine } from './OrderLine';
 import { OrderSearchPreset } from './OrderSearchPreset';
+
+const teaqlConstruction = Symbol("managed entity construction");
 
 export class CommercePlatform {
     private static teaqlTemporaryId = 0;
@@ -16,21 +18,23 @@ export class CommercePlatform {
         updateTime?: string;
         version?: EntityVersion;
 
-    constructor(init?: Partial<CommercePlatform>) {
-        Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
+    private constructor(init?: Partial<CommercePlatform>, token?: symbol, creation = false) {
+        if (token !== teaqlConstruction) throw new EntityCreationError();
+        Object.defineProperty(this, "_action", { value: creation ? "Create" : "Update", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
-        Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
+        Object.defineProperty(this, "_fullyLoaded", { value: creation, writable: true, enumerable: false });
         Object.defineProperty(this, "_loadedFields", { value: new Set(Object.keys(init || {})), writable: true, enumerable: false });
         Object.defineProperty(this, "_root", { value: new EntityRoot(), writable: true, enumerable: false });
         Object.defineProperty(this, "_ledgerId", { value: init?.id ?? --CommercePlatform.teaqlTemporaryId, writable: true, enumerable: false });
-        Object.defineProperty(this, "_customerList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
-        Object.defineProperty(this, "_orderStatusList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
-        Object.defineProperty(this, "_customerOrderList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
-        Object.defineProperty(this, "_productList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
-        Object.defineProperty(this, "_orderLineList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
-        Object.defineProperty(this, "_orderSearchPresetList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_customerList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_orderStatusList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_customerOrderList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_productList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_orderLineList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_orderSearchPresetList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
         if (init) {
             const fields: Record<string, unknown> = { ...(init as Record<string, unknown>) };
+            for (const key of ["_action", "_comment", "_fullyLoaded", "_loadedFields", "_root", "_ledgerId"]) delete fields[key];
             delete fields["customerList"];
             delete fields["orderStatusList"];
             delete fields["customerOrderList"];
@@ -103,7 +107,8 @@ export class CommercePlatform {
         if ((this as any).version !== undefined) (this as any).version = entityVersion((this as any).version);
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, (this as any).version);
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version,
+            creation ? "creationBaseline" : "hydrated");
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "CommercePlatform", id: (this as any)._ledgerId }; }
@@ -128,7 +133,7 @@ export class CommercePlatform {
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): CommercePlatform {
-        const entity = new CommercePlatform(record as Partial<CommercePlatform>);
+        const entity = EntityCreation.hydrated(new CommercePlatform(record as Partial<CommercePlatform>, teaqlConstruction));
         return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
@@ -203,23 +208,19 @@ export class CommercePlatform {
     }
 
     static refer(id: string | number): CommercePlatform {
-        return new CommercePlatform({ id: String(id) } as Partial<CommercePlatform>);
+        return CommercePlatform.fromRecord({ id: String(id) });
     }
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
-    static teaqlBootstrapNew(id: string | number): CommercePlatform {
-        return CommercePlatform.teaqlNewWithId(internalId(id));
+    static teaqlBootstrapNew(context: UserContext, id: string | number): CommercePlatform {
+        return EntityCreation.bootstrap(context, "CommercePlatform", id,
+            reserved => new CommercePlatform({id: reserved} as Partial<CommercePlatform>, teaqlConstruction, true));
     }
 
-    /** @internal Q calls this only after Context allocation has completed. */
-    static teaqlNewWithId(value: string): CommercePlatform {
-        const id = internalId(value);
-        const entity = new CommercePlatform();
-        const previous = entity.teaqlEntityKey();
-        entity.updateId(id);
-        (entity as any)._ledgerId = id;
-        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
-        return entity;
+    /** @internal Q owns the awaited public creation entry point. */
+    static teaqlCreate(context: UserContext): Promise<CommercePlatform> {
+        return EntityCreation.create(context, "CommercePlatform",
+            reserved => new CommercePlatform({id: reserved} as Partial<CommercePlatform>, teaqlConstruction, true));
     }
 
     markForDeletion(): this {
@@ -235,6 +236,11 @@ export class CommercePlatform {
 
     async save(context: UserContext): Promise<CommercePlatform> {
         const intent = new MutationIntent((this as any)._comment);
+        this.teaqlValidateLoadedIdentities();
+        if (this.teaqlIsCancelledNew()) throw new CheckException([{ruleId: "invalid_deletion_state",
+            entityType: "CommercePlatform", location: ObjectLocation.property("id"),
+            message: "Cannot save a cancelled new root"}]);
+        if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             return this.teaqlSaveWithinGraph(context, service, graph);
@@ -250,6 +256,75 @@ export class CommercePlatform {
             this.teaqlNormalizeGraph(graph);
             return this.teaqlAdmitGraph();
         });
+    }
+
+    /** @internal Cancellation is admitted only for a real Context-reserved creation. */
+    private teaqlIsCancelledNew(): boolean {
+        const key = this.teaqlEntityKey(), root = (this as any)._root;
+        if ((this as any)._action !== "Delete" || !root.isNew(key) || !root.isDeleted(key)) return false;
+        EntityCreation.requireMutation(this, key, this.id, "Create", root, true);
+        for (const child of (this as any)._customerList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "CommercePlatform", location: ObjectLocation.property("customer_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        for (const child of (this as any)._orderStatusList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "CommercePlatform", location: ObjectLocation.property("order_status_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        for (const child of (this as any)._customerOrderList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "CommercePlatform", location: ObjectLocation.property("customer_order_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        for (const child of (this as any)._productList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "CommercePlatform", location: ObjectLocation.property("product_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        for (const child of (this as any)._orderLineList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "CommercePlatform", location: ObjectLocation.property("order_line_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        for (const child of (this as any)._orderSearchPresetList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "CommercePlatform", location: ObjectLocation.property("order_search_preset_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        return true;
+    }
+
+    /** @internal Pure pending-state check; nested cancellation is not an implicit cascade. */
+    private teaqlHasPendingGraph(seen = new Set<object>()): boolean {
+        if (seen.has(this)) return false;
+        seen.add(this);
+        let pending = (this as any)._action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        for (const child of (this as any)._customerList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        for (const child of (this as any)._orderStatusList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        for (const child of (this as any)._customerOrderList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        for (const child of (this as any)._productList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        for (const child of (this as any)._orderLineList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        for (const child of (this as any)._orderSearchPresetList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        return pending;
+    }
+
+    /** @internal Pure provenance pass before resolving any Context resources. */
+    private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
+        if (seen.has(this)) return false;
+        seen.add(this);
+        const action = (this as any)._action;
+        let pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
+        for (const child of (this as any)._customerList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        for (const child of (this as any)._orderStatusList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        for (const child of (this as any)._customerOrderList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        for (const child of (this as any)._productList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        for (const child of (this as any)._orderLineList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        for (const child of (this as any)._orderSearchPresetList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        return pending;
     }
 
     /** @internal Read-only first pass: no ledger attachment, FK edits or no-op shortcut. */
@@ -309,6 +384,7 @@ export class CommercePlatform {
 
     /** @internal Cancel known no-ops across the graph before any derived FK edits. */
     private teaqlDiscardRestoredGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (seen.has(this)) return;
         seen.add(this);
         graph.discardRestoredFields(CommercePlatform.teaqlMutationFields,
@@ -339,7 +415,10 @@ export class CommercePlatform {
             "order_line_list": graph.sourceMembers((this as any)._orderLineList),
             "order_search_preset_list": graph.sourceMembers((this as any)._orderSearchPresetList)
         }));
+        // Keep omitted nodes in the immutable input review, not in the write plan.
+        if (this.teaqlIsCancelledNew()) return;
         for (const child of (this as any)._customerList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -348,6 +427,7 @@ export class CommercePlatform {
             child.teaqlNormalizeGraph(graph, seen);
         }
         for (const child of (this as any)._orderStatusList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -356,6 +436,7 @@ export class CommercePlatform {
             child.teaqlNormalizeGraph(graph, seen);
         }
         for (const child of (this as any)._customerOrderList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -364,6 +445,7 @@ export class CommercePlatform {
             child.teaqlNormalizeGraph(graph, seen);
         }
         for (const child of (this as any)._productList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -372,6 +454,7 @@ export class CommercePlatform {
             child.teaqlNormalizeGraph(graph, seen);
         }
         for (const child of (this as any)._orderLineList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -380,6 +463,7 @@ export class CommercePlatform {
             child.teaqlNormalizeGraph(graph, seen);
         }
         for (const child of (this as any)._orderSearchPresetList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -391,14 +475,16 @@ export class CommercePlatform {
 
     /** @internal Whole-input version/completeness pass; does not use Context or Fix. */
     private teaqlAdmitGraph(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
         if (seen.has(this)) return false;
         seen.add(this);
         const action = (this as any)._action;
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
         LoadedScalarSnapshot.forEntity(this)?.validateMutationVersion((this as any)._root, this.teaqlEntityKey());
         CommercePlatform.teaqlMutationFields.validate((this as any)._root.change(this.teaqlEntityKey()), action === "Update");
         if (pending) {
-            nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
+            nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "CommercePlatform", location: ObjectLocation.property(notLoaded.canonical),
@@ -459,6 +545,7 @@ export class CommercePlatform {
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return;
         seen.add(this);
@@ -484,13 +571,14 @@ export class CommercePlatform {
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
         if (pending) service.preflightMutation(request);
         const scope = request.scopeFor(this.teaqlEntityKey());
         for (const [index, child] of (this as any)._customerList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -506,6 +594,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._orderStatusList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -521,6 +610,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._customerOrderList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -536,6 +626,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._productList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -551,6 +642,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._orderLineList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -566,6 +658,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._orderSearchPresetList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -584,6 +677,7 @@ export class CommercePlatform {
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
     async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<CommercePlatform> {
+        if (this.teaqlIsCancelledNew()) { graph.validatePreparedSources(); return this; }
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return this;
         seen.add(this);
@@ -594,7 +688,7 @@ export class CommercePlatform {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
@@ -604,6 +698,7 @@ export class CommercePlatform {
         if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
             const scope = request.scopeFor(this.teaqlEntityKey());
             for (const [index, child] of (this as any)._customerList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.commercePlatform;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -619,6 +714,7 @@ export class CommercePlatform {
                 }
             }
             for (const [index, child] of (this as any)._orderStatusList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.commercePlatform;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -634,6 +730,7 @@ export class CommercePlatform {
                 }
             }
             for (const [index, child] of (this as any)._customerOrderList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.commercePlatform;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -649,6 +746,7 @@ export class CommercePlatform {
                 }
             }
             for (const [index, child] of (this as any)._productList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.commercePlatform;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -664,6 +762,7 @@ export class CommercePlatform {
                 }
             }
             for (const [index, child] of (this as any)._orderLineList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.commercePlatform;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -679,6 +778,7 @@ export class CommercePlatform {
                 }
             }
             for (const [index, child] of (this as any)._orderSearchPresetList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.commercePlatform;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -729,10 +829,14 @@ export class CommercePlatform {
         });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
-        if (mutation.action !== "Delete") (this as any)._action = "Update";
+        // Normalize the native action before the prepared result captures it.
+        // The ledger keeps pending deletion until commit; rollback restores
+        // rollbackState.action so the same graph can retry every mutation kind.
+        (this as any)._action = "Update";
         graph.acceptPreparedResult((this as any)._root, oldKey, newKey);
         const scope = request.scopeFor(newKey);
         for (const [index, child] of (this as any)._customerList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -748,6 +852,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._orderStatusList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -763,6 +868,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._customerOrderList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -778,6 +884,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._productList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -793,6 +900,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._orderLineList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -808,6 +916,7 @@ export class CommercePlatform {
             }
         }
         for (const [index, child] of (this as any)._orderSearchPresetList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.commercePlatform;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))

@@ -6,7 +6,7 @@ import { Catalog } from './generated/models/Catalog';
 export async function ensureGeneratedBootstrap(context: UserContext): Promise<void> {
   let domainRoot = (await Q.catalogs().withIdIs('1').comment('what: locate generated Domain Root').purpose('why: idempotent runtime bootstrap').executeForList(context))[0];
   if (!domainRoot) {
-    domainRoot = Catalog.teaqlBootstrapNew('1');
+    domainRoot = Catalog.teaqlBootstrapNew(context, '1');
     domainRoot.updateName("Catalog");
     await domainRoot.auditAs('create generated Domain Root Catalog').save(context);
   }

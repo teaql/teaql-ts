@@ -1717,8 +1717,7 @@ export class ExecutableTypePlatformRequest {
     async newEntity(context: UserContext): Promise<TypePlatform> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("TypePlatform");
-        return TypePlatform.teaqlNewWithId(id);
+        return TypePlatform.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<TypePlatform>> {

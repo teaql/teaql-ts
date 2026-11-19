@@ -1097,8 +1097,7 @@ export class ExecutableOrderSearchPresetRequest {
     async newEntity(context: UserContext): Promise<OrderSearchPreset> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("OrderSearchPreset");
-        return OrderSearchPreset.teaqlNewWithId(id);
+        return OrderSearchPreset.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<OrderSearchPreset>> {

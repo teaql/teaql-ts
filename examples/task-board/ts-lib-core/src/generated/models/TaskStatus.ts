@@ -1,6 +1,8 @@
-import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, EntityCreation, EntityCreationError, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Platform } from './Platform';
 import { Task } from './Task';
+
+const teaqlConstruction = Symbol("managed entity construction");
 
 export class TaskStatus {
     private static teaqlTemporaryId = 0;
@@ -15,16 +17,18 @@ export class TaskStatus {
         platform?: Platform | string;
         version?: EntityVersion;
 
-    constructor(init?: Partial<TaskStatus>) {
-        Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
+    private constructor(init?: Partial<TaskStatus>, token?: symbol, creation = false) {
+        if (token !== teaqlConstruction) throw new EntityCreationError();
+        Object.defineProperty(this, "_action", { value: creation ? "Create" : "Update", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
-        Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
+        Object.defineProperty(this, "_fullyLoaded", { value: creation, writable: true, enumerable: false });
         Object.defineProperty(this, "_loadedFields", { value: new Set(Object.keys(init || {})), writable: true, enumerable: false });
         Object.defineProperty(this, "_root", { value: new EntityRoot(), writable: true, enumerable: false });
         Object.defineProperty(this, "_ledgerId", { value: init?.id ?? --TaskStatus.teaqlTemporaryId, writable: true, enumerable: false });
-        Object.defineProperty(this, "_taskList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_taskList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
         if (init) {
             const fields: Record<string, unknown> = { ...(init as Record<string, unknown>) };
+            for (const key of ["_action", "_comment", "_fullyLoaded", "_loadedFields", "_root", "_ledgerId"]) delete fields[key];
             delete fields["taskList"];
             Object.assign(this, fields);
             if ((init as any).platform && typeof (init as any).platform === "object") {
@@ -48,7 +52,8 @@ export class TaskStatus {
         if ((this as any).version !== undefined) (this as any).version = entityVersion((this as any).version);
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, (this as any).version);
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version,
+            creation ? "creationBaseline" : "hydrated");
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "TaskStatus", id: (this as any)._ledgerId }; }
@@ -68,7 +73,7 @@ export class TaskStatus {
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): TaskStatus {
-        const entity = new TaskStatus(record as Partial<TaskStatus>);
+        const entity = EntityCreation.hydrated(new TaskStatus(record as Partial<TaskStatus>, teaqlConstruction));
         return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
@@ -118,23 +123,19 @@ export class TaskStatus {
     }
 
     static refer(id: string | number): TaskStatus {
-        return new TaskStatus({ id: String(id) } as Partial<TaskStatus>);
+        return TaskStatus.fromRecord({ id: String(id) });
     }
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
-    static teaqlBootstrapNew(id: string | number): TaskStatus {
-        return TaskStatus.teaqlNewWithId(internalId(id));
+    static teaqlBootstrapNew(context: UserContext, id: string | number): TaskStatus {
+        return EntityCreation.bootstrap(context, "TaskStatus", id,
+            reserved => new TaskStatus({id: reserved} as Partial<TaskStatus>, teaqlConstruction, true));
     }
 
-    /** @internal Q calls this only after Context allocation has completed. */
-    static teaqlNewWithId(value: string): TaskStatus {
-        const id = internalId(value);
-        const entity = new TaskStatus();
-        const previous = entity.teaqlEntityKey();
-        entity.updateId(id);
-        (entity as any)._ledgerId = id;
-        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
-        return entity;
+    /** @internal Q owns the awaited public creation entry point. */
+    static teaqlCreate(context: UserContext): Promise<TaskStatus> {
+        return EntityCreation.create(context, "TaskStatus",
+            reserved => new TaskStatus({id: reserved} as Partial<TaskStatus>, teaqlConstruction, true));
     }
 
     markForDeletion(): this {
@@ -150,6 +151,11 @@ export class TaskStatus {
 
     async save(context: UserContext): Promise<TaskStatus> {
         const intent = new MutationIntent((this as any)._comment);
+        this.teaqlValidateLoadedIdentities();
+        if (this.teaqlIsCancelledNew()) throw new CheckException([{ruleId: "invalid_deletion_state",
+            entityType: "TaskStatus", location: ObjectLocation.property("id"),
+            message: "Cannot save a cancelled new root"}]);
+        if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             return this.teaqlSaveWithinGraph(context, service, graph);
@@ -165,6 +171,40 @@ export class TaskStatus {
             this.teaqlNormalizeGraph(graph);
             return this.teaqlAdmitGraph();
         });
+    }
+
+    /** @internal Cancellation is admitted only for a real Context-reserved creation. */
+    private teaqlIsCancelledNew(): boolean {
+        const key = this.teaqlEntityKey(), root = (this as any)._root;
+        if ((this as any)._action !== "Delete" || !root.isNew(key) || !root.isDeleted(key)) return false;
+        EntityCreation.requireMutation(this, key, this.id, "Create", root, true);
+        for (const child of (this as any)._taskList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "TaskStatus", location: ObjectLocation.property("task_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        return true;
+    }
+
+    /** @internal Pure pending-state check; nested cancellation is not an implicit cascade. */
+    private teaqlHasPendingGraph(seen = new Set<object>()): boolean {
+        if (seen.has(this)) return false;
+        seen.add(this);
+        let pending = (this as any)._action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        for (const child of (this as any)._taskList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        return pending;
+    }
+
+    /** @internal Pure provenance pass before resolving any Context resources. */
+    private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
+        if (seen.has(this)) return false;
+        seen.add(this);
+        const action = (this as any)._action;
+        let pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
+        for (const child of (this as any)._taskList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
+        return pending;
     }
 
     /** @internal Read-only first pass: no ledger attachment, FK edits or no-op shortcut. */
@@ -184,6 +224,7 @@ export class TaskStatus {
 
     /** @internal Cancel known no-ops across the graph before any derived FK edits. */
     private teaqlDiscardRestoredGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (seen.has(this)) return;
         seen.add(this);
         graph.discardRestoredFields(TaskStatus.teaqlMutationFields,
@@ -205,7 +246,10 @@ export class TaskStatus {
             __teaql_load: {fullyLoaded: (this as any)._fullyLoaded, fields: [...(this as any)._loadedFields].sort()},
             "task_list": graph.sourceMembers((this as any)._taskList)
         }));
+        // Keep omitted nodes in the immutable input review, not in the write plan.
+        if (this.teaqlIsCancelledNew()) return;
         for (const child of (this as any)._taskList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.status;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -217,14 +261,16 @@ export class TaskStatus {
 
     /** @internal Whole-input version/completeness pass; does not use Context or Fix. */
     private teaqlAdmitGraph(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
         if (seen.has(this)) return false;
         seen.add(this);
         const action = (this as any)._action;
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
         LoadedScalarSnapshot.forEntity(this)?.validateMutationVersion((this as any)._root, this.teaqlEntityKey());
         TaskStatus.teaqlMutationFields.validate((this as any)._root.change(this.teaqlEntityKey()), action === "Update");
         if (pending) {
-            nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
+            nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "progress", canonical: "progress" }, { member: "platform", canonical: "platform" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "TaskStatus", location: ObjectLocation.property(notLoaded.canonical),
@@ -245,6 +291,7 @@ export class TaskStatus {
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return;
         seen.add(this);
@@ -270,13 +317,14 @@ export class TaskStatus {
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
         if (pending) service.preflightMutation(request);
         const scope = request.scopeFor(this.teaqlEntityKey());
         for (const [index, child] of (this as any)._taskList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.status;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -295,6 +343,7 @@ export class TaskStatus {
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
     async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<TaskStatus> {
+        if (this.teaqlIsCancelledNew()) { graph.validatePreparedSources(); return this; }
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return this;
         seen.add(this);
@@ -305,7 +354,7 @@ export class TaskStatus {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
@@ -315,6 +364,7 @@ export class TaskStatus {
         if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
             const scope = request.scopeFor(this.teaqlEntityKey());
             for (const [index, child] of (this as any)._taskList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.status;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -365,10 +415,14 @@ export class TaskStatus {
         });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
-        if (mutation.action !== "Delete") (this as any)._action = "Update";
+        // Normalize the native action before the prepared result captures it.
+        // The ledger keeps pending deletion until commit; rollback restores
+        // rollbackState.action so the same graph can retry every mutation kind.
+        (this as any)._action = "Update";
         graph.acceptPreparedResult((this as any)._root, oldKey, newKey);
         const scope = request.scopeFor(newKey);
         for (const [index, child] of (this as any)._taskList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.status;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))

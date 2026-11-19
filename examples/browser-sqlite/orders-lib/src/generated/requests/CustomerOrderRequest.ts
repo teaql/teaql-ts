@@ -1185,8 +1185,7 @@ export class ExecutableCustomerOrderRequest {
     async newEntity(context: UserContext): Promise<CustomerOrder> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("CustomerOrder");
-        return CustomerOrder.teaqlNewWithId(id);
+        return CustomerOrder.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<CustomerOrder>> {

@@ -1,6 +1,8 @@
-import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, EntityCreation, EntityCreationError, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { PurchaseOrder } from './PurchaseOrder';
 import { Tenant } from './Tenant';
+
+const teaqlConstruction = Symbol("managed entity construction");
 
 export class OrderItem {
     private static teaqlTemporaryId = 0;
@@ -15,15 +17,17 @@ export class OrderItem {
         updateTime?: string;
         version?: EntityVersion;
 
-    constructor(init?: Partial<OrderItem>) {
-        Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
+    private constructor(init?: Partial<OrderItem>, token?: symbol, creation = false) {
+        if (token !== teaqlConstruction) throw new EntityCreationError();
+        Object.defineProperty(this, "_action", { value: creation ? "Create" : "Update", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
-        Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
+        Object.defineProperty(this, "_fullyLoaded", { value: creation, writable: true, enumerable: false });
         Object.defineProperty(this, "_loadedFields", { value: new Set(Object.keys(init || {})), writable: true, enumerable: false });
         Object.defineProperty(this, "_root", { value: new EntityRoot(), writable: true, enumerable: false });
         Object.defineProperty(this, "_ledgerId", { value: init?.id ?? --OrderItem.teaqlTemporaryId, writable: true, enumerable: false });
         if (init) {
             const fields: Record<string, unknown> = { ...(init as Record<string, unknown>) };
+            for (const key of ["_action", "_comment", "_fullyLoaded", "_loadedFields", "_root", "_ledgerId"]) delete fields[key];
             Object.assign(this, fields);
             if ((init as any).purchaseOrder && typeof (init as any).purchaseOrder === "object") {
                 this.purchaseOrder = (init as any).purchaseOrder instanceof PurchaseOrder
@@ -42,7 +46,8 @@ export class OrderItem {
         if ((this as any).version !== undefined) (this as any).version = entityVersion((this as any).version);
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, (this as any).version);
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version,
+            creation ? "creationBaseline" : "hydrated");
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "OrderItem", id: (this as any)._ledgerId }; }
@@ -61,7 +66,7 @@ export class OrderItem {
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): OrderItem {
-        const entity = new OrderItem(record as Partial<OrderItem>);
+        const entity = EntityCreation.hydrated(new OrderItem(record as Partial<OrderItem>, teaqlConstruction));
         return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
@@ -106,23 +111,19 @@ export class OrderItem {
     }
 
     static refer(id: string | number): OrderItem {
-        return new OrderItem({ id: String(id) } as Partial<OrderItem>);
+        return OrderItem.fromRecord({ id: String(id) });
     }
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
-    static teaqlBootstrapNew(id: string | number): OrderItem {
-        return OrderItem.teaqlNewWithId(internalId(id));
+    static teaqlBootstrapNew(context: UserContext, id: string | number): OrderItem {
+        return EntityCreation.bootstrap(context, "OrderItem", id,
+            reserved => new OrderItem({id: reserved} as Partial<OrderItem>, teaqlConstruction, true));
     }
 
-    /** @internal Q calls this only after Context allocation has completed. */
-    static teaqlNewWithId(value: string): OrderItem {
-        const id = internalId(value);
-        const entity = new OrderItem();
-        const previous = entity.teaqlEntityKey();
-        entity.updateId(id);
-        (entity as any)._ledgerId = id;
-        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
-        return entity;
+    /** @internal Q owns the awaited public creation entry point. */
+    static teaqlCreate(context: UserContext): Promise<OrderItem> {
+        return EntityCreation.create(context, "OrderItem",
+            reserved => new OrderItem({id: reserved} as Partial<OrderItem>, teaqlConstruction, true));
     }
 
     markForDeletion(): this {
@@ -138,6 +139,11 @@ export class OrderItem {
 
     async save(context: UserContext): Promise<OrderItem> {
         const intent = new MutationIntent((this as any)._comment);
+        this.teaqlValidateLoadedIdentities();
+        if (this.teaqlIsCancelledNew()) throw new CheckException([{ruleId: "invalid_deletion_state",
+            entityType: "OrderItem", location: ObjectLocation.property("id"),
+            message: "Cannot save a cancelled new root"}]);
+        if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             return this.teaqlSaveWithinGraph(context, service, graph);
@@ -155,6 +161,33 @@ export class OrderItem {
         });
     }
 
+    /** @internal Cancellation is admitted only for a real Context-reserved creation. */
+    private teaqlIsCancelledNew(): boolean {
+        const key = this.teaqlEntityKey(), root = (this as any)._root;
+        if ((this as any)._action !== "Delete" || !root.isNew(key) || !root.isDeleted(key)) return false;
+        EntityCreation.requireMutation(this, key, this.id, "Create", root, true);
+        return true;
+    }
+
+    /** @internal Pure pending-state check; nested cancellation is not an implicit cascade. */
+    private teaqlHasPendingGraph(seen = new Set<object>()): boolean {
+        if (seen.has(this)) return false;
+        seen.add(this);
+        let pending = (this as any)._action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        return pending;
+    }
+
+    /** @internal Pure provenance pass before resolving any Context resources. */
+    private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
+        if (seen.has(this)) return false;
+        seen.add(this);
+        const action = (this as any)._action;
+        let pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
+        return pending;
+    }
+
     /** @internal Read-only first pass: no ledger attachment, FK edits or no-op shortcut. */
     private teaqlValidateLoadedIdentities(seen = new Set<object>()): void {
         if (seen.has(this)) return;
@@ -164,6 +197,7 @@ export class OrderItem {
 
     /** @internal Cancel known no-ops across the graph before any derived FK edits. */
     private teaqlDiscardRestoredGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (seen.has(this)) return;
         seen.add(this);
         graph.discardRestoredFields(OrderItem.teaqlMutationFields,
@@ -184,18 +218,22 @@ export class OrderItem {
             __teaql_comment: (this as any)._comment,
             __teaql_load: {fullyLoaded: (this as any)._fullyLoaded, fields: [...(this as any)._loadedFields].sort()},
         }));
+        // Keep omitted nodes in the immutable input review, not in the write plan.
+        if (this.teaqlIsCancelledNew()) return;
     }
 
     /** @internal Whole-input version/completeness pass; does not use Context or Fix. */
     private teaqlAdmitGraph(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
         if (seen.has(this)) return false;
         seen.add(this);
         const action = (this as any)._action;
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
         LoadedScalarSnapshot.forEntity(this)?.validateMutationVersion((this as any)._root, this.teaqlEntityKey());
         OrderItem.teaqlMutationFields.validate((this as any)._root.change(this.teaqlEntityKey()), action === "Update");
         if (pending) {
-            nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
+            nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "purchaseOrder", canonical: "purchase_order" }, { member: "tenant", canonical: "tenant" }, { member: "productName", canonical: "product_name" }, { member: "unitPrice", canonical: "unit_price" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "OrderItem", location: ObjectLocation.property(notLoaded.canonical),
@@ -208,6 +246,7 @@ export class OrderItem {
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return;
         seen.add(this);
@@ -233,7 +272,7 @@ export class OrderItem {
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
@@ -243,6 +282,7 @@ export class OrderItem {
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
     async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<OrderItem> {
+        if (this.teaqlIsCancelledNew()) { graph.validatePreparedSources(); return this; }
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return this;
         seen.add(this);
@@ -253,7 +293,7 @@ export class OrderItem {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
+            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
@@ -298,7 +338,10 @@ export class OrderItem {
         });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
-        if (mutation.action !== "Delete") (this as any)._action = "Update";
+        // Normalize the native action before the prepared result captures it.
+        // The ledger keeps pending deletion until commit; rollback restores
+        // rollbackState.action so the same graph can retry every mutation kind.
+        (this as any)._action = "Update";
         graph.acceptPreparedResult((this as any)._root, oldKey, newKey);
         const scope = request.scopeFor(newKey);
         service.afterGraphCommit(() => {

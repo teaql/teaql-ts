@@ -758,8 +758,7 @@ export class ExecutableEntryRequest {
     async newEntity(context: UserContext): Promise<Entry> {
         this.ensureIntent();
         if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        const id = await context.generateInternalId("Entry");
-        return Entry.teaqlNewWithId(id);
+        return Entry.teaqlCreate(context);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Entry>> {
