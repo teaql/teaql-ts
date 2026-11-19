@@ -23,25 +23,25 @@
     "src/teaql-ts.ts": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b",
     "teaql-i18n.json": "ee5dc28e916a8907555d5d5a4d0e3cf2fa37aad047af37abed0800582af18d96",
     "teaql/checker-model.json": "11e9102d94684fd30e13941514301d2cf6f20522c275cfa36eece9842ff1014e",
-    "teaql/model-provenance.json": "900c46a583b62b44dddea9d22ccd857168689353942fd4329783649fabb4324a",
+    "teaql/model-provenance.json": "519acdddfd317acc4cd27f4f373c3c613bb13de81b98bff8cfb2f45298a87487",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
   },
-  "generatedManifestSha256": "3d6665efe5a333fc291d672dd89803bcdaa3cf28793e6d028e55ec8230d18b20",
-  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-unified-current-source/typescript/browser-sqlite/order-model/receipt.json",
-  "generatorCommit": "19feda8a0608d7c7e0d64c7d9ec371c9021000fd",
-  "generatorJarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
-  "generatorRelease": "unreleased-source-19feda8a",
+  "generatedManifestSha256": "da70ad0968d748f7ee9d417b0c5948f6ad75e3a4f53dc0761ef65678e1f2dd7d",
+  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-unified-intent-current-source/typescript/browser-sqlite/order-model/receipt.json",
+  "generatorCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+  "generatorJarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+  "generatorRelease": "unreleased-source-021b1ed8",
   "modelSha256": "44d20c0d236de9c79f767054deba773e11aa6ae4eaed1ede98cf7c6ed8d18495",
-  "previousFixtureManifestSha256": "71fd49bb5112ce34325c1dfeb1e448dfad291e8a5a18e34372c1cdb7fbe228de",
+  "previousFixtureManifestSha256": "2428406da7f89655ea6f4f2aebb7f2a45eac399b9234e741a871d7bacfea2941",
   "previousOrigin": {
-    "commit": "a4193b345f0fb6bbfa0bddc1ef4888cb7ce2e3cc",
+    "commit": "543cc086cf64e536f7f5fd8e1ef7899bd67cf2da",
     "path": "examples/browser-sqlite/orders-lib/current-generator-fixture.json"
   },
-  "producerReceiptSha256": "7a2df1d5e3d43533f332bcb56120b22c82e6d2c73701882ebf98a6e27f63730e",
+  "producerReceiptSha256": "929695937f952c5bb011f78cb1e69b30e7d6b5108f1e65b06876d6b7d11c9d9e",
   "producerSource": {
-    "commit": "19feda8a0608d7c7e0d64c7d9ec371c9021000fd",
-    "jarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
-    "release": "unreleased-source-19feda8a"
+    "commit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+    "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+    "release": "unreleased-source-021b1ed8"
   },
   "schema": "teaql.typescript-current-example-fixture/v1",
   "scope": "typescript-lib-core"

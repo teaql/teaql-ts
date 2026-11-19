@@ -19,25 +19,25 @@
     "src/teaql-ts.ts": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b",
     "teaql-i18n.json": "785b10a761a7e3d13b88878bc8702546b19f9bc637d28e76fa780fc79f97ca3d",
     "teaql/checker-model.json": "8e28ee16cddc21191816ed05999142fccb870bf42795f5a1f21268ebd4469e71",
-    "teaql/model-provenance.json": "1325f1b08a4e11713740cacf951f0e5ecb436ea010e4858f41113a30eeed6655",
+    "teaql/model-provenance.json": "241cf0fa574c4a2d3db4ae7a57ac89b3329d13e342c22196f79c025ed6c3f9e8",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
   },
-  "generatedManifestSha256": "5c5aa07784bbb252d6a3279119aeb444c6c46043a11ecdad4156fcf315657b2a",
-  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-unified-current-source/typescript/school-management/model/receipt.json",
-  "generatorCommit": "19feda8a0608d7c7e0d64c7d9ec371c9021000fd",
-  "generatorJarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
-  "generatorRelease": "unreleased-source-19feda8a",
+  "generatedManifestSha256": "f4e64b0b853d72ccdcc1a2868755ff2464aefdcd4b5ec4d083b93d5cdb7cb683",
+  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-unified-intent-current-source/typescript/school-management/model/receipt.json",
+  "generatorCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+  "generatorJarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+  "generatorRelease": "unreleased-source-021b1ed8",
   "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4",
-  "previousFixtureManifestSha256": "92d41ce21f3be108e1001846585261366b5d8536243717529eb87a0138d7b996",
+  "previousFixtureManifestSha256": "6984ca625ca6513d6bfc7e4d1e21713c74d02455b9e84dc33b4cc04a9b02f456",
   "previousOrigin": {
-    "commit": "a4193b345f0fb6bbfa0bddc1ef4888cb7ce2e3cc",
+    "commit": "543cc086cf64e536f7f5fd8e1ef7899bd67cf2da",
     "path": "examples/school-management/current-generator-fixture.json"
   },
-  "producerReceiptSha256": "1017b515ce8dd2a6049b94e3b8d686f90791eb42e609a6c2ef265ef95647ba32",
+  "producerReceiptSha256": "85376e93d03bca01fbffb89e746a7d48866e295077cd98d111257785ac345702",
   "producerSource": {
-    "commit": "19feda8a0608d7c7e0d64c7d9ec371c9021000fd",
-    "jarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
-    "release": "unreleased-source-19feda8a"
+    "commit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+    "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+    "release": "unreleased-source-021b1ed8"
   },
   "schema": "teaql.typescript-current-example-fixture/v1",
   "scope": "typescript-lib-core"
