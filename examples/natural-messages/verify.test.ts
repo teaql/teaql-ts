@@ -34,9 +34,9 @@ test.each(['sqlite','file'] as const)('generated %s graph uses automatic metadat
   }
   try{
     await context.ensureSchema();await context.ensureSchema();
-    const make=(name:string)=>Q.entries().comment('Prepare an example child')
-      .purpose('Verify generated audited mutation and natural errors').newEntity(context).updateName(name).updateCatalog('1');
-    let first=make('first'),second=make('second');
+    const make=async(name:string)=>(await Q.entries().comment('Prepare an example child')
+      .purpose('Verify generated audited mutation and natural errors').newEntity(context)).updateName(name).updateCatalog('1');
+    let first=await make('first'),second=await make('second');
     await first.auditAs('Create the first valid child').save(context);
     await second.auditAs('Create the second valid child').save(context);
     const load=async(id:string)=>{
