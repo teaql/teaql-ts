@@ -48,7 +48,7 @@ fi
 for example in conformance ensure-schema-bootstrap school-management; do
   (
     cd "$repo/examples/$example"
-    npm install
+    npm ci
     npm run build
     if [[ "$example" == school-management ]]; then
       npx ts-node app.ts
@@ -57,14 +57,14 @@ for example in conformance ensure-schema-bootstrap school-management; do
     fi
   )
 done
-(cd "$repo/examples/order-management" && npm install && npm run build && npm start)
-(cd "$repo/examples/task-board" && npm install && npm run build && \
+(cd "$repo/examples/order-management" && npm ci && npm run build && npm start)
+(cd "$repo/examples/task-board" && npm ci && npm run build && \
   TEAQL_TASK_BOARD_EVIDENCE_DIR="$example_evidence/task-board" npm run verify)
 (cd "$repo/examples/browser-sqlite" && npm ci && npm run build && npm run smoke && \
   TEAQL_BROWSER_ORDER_EVIDENCE="$example_evidence/browser-orders.json" npm run smoke:orders)
 (
   cd "$repo/examples/trace-chain"
-  npm install
+  npm ci
   npm run build
   for attempt in 1 2; do
     graph_log="$verify_scratch/graph-$attempt.log"
