@@ -29,17 +29,17 @@
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
   },
   "generatedManifestSha256": "3be6f4068deea35da0c2850c436c67c0bded9bdee6f0161b736546f4ad179c20",
-  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-typescript-managed-rust-pin/typescript/trace-chain/model/receipt.json",
+  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-unified-current-source/typescript/trace-chain/model/receipt.json",
   "generatorCommit": "19feda8a0608d7c7e0d64c7d9ec371c9021000fd",
   "generatorJarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
   "generatorRelease": "unreleased-source-19feda8a",
   "modelSha256": "c9743d776718c7b27c97792f75f492fdc99bf427e4bd0c24bf3492de6520c9a2",
-  "previousFixtureManifestSha256": "142909b8318d2e1bded67c49f9309aad0370590a313dfd92981c3e9db9f31fbf",
+  "previousFixtureManifestSha256": "e45fe7298403d5d1b2fd380fe18eb5e0eee4168ce97ecd98147745e3fd2c12b7",
   "previousOrigin": {
-    "commit": "9d4af1d0dadaed3500865d5f15923e980d16cebb",
+    "commit": "d2c83ca38e2cc3a5feb2590bd2897efc6ea0ad39",
     "path": "examples/trace-chain/lib/current-generator-fixture.json"
   },
-  "producerReceiptSha256": "ce32e5795c20d7c80a59f3e1470fba7ed8b7708d890a89039cd52d05bca4057b",
+  "producerReceiptSha256": "e546d3c8a91b62935263a1b12409c8d538eb9d9a9c620100c5d241050a47c51b",
   "producerSource": {
     "commit": "19feda8a0608d7c7e0d64c7d9ec371c9021000fd",
     "jarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
