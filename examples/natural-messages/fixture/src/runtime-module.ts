@@ -1,7 +1,7 @@
 import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
 import { ContextFix, ObjectLocation, RuntimeModule } from "teaql-ts";
 import { CheckerPresentationModel } from "teaql-ts";
-import { ENTITY_SCHEMAS } from "./teaql-node-sql";
+import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
 /** Generated canonical KSML to selected-wire mapping. Never infer this from TS members. */

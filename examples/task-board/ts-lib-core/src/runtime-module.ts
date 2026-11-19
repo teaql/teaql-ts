@@ -1,5 +1,6 @@
 import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
-import { ObjectLocation, RuntimeModule } from "teaql-ts";
+import { ContextFix, ObjectLocation, RuntimeModule } from "teaql-ts";
+import { CheckerPresentationModel } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-node-sql";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
@@ -61,10 +62,8 @@ export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "Platform": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["founded"] == null) {
-        mutation.payload["founded"] = now;
-        context.recordFixEvidence({ entityType: "Platform", modelPath: "founded", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "founded", "now", []);
       }
 
 
@@ -82,7 +81,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "TaskStatus": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
       if (mutation.payload["name"] != null && [...String(mutation.payload["name"])].length > 100) results.push({ ruleId: "max_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 100 });
 
@@ -103,7 +101,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "Task": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
       if (mutation.payload["name"] != null && !([...String(mutation.payload["name"])].length >= 1)) results.push({ ruleId: "min_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 1 });
       if (mutation.payload["name"] != null && [...String(mutation.payload["name"])].length > 200) results.push({ ruleId: "max_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 200 });
@@ -117,7 +114,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "TaskExecutionLog": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["task"] === undefined) || mutation.payload["task"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("task") });
 
       if ((mutation.action === "Create" && mutation.payload["action"] === undefined) || mutation.payload["action"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("action") });
@@ -137,4 +133,4 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
     { entity: "TaskStatus", id: "1003", values: { "name": "Executing", "code": "EXECUTING", "color": "#F59E0B", "displayOrder": decimal("30"), "progress": decimal("50"), "platform": "1" } },
     { entity: "TaskStatus", id: "1004", values: { "name": "Verified", "code": "VERIFIED", "color": "#16A34A", "displayOrder": decimal("40"), "progress": decimal("100"), "platform": "1" } }
   ]
-}, ensure: ensureGeneratedBootstrap });
+}, ensure: ensureGeneratedBootstrap }).withCheckerPresentation(CheckerPresentationModel.fromJson("{\"schema\":\"teaql.checker-model/v1\",\"revision\":\"sha256:dff2f0a6d3adc2fa5562040379fac7f1e4bede0acb5c076b6fd701a51dca1bc1\",\"entities\":{\"Platform\":{\"labels\":{\"en\":\"Platform\"},\"fields\":[{\"name\":\"founded\",\"labels\":{\"en\":\"founded\"},\"aliases\":[\"Founded\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"task_list\",\"targetType\":\"Task\",\"labels\":{\"en\":\"Task\"},\"aliases\":[\"TaskList\",\"taskList\"]},{\"name\":\"task_status_list\",\"targetType\":\"TaskStatus\",\"labels\":{\"en\":\"Task Status\"},\"aliases\":[\"TaskStatusList\",\"taskStatusList\"]},{\"name\":\"user_email\",\"labels\":{\"en\":\"user email\"},\"aliases\":[\"UserEmail\",\"userEmail\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"Task\":{\"labels\":{\"en\":\"Task\"},\"fields\":[{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"platform\",\"targetType\":\"Platform\",\"labels\":{\"en\":\"Platform\"},\"aliases\":[\"Platform\"]},{\"name\":\"status\",\"targetType\":\"TaskStatus\",\"labels\":{\"en\":\"Task Status\"},\"aliases\":[\"Status\"]},{\"name\":\"task_execution_log_list\",\"targetType\":\"TaskExecutionLog\",\"labels\":{\"en\":\"Task Execution Log\"},\"aliases\":[\"TaskExecutionLogList\",\"taskExecutionLogList\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"TaskExecutionLog\":{\"labels\":{\"en\":\"Task Execution Log\"},\"fields\":[{\"name\":\"action\",\"labels\":{\"en\":\"action\"},\"aliases\":[\"Action\"]},{\"name\":\"detail\",\"labels\":{\"en\":\"detail\"},\"aliases\":[\"Detail\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"task\",\"targetType\":\"Task\",\"labels\":{\"en\":\"Task\"},\"aliases\":[\"Task\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"TaskStatus\":{\"labels\":{\"en\":\"Task Status\"},\"fields\":[{\"name\":\"code\",\"labels\":{\"en\":\"code\"},\"aliases\":[\"Code\"]},{\"name\":\"color\",\"labels\":{\"en\":\"color\"},\"aliases\":[\"Color\"]},{\"name\":\"display_order\",\"labels\":{\"en\":\"display order\"},\"aliases\":[\"DisplayOrder\",\"displayOrder\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"platform\",\"targetType\":\"Platform\",\"labels\":{\"en\":\"Platform\"},\"aliases\":[\"Platform\"]},{\"name\":\"progress\",\"labels\":{\"en\":\"progress\"},\"aliases\":[\"Progress\"]},{\"name\":\"task_list\",\"targetType\":\"Task\",\"labels\":{\"en\":\"Task\"},\"aliases\":[\"TaskList\",\"taskList\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]}}}"));

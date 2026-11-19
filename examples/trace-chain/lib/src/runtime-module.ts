@@ -1,5 +1,6 @@
 import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
-import { ObjectLocation, RuntimeModule } from "teaql-ts";
+import { ContextFix, ObjectLocation, RuntimeModule } from "teaql-ts";
+import { CheckerPresentationModel } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
@@ -74,7 +75,6 @@ export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "Platform": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
       if (mutation.payload["name"] != null && [...String(mutation.payload["name"])].length > 100) results.push({ ruleId: "max_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 100 });
 
@@ -83,7 +83,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "CustomerOrder": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["platform"] === undefined) || mutation.payload["platform"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("platform") });
 
       if ((mutation.action === "Create" && mutation.payload["order_number"] === undefined) || mutation.payload["order_number"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("order_number") });
@@ -97,7 +96,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "OrderItem": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["customer_order"] === undefined) || mutation.payload["customer_order"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("customer_order") });
 
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
@@ -108,7 +106,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "Payment": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["customer_order"] === undefined) || mutation.payload["customer_order"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("customer_order") });
 
       if ((mutation.action === "Create" && mutation.payload["reference_code"] === undefined) || mutation.payload["reference_code"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("reference_code") });
@@ -119,7 +116,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "PaymentAttempt": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["payment"] === undefined) || mutation.payload["payment"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("payment") });
 
       if ((mutation.action === "Create" && mutation.payload["reference_code"] === undefined) || mutation.payload["reference_code"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("reference_code") });
@@ -130,7 +126,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "Shipment": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["customer_order"] === undefined) || mutation.payload["customer_order"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("customer_order") });
 
       if ((mutation.action === "Create" && mutation.payload["reference_code"] === undefined) || mutation.payload["reference_code"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("reference_code") });
@@ -142,4 +137,4 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 }, { ...{
   defaultDomainRoot: { entity: "Platform", id: "1", values: { "name": "Trace Chain Verification" } },
   constants: []
-}, ensure: ensureGeneratedBootstrap });
+}, ensure: ensureGeneratedBootstrap }).withCheckerPresentation(CheckerPresentationModel.fromJson("{\"schema\":\"teaql.checker-model/v1\",\"revision\":\"sha256:3360338e7162e546ad5c97348770bb50933b4da775b55b99a9707d39f93c8b0a\",\"entities\":{\"CustomerOrder\":{\"labels\":{\"en\":\"Customer Order\"},\"fields\":[{\"name\":\"description\",\"labels\":{\"en\":\"description\"},\"aliases\":[\"Description\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"order_item_list\",\"targetType\":\"OrderItem\",\"labels\":{\"en\":\"Order Item\"},\"aliases\":[\"OrderItemList\",\"orderItemList\"]},{\"name\":\"order_number\",\"labels\":{\"en\":\"order number\"},\"aliases\":[\"OrderNumber\",\"orderNumber\"]},{\"name\":\"payment_list\",\"targetType\":\"Payment\",\"labels\":{\"en\":\"Payment\"},\"aliases\":[\"PaymentList\",\"paymentList\"]},{\"name\":\"platform\",\"targetType\":\"Platform\",\"labels\":{\"en\":\"Platform\"},\"aliases\":[\"Platform\"]},{\"name\":\"shipment_list\",\"targetType\":\"Shipment\",\"labels\":{\"en\":\"Shipment\"},\"aliases\":[\"ShipmentList\",\"shipmentList\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"OrderItem\":{\"labels\":{\"en\":\"Order Item\"},\"fields\":[{\"name\":\"customer_order\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"Customer Order\"},\"aliases\":[\"CustomerOrder\",\"customerOrder\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"Payment\":{\"labels\":{\"en\":\"Payment\"},\"fields\":[{\"name\":\"customer_order\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"Customer Order\"},\"aliases\":[\"CustomerOrder\",\"customerOrder\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"payment_attempt_list\",\"targetType\":\"PaymentAttempt\",\"labels\":{\"en\":\"Payment Attempt\"},\"aliases\":[\"PaymentAttemptList\",\"paymentAttemptList\"]},{\"name\":\"reference_code\",\"labels\":{\"en\":\"reference code\"},\"aliases\":[\"ReferenceCode\",\"referenceCode\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"PaymentAttempt\":{\"labels\":{\"en\":\"Payment Attempt\"},\"fields\":[{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"payment\",\"targetType\":\"Payment\",\"labels\":{\"en\":\"Payment\"},\"aliases\":[\"Payment\"]},{\"name\":\"reference_code\",\"labels\":{\"en\":\"reference code\"},\"aliases\":[\"ReferenceCode\",\"referenceCode\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"Platform\":{\"labels\":{\"en\":\"Platform\"},\"fields\":[{\"name\":\"customer_order_list\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"Customer Order\"},\"aliases\":[\"CustomerOrderList\",\"customerOrderList\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"Shipment\":{\"labels\":{\"en\":\"Shipment\"},\"fields\":[{\"name\":\"customer_order\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"Customer Order\"},\"aliases\":[\"CustomerOrder\",\"customerOrder\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"reference_code\",\"labels\":{\"en\":\"reference code\"},\"aliases\":[\"ReferenceCode\",\"referenceCode\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]}}}"));

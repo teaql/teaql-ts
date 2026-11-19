@@ -1,7 +1,5 @@
-import { CheckException, integer32Error, EntityCreation, EntityCreationError, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { TypePlatform } from './TypePlatform';
-
-const teaqlConstruction = Symbol("managed entity construction");
 
 export class ScalarTypeProbe {
     private static teaqlTemporaryId = 0;
@@ -34,8 +32,7 @@ export class ScalarTypeProbe {
         updateTime?: string;
         version?: EntityVersion;
 
-    private constructor(init?: Partial<ScalarTypeProbe>, token?: symbol, creation = false) {
-        if (token !== teaqlConstruction) throw new EntityCreationError();
+    constructor(init?: Partial<ScalarTypeProbe>) {
         { const error = integer32Error(init?.requiredInteger, "ScalarTypeProbe", "required_integer"); if (error) throw error; }
 
         { const error = integer32Error(init?.optionalInteger, "ScalarTypeProbe", "optional_integer"); if (error) throw error; }
@@ -57,15 +54,14 @@ export class ScalarTypeProbe {
 
 
 
-        Object.defineProperty(this, "_action", { value: creation ? "Create" : "Update", writable: true, enumerable: false });
+        Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
-        Object.defineProperty(this, "_fullyLoaded", { value: creation, writable: true, enumerable: false });
+        Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
         Object.defineProperty(this, "_loadedFields", { value: new Set(Object.keys(init || {})), writable: true, enumerable: false });
         Object.defineProperty(this, "_root", { value: new EntityRoot(), writable: true, enumerable: false });
         Object.defineProperty(this, "_ledgerId", { value: init?.id ?? --ScalarTypeProbe.teaqlTemporaryId, writable: true, enumerable: false });
         if (init) {
             const fields: Record<string, unknown> = { ...(init as Record<string, unknown>) };
-            for (const key of ["_action", "_comment", "_fullyLoaded", "_loadedFields", "_root", "_ledgerId"]) delete fields[key];
             Object.assign(this, fields);
             if ((init as any).typePlatform && typeof (init as any).typePlatform === "object") {
                 this.typePlatform = (init as any).typePlatform instanceof TypePlatform
@@ -78,11 +74,16 @@ export class ScalarTypeProbe {
         if ((this as any).version !== undefined) (this as any).version = entityVersion((this as any).version);
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, (this as any).version);
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version,
-            creation ? "creationBaseline" : "hydrated");
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "ScalarTypeProbe", id: (this as any)._ledgerId }; }
+    /** @internal Restore known equal scalars after the prepared graph completes. */
+    private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
+        for (const field of [{ member: "id", canonical: "id" }, { member: "requiredString", canonical: "required_string" }, { member: "optionalString", canonical: "optional_string" }, { member: "largeText", canonical: "large_text" }, { member: "requiredBoolean", canonical: "required_boolean" }, { member: "optionalBoolean", canonical: "optional_boolean" }, { member: "requiredInteger", canonical: "required_integer" }, { member: "optionalInteger", canonical: "optional_integer" }, { member: "requiredLong", canonical: "required_long" }, { member: "optionalLong", canonical: "optional_long" }, { member: "requiredDecimal", canonical: "required_decimal" }, { member: "optionalDecimal", canonical: "optional_decimal" }, { member: "requiredFloat", canonical: "required_float" }, { member: "optionalFloat", canonical: "optional_float" }, { member: "requiredDouble", canonical: "required_double" }, { member: "optionalDouble", canonical: "optional_double" }, { member: "requiredDate", canonical: "required_date" }, { member: "optionalDate", canonical: "optional_date" }, { member: "requiredTime", canonical: "required_time" }, { member: "optionalTime", canonical: "optional_time" }, { member: "requiredDatetime", canonical: "required_datetime" }, { member: "optionalDatetime", canonical: "optional_datetime" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]) {
+            if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
+        }
+    }
     private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
         if ((this as any)._root !== root) {
             root.mergeEntityFrom((this as any)._root, this.teaqlEntityKey());
@@ -92,7 +93,7 @@ export class ScalarTypeProbe {
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): ScalarTypeProbe {
-        const entity = EntityCreation.hydrated(new ScalarTypeProbe(record as Partial<ScalarTypeProbe>, teaqlConstruction));
+        const entity = new ScalarTypeProbe(record as Partial<ScalarTypeProbe>);
         return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
@@ -118,8 +119,28 @@ export class ScalarTypeProbe {
 
 
 
-        const result = Object.fromEntries(Object.entries(this));
-        return result;
+        return this.teaqlJson(new Set());
+    }
+
+    private static teaqlJsonValue(value: any, active: Set<object>): any {
+        if (value === null || value === undefined) return value;
+        if (typeof value.teaqlJson === "function") return value.teaqlJson(active);
+        if (Array.isArray(value)) return Array.from(value, item => this.teaqlJsonValue(item, active));
+        if (typeof value.toJSON === "function") return value.toJSON();
+        if (typeof value === "object") return Object.fromEntries(Object.entries(value).map(
+            ([key, item]) => [key, this.teaqlJsonValue(item, active)]));
+        return typeof value === "bigint" ? value.toString() : value;
+    }
+
+    private teaqlJson(active: Set<object>): Record<string, unknown> {
+        if (active.has(this)) return { id: this.id, version: this.version };
+        active.add(this);
+        try {
+            // Only enumerable business/query data participates; runtime state is private.
+            const payload = Object.fromEntries(Object.entries(this).filter(([key]) => this.isLoaded(key))
+                .map(([key, value]) => [key, ScalarTypeProbe.teaqlJsonValue(value, active)]));
+            return payload;
+        } finally { active.delete(this); }
     }
 
     isLoaded(field: string): boolean {
@@ -138,19 +159,12 @@ export class ScalarTypeProbe {
     }
 
     static refer(id: string | number): ScalarTypeProbe {
-        return ScalarTypeProbe.fromRecord({ id: String(id) });
+        return new ScalarTypeProbe({ id: String(id) } as Partial<ScalarTypeProbe>);
     }
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
-    static teaqlBootstrapNew(context: UserContext, id: string | number): ScalarTypeProbe {
-        return EntityCreation.bootstrap(context, "ScalarTypeProbe", id,
-            reserved => new ScalarTypeProbe({id: reserved} as Partial<ScalarTypeProbe>, teaqlConstruction, true));
-    }
-
-    /** @internal Q owns the awaited public creation entry point. */
-    static teaqlCreate(context: UserContext): Promise<ScalarTypeProbe> {
-        return EntityCreation.create(context, "ScalarTypeProbe",
-            reserved => new ScalarTypeProbe({id: reserved} as Partial<ScalarTypeProbe>, teaqlConstruction, true));
+    static teaqlBootstrapNew(id: string | number): ScalarTypeProbe {
+        return new ScalarTypeProbe().updateId(String(id));
     }
 
     markForDeletion(): this {
@@ -166,8 +180,6 @@ export class ScalarTypeProbe {
 
     async save(context: UserContext): Promise<ScalarTypeProbe> {
         const intent = new MutationIntent((this as any)._comment);
-        this.teaqlValidateLoadedIdentities();
-        if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             return this.teaqlSaveWithinGraph(context, service, graph);
@@ -183,16 +195,6 @@ export class ScalarTypeProbe {
             this.teaqlNormalizeGraph(graph);
             return this.teaqlAdmitGraph();
         });
-    }
-
-    /** @internal Pure provenance pass before resolving any Context resources. */
-    private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
-        if (seen.has(this)) return false;
-        seen.add(this);
-        const action = (this as any)._action;
-        let pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
-        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
-        return pending;
     }
 
     /** @internal Read-only first pass: no ledger attachment, FK edits or no-op shortcut. */
@@ -231,11 +233,10 @@ export class ScalarTypeProbe {
         seen.add(this);
         const action = (this as any)._action;
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
-        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
         LoadedScalarSnapshot.forEntity(this)?.validateMutationVersion((this as any)._root, this.teaqlEntityKey());
         ScalarTypeProbe.teaqlMutationFields.validate((this as any)._root.change(this.teaqlEntityKey()), action === "Update");
         if (pending) {
-            nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
+            nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "typePlatform", canonical: "type_platform" }, { member: "requiredString", canonical: "required_string" }, { member: "optionalString", canonical: "optional_string" }, { member: "largeText", canonical: "large_text" }, { member: "requiredBoolean", canonical: "required_boolean" }, { member: "optionalBoolean", canonical: "optional_boolean" }, { member: "requiredInteger", canonical: "required_integer" }, { member: "optionalInteger", canonical: "optional_integer" }, { member: "requiredLong", canonical: "required_long" }, { member: "optionalLong", canonical: "optional_long" }, { member: "requiredDecimal", canonical: "required_decimal" }, { member: "optionalDecimal", canonical: "optional_decimal" }, { member: "requiredFloat", canonical: "required_float" }, { member: "optionalFloat", canonical: "optional_float" }, { member: "requiredDouble", canonical: "required_double" }, { member: "optionalDouble", canonical: "optional_double" }, { member: "requiredDate", canonical: "required_date" }, { member: "optionalDate", canonical: "optional_date" }, { member: "requiredTime", canonical: "required_time" }, { member: "optionalTime", canonical: "optional_time" }, { member: "requiredDatetime", canonical: "required_datetime" }, { member: "optionalDatetime", canonical: "optional_datetime" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "ScalarTypeProbe", location: ObjectLocation.property(notLoaded.canonical),
@@ -247,10 +248,8 @@ export class ScalarTypeProbe {
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
         if (!parent) new MutationIntent((this as any)._comment);
-        if (seen.has(this)) return;
-        seen.add(this);
         const action = (this as any)._action;
         graph.discardRestoredFields(ScalarTypeProbe.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
@@ -273,7 +272,7 @@ export class ScalarTypeProbe {
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
@@ -282,10 +281,8 @@ export class ScalarTypeProbe {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<ScalarTypeProbe> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<ScalarTypeProbe> {
         if (!parent) new MutationIntent((this as any)._comment);
-        if (seen.has(this)) return this;
-        seen.add(this);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -293,7 +290,7 @@ export class ScalarTypeProbe {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root

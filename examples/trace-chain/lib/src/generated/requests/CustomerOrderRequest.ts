@@ -25,10 +25,6 @@ export class CustomerOrderRequest {
         else this.selectSelfFields();
     }
 
-    get entityName(): "CustomerOrder" {
-        return "CustomerOrder";
-    }
-
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -143,7 +139,7 @@ export class CustomerOrderRequest {
     }
 
 
-    selectPlatformWith(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
+    selectPlatformWith(request: { toQuery(): SelectQuery }): this {
         this.query.select(["platform"]);
         this.query.relationQuery(
             "platform", request.toQuery(), "platform", "id", false,
@@ -151,7 +147,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
+    withPlatformMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "platform": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -160,7 +156,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withoutPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
+    withoutPlatformMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "platform": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -169,19 +165,19 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    selectOrderItemListWith(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+    selectOrderItemListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "orderItemList", request.toQuery(), "id", "customerOrder", true,
             { kind: "relation-select", method: "selectOrderItemListWith", relation: "orderItemList" });
         return this;
     }
-    selectPaymentListWith(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
+    selectPaymentListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "paymentList", request.toQuery(), "id", "customerOrder", true,
             { kind: "relation-select", method: "selectPaymentListWith", relation: "paymentList" });
         return this;
     }
-    selectShipmentListWith(request: { readonly entityName: "Shipment"; toQuery(): SelectQuery }): this {
+    selectShipmentListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "shipmentList", request.toQuery(), "id", "customerOrder", true,
             { kind: "relation-select", method: "selectShipmentListWith", relation: "shipmentList" });
@@ -190,19 +186,17 @@ export class CustomerOrderRequest {
 
     haveOrderItems(): this {
         return this.withOrderItemListMatching({
-            entityName: "OrderItem",
             toQuery: () => new SelectQuery("OrderItem"),
         });
     }
 
     haveNoOrderItems(): this {
         return this.withoutOrderItemListMatching({
-            entityName: "OrderItem",
             toQuery: () => new SelectQuery("OrderItem"),
         });
     }
 
-    withOrderItemListMatching(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+    withOrderItemListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -213,7 +207,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withoutOrderItemListMatching(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+    withoutOrderItemListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -225,19 +219,17 @@ export class CustomerOrderRequest {
     }
     havePayments(): this {
         return this.withPaymentListMatching({
-            entityName: "Payment",
             toQuery: () => new SelectQuery("Payment"),
         });
     }
 
     haveNoPayments(): this {
         return this.withoutPaymentListMatching({
-            entityName: "Payment",
             toQuery: () => new SelectQuery("Payment"),
         });
     }
 
-    withPaymentListMatching(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
+    withPaymentListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -248,7 +240,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withoutPaymentListMatching(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
+    withoutPaymentListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -260,19 +252,17 @@ export class CustomerOrderRequest {
     }
     haveShipments(): this {
         return this.withShipmentListMatching({
-            entityName: "Shipment",
             toQuery: () => new SelectQuery("Shipment"),
         });
     }
 
     haveNoShipments(): this {
         return this.withoutShipmentListMatching({
-            entityName: "Shipment",
             toQuery: () => new SelectQuery("Shipment"),
         });
     }
 
-    withShipmentListMatching(request: { readonly entityName: "Shipment"; toQuery(): SelectQuery }): this {
+    withShipmentListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -283,7 +273,7 @@ export class CustomerOrderRequest {
         return this;
     }
 
-    withoutShipmentListMatching(request: { readonly entityName: "Shipment"; toQuery(): SelectQuery }): this {
+    withoutShipmentListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -300,13 +290,13 @@ export class CustomerOrderRequest {
 
     countOrderItemsAs(alias: string): this {
         const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
-        this.countOrderItemsWith(alias, { entityName: "OrderItem", toQuery: () => query });
+        this.countOrderItemsWith(alias, { toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countOrderItemsAs", relation: "orderItemList", alias };
         return this;
     }
 
-    countOrderItemsWith(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+    countOrderItemsWith(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -322,13 +312,13 @@ export class CustomerOrderRequest {
 
     countPaymentsAs(alias: string): this {
         const query = new SelectQuery("Payment").filter({ version: { "$gte": 1 } });
-        this.countPaymentsWith(alias, { entityName: "Payment", toQuery: () => query });
+        this.countPaymentsWith(alias, { toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countPaymentsAs", relation: "paymentList", alias };
         return this;
     }
 
-    countPaymentsWith(alias: string, child: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
+    countPaymentsWith(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -344,13 +334,13 @@ export class CustomerOrderRequest {
 
     countShipmentsAs(alias: string): this {
         const query = new SelectQuery("Shipment").filter({ version: { "$gte": 1 } });
-        this.countShipmentsWith(alias, { entityName: "Shipment", toQuery: () => query });
+        this.countShipmentsWith(alias, { toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countShipmentsAs", relation: "shipmentList", alias };
         return this;
     }
 
-    countShipmentsWith(alias: string, child: { readonly entityName: "Shipment"; toQuery(): SelectQuery }): this {
+    countShipmentsWith(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -361,47 +351,47 @@ export class CustomerOrderRequest {
 
 
 
-        withIdIs(val: string): this {
+        withIdIs(val: any): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: string): this {
+        withIdIsNot(val: any): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: string[]): this {
+        withIdIn(...vals: any[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: string[]): this {
+        withIdNotIn(...vals: any[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: string): this {
+        withIdGreaterThan(val: any): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: string): this {
+        withIdGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: string): this {
+        withIdLessThan(val: any): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: string): this {
+        withIdLessThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: string, upper: string): this {
+        withIdBetween(lower: any, upper: any): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -446,42 +436,42 @@ export class CustomerOrderRequest {
             return this;
         }
 
-        withOrderNumberIsNot(val: string): this {
+        withOrderNumberIsNot(val: any): this {
             this.filters.push({ "orderNumber": { "$ne": val } });
             return this;
         }
 
-        withOrderNumberIn(...vals: string[]): this {
+        withOrderNumberIn(...vals: any[]): this {
             this.filters.push({ "orderNumber": { "$in": vals } });
             return this;
         }
 
-        withOrderNumberNotIn(...vals: string[]): this {
+        withOrderNumberNotIn(...vals: any[]): this {
             this.filters.push({ "orderNumber": { "$notIn": vals } });
             return this;
         }
 
-        withOrderNumberGreaterThan(val: string): this {
+        withOrderNumberGreaterThan(val: any): this {
             this.filters.push({ "orderNumber": { "$gt": val } });
             return this;
         }
 
-        withOrderNumberGreaterThanOrEqualTo(val: string): this {
+        withOrderNumberGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "orderNumber": { "$gte": val } });
             return this;
         }
 
-        withOrderNumberLessThan(val: string): this {
+        withOrderNumberLessThan(val: any): this {
             this.filters.push({ "orderNumber": { "$lt": val } });
             return this;
         }
 
-        withOrderNumberLessThanOrEqualTo(val: string): this {
+        withOrderNumberLessThanOrEqualTo(val: any): this {
             this.filters.push({ "orderNumber": { "$lte": val } });
             return this;
         }
 
-        withOrderNumberBetween(lower: string, upper: string): this {
+        withOrderNumberBetween(lower: any, upper: any): this {
             this.filters.push({ "orderNumber": { "$between": [lower, upper] } });
             return this;
         }
@@ -535,42 +525,42 @@ export class CustomerOrderRequest {
             return this;
         }
 
-        withDescriptionIsNot(val: string): this {
+        withDescriptionIsNot(val: any): this {
             this.filters.push({ "description": { "$ne": val } });
             return this;
         }
 
-        withDescriptionIn(...vals: string[]): this {
+        withDescriptionIn(...vals: any[]): this {
             this.filters.push({ "description": { "$in": vals } });
             return this;
         }
 
-        withDescriptionNotIn(...vals: string[]): this {
+        withDescriptionNotIn(...vals: any[]): this {
             this.filters.push({ "description": { "$notIn": vals } });
             return this;
         }
 
-        withDescriptionGreaterThan(val: string): this {
+        withDescriptionGreaterThan(val: any): this {
             this.filters.push({ "description": { "$gt": val } });
             return this;
         }
 
-        withDescriptionGreaterThanOrEqualTo(val: string): this {
+        withDescriptionGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "description": { "$gte": val } });
             return this;
         }
 
-        withDescriptionLessThan(val: string): this {
+        withDescriptionLessThan(val: any): this {
             this.filters.push({ "description": { "$lt": val } });
             return this;
         }
 
-        withDescriptionLessThanOrEqualTo(val: string): this {
+        withDescriptionLessThanOrEqualTo(val: any): this {
             this.filters.push({ "description": { "$lte": val } });
             return this;
         }
 
-        withDescriptionBetween(lower: string, upper: string): this {
+        withDescriptionBetween(lower: any, upper: any): this {
             this.filters.push({ "description": { "$between": [lower, upper] } });
             return this;
         }
@@ -614,47 +604,47 @@ export class CustomerOrderRequest {
             return this;
         }
 
-        withVersionIs(val: unknown): this {
+        withVersionIs(val: any): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: unknown): this {
+        withVersionIsNot(val: any): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: unknown[]): this {
+        withVersionIn(...vals: any[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: unknown[]): this {
+        withVersionNotIn(...vals: any[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: unknown): this {
+        withVersionGreaterThan(val: any): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: unknown): this {
+        withVersionGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: unknown): this {
+        withVersionLessThan(val: any): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: unknown): this {
+        withVersionLessThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: unknown, upper: unknown): this {
+        withVersionBetween(lower: any, upper: any): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -734,7 +724,7 @@ export class CustomerOrderRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy("id"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByPlatform(): this {
@@ -743,7 +733,7 @@ export class CustomerOrderRequest {
     }
 
     groupByPlatformAs(retName: string): this {
-        this.query.groupBy("platform", retName);
+        this.query.groupBy("platform"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByOrderNumber(): this {
@@ -752,7 +742,7 @@ export class CustomerOrderRequest {
     }
 
     groupByOrderNumberAs(retName: string): this {
-        this.query.groupBy("orderNumber", retName);
+        this.query.groupBy("orderNumber"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByDescription(): this {
@@ -761,7 +751,7 @@ export class CustomerOrderRequest {
     }
 
     groupByDescriptionAs(retName: string): this {
-        this.query.groupBy("description", retName);
+        this.query.groupBy("description"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByVersion(): this {
@@ -770,14 +760,14 @@ export class CustomerOrderRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy("version"); // In TS we don't alias group by yet natively
         return this;
     }
 
     // --- Facets ---
     facetByPlatformAs(
         facetName: string,
-        request: { readonly entityName: "Platform"; toQuery(): SelectQuery },
+        request: { toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "platform", request, includeAllFacets,
@@ -788,6 +778,7 @@ export class CustomerOrderRequest {
 
     private async executeForListInternal(context: UserContext): Promise<SmartList<CustomerOrder>> {
         this.ensureIntent();
+        if (this.query.groupByItems.length > 0) throw new Error("Grouped projections require executeForRows");
         if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
         if (this.filters.length > 0) {
             this.query.filter({ "$and": this.filters });
@@ -840,10 +831,12 @@ export class CustomerOrderRequest {
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
             : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
-        const data = new SmartList(rows.map((row: unknown) =>
+        const aggregateOnly = pageQuery.aggregateItems.length > 0;
+        const data = new SmartList<CustomerOrder>(aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof CustomerOrder
                 ? row
                 : CustomerOrder.fromRecord(row as Record<string, unknown>, new EntityRoot())));
+        if (aggregateOnly && rows[0]) Object.assign(data.aggregations, rows[0]);
         data.totalCount = totalCount;
         if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
         if (this.query.facets.length > 0) {
@@ -858,6 +851,9 @@ export class CustomerOrderRequest {
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
         const preparedQuery = context.prepareQuery(this.query);
+        if (preparedQuery.aggregateItems.length > 0 || preparedQuery.groupByItems.length > 0) {
+            throw new Error("Entity streams require entity rows; use a record or aggregation query");
+        }
         // Prepare Context and capture the runtime request before returning a lazy iterator.
         const chunks = service.executeForStream(preparedQuery, chunkSize);
         return (async function* () {
@@ -893,10 +889,9 @@ export class ExecutableCustomerOrderRequest {
         return this;
     }
 
-    async newEntity(context: UserContext): Promise<CustomerOrder> {
+    newEntity(context: UserContext): CustomerOrder {
         this.ensureIntent();
-        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        return CustomerOrder.teaqlCreate(context);
+        return new CustomerOrder();
     }
 
     executeForList(context: UserContext): Promise<SmartList<CustomerOrder>> {

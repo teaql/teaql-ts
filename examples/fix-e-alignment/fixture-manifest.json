@@ -1,67 +1,65 @@
 {
-  "schema": "teaql.generated-example-fixture/v1",
-  "language": "typescript",
-  "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7",
-  "generatedManifestSha256": "104e28e215a041d06fd86976833a3e3ebe818eee0e326df08e16b01389911709",
-  "producerReceiptSha256": "59a02bea2a82739251933d54aa0d5fb287ddd286ba9ad49d6ab9f24d9d851e83",
-  "producerReceiptSchema": "teaql.generator-qualified-union-export/v1",
-  "producerSource": {
-    "commit": "e6cd611ae1d5413c24c717c3650c9f5a3c301b08",
-    "sourceContentsSha256": "2adbc3e7d627fe0a355dcc4459a244749c8bd51022576eb307efcbab49e03937"
-  },
-  "evaluatedScope": "typescript-node-lib-core",
+  "evaluatedScope": "typescript-lib-core",
   "evaluationErrors": 0,
   "evaluationWarnings": 4,
   "files": {
-    "src/generated/Q.ts": "05ce50d75c5cfb3603168bc18d8d915de16b76781d706447b7f766b20a73ed87",
-    "src/generated/requests/TenantRequest.ts": "ef0a19b22463fa587329c6dbac02ab0a36c1c0a028df8a55ae18ba9f3b5682d3",
-    "src/generated/requests/PurchaseOrderRequest.ts": "ff9abb76e676c2896aba610b7aec8d5aa59ee70bbfb4927a87f11e7de3ddf9b5",
-    "src/generated/requests/OrderItemRequest.ts": "d34f38b4b08026fd7037d7c6e4dd9aea3d2f9201fa5c775bc90ff849c765c17f",
-    "teaql-i18n.json": "c8229ce36ed92393409dd95a5e6a6bd72c9818c95520d5d2e3656ac6f7c0f014",
-    "src/generated/E.ts": "717cc96e91be5ed57279712fe82c4e5831d3bda037258c8597e268c50baed54b",
     "package.json": "9d6bff3b787abb3c141211704048ab53cc06d366aab436790120074b7ebcb1c9",
-    "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
-    "src/teaql-ts.ts": "3ddf92defac1865617a737415bbadb86ffba6f071822463440413f7c12d1b814",
+    "src/generated-bootstrap.ts": "f16c9576076922c99fab0b88ab36c7c21b1560dce451d99d44b281bbedc5c237",
     "src/generated-search-models.ts": "f7be71e619617cb1ff0011791d82f0bcd6ef9e3f94ce6f8159f283d3d160aef6",
+    "src/generated/E.ts": "717cc96e91be5ed57279712fe82c4e5831d3bda037258c8597e268c50baed54b",
+    "src/generated/Q.ts": "05ce50d75c5cfb3603168bc18d8d915de16b76781d706447b7f766b20a73ed87",
+    "src/generated/models/OrderItem.ts": "02941e9590c31d1cdb2b5b93e3848459e3ca0a4c62db455c64681c84f57b2308",
+    "src/generated/models/PurchaseOrder.ts": "6cea7dd457c4d33b2c9143d3ac38bebe7e761296b7b242961b1e1a6fb829eba9",
+    "src/generated/models/Tenant.ts": "19685eae12152dfa1e669a42759c51635a3b05652b309b1ca5a5ba18a86fe34a",
+    "src/generated/requests/OrderItemRequest.ts": "09e900b7d816229ac3e5fc12f7a9b7ac3c9d64e8bc7b988f4bff5c783e69b6d1",
+    "src/generated/requests/PurchaseOrderRequest.ts": "6ba420311b3869d5dee2a748e64358db127d4219214ad7a50bc4db97b8be27fe",
+    "src/generated/requests/TenantRequest.ts": "e7be7294d8336031b13ded8d41b1f3ef99165d2170d84c2f112af3007832e112",
+    "src/runtime-module.ts": "df24ed24fc2613af34a709ced324f29ff7cf4a84718169cc456b822a71756c57",
     "src/teaql-node-sql.ts": "dabe21ab06bc85ee8ae2ca76440ef7fe7f8c3212fa2cd82ebdb838d549a276a3",
-    "src/runtime-module.ts": "d665f68c46986a5f62fcf21cf4153b99ac98e4cfe5ef2e755df0902306923e51",
-    "src/generated-bootstrap.ts": "71cc3c025cf32f6e05626cb661a3fedaeccc7bf3be189a9e5c6d3facb5bc6056",
     "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
-    "src/generated/models/Tenant.ts": "46774bc45834a3c033c1e7da26abec9af272a768f1831728313bef4f57f8fcfd",
-    "src/generated/models/PurchaseOrder.ts": "07159c49037a18eb9c8cedb1e0413dc6e2dc89e1ea27d08478e30d2cf29311b2",
-    "src/generated/models/OrderItem.ts": "f2234d0ffe17b0f2bd9a481326125d77150921f0ac312fe893a991e0613d0405"
+    "src/teaql-schemas.ts": "25c451ec8d4fdc0a7d825868ddf4b9f6d501785ce413c857b77589fcabf230ea",
+    "src/teaql-ts.ts": "1f0af27f2d14f6bab1963cae88e3776b2fde5e01aa22befd463a50d7a6fb4bab",
+    "teaql-i18n.json": "c8229ce36ed92393409dd95a5e6a6bd72c9818c95520d5d2e3656ac6f7c0f014",
+    "teaql/checker-model.json": "92144f0d6092e143784685a82a9dd67c1672665bbe50fa6ca57b9ad441325b45",
+    "teaql/model-provenance.json": "79aa8ed9ea90394fb39f6a20a880522c85bbe02559877679c8637653bff3547a",
+    "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
   },
-  "previousFixtureManifestSha256": "a1c13ddbc77b112f5f22c96b34220ffb26f8d30d0e85b208392f94bb264659b3",
-  "regeneration": {
-    "repository": "teaql/teaql-conformance",
-    "receipt": "evidence/2026-10-25-core-p0-p1/generator-qualified-union-export-v2/report.json",
-    "qualification": "Actual evaluated export from the unified generator; all fixture bytes match the retained generated manifest.",
-    "changedFiles": [
-      "src/teaql-ts.ts",
-      "src/generated/requests/TenantRequest.ts",
-      "src/generated/requests/PurchaseOrderRequest.ts",
-      "src/generated/requests/OrderItemRequest.ts"
-    ]
+  "generatedManifestSha256": "0ea5698296a846611a3a6cadd18b15de8013d27547d5db9a2d4a932f92ef04c5",
+  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-catalog/typescript/fix-e-alignment/model/receipt.json",
+  "generatorCommit": "97830096360553381a3221ad5bdbe9837c68a9b4",
+  "generatorJarSHA256": "a22cfb9d9442958404cfb0d8e085af2c223c618018bbeb5e42a78765c23c4dd6",
+  "generatorRelease": "v4.2.0",
+  "language": "typescript",
+  "modelSha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7",
+  "previousFixtureManifestSha256": "8f74f0620faa417f09e66c0fe07c700eef881f102190cd74bad2070f9e713e01",
+  "previousOrigin": {
+    "commit": "5d948164d9b507f40c658a56718f061946f21c08",
+    "path": "examples/fix-e-alignment/fixture-manifest.json"
   },
   "previousRegeneration": {
-    "repository": "teaql/teaql-conformance",
-    "qualifiedReceipt": "evidence/2026-10-25-core-p0-p1/generator-typescript-graph-fix-idempotence-ordered/report.json",
-    "rawDonor": {
-      "label": "generator-typescript-graph-fix-idempotence",
-      "reportSha256": "2a629d568ad37a9a5925df4bf94fc7c7bbcd158deee99cd2c9ceefbc29b7b2c2",
-      "nativeGenerationPassed": true,
-      "originalCollectorAccepted": false
-    },
-    "originalCollectorAccepted": false,
-    "qualification": "Five native generator tests passed; ordered-file-set qualifier rejects the original collector result and independently checks every generated hash.",
     "changedFiles": [
       "src/generated/models/OrderItem.ts",
       "src/generated/models/PurchaseOrder.ts",
       "src/generated/models/Tenant.ts",
       "src/teaql-ts.ts"
-    ]
+    ],
+    "originalCollectorAccepted": false,
+    "qualification": "Five native generator tests passed; ordered-file-set qualifier rejects the original collector result and independently checks every generated hash.",
+    "qualifiedReceipt": "evidence/2026-10-25-core-p0-p1/generator-typescript-graph-fix-idempotence-ordered/report.json",
+    "rawDonor": {
+      "label": "generator-typescript-graph-fix-idempotence",
+      "nativeGenerationPassed": true,
+      "originalCollectorAccepted": false,
+      "reportSha256": "2a629d568ad37a9a5925df4bf94fc7c7bbcd158deee99cd2c9ceefbc29b7b2c2"
+    },
+    "repository": "teaql/teaql-conformance"
   },
-  "generatorCommit": "e6cd611ae1d5413c24c717c3650c9f5a3c301b08",
-  "generatorSourceContentsSha256": "2adbc3e7d627fe0a355dcc4459a244749c8bd51022576eb307efcbab49e03937",
-  "producerReportSha256": "a09fb7991972743b7f603f5771e321cef772583af30e3763979c190a657c8e6d"
+  "producerReceiptSchema": "teaql.generator-qualified-union-export/v1",
+  "producerReceiptSha256": "19bd500fd537d23eba10c2b50fc050c3266f8be03799de31763d9a66c566a3d9",
+  "producerSource": {
+    "commit": "97830096360553381a3221ad5bdbe9837c68a9b4",
+    "jarSHA256": "a22cfb9d9442958404cfb0d8e085af2c223c618018bbeb5e42a78765c23c4dd6",
+    "release": "v4.2.0"
+  },
+  "schema": "teaql.generated-example-fixture/v1"
 }

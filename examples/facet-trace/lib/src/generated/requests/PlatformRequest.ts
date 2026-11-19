@@ -25,10 +25,6 @@ export class PlatformRequest {
         else this.selectSelfFields();
     }
 
-    get entityName(): "Platform" {
-        return "Platform";
-    }
-
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -154,13 +150,13 @@ export class PlatformRequest {
 
 
 
-    selectSchoolTypeListWith(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    selectSchoolTypeListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "schoolTypeList", request.toQuery(), "id", "platform", true,
             { kind: "relation-select", method: "selectSchoolTypeListWith", relation: "schoolTypeList" });
         return this;
     }
-    selectSchoolListWith(request: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    selectSchoolListWith(request: { toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "schoolList", request.toQuery(), "id", "platform", true,
             { kind: "relation-select", method: "selectSchoolListWith", relation: "schoolList" });
@@ -169,19 +165,17 @@ export class PlatformRequest {
 
     haveSchoolTypes(): this {
         return this.withSchoolTypeListMatching({
-            entityName: "SchoolType",
             toQuery: () => new SelectQuery("SchoolType"),
         });
     }
 
     haveNoSchoolTypes(): this {
         return this.withoutSchoolTypeListMatching({
-            entityName: "SchoolType",
             toQuery: () => new SelectQuery("SchoolType"),
         });
     }
 
-    withSchoolTypeListMatching(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    withSchoolTypeListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -192,7 +186,7 @@ export class PlatformRequest {
         return this;
     }
 
-    withoutSchoolTypeListMatching(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    withoutSchoolTypeListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -204,19 +198,17 @@ export class PlatformRequest {
     }
     haveSchools(): this {
         return this.withSchoolListMatching({
-            entityName: "School",
             toQuery: () => new SelectQuery("School"),
         });
     }
 
     haveNoSchools(): this {
         return this.withoutSchoolListMatching({
-            entityName: "School",
             toQuery: () => new SelectQuery("School"),
         });
     }
 
-    withSchoolListMatching(request: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    withSchoolListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -227,7 +219,7 @@ export class PlatformRequest {
         return this;
     }
 
-    withoutSchoolListMatching(request: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    withoutSchoolListMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -244,13 +236,13 @@ export class PlatformRequest {
 
     countSchoolTypesAs(alias: string): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
-        this.countSchoolTypesWith(alias, { entityName: "SchoolType", toQuery: () => query });
+        this.countSchoolTypesWith(alias, { toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countSchoolTypesAs", relation: "schoolTypeList", alias };
         return this;
     }
 
-    countSchoolTypesWith(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    countSchoolTypesWith(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -262,10 +254,10 @@ export class PlatformRequest {
     minDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.minDisplayOrderOfSchoolTypesAs(
-            "minOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "minOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    minDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    minDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "displayOrder", alias);
@@ -276,10 +268,10 @@ export class PlatformRequest {
     maxDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.maxDisplayOrderOfSchoolTypesAs(
-            "maxOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "maxOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    maxDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    maxDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "displayOrder", alias);
@@ -290,10 +282,10 @@ export class PlatformRequest {
     sumDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.sumDisplayOrderOfSchoolTypesAs(
-            "sumOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "sumOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    sumDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    sumDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "displayOrder", alias);
@@ -304,10 +296,10 @@ export class PlatformRequest {
     avgDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.avgDisplayOrderOfSchoolTypesAs(
-            "avgOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "avgOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    avgDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    avgDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "displayOrder", alias);
@@ -318,10 +310,10 @@ export class PlatformRequest {
     standardDeviationDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.standardDeviationDisplayOrderOfSchoolTypesAs(
-            "standardDeviationOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "standardDeviationOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    standardDeviationDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    standardDeviationDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "displayOrder", alias);
@@ -332,10 +324,10 @@ export class PlatformRequest {
     squareRootOfPopulationStandardDeviationDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationDisplayOrderOfSchoolTypesAs(
-            "squareRootOfPopulationStandardDeviationOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "displayOrder", alias);
@@ -346,10 +338,10 @@ export class PlatformRequest {
     sampleVarianceDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceDisplayOrderOfSchoolTypesAs(
-            "sampleVarianceOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "sampleVarianceOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    sampleVarianceDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    sampleVarianceDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "displayOrder", alias);
@@ -360,10 +352,10 @@ export class PlatformRequest {
     samplePopulationVarianceDisplayOrderOfSchoolTypes(): this {
         const query = new SelectQuery("SchoolType").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceDisplayOrderOfSchoolTypesAs(
-            "samplePopulationVarianceOfDisplayOrderOfSchoolTypes", { entityName: "SchoolType", toQuery: () => query });
+            "samplePopulationVarianceOfDisplayOrderOfSchoolTypes", { toQuery: () => query });
     }
 
-    samplePopulationVarianceDisplayOrderOfSchoolTypesAs(alias: string, child: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    samplePopulationVarianceDisplayOrderOfSchoolTypesAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "displayOrder", alias);
@@ -377,13 +369,13 @@ export class PlatformRequest {
 
     countSchoolsAs(alias: string): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
-        this.countSchoolsWith(alias, { entityName: "School", toQuery: () => query });
+        this.countSchoolsWith(alias, { toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countSchoolsAs", relation: "schoolList", alias };
         return this;
     }
 
-    countSchoolsWith(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    countSchoolsWith(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -395,10 +387,10 @@ export class PlatformRequest {
     minStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.minStudentCapacityOfSchoolsAs(
-            "minOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "minOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    minStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    minStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "studentCapacity", alias);
@@ -409,10 +401,10 @@ export class PlatformRequest {
     maxStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.maxStudentCapacityOfSchoolsAs(
-            "maxOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "maxOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    maxStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    maxStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "studentCapacity", alias);
@@ -423,10 +415,10 @@ export class PlatformRequest {
     sumStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.sumStudentCapacityOfSchoolsAs(
-            "sumOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "sumOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    sumStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    sumStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "studentCapacity", alias);
@@ -437,10 +429,10 @@ export class PlatformRequest {
     avgStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.avgStudentCapacityOfSchoolsAs(
-            "avgOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "avgOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    avgStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    avgStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "studentCapacity", alias);
@@ -451,10 +443,10 @@ export class PlatformRequest {
     standardDeviationStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.standardDeviationStudentCapacityOfSchoolsAs(
-            "standardDeviationOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "standardDeviationOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    standardDeviationStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    standardDeviationStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "studentCapacity", alias);
@@ -465,10 +457,10 @@ export class PlatformRequest {
     squareRootOfPopulationStandardDeviationStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationStudentCapacityOfSchoolsAs(
-            "squareRootOfPopulationStandardDeviationOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "studentCapacity", alias);
@@ -479,10 +471,10 @@ export class PlatformRequest {
     sampleVarianceStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceStudentCapacityOfSchoolsAs(
-            "sampleVarianceOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "sampleVarianceOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    sampleVarianceStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    sampleVarianceStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "studentCapacity", alias);
@@ -493,10 +485,10 @@ export class PlatformRequest {
     samplePopulationVarianceStudentCapacityOfSchools(): this {
         const query = new SelectQuery("School").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceStudentCapacityOfSchoolsAs(
-            "samplePopulationVarianceOfStudentCapacityOfSchools", { entityName: "School", toQuery: () => query });
+            "samplePopulationVarianceOfStudentCapacityOfSchools", { toQuery: () => query });
     }
 
-    samplePopulationVarianceStudentCapacityOfSchoolsAs(alias: string, child: { readonly entityName: "School"; toQuery(): SelectQuery }): this {
+    samplePopulationVarianceStudentCapacityOfSchoolsAs(alias: string, child: { toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "studentCapacity", alias);
@@ -505,47 +497,47 @@ export class PlatformRequest {
         return this;
     }
 
-        withIdIs(val: string): this {
+        withIdIs(val: any): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: string): this {
+        withIdIsNot(val: any): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: string[]): this {
+        withIdIn(...vals: any[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: string[]): this {
+        withIdNotIn(...vals: any[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: string): this {
+        withIdGreaterThan(val: any): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: string): this {
+        withIdGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: string): this {
+        withIdLessThan(val: any): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: string): this {
+        withIdLessThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: string, upper: string): this {
+        withIdBetween(lower: any, upper: any): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -570,42 +562,42 @@ export class PlatformRequest {
             return this;
         }
 
-        withNameIsNot(val: string): this {
+        withNameIsNot(val: any): this {
             this.filters.push({ "name": { "$ne": val } });
             return this;
         }
 
-        withNameIn(...vals: string[]): this {
+        withNameIn(...vals: any[]): this {
             this.filters.push({ "name": { "$in": vals } });
             return this;
         }
 
-        withNameNotIn(...vals: string[]): this {
+        withNameNotIn(...vals: any[]): this {
             this.filters.push({ "name": { "$notIn": vals } });
             return this;
         }
 
-        withNameGreaterThan(val: string): this {
+        withNameGreaterThan(val: any): this {
             this.filters.push({ "name": { "$gt": val } });
             return this;
         }
 
-        withNameGreaterThanOrEqualTo(val: string): this {
+        withNameGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "name": { "$gte": val } });
             return this;
         }
 
-        withNameLessThan(val: string): this {
+        withNameLessThan(val: any): this {
             this.filters.push({ "name": { "$lt": val } });
             return this;
         }
 
-        withNameLessThanOrEqualTo(val: string): this {
+        withNameLessThanOrEqualTo(val: any): this {
             this.filters.push({ "name": { "$lte": val } });
             return this;
         }
 
-        withNameBetween(lower: string, upper: string): this {
+        withNameBetween(lower: any, upper: any): this {
             this.filters.push({ "name": { "$between": [lower, upper] } });
             return this;
         }
@@ -659,42 +651,42 @@ export class PlatformRequest {
             return this;
         }
 
-        withBaseUrlIsNot(val: string): this {
+        withBaseUrlIsNot(val: any): this {
             this.filters.push({ "baseUrl": { "$ne": val } });
             return this;
         }
 
-        withBaseUrlIn(...vals: string[]): this {
+        withBaseUrlIn(...vals: any[]): this {
             this.filters.push({ "baseUrl": { "$in": vals } });
             return this;
         }
 
-        withBaseUrlNotIn(...vals: string[]): this {
+        withBaseUrlNotIn(...vals: any[]): this {
             this.filters.push({ "baseUrl": { "$notIn": vals } });
             return this;
         }
 
-        withBaseUrlGreaterThan(val: string): this {
+        withBaseUrlGreaterThan(val: any): this {
             this.filters.push({ "baseUrl": { "$gt": val } });
             return this;
         }
 
-        withBaseUrlGreaterThanOrEqualTo(val: string): this {
+        withBaseUrlGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "baseUrl": { "$gte": val } });
             return this;
         }
 
-        withBaseUrlLessThan(val: string): this {
+        withBaseUrlLessThan(val: any): this {
             this.filters.push({ "baseUrl": { "$lt": val } });
             return this;
         }
 
-        withBaseUrlLessThanOrEqualTo(val: string): this {
+        withBaseUrlLessThanOrEqualTo(val: any): this {
             this.filters.push({ "baseUrl": { "$lte": val } });
             return this;
         }
 
-        withBaseUrlBetween(lower: string, upper: string): this {
+        withBaseUrlBetween(lower: any, upper: any): this {
             this.filters.push({ "baseUrl": { "$between": [lower, upper] } });
             return this;
         }
@@ -738,47 +730,47 @@ export class PlatformRequest {
             return this;
         }
 
-        withCreateTimeIs(val: unknown): this {
+        withCreateTimeIs(val: any): this {
             this.filters.push({ "createTime": { "$eq": val } });
             return this;
         }
 
-        withCreateTimeIsNot(val: unknown): this {
+        withCreateTimeIsNot(val: any): this {
             this.filters.push({ "createTime": { "$ne": val } });
             return this;
         }
 
-        withCreateTimeIn(...vals: unknown[]): this {
+        withCreateTimeIn(...vals: any[]): this {
             this.filters.push({ "createTime": { "$in": vals } });
             return this;
         }
 
-        withCreateTimeNotIn(...vals: unknown[]): this {
+        withCreateTimeNotIn(...vals: any[]): this {
             this.filters.push({ "createTime": { "$notIn": vals } });
             return this;
         }
 
-        withCreateTimeGreaterThan(val: unknown): this {
+        withCreateTimeGreaterThan(val: any): this {
             this.filters.push({ "createTime": { "$gt": val } });
             return this;
         }
 
-        withCreateTimeGreaterThanOrEqualTo(val: unknown): this {
+        withCreateTimeGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "createTime": { "$gte": val } });
             return this;
         }
 
-        withCreateTimeLessThan(val: unknown): this {
+        withCreateTimeLessThan(val: any): this {
             this.filters.push({ "createTime": { "$lt": val } });
             return this;
         }
 
-        withCreateTimeLessThanOrEqualTo(val: unknown): this {
+        withCreateTimeLessThanOrEqualTo(val: any): this {
             this.filters.push({ "createTime": { "$lte": val } });
             return this;
         }
 
-        withCreateTimeBetween(lower: unknown, upper: unknown): this {
+        withCreateTimeBetween(lower: any, upper: any): this {
             this.filters.push({ "createTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -793,47 +785,47 @@ export class PlatformRequest {
             return this;
         }
 
-        withUpdateTimeIs(val: unknown): this {
+        withUpdateTimeIs(val: any): this {
             this.filters.push({ "updateTime": { "$eq": val } });
             return this;
         }
 
-        withUpdateTimeIsNot(val: unknown): this {
+        withUpdateTimeIsNot(val: any): this {
             this.filters.push({ "updateTime": { "$ne": val } });
             return this;
         }
 
-        withUpdateTimeIn(...vals: unknown[]): this {
+        withUpdateTimeIn(...vals: any[]): this {
             this.filters.push({ "updateTime": { "$in": vals } });
             return this;
         }
 
-        withUpdateTimeNotIn(...vals: unknown[]): this {
+        withUpdateTimeNotIn(...vals: any[]): this {
             this.filters.push({ "updateTime": { "$notIn": vals } });
             return this;
         }
 
-        withUpdateTimeGreaterThan(val: unknown): this {
+        withUpdateTimeGreaterThan(val: any): this {
             this.filters.push({ "updateTime": { "$gt": val } });
             return this;
         }
 
-        withUpdateTimeGreaterThanOrEqualTo(val: unknown): this {
+        withUpdateTimeGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "updateTime": { "$gte": val } });
             return this;
         }
 
-        withUpdateTimeLessThan(val: unknown): this {
+        withUpdateTimeLessThan(val: any): this {
             this.filters.push({ "updateTime": { "$lt": val } });
             return this;
         }
 
-        withUpdateTimeLessThanOrEqualTo(val: unknown): this {
+        withUpdateTimeLessThanOrEqualTo(val: any): this {
             this.filters.push({ "updateTime": { "$lte": val } });
             return this;
         }
 
-        withUpdateTimeBetween(lower: unknown, upper: unknown): this {
+        withUpdateTimeBetween(lower: any, upper: any): this {
             this.filters.push({ "updateTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -848,47 +840,47 @@ export class PlatformRequest {
             return this;
         }
 
-        withVersionIs(val: unknown): this {
+        withVersionIs(val: any): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: unknown): this {
+        withVersionIsNot(val: any): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: unknown[]): this {
+        withVersionIn(...vals: any[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: unknown[]): this {
+        withVersionNotIn(...vals: any[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: unknown): this {
+        withVersionGreaterThan(val: any): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: unknown): this {
+        withVersionGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: unknown): this {
+        withVersionLessThan(val: any): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: unknown): this {
+        withVersionLessThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: unknown, upper: unknown): this {
+        withVersionBetween(lower: any, upper: any): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -987,7 +979,7 @@ export class PlatformRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy("id"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByName(): this {
@@ -996,7 +988,7 @@ export class PlatformRequest {
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name", retName);
+        this.query.groupBy("name"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByBaseUrl(): this {
@@ -1005,7 +997,7 @@ export class PlatformRequest {
     }
 
     groupByBaseUrlAs(retName: string): this {
-        this.query.groupBy("baseUrl", retName);
+        this.query.groupBy("baseUrl"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByCreateTime(): this {
@@ -1014,7 +1006,7 @@ export class PlatformRequest {
     }
 
     groupByCreateTimeAs(retName: string): this {
-        this.query.groupBy("createTime", retName);
+        this.query.groupBy("createTime"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByUpdateTime(): this {
@@ -1023,7 +1015,7 @@ export class PlatformRequest {
     }
 
     groupByUpdateTimeAs(retName: string): this {
-        this.query.groupBy("updateTime", retName);
+        this.query.groupBy("updateTime"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByVersion(): this {
@@ -1032,7 +1024,7 @@ export class PlatformRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy("version"); // In TS we don't alias group by yet natively
         return this;
     }
 
@@ -1040,6 +1032,7 @@ export class PlatformRequest {
 
     private async executeForListInternal(context: UserContext): Promise<SmartList<Platform>> {
         this.ensureIntent();
+        if (this.query.groupByItems.length > 0) throw new Error("Grouped projections require executeForRows");
         if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
         if (this.filters.length > 0) {
             this.query.filter({ "$and": this.filters });
@@ -1092,10 +1085,12 @@ export class PlatformRequest {
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
             : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
-        const data = new SmartList(rows.map((row: unknown) =>
+        const aggregateOnly = pageQuery.aggregateItems.length > 0;
+        const data = new SmartList<Platform>(aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof Platform
                 ? row
                 : Platform.fromRecord(row as Record<string, unknown>, new EntityRoot())));
+        if (aggregateOnly && rows[0]) Object.assign(data.aggregations, rows[0]);
         data.totalCount = totalCount;
         if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
         if (this.query.facets.length > 0) {
@@ -1110,6 +1105,9 @@ export class PlatformRequest {
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
         const preparedQuery = context.prepareQuery(this.query);
+        if (preparedQuery.aggregateItems.length > 0 || preparedQuery.groupByItems.length > 0) {
+            throw new Error("Entity streams require entity rows; use a record or aggregation query");
+        }
         // Prepare Context and capture the runtime request before returning a lazy iterator.
         const chunks = service.executeForStream(preparedQuery, chunkSize);
         return (async function* () {
@@ -1145,10 +1143,9 @@ export class ExecutablePlatformRequest {
         return this;
     }
 
-    async newEntity(context: UserContext): Promise<Platform> {
+    newEntity(context: UserContext): Platform {
         this.ensureIntent();
-        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        return Platform.teaqlCreate(context);
+        return new Platform();
     }
 
     executeForList(context: UserContext): Promise<SmartList<Platform>> {

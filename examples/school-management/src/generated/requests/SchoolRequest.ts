@@ -25,10 +25,6 @@ export class SchoolRequest {
         else this.selectSelfFields();
     }
 
-    get entityName(): "School" {
-        return "School";
-    }
-
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -169,14 +165,14 @@ export class SchoolRequest {
     }
 
 
-    selectPlatformWith(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
+    selectPlatformWith(request: { toQuery(): SelectQuery }): this {
         this.query.select(["platform"]);
         this.query.relationQuery(
             "platform", request.toQuery(), "platform", "id", false,
             { kind: "relation-select", method: "selectPlatformWith", relation: "platform" });
         return this;
     }
-    selectSchoolTypeWith(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    selectSchoolTypeWith(request: { toQuery(): SelectQuery }): this {
         this.query.select(["schoolType"]);
         this.query.relationQuery(
             "schoolType", request.toQuery(), "schoolType", "id", false,
@@ -184,7 +180,7 @@ export class SchoolRequest {
         return this;
     }
 
-    withPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
+    withPlatformMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "platform": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -193,7 +189,7 @@ export class SchoolRequest {
         return this;
     }
 
-    withoutPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
+    withoutPlatformMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "platform": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -201,7 +197,7 @@ export class SchoolRequest {
         });
         return this;
     }
-    withSchoolTypeMatching(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    withSchoolTypeMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "schoolType": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -210,7 +206,7 @@ export class SchoolRequest {
         return this;
     }
 
-    withoutSchoolTypeMatching(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
+    withoutSchoolTypeMatching(request: { toQuery(): SelectQuery }): this {
         this.filters.push({
             "schoolType": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -222,47 +218,47 @@ export class SchoolRequest {
 
 
 
-        withIdIs(val: string): this {
+        withIdIs(val: any): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: string): this {
+        withIdIsNot(val: any): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: string[]): this {
+        withIdIn(...vals: any[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: string[]): this {
+        withIdNotIn(...vals: any[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: string): this {
+        withIdGreaterThan(val: any): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: string): this {
+        withIdGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: string): this {
+        withIdLessThan(val: any): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: string): this {
+        withIdLessThanOrEqualTo(val: any): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: string, upper: string): this {
+        withIdBetween(lower: any, upper: any): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -335,42 +331,42 @@ export class SchoolRequest {
             return this;
         }
 
-        withNameIsNot(val: string): this {
+        withNameIsNot(val: any): this {
             this.filters.push({ "name": { "$ne": val } });
             return this;
         }
 
-        withNameIn(...vals: string[]): this {
+        withNameIn(...vals: any[]): this {
             this.filters.push({ "name": { "$in": vals } });
             return this;
         }
 
-        withNameNotIn(...vals: string[]): this {
+        withNameNotIn(...vals: any[]): this {
             this.filters.push({ "name": { "$notIn": vals } });
             return this;
         }
 
-        withNameGreaterThan(val: string): this {
+        withNameGreaterThan(val: any): this {
             this.filters.push({ "name": { "$gt": val } });
             return this;
         }
 
-        withNameGreaterThanOrEqualTo(val: string): this {
+        withNameGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "name": { "$gte": val } });
             return this;
         }
 
-        withNameLessThan(val: string): this {
+        withNameLessThan(val: any): this {
             this.filters.push({ "name": { "$lt": val } });
             return this;
         }
 
-        withNameLessThanOrEqualTo(val: string): this {
+        withNameLessThanOrEqualTo(val: any): this {
             this.filters.push({ "name": { "$lte": val } });
             return this;
         }
 
-        withNameBetween(lower: string, upper: string): this {
+        withNameBetween(lower: any, upper: any): this {
             this.filters.push({ "name": { "$between": [lower, upper] } });
             return this;
         }
@@ -424,42 +420,42 @@ export class SchoolRequest {
             return this;
         }
 
-        withAddressIsNot(val: string): this {
+        withAddressIsNot(val: any): this {
             this.filters.push({ "address": { "$ne": val } });
             return this;
         }
 
-        withAddressIn(...vals: string[]): this {
+        withAddressIn(...vals: any[]): this {
             this.filters.push({ "address": { "$in": vals } });
             return this;
         }
 
-        withAddressNotIn(...vals: string[]): this {
+        withAddressNotIn(...vals: any[]): this {
             this.filters.push({ "address": { "$notIn": vals } });
             return this;
         }
 
-        withAddressGreaterThan(val: string): this {
+        withAddressGreaterThan(val: any): this {
             this.filters.push({ "address": { "$gt": val } });
             return this;
         }
 
-        withAddressGreaterThanOrEqualTo(val: string): this {
+        withAddressGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "address": { "$gte": val } });
             return this;
         }
 
-        withAddressLessThan(val: string): this {
+        withAddressLessThan(val: any): this {
             this.filters.push({ "address": { "$lt": val } });
             return this;
         }
 
-        withAddressLessThanOrEqualTo(val: string): this {
+        withAddressLessThanOrEqualTo(val: any): this {
             this.filters.push({ "address": { "$lte": val } });
             return this;
         }
 
-        withAddressBetween(lower: string, upper: string): this {
+        withAddressBetween(lower: any, upper: any): this {
             this.filters.push({ "address": { "$between": [lower, upper] } });
             return this;
         }
@@ -503,47 +499,47 @@ export class SchoolRequest {
             return this;
         }
 
-        withEstablishedDateIs(val: string): this {
+        withEstablishedDateIs(val: any): this {
             this.filters.push({ "establishedDate": { "$eq": val } });
             return this;
         }
 
-        withEstablishedDateIsNot(val: string): this {
+        withEstablishedDateIsNot(val: any): this {
             this.filters.push({ "establishedDate": { "$ne": val } });
             return this;
         }
 
-        withEstablishedDateIn(...vals: string[]): this {
+        withEstablishedDateIn(...vals: any[]): this {
             this.filters.push({ "establishedDate": { "$in": vals } });
             return this;
         }
 
-        withEstablishedDateNotIn(...vals: string[]): this {
+        withEstablishedDateNotIn(...vals: any[]): this {
             this.filters.push({ "establishedDate": { "$notIn": vals } });
             return this;
         }
 
-        withEstablishedDateGreaterThan(val: string): this {
+        withEstablishedDateGreaterThan(val: any): this {
             this.filters.push({ "establishedDate": { "$gt": val } });
             return this;
         }
 
-        withEstablishedDateGreaterThanOrEqualTo(val: string): this {
+        withEstablishedDateGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "establishedDate": { "$gte": val } });
             return this;
         }
 
-        withEstablishedDateLessThan(val: string): this {
+        withEstablishedDateLessThan(val: any): this {
             this.filters.push({ "establishedDate": { "$lt": val } });
             return this;
         }
 
-        withEstablishedDateLessThanOrEqualTo(val: string): this {
+        withEstablishedDateLessThanOrEqualTo(val: any): this {
             this.filters.push({ "establishedDate": { "$lte": val } });
             return this;
         }
 
-        withEstablishedDateBetween(lower: string, upper: string): this {
+        withEstablishedDateBetween(lower: any, upper: any): this {
             this.filters.push({ "establishedDate": { "$between": [lower, upper] } });
             return this;
         }
@@ -558,47 +554,47 @@ export class SchoolRequest {
             return this;
         }
 
-        withStudentCapacityIs(val: number): this {
+        withStudentCapacityIs(val: any): this {
             this.filters.push({ "studentCapacity": { "$eq": val } });
             return this;
         }
 
-        withStudentCapacityIsNot(val: number): this {
+        withStudentCapacityIsNot(val: any): this {
             this.filters.push({ "studentCapacity": { "$ne": val } });
             return this;
         }
 
-        withStudentCapacityIn(...vals: number[]): this {
+        withStudentCapacityIn(...vals: any[]): this {
             this.filters.push({ "studentCapacity": { "$in": vals } });
             return this;
         }
 
-        withStudentCapacityNotIn(...vals: number[]): this {
+        withStudentCapacityNotIn(...vals: any[]): this {
             this.filters.push({ "studentCapacity": { "$notIn": vals } });
             return this;
         }
 
-        withStudentCapacityGreaterThan(val: number): this {
+        withStudentCapacityGreaterThan(val: any): this {
             this.filters.push({ "studentCapacity": { "$gt": val } });
             return this;
         }
 
-        withStudentCapacityGreaterThanOrEqualTo(val: number): this {
+        withStudentCapacityGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "studentCapacity": { "$gte": val } });
             return this;
         }
 
-        withStudentCapacityLessThan(val: number): this {
+        withStudentCapacityLessThan(val: any): this {
             this.filters.push({ "studentCapacity": { "$lt": val } });
             return this;
         }
 
-        withStudentCapacityLessThanOrEqualTo(val: number): this {
+        withStudentCapacityLessThanOrEqualTo(val: any): this {
             this.filters.push({ "studentCapacity": { "$lte": val } });
             return this;
         }
 
-        withStudentCapacityBetween(lower: number, upper: number): this {
+        withStudentCapacityBetween(lower: any, upper: any): this {
             this.filters.push({ "studentCapacity": { "$between": [lower, upper] } });
             return this;
         }
@@ -622,42 +618,42 @@ export class SchoolRequest {
             this.filters.push({ "active": { "$eq": false } });
             return this;
         }
-        withActiveIsNot(val: boolean): this {
+        withActiveIsNot(val: any): this {
             this.filters.push({ "active": { "$ne": val } });
             return this;
         }
 
-        withActiveIn(...vals: boolean[]): this {
+        withActiveIn(...vals: any[]): this {
             this.filters.push({ "active": { "$in": vals } });
             return this;
         }
 
-        withActiveNotIn(...vals: boolean[]): this {
+        withActiveNotIn(...vals: any[]): this {
             this.filters.push({ "active": { "$notIn": vals } });
             return this;
         }
 
-        withActiveGreaterThan(val: boolean): this {
+        withActiveGreaterThan(val: any): this {
             this.filters.push({ "active": { "$gt": val } });
             return this;
         }
 
-        withActiveGreaterThanOrEqualTo(val: boolean): this {
+        withActiveGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "active": { "$gte": val } });
             return this;
         }
 
-        withActiveLessThan(val: boolean): this {
+        withActiveLessThan(val: any): this {
             this.filters.push({ "active": { "$lt": val } });
             return this;
         }
 
-        withActiveLessThanOrEqualTo(val: boolean): this {
+        withActiveLessThanOrEqualTo(val: any): this {
             this.filters.push({ "active": { "$lte": val } });
             return this;
         }
 
-        withActiveBetween(lower: boolean, upper: boolean): this {
+        withActiveBetween(lower: any, upper: any): this {
             this.filters.push({ "active": { "$between": [lower, upper] } });
             return this;
         }
@@ -672,47 +668,47 @@ export class SchoolRequest {
             return this;
         }
 
-        withCreateTimeIs(val: unknown): this {
+        withCreateTimeIs(val: any): this {
             this.filters.push({ "createTime": { "$eq": val } });
             return this;
         }
 
-        withCreateTimeIsNot(val: unknown): this {
+        withCreateTimeIsNot(val: any): this {
             this.filters.push({ "createTime": { "$ne": val } });
             return this;
         }
 
-        withCreateTimeIn(...vals: unknown[]): this {
+        withCreateTimeIn(...vals: any[]): this {
             this.filters.push({ "createTime": { "$in": vals } });
             return this;
         }
 
-        withCreateTimeNotIn(...vals: unknown[]): this {
+        withCreateTimeNotIn(...vals: any[]): this {
             this.filters.push({ "createTime": { "$notIn": vals } });
             return this;
         }
 
-        withCreateTimeGreaterThan(val: unknown): this {
+        withCreateTimeGreaterThan(val: any): this {
             this.filters.push({ "createTime": { "$gt": val } });
             return this;
         }
 
-        withCreateTimeGreaterThanOrEqualTo(val: unknown): this {
+        withCreateTimeGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "createTime": { "$gte": val } });
             return this;
         }
 
-        withCreateTimeLessThan(val: unknown): this {
+        withCreateTimeLessThan(val: any): this {
             this.filters.push({ "createTime": { "$lt": val } });
             return this;
         }
 
-        withCreateTimeLessThanOrEqualTo(val: unknown): this {
+        withCreateTimeLessThanOrEqualTo(val: any): this {
             this.filters.push({ "createTime": { "$lte": val } });
             return this;
         }
 
-        withCreateTimeBetween(lower: unknown, upper: unknown): this {
+        withCreateTimeBetween(lower: any, upper: any): this {
             this.filters.push({ "createTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -727,47 +723,47 @@ export class SchoolRequest {
             return this;
         }
 
-        withUpdateTimeIs(val: unknown): this {
+        withUpdateTimeIs(val: any): this {
             this.filters.push({ "updateTime": { "$eq": val } });
             return this;
         }
 
-        withUpdateTimeIsNot(val: unknown): this {
+        withUpdateTimeIsNot(val: any): this {
             this.filters.push({ "updateTime": { "$ne": val } });
             return this;
         }
 
-        withUpdateTimeIn(...vals: unknown[]): this {
+        withUpdateTimeIn(...vals: any[]): this {
             this.filters.push({ "updateTime": { "$in": vals } });
             return this;
         }
 
-        withUpdateTimeNotIn(...vals: unknown[]): this {
+        withUpdateTimeNotIn(...vals: any[]): this {
             this.filters.push({ "updateTime": { "$notIn": vals } });
             return this;
         }
 
-        withUpdateTimeGreaterThan(val: unknown): this {
+        withUpdateTimeGreaterThan(val: any): this {
             this.filters.push({ "updateTime": { "$gt": val } });
             return this;
         }
 
-        withUpdateTimeGreaterThanOrEqualTo(val: unknown): this {
+        withUpdateTimeGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "updateTime": { "$gte": val } });
             return this;
         }
 
-        withUpdateTimeLessThan(val: unknown): this {
+        withUpdateTimeLessThan(val: any): this {
             this.filters.push({ "updateTime": { "$lt": val } });
             return this;
         }
 
-        withUpdateTimeLessThanOrEqualTo(val: unknown): this {
+        withUpdateTimeLessThanOrEqualTo(val: any): this {
             this.filters.push({ "updateTime": { "$lte": val } });
             return this;
         }
 
-        withUpdateTimeBetween(lower: unknown, upper: unknown): this {
+        withUpdateTimeBetween(lower: any, upper: any): this {
             this.filters.push({ "updateTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -782,47 +778,47 @@ export class SchoolRequest {
             return this;
         }
 
-        withVersionIs(val: unknown): this {
+        withVersionIs(val: any): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: unknown): this {
+        withVersionIsNot(val: any): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: unknown[]): this {
+        withVersionIn(...vals: any[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: unknown[]): this {
+        withVersionNotIn(...vals: any[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: unknown): this {
+        withVersionGreaterThan(val: any): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: unknown): this {
+        withVersionGreaterThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: unknown): this {
+        withVersionLessThan(val: any): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: unknown): this {
+        withVersionLessThanOrEqualTo(val: any): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: unknown, upper: unknown): this {
+        withVersionBetween(lower: any, upper: any): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -1017,7 +1013,7 @@ export class SchoolRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy("id"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByPlatform(): this {
@@ -1026,7 +1022,7 @@ export class SchoolRequest {
     }
 
     groupByPlatformAs(retName: string): this {
-        this.query.groupBy("platform", retName);
+        this.query.groupBy("platform"); // In TS we don't alias group by yet natively
         return this;
     }
     groupBySchoolType(): this {
@@ -1035,7 +1031,7 @@ export class SchoolRequest {
     }
 
     groupBySchoolTypeAs(retName: string): this {
-        this.query.groupBy("schoolType", retName);
+        this.query.groupBy("schoolType"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByName(): this {
@@ -1044,7 +1040,7 @@ export class SchoolRequest {
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name", retName);
+        this.query.groupBy("name"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByAddress(): this {
@@ -1053,7 +1049,7 @@ export class SchoolRequest {
     }
 
     groupByAddressAs(retName: string): this {
-        this.query.groupBy("address", retName);
+        this.query.groupBy("address"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByEstablishedDate(): this {
@@ -1062,7 +1058,7 @@ export class SchoolRequest {
     }
 
     groupByEstablishedDateAs(retName: string): this {
-        this.query.groupBy("establishedDate", retName);
+        this.query.groupBy("establishedDate"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByStudentCapacity(): this {
@@ -1071,7 +1067,7 @@ export class SchoolRequest {
     }
 
     groupByStudentCapacityAs(retName: string): this {
-        this.query.groupBy("studentCapacity", retName);
+        this.query.groupBy("studentCapacity"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByActive(): this {
@@ -1080,7 +1076,7 @@ export class SchoolRequest {
     }
 
     groupByActiveAs(retName: string): this {
-        this.query.groupBy("active", retName);
+        this.query.groupBy("active"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByCreateTime(): this {
@@ -1089,7 +1085,7 @@ export class SchoolRequest {
     }
 
     groupByCreateTimeAs(retName: string): this {
-        this.query.groupBy("createTime", retName);
+        this.query.groupBy("createTime"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByUpdateTime(): this {
@@ -1098,7 +1094,7 @@ export class SchoolRequest {
     }
 
     groupByUpdateTimeAs(retName: string): this {
-        this.query.groupBy("updateTime", retName);
+        this.query.groupBy("updateTime"); // In TS we don't alias group by yet natively
         return this;
     }
     groupByVersion(): this {
@@ -1107,14 +1103,14 @@ export class SchoolRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy("version"); // In TS we don't alias group by yet natively
         return this;
     }
 
     // --- Facets ---
     facetByPlatformAs(
         facetName: string,
-        request: { readonly entityName: "Platform"; toQuery(): SelectQuery },
+        request: { toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "platform", request, includeAllFacets,
@@ -1124,7 +1120,7 @@ export class SchoolRequest {
 
     facetBySchoolTypeAs(
         facetName: string,
-        request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery },
+        request: { toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "schoolType", request, includeAllFacets,
@@ -1135,6 +1131,7 @@ export class SchoolRequest {
 
     private async executeForListInternal(context: UserContext): Promise<SmartList<School>> {
         this.ensureIntent();
+        if (this.query.groupByItems.length > 0) throw new Error("Grouped projections require executeForRows");
         if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
         if (this.filters.length > 0) {
             this.query.filter({ "$and": this.filters });
@@ -1187,10 +1184,12 @@ export class SchoolRequest {
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
             : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
-        const data = new SmartList(rows.map((row: unknown) =>
+        const aggregateOnly = pageQuery.aggregateItems.length > 0;
+        const data = new SmartList<School>(aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof School
                 ? row
                 : School.fromRecord(row as Record<string, unknown>, new EntityRoot())));
+        if (aggregateOnly && rows[0]) Object.assign(data.aggregations, rows[0]);
         data.totalCount = totalCount;
         if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
         if (this.query.facets.length > 0) {
@@ -1205,6 +1204,9 @@ export class SchoolRequest {
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
         const preparedQuery = context.prepareQuery(this.query);
+        if (preparedQuery.aggregateItems.length > 0 || preparedQuery.groupByItems.length > 0) {
+            throw new Error("Entity streams require entity rows; use a record or aggregation query");
+        }
         // Prepare Context and capture the runtime request before returning a lazy iterator.
         const chunks = service.executeForStream(preparedQuery, chunkSize);
         return (async function* () {
@@ -1240,10 +1242,9 @@ export class ExecutableSchoolRequest {
         return this;
     }
 
-    async newEntity(context: UserContext): Promise<School> {
+    newEntity(context: UserContext): School {
         this.ensureIntent();
-        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
-        return School.teaqlCreate(context);
+        return new School();
     }
 
     executeForList(context: UserContext): Promise<SmartList<School>> {

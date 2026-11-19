@@ -1,6 +1,7 @@
 import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
-import { ObjectLocation, RuntimeModule } from "teaql-ts";
-import { ENTITY_SCHEMAS } from "./teaql-node-sql";
+import { ContextFix, ObjectLocation, RuntimeModule } from "teaql-ts";
+import { CheckerPresentationModel } from "teaql-ts";
+import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
 /** Generated canonical KSML to selected-wire mapping. Never infer this from TS members. */
@@ -50,7 +51,6 @@ export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "Tenant": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
       if (mutation.payload["name"] != null && !([...String(mutation.payload["name"])].length >= 1)) results.push({ ruleId: "min_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 1 });
       if (mutation.payload["name"] != null && [...String(mutation.payload["name"])].length > 80) results.push({ ruleId: "max_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 80 });
@@ -60,7 +60,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "PurchaseOrder": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if (mutation.action === "Create") {
         const root = context.requireActiveRoot("Tenant");
         const supplied = mutation.payload["tenant"]?.id ?? mutation.payload["tenant"];
@@ -79,18 +78,15 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 
 
 
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "PurchaseOrder", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "PurchaseOrder", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "PurchaseOrder", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -111,7 +107,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "OrderItem": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if (mutation.action === "Create") {
         const root = context.requireActiveRoot("Tenant");
         const supplied = mutation.payload["tenant"]?.id ?? mutation.payload["tenant"];
@@ -130,18 +125,15 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 
 
 
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "OrderItem", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "OrderItem", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "OrderItem", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -167,4 +159,4 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 }, { ...{
   defaultDomainRoot: { entity: "Tenant", id: "1", values: { "name": "Tenant Name" } },
   constants: []
-}, ensure: ensureGeneratedBootstrap });
+}, ensure: ensureGeneratedBootstrap }).withCheckerPresentation(CheckerPresentationModel.fromJson("{\"schema\":\"teaql.checker-model/v1\",\"revision\":\"sha256:cbc03c71084d5ff17fe312ca583e790e692d2ecb065fe3a55ec2398eb9189248\",\"entities\":{\"OrderItem\":{\"labels\":{\"en\":\"order item\"},\"fields\":[{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"product_name\",\"labels\":{\"en\":\"product name\"},\"aliases\":[\"ProductName\",\"productName\"]},{\"name\":\"purchase_order\",\"targetType\":\"PurchaseOrder\",\"labels\":{\"en\":\"purchase order\"},\"aliases\":[\"PurchaseOrder\",\"purchaseOrder\"]},{\"name\":\"tenant\",\"targetType\":\"Tenant\",\"labels\":{\"en\":\"tenant\"},\"aliases\":[\"Tenant\"]},{\"name\":\"unit_price\",\"labels\":{\"en\":\"unit price\"},\"aliases\":[\"UnitPrice\",\"unitPrice\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"PurchaseOrder\":{\"labels\":{\"en\":\"purchase order\"},\"fields\":[{\"name\":\"contact_phone\",\"labels\":{\"en\":\"contact phone\"},\"aliases\":[\"ContactPhone\",\"contactPhone\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"internal_note\",\"labels\":{\"en\":\"internal note\"},\"aliases\":[\"InternalNote\",\"internalNote\"]},{\"name\":\"order_item_list\",\"targetType\":\"OrderItem\",\"labels\":{\"en\":\"order item\"},\"aliases\":[\"OrderItemList\",\"orderItemList\"]},{\"name\":\"tenant\",\"targetType\":\"Tenant\",\"labels\":{\"en\":\"tenant\"},\"aliases\":[\"Tenant\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"Tenant\":{\"labels\":{\"en\":\"tenant\"},\"fields\":[{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"order_item_list\",\"targetType\":\"OrderItem\",\"labels\":{\"en\":\"order item\"},\"aliases\":[\"OrderItemList\",\"orderItemList\"]},{\"name\":\"purchase_order_list\",\"targetType\":\"PurchaseOrder\",\"labels\":{\"en\":\"purchase order\"},\"aliases\":[\"PurchaseOrderList\",\"purchaseOrderList\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]}}}"));

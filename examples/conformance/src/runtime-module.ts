@@ -1,5 +1,6 @@
 import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
-import { ObjectLocation, RuntimeModule } from "teaql-ts";
+import { ContextFix, ObjectLocation, RuntimeModule } from "teaql-ts";
+import { CheckerPresentationModel } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
@@ -34,7 +35,6 @@ export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "Platform": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
       if (mutation.payload["name"] != null && [...String(mutation.payload["name"])].length > 100) results.push({ ruleId: "max_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 100 });
 
@@ -43,7 +43,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "WorkItem": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["title"] === undefined) || mutation.payload["title"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("title") });
       if (mutation.payload["title"] != null && !([...String(mutation.payload["title"])].length >= 1)) results.push({ ruleId: "min_length", location: ObjectLocation.property("title"), inputValue: mutation.payload["title"], systemValue: 1 });
       if (mutation.payload["title"] != null && [...String(mutation.payload["title"])].length > 80) results.push({ ruleId: "max_length", location: ObjectLocation.property("title"), inputValue: mutation.payload["title"], systemValue: 80 });
@@ -58,4 +57,4 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
 }, { ...{
   defaultDomainRoot: { entity: "Platform", id: "1", values: { "name": "Runtime Example" } },
   constants: []
-}, ensure: ensureGeneratedBootstrap });
+}, ensure: ensureGeneratedBootstrap }).withCheckerPresentation(CheckerPresentationModel.fromJson("{\"schema\":\"teaql.checker-model/v1\",\"revision\":\"sha256:f026153870cc54db18171cbbe02db1db174f3dea513e9d21e0ffe8af787ebaed\",\"entities\":{\"Platform\":{\"labels\":{\"en\":\"Platform\"},\"fields\":[{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]},{\"name\":\"work_item_list\",\"targetType\":\"WorkItem\",\"labels\":{\"en\":\"Work Item\"},\"aliases\":[\"WorkItemList\",\"workItemList\"]}]},\"WorkItem\":{\"labels\":{\"en\":\"Work Item\"},\"fields\":[{\"name\":\"description\",\"labels\":{\"en\":\"description\"},\"aliases\":[\"Description\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"platform\",\"targetType\":\"Platform\",\"labels\":{\"en\":\"Platform\"},\"aliases\":[\"Platform\"]},{\"name\":\"title\",\"labels\":{\"en\":\"title\"},\"aliases\":[\"Title\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]}}}"));

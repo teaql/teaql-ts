@@ -1,5 +1,6 @@
 import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
-import { ObjectLocation, RuntimeModule } from "teaql-ts";
+import { ContextFix, ObjectLocation, RuntimeModule } from "teaql-ts";
+import { CheckerPresentationModel } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-schemas";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
@@ -55,19 +56,15 @@ export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "Platform": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "Platform", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "Platform", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "Platform", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -86,7 +83,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "SchoolType": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["platform"] === undefined) || mutation.payload["platform"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("platform") });
 
 
@@ -103,19 +99,15 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "School": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "School", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "School", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "School", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -148,4 +140,4 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
     { entity: "SchoolType", id: "1001", values: { "platform": "1", "name": "Primary", "code": "PRIMARY", "displayOrder": decimal("1") } },
     { entity: "SchoolType", id: "1002", values: { "platform": "1", "name": "Secondary", "code": "SECONDARY", "displayOrder": decimal("2") } }
   ]
-}, ensure: ensureGeneratedBootstrap });
+}, ensure: ensureGeneratedBootstrap }).withCheckerPresentation(CheckerPresentationModel.fromJson("{\"schema\":\"teaql.checker-model/v1\",\"revision\":\"sha256:71ba9da7267282a87034f786438f6f60442609b86ca42c3ef288e51c43107ce1\",\"entities\":{\"Platform\":{\"labels\":{\"en\":\"Platform\"},\"fields\":[{\"name\":\"base_url\",\"labels\":{\"en\":\"base url\"},\"aliases\":[\"BaseUrl\",\"baseUrl\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"school_list\",\"targetType\":\"School\",\"labels\":{\"en\":\"School\"},\"aliases\":[\"SchoolList\",\"schoolList\"]},{\"name\":\"school_type_list\",\"targetType\":\"SchoolType\",\"labels\":{\"en\":\"School Type\"},\"aliases\":[\"SchoolTypeList\",\"schoolTypeList\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"School\":{\"labels\":{\"en\":\"School\"},\"fields\":[{\"name\":\"active\",\"labels\":{\"en\":\"active\"},\"aliases\":[\"Active\"]},{\"name\":\"address\",\"labels\":{\"en\":\"address\"},\"aliases\":[\"Address\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"established_date\",\"labels\":{\"en\":\"established date\"},\"aliases\":[\"EstablishedDate\",\"establishedDate\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"platform\",\"targetType\":\"Platform\",\"labels\":{\"en\":\"Platform\"},\"aliases\":[\"Platform\"]},{\"name\":\"school_type\",\"targetType\":\"SchoolType\",\"labels\":{\"en\":\"School Type\"},\"aliases\":[\"SchoolType\",\"schoolType\"]},{\"name\":\"student_capacity\",\"labels\":{\"en\":\"student capacity\"},\"aliases\":[\"StudentCapacity\",\"studentCapacity\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"SchoolType\":{\"labels\":{\"en\":\"School Type\"},\"fields\":[{\"name\":\"code\",\"labels\":{\"en\":\"code\"},\"aliases\":[\"Code\"]},{\"name\":\"display_order\",\"labels\":{\"en\":\"display order\"},\"aliases\":[\"DisplayOrder\",\"displayOrder\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"platform\",\"targetType\":\"Platform\",\"labels\":{\"en\":\"Platform\"},\"aliases\":[\"Platform\"]},{\"name\":\"school_list\",\"targetType\":\"School\",\"labels\":{\"en\":\"School\"},\"aliases\":[\"SchoolList\",\"schoolList\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]}}}"));

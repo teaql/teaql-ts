@@ -4,7 +4,7 @@ export const ENTITY_SCHEMAS: Record<string, EntitySchema> = {
 "Platform": {
     table: "platform_data",
     auditMaskFields: [],
-    columns: {"id": { columnName: "id", modelName: "id", logPolicy: "plain", logicalType: "integer", decode: "string", nullable: false }, "name": { columnName: "name", modelName: "name", logPolicy: "plain", logicalType: "text", decode: "native", nullable: false }, "founded": { columnName: "founded", modelName: "founded", logPolicy: "plain", logicalType: "datetime", decode: "date", nullable: false }, "userEmail": { columnName: "user_email", modelName: "user_email", logPolicy: "plain", logicalType: "text", decode: "native", nullable: false }, "version": { columnName: "version", modelName: "version", logPolicy: "plain", logicalType: "integer", decode: "number", nullable: false }},
+    columns: {"id": { columnName: "id", modelName: "id", logPolicy: "plain", logicalType: "integer", decode: "string", nullable: false }, "name": { columnName: "name", modelName: "name", logPolicy: "plain", logicalType: "text", decode: "native", nullable: false }, "founded": { columnName: "founded", modelName: "founded", logPolicy: "plain", logicalType: "datetime", decode: "date", nullable: false, createFunction: "now" }, "userEmail": { columnName: "user_email", modelName: "user_email", logPolicy: "plain", logicalType: "text", decode: "native", nullable: false }, "version": { columnName: "version", modelName: "version", logPolicy: "plain", logicalType: "integer", decode: "number", nullable: false }},
     relations: {"taskStatusList": { targetEntity: "TaskStatus", localKey: "id", foreignKey: "platform", many: true }, "taskList": { targetEntity: "Task", localKey: "id", foreignKey: "platform", many: true }}
 },
 "TaskStatus": {

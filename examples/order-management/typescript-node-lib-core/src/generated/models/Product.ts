@@ -1,8 +1,6 @@
-import { CheckException, integer32Error, EntityCreation, EntityCreationError, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { CommercePlatform } from './CommercePlatform';
 import { OrderLine } from './OrderLine';
-
-const teaqlConstruction = Symbol("managed entity construction");
 
 export class Product {
     private static teaqlTemporaryId = 0;
@@ -17,18 +15,16 @@ export class Product {
         updateTime?: string;
         version?: EntityVersion;
 
-    private constructor(init?: Partial<Product>, token?: symbol, creation = false) {
-        if (token !== teaqlConstruction) throw new EntityCreationError();
-        Object.defineProperty(this, "_action", { value: creation ? "Create" : "Update", writable: true, enumerable: false });
+    constructor(init?: Partial<Product>) {
+        Object.defineProperty(this, "_action", { value: init && init.id ? "Update" : "Create", writable: true, enumerable: false });
         Object.defineProperty(this, "_comment", { value: undefined, writable: true, enumerable: false });
-        Object.defineProperty(this, "_fullyLoaded", { value: creation, writable: true, enumerable: false });
+        Object.defineProperty(this, "_fullyLoaded", { value: !init || !init.id, writable: true, enumerable: false });
         Object.defineProperty(this, "_loadedFields", { value: new Set(Object.keys(init || {})), writable: true, enumerable: false });
         Object.defineProperty(this, "_root", { value: new EntityRoot(), writable: true, enumerable: false });
         Object.defineProperty(this, "_ledgerId", { value: init?.id ?? --Product.teaqlTemporaryId, writable: true, enumerable: false });
-        Object.defineProperty(this, "_orderLineList", { value: creation ? new SmartList() : SmartList.empty(), writable: true, enumerable: false });
+        Object.defineProperty(this, "_orderLineList", { value: init?.id ? SmartList.empty() : new SmartList(), writable: true, enumerable: false });
         if (init) {
             const fields: Record<string, unknown> = { ...(init as Record<string, unknown>) };
-            for (const key of ["_action", "_comment", "_fullyLoaded", "_loadedFields", "_root", "_ledgerId"]) delete fields[key];
             delete fields["orderLineList"];
             Object.assign(this, fields);
             if ((init as any).commercePlatform && typeof (init as any).commercePlatform === "object") {
@@ -52,11 +48,16 @@ export class Product {
         if ((this as any).version !== undefined) (this as any).version = entityVersion((this as any).version);
         if ((this as any)._action === "Create") (this as any)._root.markAsNew(key);
         else if ((this as any).version !== undefined) (this as any)._root.setOriginalVersion(key, (this as any).version);
-        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version,
-            creation ? "creationBaseline" : "hydrated");
+        LoadedScalarSnapshot.captureFor(this, this.teaqlMutationPayload(), key, (this as any).version);
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "Product", id: (this as any)._ledgerId }; }
+    /** @internal Restore known equal scalars after the prepared graph completes. */
+    private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
+        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "sku", canonical: "sku" }, { member: "imageUrl", canonical: "image_url" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]) {
+            if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
+        }
+    }
     private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
         if ((this as any)._root !== root) {
             root.mergeEntityFrom((this as any)._root, this.teaqlEntityKey());
@@ -67,14 +68,38 @@ export class Product {
     }
 
     static fromRecord(record: Record<string, unknown>, root?: EntityRoot): Product {
-        const entity = EntityCreation.hydrated(new Product(record as Partial<Product>, teaqlConstruction));
+        const entity = new Product(record as Partial<Product>);
         return root ? entity.teaqlAttachRoot(root, true) : entity;
     }
 
     toJSON(): Record<string, unknown> {
-        const result = Object.fromEntries(Object.entries(this));
-        if (this.isLoaded("orderLineList")) result["orderLineList"] = (this as any)._orderLineList;
-        return result;
+        return this.teaqlJson(new Set());
+    }
+
+    private static teaqlJsonValue(value: any, active: Set<object>): any {
+        if (value === null || value === undefined) return value;
+        if (typeof value.teaqlJson === "function") return value.teaqlJson(active);
+        if (Array.isArray(value)) return Array.from(value, item => this.teaqlJsonValue(item, active));
+        if (typeof value.toJSON === "function") return value.toJSON();
+        if (typeof value === "object") return Object.fromEntries(Object.entries(value).map(
+            ([key, item]) => [key, this.teaqlJsonValue(item, active)]));
+        return typeof value === "bigint" ? value.toString() : value;
+    }
+
+    private teaqlJson(active: Set<object>): Record<string, unknown> {
+        if (active.has(this)) return { id: this.id, version: this.version };
+        active.add(this);
+        try {
+            // Only enumerable business/query data participates; runtime state is private.
+            const payload = Object.fromEntries(Object.entries(this).filter(([key]) => this.isLoaded(key))
+                .map(([key, value]) => [key, Product.teaqlJsonValue(value, active)]));
+            const childrenOrderLineList = this.orderLineList();
+            if (childrenOrderLineList.isLoaded || childrenOrderLineList.some(child =>
+                (child as any)._root.hasPending((child as any).teaqlEntityKey()))) {
+                payload["orderLineList"] = Product.teaqlJsonValue(childrenOrderLineList, active);
+            }
+            return payload;
+        } finally { active.delete(this); }
     }
 
     isLoaded(field: string): boolean {
@@ -93,19 +118,12 @@ export class Product {
     }
 
     static refer(id: string | number): Product {
-        return Product.fromRecord({ id: String(id) });
+        return new Product({ id: String(id) } as Partial<Product>);
     }
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
-    static teaqlBootstrapNew(context: UserContext, id: string | number): Product {
-        return EntityCreation.bootstrap(context, "Product", id,
-            reserved => new Product({id: reserved} as Partial<Product>, teaqlConstruction, true));
-    }
-
-    /** @internal Q owns the awaited public creation entry point. */
-    static teaqlCreate(context: UserContext): Promise<Product> {
-        return EntityCreation.create(context, "Product",
-            reserved => new Product({id: reserved} as Partial<Product>, teaqlConstruction, true));
+    static teaqlBootstrapNew(id: string | number): Product {
+        return new Product().updateId(String(id));
     }
 
     markForDeletion(): this {
@@ -121,8 +139,6 @@ export class Product {
 
     async save(context: UserContext): Promise<Product> {
         const intent = new MutationIntent((this as any)._comment);
-        this.teaqlValidateLoadedIdentities();
-        if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
             return this.teaqlSaveWithinGraph(context, service, graph);
@@ -138,17 +154,6 @@ export class Product {
             this.teaqlNormalizeGraph(graph);
             return this.teaqlAdmitGraph();
         });
-    }
-
-    /** @internal Pure provenance pass before resolving any Context resources. */
-    private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
-        if (seen.has(this)) return false;
-        seen.add(this);
-        const action = (this as any)._action;
-        let pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
-        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
-        for (const child of (this as any)._orderLineList) pending = child.teaqlValidateMutationOrigins(seen) || pending;
-        return pending;
     }
 
     /** @internal Read-only first pass: no ledger attachment, FK edits or no-op shortcut. */
@@ -205,11 +210,10 @@ export class Product {
         seen.add(this);
         const action = (this as any)._action;
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
-        EntityCreation.requireMutation(this, this.teaqlEntityKey(), this.id, action, (this as any)._root, pending);
         LoadedScalarSnapshot.forEntity(this)?.validateMutationVersion((this as any)._root, this.teaqlEntityKey());
         Product.teaqlMutationFields.validate((this as any)._root.change(this.teaqlEntityKey()), action === "Update");
         if (pending) {
-            nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
+            nextEntityVersion(action, (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? this.version);
             if (action === "Update") {
                 const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "sku", canonical: "sku" }, { member: "imageUrl", canonical: "image_url" }, { member: "commercePlatform", canonical: "commerce_platform" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "Product", location: ObjectLocation.property(notLoaded.canonical),
@@ -229,10 +233,8 @@ export class Product {
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
         if (!parent) new MutationIntent((this as any)._comment);
-        if (seen.has(this)) return;
-        seen.add(this);
         const action = (this as any)._action;
         graph.discardRestoredFields(Product.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
@@ -255,7 +257,7 @@ export class Product {
                 ? (this as any)._root.change(this.teaqlEntityKey())
                 : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment,
             ledgerKey: this.teaqlEntityKey(), ledgerRoot: (this as any)._root,
         }, parent, (this as any)._comment).withLoadedSnapshot(LoadedScalarSnapshot.forEntity(this) ?? new LoadedScalarSnapshot());
@@ -267,7 +269,7 @@ export class Product {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("product") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateProduct(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_line_list").index(index);
@@ -279,10 +281,8 @@ export class Product {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<Product> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<Product> {
         if (!parent) new MutationIntent((this as any)._comment);
-        if (seen.has(this)) return this;
-        seen.add(this);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -290,7 +290,7 @@ export class Product {
             action: (this as any)._action,
             payload: action === "Update" ? ledgerPayload : this.teaqlMutationPayload(),
             id: (this as any).id,
-            version: LoadedScalarSnapshot.forEntity(this)?.persistedVersion,
+            version: (this as any)._root.originalVersion(this.teaqlEntityKey()) ?? (this as any).version,
             comment: (this as any)._comment
             ,ledgerKey: this.teaqlEntityKey()
             ,ledgerRoot: (this as any)._root
@@ -305,7 +305,7 @@ export class Product {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("product") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateProduct(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("order_line_list").index(index);
@@ -359,7 +359,7 @@ export class Product {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("product") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateProduct(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_line_list").index(index);
