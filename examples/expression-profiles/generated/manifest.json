@@ -5,7 +5,7 @@
   "generatorRelease": "unreleased-source-19feda8a",
   "language": "typescript",
   "localSourceOnly": true,
-  "previousManifestSha256": "006203c3dfc21a7593cb960f6ebb74e740e5a4269426b368ab44814724ce2258",
+  "previousManifestSha256": "d7c5f370b27717f820652bce49c29ee389d701e4a740b9421a2031e7eff4d29c",
   "profiles": {
     "PascalCase": {
       "evaluation": {

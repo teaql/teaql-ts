@@ -28,9 +28,9 @@
   "generatorRelease": "unreleased-source-19feda8a",
   "language": "typescript",
   "modelSha256": "8d3017392ffd00abbc06be2555ced27ac6360e2d05fabc4299e27a5ef8f1c762",
-  "previousFixtureManifestSha256": "86186060242d488fbf19ebff9c7c626446793238bf04070935dbdabb6cb5351b",
+  "previousFixtureManifestSha256": "72f2c8e813fabc7f9b1c50ae993f7f9d125cdb32a7d9c502aa15f015adea67b5",
   "previousOrigin": {
-    "commit": "d2c83ca38e2cc3a5feb2590bd2897efc6ea0ad39",
+    "commit": "a4193b345f0fb6bbfa0bddc1ef4888cb7ce2e3cc",
     "path": "examples/scalar-type-probe/fixture-manifest.json"
   },
   "producerReceiptSha256": "078880b3183f6d295305d9a3544712b4b2cf3f05a33bbc5952ba66d216b8d28e",

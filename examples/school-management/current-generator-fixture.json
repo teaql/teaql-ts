@@ -28,9 +28,9 @@
   "generatorJarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
   "generatorRelease": "unreleased-source-19feda8a",
   "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4",
-  "previousFixtureManifestSha256": "7087c9d0f9a083d810771c48aca1014e8f8f5eb5cdfa86bc492fccb0885b5391",
+  "previousFixtureManifestSha256": "92d41ce21f3be108e1001846585261366b5d8536243717529eb87a0138d7b996",
   "previousOrigin": {
-    "commit": "d2c83ca38e2cc3a5feb2590bd2897efc6ea0ad39",
+    "commit": "a4193b345f0fb6bbfa0bddc1ef4888cb7ce2e3cc",
     "path": "examples/school-management/current-generator-fixture.json"
   },
   "producerReceiptSha256": "1017b515ce8dd2a6049b94e3b8d686f90791eb42e609a6c2ef265ef95647ba32",

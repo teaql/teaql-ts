@@ -26,9 +26,9 @@
   "generatorJarSHA256": "dc6e26b561f618e1f9574c5c3b4c03b7a21da9ca630cc73a78ae8ccd0d89bd7e",
   "generatorRelease": "unreleased-source-19feda8a",
   "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7",
-  "previousFixtureManifestSha256": "737c2c3220a7e8d5ac516713ea1ad65fc5be19c6c4123020517055a5836d1934",
+  "previousFixtureManifestSha256": "636b93760675e6951f62187b887514b74259183a7d4ceb9626c86a734788e761",
   "previousOrigin": {
-    "commit": "d2c83ca38e2cc3a5feb2590bd2897efc6ea0ad39",
+    "commit": "a4193b345f0fb6bbfa0bddc1ef4888cb7ce2e3cc",
     "path": "examples/conformance/current-generator-fixture.json"
   },
   "producerReceiptSha256": "6e98baa20cd55b184b40aaa852f5629c5b9b762d1364625ed3c5b89873b7104a",
