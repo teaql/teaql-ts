@@ -63,6 +63,10 @@ test('a failed file-backed child Delete keeps its intent and retries on the same
       .purpose('Verify successful retry hides the deleted child').executeForList(context);
     expect(visible).toHaveLength(0);
     mutations.mockClear(); persist.mockClear();
+    await parent.auditAs('Save the clean graph after its committed child deletion').save(context);
+    expect(root.hasPending(key)).toBe(false);
+    expect(mutations).not.toHaveBeenCalled(); expect(persist).not.toHaveBeenCalled();
+    child.markForDeletion();
     await expect(parent.auditAs('Reject deleting an already committed tombstone').save(context)).rejects.toMatchObject({
       violations: expect.arrayContaining([expect.objectContaining({ruleId: 'invalid_type'})]),
     });
