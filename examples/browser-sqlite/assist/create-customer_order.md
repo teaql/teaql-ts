@@ -24,7 +24,7 @@ export async function createCustomerOrder(
     input: CreateCustomerOrderInput,
     context: UserContext,
 ): Promise<CustomerOrder> {
-    const entity = Q.customerOrders()
+    const entity = await Q.customerOrders()
         .comment('what: initialize Customer Order')
         .purpose('why: create Customer Order')
         .newEntity(context);

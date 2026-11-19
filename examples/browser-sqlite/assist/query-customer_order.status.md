@@ -5,7 +5,6 @@
 KSML entity: `Customer Order`  
 KSML field: `Order Status`  
 Type: `Order Status`
-
 | Capability | Generated API |
 | --- | --- |
 | Select | `selectStatusWith(request)` |

@@ -1,4 +1,4 @@
-import { CheckException, integer32Error, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
+import { CheckException, integer32Error, internalId, Decimal, decimal, Long, long, LocalTime, localTime, EntityVersion, entityVersion, nextEntityVersion, EntityKey, EntityRoot, GraphMutationSession, LoadedScalarSnapshot, MutationFieldLayout, MutationIntent, MutationTraceScope, ObjectLocation, SmartList, TeaQLDataService, UserContext } from '../../teaql-ts';
 import { Customer } from './Customer';
 import { OrderStatus } from './OrderStatus';
 import { CustomerOrder } from './CustomerOrder';
@@ -208,7 +208,18 @@ export class CommercePlatform {
 
     /** @internal Generated Runtime Module fixed-ID construction capability. */
     static teaqlBootstrapNew(id: string | number): CommercePlatform {
-        return new CommercePlatform().updateId(String(id));
+        return CommercePlatform.teaqlNewWithId(internalId(id));
+    }
+
+    /** @internal Q calls this only after Context allocation has completed. */
+    static teaqlNewWithId(value: string): CommercePlatform {
+        const id = internalId(value);
+        const entity = new CommercePlatform();
+        const previous = entity.teaqlEntityKey();
+        entity.updateId(id);
+        (entity as any)._ledgerId = id;
+        (entity as any)._root.rekey(previous, entity.teaqlEntityKey());
+        return entity;
     }
 
     markForDeletion(): this {
@@ -447,8 +458,10 @@ export class CommercePlatform {
     }
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
-    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): void {
+    teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return;
+        seen.add(this);
         const action = (this as any)._action;
         graph.discardRestoredFields(CommercePlatform.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
@@ -483,7 +496,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("customer_list").index(index);
@@ -498,7 +511,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_status_list").index(index);
@@ -513,7 +526,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("customer_order_list").index(index);
@@ -528,7 +541,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("product_list").index(index);
@@ -543,7 +556,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_line_list").index(index);
@@ -558,7 +571,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { child.teaqlPreflightGraph(context, service, graph, scope); }
+            try { child.teaqlPreflightGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_search_preset_list").index(index);
@@ -570,8 +583,10 @@ export class CommercePlatform {
     }
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
-    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope): Promise<CommercePlatform> {
+    async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<CommercePlatform> {
         if (!parent) new MutationIntent((this as any)._comment);
+        if (seen.has(this)) return this;
+        seen.add(this);
         const action = (this as any)._action;
         const ledgerPayload = (this as any)._root.change(this.teaqlEntityKey());
         const mutation = {
@@ -594,7 +609,7 @@ export class CommercePlatform {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("customer_list").index(index);
@@ -609,7 +624,7 @@ export class CommercePlatform {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("order_status_list").index(index);
@@ -624,7 +639,7 @@ export class CommercePlatform {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("customer_order_list").index(index);
@@ -639,7 +654,7 @@ export class CommercePlatform {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("product_list").index(index);
@@ -654,7 +669,7 @@ export class CommercePlatform {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("order_line_list").index(index);
@@ -669,7 +684,7 @@ export class CommercePlatform {
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                     && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                     ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-                try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+                try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
                 catch (error) {
                     if (!(error instanceof CheckException)) throw error;
                     const prefix = ObjectLocation.property("order_search_preset_list").index(index);
@@ -723,7 +738,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("customer_list").index(index);
@@ -738,7 +753,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_status_list").index(index);
@@ -753,7 +768,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("customer_order_list").index(index);
@@ -768,7 +783,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("product_list").index(index);
@@ -783,7 +798,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_line_list").index(index);
@@ -798,7 +813,7 @@ export class CommercePlatform {
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
                 && (this.id === undefined || !child.isLoaded("commercePlatform") || (typeof currentParent === "object" && currentParent !== null
                 ? currentParent.id : currentParent) !== this.id)) child.updateCommercePlatform(this);
-            try { await child.teaqlSaveWithinGraph(context, service, graph, scope); }
+            try { await child.teaqlSaveWithinGraph(context, service, graph, scope, seen); }
             catch (error) {
                 if (!(error instanceof CheckException)) throw error;
                 const prefix = ObjectLocation.property("order_search_preset_list").index(index);

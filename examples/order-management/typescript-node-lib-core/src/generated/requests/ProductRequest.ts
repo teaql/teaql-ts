@@ -25,6 +25,10 @@ export class ProductRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "Product" {
+        return "Product";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -154,7 +158,7 @@ export class ProductRequest {
     }
 
 
-    selectCommercePlatformWith(request: { toQuery(): SelectQuery }): this {
+    selectCommercePlatformWith(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
         this.query.select(["commercePlatform"]);
         this.query.relationQuery(
             "commercePlatform", request.toQuery(), "commercePlatform", "id", false,
@@ -162,7 +166,7 @@ export class ProductRequest {
         return this;
     }
 
-    withCommercePlatformMatching(request: { toQuery(): SelectQuery }): this {
+    withCommercePlatformMatching(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "commercePlatform": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -171,7 +175,7 @@ export class ProductRequest {
         return this;
     }
 
-    withoutCommercePlatformMatching(request: { toQuery(): SelectQuery }): this {
+    withoutCommercePlatformMatching(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "commercePlatform": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -180,7 +184,7 @@ export class ProductRequest {
         return this;
     }
 
-    selectOrderLineListWith(request: { toQuery(): SelectQuery }): this {
+    selectOrderLineListWith(request: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "orderLineList", request.toQuery(), "id", "product", true,
             { kind: "relation-select", method: "selectOrderLineListWith", relation: "orderLineList" });
@@ -189,17 +193,19 @@ export class ProductRequest {
 
     haveOrderLines(): this {
         return this.withOrderLineListMatching({
+            entityName: "OrderLine",
             toQuery: () => new SelectQuery("OrderLine"),
         });
     }
 
     haveNoOrderLines(): this {
         return this.withoutOrderLineListMatching({
+            entityName: "OrderLine",
             toQuery: () => new SelectQuery("OrderLine"),
         });
     }
 
-    withOrderLineListMatching(request: { toQuery(): SelectQuery }): this {
+    withOrderLineListMatching(request: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -210,7 +216,7 @@ export class ProductRequest {
         return this;
     }
 
-    withoutOrderLineListMatching(request: { toQuery(): SelectQuery }): this {
+    withoutOrderLineListMatching(request: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -227,13 +233,13 @@ export class ProductRequest {
 
     countOrderLinesAs(alias: string): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
-        this.countOrderLinesWith(alias, { toQuery: () => query });
+        this.countOrderLinesWith(alias, { entityName: "OrderLine", toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countOrderLinesAs", relation: "orderLineList", alias };
         return this;
     }
 
-    countOrderLinesWith(alias: string, child: { toQuery(): SelectQuery }): this {
+    countOrderLinesWith(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -245,10 +251,10 @@ export class ProductRequest {
     minQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.minQuantityOfOrderLinesAs(
-            "minOfQuantityOfOrderLines", { toQuery: () => query });
+            "minOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    minQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "quantity", alias);
@@ -259,10 +265,10 @@ export class ProductRequest {
     maxQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.maxQuantityOfOrderLinesAs(
-            "maxOfQuantityOfOrderLines", { toQuery: () => query });
+            "maxOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    maxQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "quantity", alias);
@@ -273,10 +279,10 @@ export class ProductRequest {
     sumQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.sumQuantityOfOrderLinesAs(
-            "sumOfQuantityOfOrderLines", { toQuery: () => query });
+            "sumOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    sumQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "quantity", alias);
@@ -287,10 +293,10 @@ export class ProductRequest {
     avgQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.avgQuantityOfOrderLinesAs(
-            "avgOfQuantityOfOrderLines", { toQuery: () => query });
+            "avgOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    avgQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "quantity", alias);
@@ -301,10 +307,10 @@ export class ProductRequest {
     standardDeviationQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.standardDeviationQuantityOfOrderLinesAs(
-            "standardDeviationOfQuantityOfOrderLines", { toQuery: () => query });
+            "standardDeviationOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    standardDeviationQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "quantity", alias);
@@ -315,10 +321,10 @@ export class ProductRequest {
     squareRootOfPopulationStandardDeviationQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationQuantityOfOrderLinesAs(
-            "squareRootOfPopulationStandardDeviationOfQuantityOfOrderLines", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "quantity", alias);
@@ -329,10 +335,10 @@ export class ProductRequest {
     sampleVarianceQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceQuantityOfOrderLinesAs(
-            "sampleVarianceOfQuantityOfOrderLines", { toQuery: () => query });
+            "sampleVarianceOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    sampleVarianceQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "quantity", alias);
@@ -343,10 +349,10 @@ export class ProductRequest {
     samplePopulationVarianceQuantityOfOrderLines(): this {
         const query = new SelectQuery("OrderLine").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceQuantityOfOrderLinesAs(
-            "samplePopulationVarianceOfQuantityOfOrderLines", { toQuery: () => query });
+            "samplePopulationVarianceOfQuantityOfOrderLines", { entityName: "OrderLine", toQuery: () => query });
     }
 
-    samplePopulationVarianceQuantityOfOrderLinesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceQuantityOfOrderLinesAs(alias: string, child: { readonly entityName: "OrderLine"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "quantity", alias);
@@ -355,47 +361,47 @@ export class ProductRequest {
         return this;
     }
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -420,42 +426,42 @@ export class ProductRequest {
             return this;
         }
 
-        withNameIsNot(val: any): this {
+        withNameIsNot(val: string): this {
             this.filters.push({ "name": { "$ne": val } });
             return this;
         }
 
-        withNameIn(...vals: any[]): this {
+        withNameIn(...vals: string[]): this {
             this.filters.push({ "name": { "$in": vals } });
             return this;
         }
 
-        withNameNotIn(...vals: any[]): this {
+        withNameNotIn(...vals: string[]): this {
             this.filters.push({ "name": { "$notIn": vals } });
             return this;
         }
 
-        withNameGreaterThan(val: any): this {
+        withNameGreaterThan(val: string): this {
             this.filters.push({ "name": { "$gt": val } });
             return this;
         }
 
-        withNameGreaterThanOrEqualTo(val: any): this {
+        withNameGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$gte": val } });
             return this;
         }
 
-        withNameLessThan(val: any): this {
+        withNameLessThan(val: string): this {
             this.filters.push({ "name": { "$lt": val } });
             return this;
         }
 
-        withNameLessThanOrEqualTo(val: any): this {
+        withNameLessThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$lte": val } });
             return this;
         }
 
-        withNameBetween(lower: any, upper: any): this {
+        withNameBetween(lower: string, upper: string): this {
             this.filters.push({ "name": { "$between": [lower, upper] } });
             return this;
         }
@@ -509,42 +515,42 @@ export class ProductRequest {
             return this;
         }
 
-        withSkuIsNot(val: any): this {
+        withSkuIsNot(val: string): this {
             this.filters.push({ "sku": { "$ne": val } });
             return this;
         }
 
-        withSkuIn(...vals: any[]): this {
+        withSkuIn(...vals: string[]): this {
             this.filters.push({ "sku": { "$in": vals } });
             return this;
         }
 
-        withSkuNotIn(...vals: any[]): this {
+        withSkuNotIn(...vals: string[]): this {
             this.filters.push({ "sku": { "$notIn": vals } });
             return this;
         }
 
-        withSkuGreaterThan(val: any): this {
+        withSkuGreaterThan(val: string): this {
             this.filters.push({ "sku": { "$gt": val } });
             return this;
         }
 
-        withSkuGreaterThanOrEqualTo(val: any): this {
+        withSkuGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "sku": { "$gte": val } });
             return this;
         }
 
-        withSkuLessThan(val: any): this {
+        withSkuLessThan(val: string): this {
             this.filters.push({ "sku": { "$lt": val } });
             return this;
         }
 
-        withSkuLessThanOrEqualTo(val: any): this {
+        withSkuLessThanOrEqualTo(val: string): this {
             this.filters.push({ "sku": { "$lte": val } });
             return this;
         }
 
-        withSkuBetween(lower: any, upper: any): this {
+        withSkuBetween(lower: string, upper: string): this {
             this.filters.push({ "sku": { "$between": [lower, upper] } });
             return this;
         }
@@ -598,42 +604,42 @@ export class ProductRequest {
             return this;
         }
 
-        withImageUrlIsNot(val: any): this {
+        withImageUrlIsNot(val: string): this {
             this.filters.push({ "imageUrl": { "$ne": val } });
             return this;
         }
 
-        withImageUrlIn(...vals: any[]): this {
+        withImageUrlIn(...vals: string[]): this {
             this.filters.push({ "imageUrl": { "$in": vals } });
             return this;
         }
 
-        withImageUrlNotIn(...vals: any[]): this {
+        withImageUrlNotIn(...vals: string[]): this {
             this.filters.push({ "imageUrl": { "$notIn": vals } });
             return this;
         }
 
-        withImageUrlGreaterThan(val: any): this {
+        withImageUrlGreaterThan(val: string): this {
             this.filters.push({ "imageUrl": { "$gt": val } });
             return this;
         }
 
-        withImageUrlGreaterThanOrEqualTo(val: any): this {
+        withImageUrlGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "imageUrl": { "$gte": val } });
             return this;
         }
 
-        withImageUrlLessThan(val: any): this {
+        withImageUrlLessThan(val: string): this {
             this.filters.push({ "imageUrl": { "$lt": val } });
             return this;
         }
 
-        withImageUrlLessThanOrEqualTo(val: any): this {
+        withImageUrlLessThanOrEqualTo(val: string): this {
             this.filters.push({ "imageUrl": { "$lte": val } });
             return this;
         }
 
-        withImageUrlBetween(lower: any, upper: any): this {
+        withImageUrlBetween(lower: string, upper: string): this {
             this.filters.push({ "imageUrl": { "$between": [lower, upper] } });
             return this;
         }
@@ -697,47 +703,47 @@ export class ProductRequest {
             return this;
         }
 
-        withCreateTimeIs(val: any): this {
+        withCreateTimeIs(val: unknown): this {
             this.filters.push({ "createTime": { "$eq": val } });
             return this;
         }
 
-        withCreateTimeIsNot(val: any): this {
+        withCreateTimeIsNot(val: unknown): this {
             this.filters.push({ "createTime": { "$ne": val } });
             return this;
         }
 
-        withCreateTimeIn(...vals: any[]): this {
+        withCreateTimeIn(...vals: unknown[]): this {
             this.filters.push({ "createTime": { "$in": vals } });
             return this;
         }
 
-        withCreateTimeNotIn(...vals: any[]): this {
+        withCreateTimeNotIn(...vals: unknown[]): this {
             this.filters.push({ "createTime": { "$notIn": vals } });
             return this;
         }
 
-        withCreateTimeGreaterThan(val: any): this {
+        withCreateTimeGreaterThan(val: unknown): this {
             this.filters.push({ "createTime": { "$gt": val } });
             return this;
         }
 
-        withCreateTimeGreaterThanOrEqualTo(val: any): this {
+        withCreateTimeGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "createTime": { "$gte": val } });
             return this;
         }
 
-        withCreateTimeLessThan(val: any): this {
+        withCreateTimeLessThan(val: unknown): this {
             this.filters.push({ "createTime": { "$lt": val } });
             return this;
         }
 
-        withCreateTimeLessThanOrEqualTo(val: any): this {
+        withCreateTimeLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "createTime": { "$lte": val } });
             return this;
         }
 
-        withCreateTimeBetween(lower: any, upper: any): this {
+        withCreateTimeBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "createTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -752,47 +758,47 @@ export class ProductRequest {
             return this;
         }
 
-        withUpdateTimeIs(val: any): this {
+        withUpdateTimeIs(val: unknown): this {
             this.filters.push({ "updateTime": { "$eq": val } });
             return this;
         }
 
-        withUpdateTimeIsNot(val: any): this {
+        withUpdateTimeIsNot(val: unknown): this {
             this.filters.push({ "updateTime": { "$ne": val } });
             return this;
         }
 
-        withUpdateTimeIn(...vals: any[]): this {
+        withUpdateTimeIn(...vals: unknown[]): this {
             this.filters.push({ "updateTime": { "$in": vals } });
             return this;
         }
 
-        withUpdateTimeNotIn(...vals: any[]): this {
+        withUpdateTimeNotIn(...vals: unknown[]): this {
             this.filters.push({ "updateTime": { "$notIn": vals } });
             return this;
         }
 
-        withUpdateTimeGreaterThan(val: any): this {
+        withUpdateTimeGreaterThan(val: unknown): this {
             this.filters.push({ "updateTime": { "$gt": val } });
             return this;
         }
 
-        withUpdateTimeGreaterThanOrEqualTo(val: any): this {
+        withUpdateTimeGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "updateTime": { "$gte": val } });
             return this;
         }
 
-        withUpdateTimeLessThan(val: any): this {
+        withUpdateTimeLessThan(val: unknown): this {
             this.filters.push({ "updateTime": { "$lt": val } });
             return this;
         }
 
-        withUpdateTimeLessThanOrEqualTo(val: any): this {
+        withUpdateTimeLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "updateTime": { "$lte": val } });
             return this;
         }
 
-        withUpdateTimeBetween(lower: any, upper: any): this {
+        withUpdateTimeBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "updateTime": { "$between": [lower, upper] } });
             return this;
         }
@@ -807,47 +813,47 @@ export class ProductRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -957,7 +963,7 @@ export class ProductRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByName(): this {
@@ -966,7 +972,7 @@ export class ProductRequest {
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name"); // In TS we don't alias group by yet natively
+        this.query.groupBy("name", retName);
         return this;
     }
     groupBySku(): this {
@@ -975,7 +981,7 @@ export class ProductRequest {
     }
 
     groupBySkuAs(retName: string): this {
-        this.query.groupBy("sku"); // In TS we don't alias group by yet natively
+        this.query.groupBy("sku", retName);
         return this;
     }
     groupByImageUrl(): this {
@@ -984,7 +990,7 @@ export class ProductRequest {
     }
 
     groupByImageUrlAs(retName: string): this {
-        this.query.groupBy("imageUrl"); // In TS we don't alias group by yet natively
+        this.query.groupBy("imageUrl", retName);
         return this;
     }
     groupByCommercePlatform(): this {
@@ -993,7 +999,7 @@ export class ProductRequest {
     }
 
     groupByCommercePlatformAs(retName: string): this {
-        this.query.groupBy("commercePlatform"); // In TS we don't alias group by yet natively
+        this.query.groupBy("commercePlatform", retName);
         return this;
     }
     groupByCreateTime(): this {
@@ -1002,7 +1008,7 @@ export class ProductRequest {
     }
 
     groupByCreateTimeAs(retName: string): this {
-        this.query.groupBy("createTime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("createTime", retName);
         return this;
     }
     groupByUpdateTime(): this {
@@ -1011,7 +1017,7 @@ export class ProductRequest {
     }
 
     groupByUpdateTimeAs(retName: string): this {
-        this.query.groupBy("updateTime"); // In TS we don't alias group by yet natively
+        this.query.groupBy("updateTime", retName);
         return this;
     }
     groupByVersion(): this {
@@ -1020,14 +1026,14 @@ export class ProductRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByCommercePlatformAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "commercePlatform", request, includeAllFacets,
@@ -1149,9 +1155,11 @@ export class ExecutableProductRequest {
         return this;
     }
 
-    newEntity(context: UserContext): Product {
+    async newEntity(context: UserContext): Promise<Product> {
         this.ensureIntent();
-        return new Product();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("Product");
+        return Product.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Product>> {

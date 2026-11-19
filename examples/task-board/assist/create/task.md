@@ -22,7 +22,7 @@ export async function createTask(
     input: CreateTaskInput,
     context: UserContext,
 ): Promise<Task> {
-    const entity = Q.tasks()
+    const entity = await Q.tasks()
         .comment('what: initialize Task')
         .purpose('why: create Task')
         .newEntity(context);

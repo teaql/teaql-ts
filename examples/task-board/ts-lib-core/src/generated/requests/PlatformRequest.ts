@@ -25,6 +25,10 @@ export class PlatformRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "Platform" {
+        return "Platform";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -145,13 +149,13 @@ export class PlatformRequest {
 
 
 
-    selectTaskStatusListWith(request: { toQuery(): SelectQuery }): this {
+    selectTaskStatusListWith(request: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "taskStatusList", request.toQuery(), "id", "platform", true,
             { kind: "relation-select", method: "selectTaskStatusListWith", relation: "taskStatusList" });
         return this;
     }
-    selectTaskListWith(request: { toQuery(): SelectQuery }): this {
+    selectTaskListWith(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.query.relationQuery(
             "taskList", request.toQuery(), "id", "platform", true,
             { kind: "relation-select", method: "selectTaskListWith", relation: "taskList" });
@@ -160,17 +164,19 @@ export class PlatformRequest {
 
     haveTaskStatuses(): this {
         return this.withTaskStatusListMatching({
+            entityName: "TaskStatus",
             toQuery: () => new SelectQuery("TaskStatus"),
         });
     }
 
     haveNoTaskStatuses(): this {
         return this.withoutTaskStatusListMatching({
+            entityName: "TaskStatus",
             toQuery: () => new SelectQuery("TaskStatus"),
         });
     }
 
-    withTaskStatusListMatching(request: { toQuery(): SelectQuery }): this {
+    withTaskStatusListMatching(request: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -181,7 +187,7 @@ export class PlatformRequest {
         return this;
     }
 
-    withoutTaskStatusListMatching(request: { toQuery(): SelectQuery }): this {
+    withoutTaskStatusListMatching(request: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -193,17 +199,19 @@ export class PlatformRequest {
     }
     haveTasks(): this {
         return this.withTaskListMatching({
+            entityName: "Task",
             toQuery: () => new SelectQuery("Task"),
         });
     }
 
     haveNoTasks(): this {
         return this.withoutTaskListMatching({
+            entityName: "Task",
             toQuery: () => new SelectQuery("Task"),
         });
     }
 
-    withTaskListMatching(request: { toQuery(): SelectQuery }): this {
+    withTaskListMatching(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$inSubquery": {
@@ -214,7 +222,7 @@ export class PlatformRequest {
         return this;
     }
 
-    withoutTaskListMatching(request: { toQuery(): SelectQuery }): this {
+    withoutTaskListMatching(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "id": {
                 "$notInSubquery": {
@@ -231,13 +239,13 @@ export class PlatformRequest {
 
     countTaskStatusesAs(alias: string): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
-        this.countTaskStatusesWith(alias, { toQuery: () => query });
+        this.countTaskStatusesWith(alias, { entityName: "TaskStatus", toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countTaskStatusesAs", relation: "taskStatusList", alias };
         return this;
     }
 
-    countTaskStatusesWith(alias: string, child: { toQuery(): SelectQuery }): this {
+    countTaskStatusesWith(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -249,10 +257,10 @@ export class PlatformRequest {
     minDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.minDisplayOrderOfTaskStatusesAs(
-            "minOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "minOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    minDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "displayOrder", alias);
@@ -263,10 +271,10 @@ export class PlatformRequest {
     maxDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.maxDisplayOrderOfTaskStatusesAs(
-            "maxOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "maxOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    maxDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "displayOrder", alias);
@@ -277,10 +285,10 @@ export class PlatformRequest {
     sumDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.sumDisplayOrderOfTaskStatusesAs(
-            "sumOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "sumOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    sumDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "displayOrder", alias);
@@ -291,10 +299,10 @@ export class PlatformRequest {
     avgDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.avgDisplayOrderOfTaskStatusesAs(
-            "avgOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "avgOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    avgDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "displayOrder", alias);
@@ -305,10 +313,10 @@ export class PlatformRequest {
     standardDeviationDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.standardDeviationDisplayOrderOfTaskStatusesAs(
-            "standardDeviationOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "standardDeviationOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    standardDeviationDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "displayOrder", alias);
@@ -319,10 +327,10 @@ export class PlatformRequest {
     squareRootOfPopulationStandardDeviationDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationDisplayOrderOfTaskStatusesAs(
-            "squareRootOfPopulationStandardDeviationOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "displayOrder", alias);
@@ -333,10 +341,10 @@ export class PlatformRequest {
     sampleVarianceDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceDisplayOrderOfTaskStatusesAs(
-            "sampleVarianceOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "sampleVarianceOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    sampleVarianceDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "displayOrder", alias);
@@ -347,10 +355,10 @@ export class PlatformRequest {
     samplePopulationVarianceDisplayOrderOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceDisplayOrderOfTaskStatusesAs(
-            "samplePopulationVarianceOfDisplayOrderOfTaskStatuses", { toQuery: () => query });
+            "samplePopulationVarianceOfDisplayOrderOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    samplePopulationVarianceDisplayOrderOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceDisplayOrderOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "displayOrder", alias);
@@ -361,10 +369,10 @@ export class PlatformRequest {
     minProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.minProgressOfTaskStatusesAs(
-            "minOfProgressOfTaskStatuses", { toQuery: () => query });
+            "minOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    minProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    minProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("min", "progress", alias);
@@ -375,10 +383,10 @@ export class PlatformRequest {
     maxProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.maxProgressOfTaskStatusesAs(
-            "maxOfProgressOfTaskStatuses", { toQuery: () => query });
+            "maxOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    maxProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    maxProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("max", "progress", alias);
@@ -389,10 +397,10 @@ export class PlatformRequest {
     sumProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.sumProgressOfTaskStatusesAs(
-            "sumOfProgressOfTaskStatuses", { toQuery: () => query });
+            "sumOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    sumProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sumProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("sum", "progress", alias);
@@ -403,10 +411,10 @@ export class PlatformRequest {
     avgProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.avgProgressOfTaskStatusesAs(
-            "avgOfProgressOfTaskStatuses", { toQuery: () => query });
+            "avgOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    avgProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    avgProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("avg", "progress", alias);
@@ -417,10 +425,10 @@ export class PlatformRequest {
     standardDeviationProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.standardDeviationProgressOfTaskStatusesAs(
-            "standardDeviationOfProgressOfTaskStatuses", { toQuery: () => query });
+            "standardDeviationOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    standardDeviationProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    standardDeviationProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev", "progress", alias);
@@ -431,10 +439,10 @@ export class PlatformRequest {
     squareRootOfPopulationStandardDeviationProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.squareRootOfPopulationStandardDeviationProgressOfTaskStatusesAs(
-            "squareRootOfPopulationStandardDeviationOfProgressOfTaskStatuses", { toQuery: () => query });
+            "squareRootOfPopulationStandardDeviationOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    squareRootOfPopulationStandardDeviationProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    squareRootOfPopulationStandardDeviationProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("stddev_pop", "progress", alias);
@@ -445,10 +453,10 @@ export class PlatformRequest {
     sampleVarianceProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.sampleVarianceProgressOfTaskStatusesAs(
-            "sampleVarianceOfProgressOfTaskStatuses", { toQuery: () => query });
+            "sampleVarianceOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    sampleVarianceProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    sampleVarianceProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_samp", "progress", alias);
@@ -459,10 +467,10 @@ export class PlatformRequest {
     samplePopulationVarianceProgressOfTaskStatuses(): this {
         const query = new SelectQuery("TaskStatus").filter({ version: { "$gte": 1 } });
         return this.samplePopulationVarianceProgressOfTaskStatusesAs(
-            "samplePopulationVarianceOfProgressOfTaskStatuses", { toQuery: () => query });
+            "samplePopulationVarianceOfProgressOfTaskStatuses", { entityName: "TaskStatus", toQuery: () => query });
     }
 
-    samplePopulationVarianceProgressOfTaskStatusesAs(alias: string, child: { toQuery(): SelectQuery }): this {
+    samplePopulationVarianceProgressOfTaskStatusesAs(alias: string, child: { readonly entityName: "TaskStatus"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("var_pop", "progress", alias);
@@ -476,13 +484,13 @@ export class PlatformRequest {
 
     countTasksAs(alias: string): this {
         const query = new SelectQuery("Task").filter({ version: { "$gte": 1 } });
-        this.countTasksWith(alias, { toQuery: () => query });
+        this.countTasksWith(alias, { entityName: "Task", toQuery: () => query });
         this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
             kind: "relation-count", method: "countTasksAs", relation: "taskList", alias };
         return this;
     }
 
-    countTasksWith(alias: string, child: { toQuery(): SelectQuery }): this {
+    countTasksWith(alias: string, child: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         const query = child.toQuery().clone();
         query.aggregateItems = [];
         query.aggregate("Count", "id", alias);
@@ -493,47 +501,47 @@ export class PlatformRequest {
 
 
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -558,42 +566,42 @@ export class PlatformRequest {
             return this;
         }
 
-        withNameIsNot(val: any): this {
+        withNameIsNot(val: string): this {
             this.filters.push({ "name": { "$ne": val } });
             return this;
         }
 
-        withNameIn(...vals: any[]): this {
+        withNameIn(...vals: string[]): this {
             this.filters.push({ "name": { "$in": vals } });
             return this;
         }
 
-        withNameNotIn(...vals: any[]): this {
+        withNameNotIn(...vals: string[]): this {
             this.filters.push({ "name": { "$notIn": vals } });
             return this;
         }
 
-        withNameGreaterThan(val: any): this {
+        withNameGreaterThan(val: string): this {
             this.filters.push({ "name": { "$gt": val } });
             return this;
         }
 
-        withNameGreaterThanOrEqualTo(val: any): this {
+        withNameGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$gte": val } });
             return this;
         }
 
-        withNameLessThan(val: any): this {
+        withNameLessThan(val: string): this {
             this.filters.push({ "name": { "$lt": val } });
             return this;
         }
 
-        withNameLessThanOrEqualTo(val: any): this {
+        withNameLessThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$lte": val } });
             return this;
         }
 
-        withNameBetween(lower: any, upper: any): this {
+        withNameBetween(lower: string, upper: string): this {
             this.filters.push({ "name": { "$between": [lower, upper] } });
             return this;
         }
@@ -637,47 +645,47 @@ export class PlatformRequest {
             return this;
         }
 
-        withFoundedIs(val: any): this {
+        withFoundedIs(val: unknown): this {
             this.filters.push({ "founded": { "$eq": val } });
             return this;
         }
 
-        withFoundedIsNot(val: any): this {
+        withFoundedIsNot(val: unknown): this {
             this.filters.push({ "founded": { "$ne": val } });
             return this;
         }
 
-        withFoundedIn(...vals: any[]): this {
+        withFoundedIn(...vals: unknown[]): this {
             this.filters.push({ "founded": { "$in": vals } });
             return this;
         }
 
-        withFoundedNotIn(...vals: any[]): this {
+        withFoundedNotIn(...vals: unknown[]): this {
             this.filters.push({ "founded": { "$notIn": vals } });
             return this;
         }
 
-        withFoundedGreaterThan(val: any): this {
+        withFoundedGreaterThan(val: unknown): this {
             this.filters.push({ "founded": { "$gt": val } });
             return this;
         }
 
-        withFoundedGreaterThanOrEqualTo(val: any): this {
+        withFoundedGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "founded": { "$gte": val } });
             return this;
         }
 
-        withFoundedLessThan(val: any): this {
+        withFoundedLessThan(val: unknown): this {
             this.filters.push({ "founded": { "$lt": val } });
             return this;
         }
 
-        withFoundedLessThanOrEqualTo(val: any): this {
+        withFoundedLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "founded": { "$lte": val } });
             return this;
         }
 
-        withFoundedBetween(lower: any, upper: any): this {
+        withFoundedBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "founded": { "$between": [lower, upper] } });
             return this;
         }
@@ -702,42 +710,42 @@ export class PlatformRequest {
             return this;
         }
 
-        withUserEmailIsNot(val: any): this {
+        withUserEmailIsNot(val: string): this {
             this.filters.push({ "userEmail": { "$ne": val } });
             return this;
         }
 
-        withUserEmailIn(...vals: any[]): this {
+        withUserEmailIn(...vals: string[]): this {
             this.filters.push({ "userEmail": { "$in": vals } });
             return this;
         }
 
-        withUserEmailNotIn(...vals: any[]): this {
+        withUserEmailNotIn(...vals: string[]): this {
             this.filters.push({ "userEmail": { "$notIn": vals } });
             return this;
         }
 
-        withUserEmailGreaterThan(val: any): this {
+        withUserEmailGreaterThan(val: string): this {
             this.filters.push({ "userEmail": { "$gt": val } });
             return this;
         }
 
-        withUserEmailGreaterThanOrEqualTo(val: any): this {
+        withUserEmailGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "userEmail": { "$gte": val } });
             return this;
         }
 
-        withUserEmailLessThan(val: any): this {
+        withUserEmailLessThan(val: string): this {
             this.filters.push({ "userEmail": { "$lt": val } });
             return this;
         }
 
-        withUserEmailLessThanOrEqualTo(val: any): this {
+        withUserEmailLessThanOrEqualTo(val: string): this {
             this.filters.push({ "userEmail": { "$lte": val } });
             return this;
         }
 
-        withUserEmailBetween(lower: any, upper: any): this {
+        withUserEmailBetween(lower: string, upper: string): this {
             this.filters.push({ "userEmail": { "$between": [lower, upper] } });
             return this;
         }
@@ -781,47 +789,47 @@ export class PlatformRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -910,7 +918,7 @@ export class PlatformRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByName(): this {
@@ -919,7 +927,7 @@ export class PlatformRequest {
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name"); // In TS we don't alias group by yet natively
+        this.query.groupBy("name", retName);
         return this;
     }
     groupByFounded(): this {
@@ -928,7 +936,7 @@ export class PlatformRequest {
     }
 
     groupByFoundedAs(retName: string): this {
-        this.query.groupBy("founded"); // In TS we don't alias group by yet natively
+        this.query.groupBy("founded", retName);
         return this;
     }
     groupByUserEmail(): this {
@@ -937,7 +945,7 @@ export class PlatformRequest {
     }
 
     groupByUserEmailAs(retName: string): this {
-        this.query.groupBy("userEmail"); // In TS we don't alias group by yet natively
+        this.query.groupBy("userEmail", retName);
         return this;
     }
     groupByVersion(): this {
@@ -946,7 +954,7 @@ export class PlatformRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
@@ -1065,9 +1073,11 @@ export class ExecutablePlatformRequest {
         return this;
     }
 
-    newEntity(context: UserContext): Platform {
+    async newEntity(context: UserContext): Promise<Platform> {
         this.ensureIntent();
-        return new Platform();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("Platform");
+        return Platform.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Platform>> {

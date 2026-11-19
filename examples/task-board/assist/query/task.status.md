@@ -5,7 +5,6 @@
 KSML entity: `Task`  
 KSML field: `Task Status`  
 Type: `Task Status`
-
 | Capability | Generated API |
 | --- | --- |
 | Select | `selectStatusWith(request)` |

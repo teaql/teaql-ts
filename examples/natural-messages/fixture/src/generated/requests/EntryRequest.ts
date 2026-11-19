@@ -25,6 +25,10 @@ export class EntryRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "Entry" {
+        return "Entry";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -144,7 +148,7 @@ export class EntryRequest {
     }
 
 
-    selectCatalogWith(request: { toQuery(): SelectQuery }): this {
+    selectCatalogWith(request: { readonly entityName: "Catalog"; toQuery(): SelectQuery }): this {
         this.query.select(["catalog"]);
         this.query.relationQuery(
             "catalog", request.toQuery(), "catalog", "id", false,
@@ -152,7 +156,7 @@ export class EntryRequest {
         return this;
     }
 
-    withCatalogMatching(request: { toQuery(): SelectQuery }): this {
+    withCatalogMatching(request: { readonly entityName: "Catalog"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "catalog": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -161,7 +165,7 @@ export class EntryRequest {
         return this;
     }
 
-    withoutCatalogMatching(request: { toQuery(): SelectQuery }): this {
+    withoutCatalogMatching(request: { readonly entityName: "Catalog"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "catalog": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -173,47 +177,47 @@ export class EntryRequest {
 
 
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -258,42 +262,42 @@ export class EntryRequest {
             return this;
         }
 
-        withNameIsNot(val: any): this {
+        withNameIsNot(val: string): this {
             this.filters.push({ "name": { "$ne": val } });
             return this;
         }
 
-        withNameIn(...vals: any[]): this {
+        withNameIn(...vals: string[]): this {
             this.filters.push({ "name": { "$in": vals } });
             return this;
         }
 
-        withNameNotIn(...vals: any[]): this {
+        withNameNotIn(...vals: string[]): this {
             this.filters.push({ "name": { "$notIn": vals } });
             return this;
         }
 
-        withNameGreaterThan(val: any): this {
+        withNameGreaterThan(val: string): this {
             this.filters.push({ "name": { "$gt": val } });
             return this;
         }
 
-        withNameGreaterThanOrEqualTo(val: any): this {
+        withNameGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$gte": val } });
             return this;
         }
 
-        withNameLessThan(val: any): this {
+        withNameLessThan(val: string): this {
             this.filters.push({ "name": { "$lt": val } });
             return this;
         }
 
-        withNameLessThanOrEqualTo(val: any): this {
+        withNameLessThanOrEqualTo(val: string): this {
             this.filters.push({ "name": { "$lte": val } });
             return this;
         }
 
-        withNameBetween(lower: any, upper: any): this {
+        withNameBetween(lower: string, upper: string): this {
             this.filters.push({ "name": { "$between": [lower, upper] } });
             return this;
         }
@@ -337,47 +341,47 @@ export class EntryRequest {
             return this;
         }
 
-        withBornAtIs(val: any): this {
+        withBornAtIs(val: unknown): this {
             this.filters.push({ "bornAt": { "$eq": val } });
             return this;
         }
 
-        withBornAtIsNot(val: any): this {
+        withBornAtIsNot(val: unknown): this {
             this.filters.push({ "bornAt": { "$ne": val } });
             return this;
         }
 
-        withBornAtIn(...vals: any[]): this {
+        withBornAtIn(...vals: unknown[]): this {
             this.filters.push({ "bornAt": { "$in": vals } });
             return this;
         }
 
-        withBornAtNotIn(...vals: any[]): this {
+        withBornAtNotIn(...vals: unknown[]): this {
             this.filters.push({ "bornAt": { "$notIn": vals } });
             return this;
         }
 
-        withBornAtGreaterThan(val: any): this {
+        withBornAtGreaterThan(val: unknown): this {
             this.filters.push({ "bornAt": { "$gt": val } });
             return this;
         }
 
-        withBornAtGreaterThanOrEqualTo(val: any): this {
+        withBornAtGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "bornAt": { "$gte": val } });
             return this;
         }
 
-        withBornAtLessThan(val: any): this {
+        withBornAtLessThan(val: unknown): this {
             this.filters.push({ "bornAt": { "$lt": val } });
             return this;
         }
 
-        withBornAtLessThanOrEqualTo(val: any): this {
+        withBornAtLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "bornAt": { "$lte": val } });
             return this;
         }
 
-        withBornAtBetween(lower: any, upper: any): this {
+        withBornAtBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "bornAt": { "$between": [lower, upper] } });
             return this;
         }
@@ -392,47 +396,47 @@ export class EntryRequest {
             return this;
         }
 
-        withTouchedAtIs(val: any): this {
+        withTouchedAtIs(val: unknown): this {
             this.filters.push({ "touchedAt": { "$eq": val } });
             return this;
         }
 
-        withTouchedAtIsNot(val: any): this {
+        withTouchedAtIsNot(val: unknown): this {
             this.filters.push({ "touchedAt": { "$ne": val } });
             return this;
         }
 
-        withTouchedAtIn(...vals: any[]): this {
+        withTouchedAtIn(...vals: unknown[]): this {
             this.filters.push({ "touchedAt": { "$in": vals } });
             return this;
         }
 
-        withTouchedAtNotIn(...vals: any[]): this {
+        withTouchedAtNotIn(...vals: unknown[]): this {
             this.filters.push({ "touchedAt": { "$notIn": vals } });
             return this;
         }
 
-        withTouchedAtGreaterThan(val: any): this {
+        withTouchedAtGreaterThan(val: unknown): this {
             this.filters.push({ "touchedAt": { "$gt": val } });
             return this;
         }
 
-        withTouchedAtGreaterThanOrEqualTo(val: any): this {
+        withTouchedAtGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "touchedAt": { "$gte": val } });
             return this;
         }
 
-        withTouchedAtLessThan(val: any): this {
+        withTouchedAtLessThan(val: unknown): this {
             this.filters.push({ "touchedAt": { "$lt": val } });
             return this;
         }
 
-        withTouchedAtLessThanOrEqualTo(val: any): this {
+        withTouchedAtLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "touchedAt": { "$lte": val } });
             return this;
         }
 
-        withTouchedAtBetween(lower: any, upper: any): this {
+        withTouchedAtBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "touchedAt": { "$between": [lower, upper] } });
             return this;
         }
@@ -447,47 +451,47 @@ export class EntryRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -577,7 +581,7 @@ export class EntryRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByCatalog(): this {
@@ -586,7 +590,7 @@ export class EntryRequest {
     }
 
     groupByCatalogAs(retName: string): this {
-        this.query.groupBy("catalog"); // In TS we don't alias group by yet natively
+        this.query.groupBy("catalog", retName);
         return this;
     }
     groupByName(): this {
@@ -595,7 +599,7 @@ export class EntryRequest {
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name"); // In TS we don't alias group by yet natively
+        this.query.groupBy("name", retName);
         return this;
     }
     groupByBornAt(): this {
@@ -604,7 +608,7 @@ export class EntryRequest {
     }
 
     groupByBornAtAs(retName: string): this {
-        this.query.groupBy("bornAt"); // In TS we don't alias group by yet natively
+        this.query.groupBy("bornAt", retName);
         return this;
     }
     groupByTouchedAt(): this {
@@ -613,7 +617,7 @@ export class EntryRequest {
     }
 
     groupByTouchedAtAs(retName: string): this {
-        this.query.groupBy("touchedAt"); // In TS we don't alias group by yet natively
+        this.query.groupBy("touchedAt", retName);
         return this;
     }
     groupByVersion(): this {
@@ -622,14 +626,14 @@ export class EntryRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByCatalogAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "Catalog"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "catalog", request, includeAllFacets,
@@ -751,9 +755,11 @@ export class ExecutableEntryRequest {
         return this;
     }
 
-    newEntity(context: UserContext): Entry {
+    async newEntity(context: UserContext): Promise<Entry> {
         this.ensureIntent();
-        return new Entry();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("Entry");
+        return Entry.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<Entry>> {

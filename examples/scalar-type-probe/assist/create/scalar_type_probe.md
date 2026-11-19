@@ -41,7 +41,7 @@ export async function createScalarTypeProbe(
     input: CreateScalarTypeProbeInput,
     context: UserContext,
 ): Promise<ScalarTypeProbe> {
-    const entity = Q.scalarTypeProbes()
+    const entity = await Q.scalarTypeProbes()
         .comment('what: initialize Scalar Type Probe')
         .purpose('why: create Scalar Type Probe')
         .newEntity(context);

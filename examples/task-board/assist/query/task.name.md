@@ -5,6 +5,8 @@
 KSML entity: `Task`  
 KSML field: `name`  
 Type: `string`
+Named predicate values use `string`, matching the generated entity's native scalar type.
+For nullable fields, use known/unknown predicates instead of passing `null`.
 
 | Capability | Generated API |
 | --- | --- |

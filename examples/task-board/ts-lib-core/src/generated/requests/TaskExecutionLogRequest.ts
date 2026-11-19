@@ -25,6 +25,10 @@ export class TaskExecutionLogRequest {
         else this.selectSelfFields();
     }
 
+    get entityName(): "TaskExecutionLog" {
+        return "TaskExecutionLog";
+    }
+
     comment(c: string): this {
         this.query.comment(c);
         this._comment = c;
@@ -139,7 +143,7 @@ export class TaskExecutionLogRequest {
     }
 
 
-    selectTaskWith(request: { toQuery(): SelectQuery }): this {
+    selectTaskWith(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.query.select(["task"]);
         this.query.relationQuery(
             "task", request.toQuery(), "task", "id", false,
@@ -147,7 +151,7 @@ export class TaskExecutionLogRequest {
         return this;
     }
 
-    withTaskMatching(request: { toQuery(): SelectQuery }): this {
+    withTaskMatching(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "task": {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
@@ -156,7 +160,7 @@ export class TaskExecutionLogRequest {
         return this;
     }
 
-    withoutTaskMatching(request: { toQuery(): SelectQuery }): this {
+    withoutTaskMatching(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.filters.push({
             "task": {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
@@ -168,47 +172,47 @@ export class TaskExecutionLogRequest {
 
 
 
-        withIdIs(val: any): this {
+        withIdIs(val: string): this {
             this.filters.push({ "id": { "$eq": val } });
             return this;
         }
 
-        withIdIsNot(val: any): this {
+        withIdIsNot(val: string): this {
             this.filters.push({ "id": { "$ne": val } });
             return this;
         }
 
-        withIdIn(...vals: any[]): this {
+        withIdIn(...vals: string[]): this {
             this.filters.push({ "id": { "$in": vals } });
             return this;
         }
 
-        withIdNotIn(...vals: any[]): this {
+        withIdNotIn(...vals: string[]): this {
             this.filters.push({ "id": { "$notIn": vals } });
             return this;
         }
 
-        withIdGreaterThan(val: any): this {
+        withIdGreaterThan(val: string): this {
             this.filters.push({ "id": { "$gt": val } });
             return this;
         }
 
-        withIdGreaterThanOrEqualTo(val: any): this {
+        withIdGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$gte": val } });
             return this;
         }
 
-        withIdLessThan(val: any): this {
+        withIdLessThan(val: string): this {
             this.filters.push({ "id": { "$lt": val } });
             return this;
         }
 
-        withIdLessThanOrEqualTo(val: any): this {
+        withIdLessThanOrEqualTo(val: string): this {
             this.filters.push({ "id": { "$lte": val } });
             return this;
         }
 
-        withIdBetween(lower: any, upper: any): this {
+        withIdBetween(lower: string, upper: string): this {
             this.filters.push({ "id": { "$between": [lower, upper] } });
             return this;
         }
@@ -253,42 +257,42 @@ export class TaskExecutionLogRequest {
             return this;
         }
 
-        withActionIsNot(val: any): this {
+        withActionIsNot(val: string): this {
             this.filters.push({ "action": { "$ne": val } });
             return this;
         }
 
-        withActionIn(...vals: any[]): this {
+        withActionIn(...vals: string[]): this {
             this.filters.push({ "action": { "$in": vals } });
             return this;
         }
 
-        withActionNotIn(...vals: any[]): this {
+        withActionNotIn(...vals: string[]): this {
             this.filters.push({ "action": { "$notIn": vals } });
             return this;
         }
 
-        withActionGreaterThan(val: any): this {
+        withActionGreaterThan(val: string): this {
             this.filters.push({ "action": { "$gt": val } });
             return this;
         }
 
-        withActionGreaterThanOrEqualTo(val: any): this {
+        withActionGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "action": { "$gte": val } });
             return this;
         }
 
-        withActionLessThan(val: any): this {
+        withActionLessThan(val: string): this {
             this.filters.push({ "action": { "$lt": val } });
             return this;
         }
 
-        withActionLessThanOrEqualTo(val: any): this {
+        withActionLessThanOrEqualTo(val: string): this {
             this.filters.push({ "action": { "$lte": val } });
             return this;
         }
 
-        withActionBetween(lower: any, upper: any): this {
+        withActionBetween(lower: string, upper: string): this {
             this.filters.push({ "action": { "$between": [lower, upper] } });
             return this;
         }
@@ -342,42 +346,42 @@ export class TaskExecutionLogRequest {
             return this;
         }
 
-        withDetailIsNot(val: any): this {
+        withDetailIsNot(val: string): this {
             this.filters.push({ "detail": { "$ne": val } });
             return this;
         }
 
-        withDetailIn(...vals: any[]): this {
+        withDetailIn(...vals: string[]): this {
             this.filters.push({ "detail": { "$in": vals } });
             return this;
         }
 
-        withDetailNotIn(...vals: any[]): this {
+        withDetailNotIn(...vals: string[]): this {
             this.filters.push({ "detail": { "$notIn": vals } });
             return this;
         }
 
-        withDetailGreaterThan(val: any): this {
+        withDetailGreaterThan(val: string): this {
             this.filters.push({ "detail": { "$gt": val } });
             return this;
         }
 
-        withDetailGreaterThanOrEqualTo(val: any): this {
+        withDetailGreaterThanOrEqualTo(val: string): this {
             this.filters.push({ "detail": { "$gte": val } });
             return this;
         }
 
-        withDetailLessThan(val: any): this {
+        withDetailLessThan(val: string): this {
             this.filters.push({ "detail": { "$lt": val } });
             return this;
         }
 
-        withDetailLessThanOrEqualTo(val: any): this {
+        withDetailLessThanOrEqualTo(val: string): this {
             this.filters.push({ "detail": { "$lte": val } });
             return this;
         }
 
-        withDetailBetween(lower: any, upper: any): this {
+        withDetailBetween(lower: string, upper: string): this {
             this.filters.push({ "detail": { "$between": [lower, upper] } });
             return this;
         }
@@ -421,47 +425,47 @@ export class TaskExecutionLogRequest {
             return this;
         }
 
-        withVersionIs(val: any): this {
+        withVersionIs(val: unknown): this {
             this.filters.push({ "version": { "$eq": val } });
             return this;
         }
 
-        withVersionIsNot(val: any): this {
+        withVersionIsNot(val: unknown): this {
             this.filters.push({ "version": { "$ne": val } });
             return this;
         }
 
-        withVersionIn(...vals: any[]): this {
+        withVersionIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$in": vals } });
             return this;
         }
 
-        withVersionNotIn(...vals: any[]): this {
+        withVersionNotIn(...vals: unknown[]): this {
             this.filters.push({ "version": { "$notIn": vals } });
             return this;
         }
 
-        withVersionGreaterThan(val: any): this {
+        withVersionGreaterThan(val: unknown): this {
             this.filters.push({ "version": { "$gt": val } });
             return this;
         }
 
-        withVersionGreaterThanOrEqualTo(val: any): this {
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$gte": val } });
             return this;
         }
 
-        withVersionLessThan(val: any): this {
+        withVersionLessThan(val: unknown): this {
             this.filters.push({ "version": { "$lt": val } });
             return this;
         }
 
-        withVersionLessThanOrEqualTo(val: any): this {
+        withVersionLessThanOrEqualTo(val: unknown): this {
             this.filters.push({ "version": { "$lte": val } });
             return this;
         }
 
-        withVersionBetween(lower: any, upper: any): this {
+        withVersionBetween(lower: unknown, upper: unknown): this {
             this.filters.push({ "version": { "$between": [lower, upper] } });
             return this;
         }
@@ -541,7 +545,7 @@ export class TaskExecutionLogRequest {
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id"); // In TS we don't alias group by yet natively
+        this.query.groupBy("id", retName);
         return this;
     }
     groupByTask(): this {
@@ -550,7 +554,7 @@ export class TaskExecutionLogRequest {
     }
 
     groupByTaskAs(retName: string): this {
-        this.query.groupBy("task"); // In TS we don't alias group by yet natively
+        this.query.groupBy("task", retName);
         return this;
     }
     groupByAction(): this {
@@ -559,7 +563,7 @@ export class TaskExecutionLogRequest {
     }
 
     groupByActionAs(retName: string): this {
-        this.query.groupBy("action"); // In TS we don't alias group by yet natively
+        this.query.groupBy("action", retName);
         return this;
     }
     groupByDetail(): this {
@@ -568,7 +572,7 @@ export class TaskExecutionLogRequest {
     }
 
     groupByDetailAs(retName: string): this {
-        this.query.groupBy("detail"); // In TS we don't alias group by yet natively
+        this.query.groupBy("detail", retName);
         return this;
     }
     groupByVersion(): this {
@@ -577,14 +581,14 @@ export class TaskExecutionLogRequest {
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version"); // In TS we don't alias group by yet natively
+        this.query.groupBy("version", retName);
         return this;
     }
 
     // --- Facets ---
     facetByTaskAs(
         facetName: string,
-        request: { toQuery(): SelectQuery },
+        request: { readonly entityName: "Task"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
         this.query.facetBy(facetName, "task", request, includeAllFacets,
@@ -706,9 +710,11 @@ export class ExecutableTaskExecutionLogRequest {
         return this;
     }
 
-    newEntity(context: UserContext): TaskExecutionLog {
+    async newEntity(context: UserContext): Promise<TaskExecutionLog> {
         this.ensureIntent();
-        return new TaskExecutionLog();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        const id = await context.generateInternalId("TaskExecutionLog");
+        return TaskExecutionLog.teaqlNewWithId(id);
     }
 
     executeForList(context: UserContext): Promise<SmartList<TaskExecutionLog>> {

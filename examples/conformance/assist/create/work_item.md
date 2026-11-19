@@ -22,7 +22,7 @@ export async function createWorkItem(
     input: CreateWorkItemInput,
     context: UserContext,
 ): Promise<WorkItem> {
-    const entity = Q.workItems()
+    const entity = await Q.workItems()
         .comment('what: initialize Work Item')
         .purpose('why: create Work Item')
         .newEntity(context);
