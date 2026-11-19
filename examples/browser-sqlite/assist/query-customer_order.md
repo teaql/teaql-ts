@@ -29,6 +29,20 @@ predicate, ordering, and relation-selection APIs. Missing or blank intent,
 unknown fields, unbounded reads, and trusted-context inputs must fail. Use generated
 relation loading rather than handwritten child-query loops; never guess a plural.
 
+## Facet results
+
+Configure the target request with `countAs(alias)` to expose the outer membership
+count under that alias, then pass it to the field-specific `facetBy...As` API.
+Facet target requests can themselves declare Facets. Read the returned
+`SmartList.facets[name]`; each Facet is another SmartList, with nested Facets in
+its own `facets`. Narrow count aliases from unknown to number; missing is not zero.
+`includeAllFacets` includes target candidates with zero membership. Membership
+counts use the active filter, not the visible page's offset or limit.
+
+After selecting `orderItemList`, read `entity.orderItemList()` to retain
+the loaded child SmartList and its Facets. Do not use `map` to obtain its metadata.
+
+
 
 ## Field-specific Query Assist
 

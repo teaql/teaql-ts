@@ -22,7 +22,7 @@ export async function createTaskExecutionLog(
     input: CreateTaskExecutionLogInput,
     context: UserContext,
 ): Promise<TaskExecutionLog> {
-    const entity = await Q.taskExecutionLogs()
+    const entity = Q.taskExecutionLogs()
         .comment('what: initialize Task Execution Log')
         .purpose('why: create Task Execution Log')
         .newEntity(context);

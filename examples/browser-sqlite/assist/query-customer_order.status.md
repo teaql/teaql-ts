@@ -8,8 +8,8 @@ Type: `Order Status`
 
 | Capability | Generated API |
 | --- | --- |
-| Select | `selectStatusWith(request)`` |
-| Filter identity | `withStatusIs(id)`, `withStatusIn(ids)` |
+| Select | `selectStatusWith(request)` |
+| Filter identity | `filterByStatus(id)`, `filterByStatusIn(...ids)` |
 | Filter nested request | `withStatusMatching(request)`, `withoutStatusMatching(request)` |
 | Constant | `withStatusIs()` |
 | Constant | `withStatusIs()` |

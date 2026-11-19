@@ -7,7 +7,7 @@ trusted `UserContext` supplies actor, tenant, policy, provider, and audit sink;
 none of those values may be accepted from the writable input.
 
 ```typescript
-import { UserContext } from '../teaql-ts';
+import { Decimal, UserContext, decimal } from '../teaql-ts';
 import { Q } from './Q';
 import { CustomerOrder } from './models/CustomerOrder';
 
@@ -16,7 +16,7 @@ export interface CreateCustomerOrderInput {
     status: string | number;
     orderNumber: string;
     orderDate: string;
-    totalAmount: number;
+    totalAmount: Decimal;
 
 }
 
@@ -49,9 +49,29 @@ candidates, when present, are also generated and must be copied exactly:
 - `updateStatusToCancelled()`
 
 
+For Decimal fields, construct exact values with `decimal('3.50')`. Do not pass a
+JavaScript `number`, which can lose digits before the runtime sees it.
+
 Compile the result unchanged. Test persistence and query-back, and prove that
 blank/missing intent, blank/missing audit reason, unknown fields, and attempted
 trusted-context overrides fail. Do not edit generated sources.
+
+## Compose one audited graph
+
+Create each child using its own generated Q entry point and Create Assist, then
+attach it with the exact model-derived collection API:
+
+| Reverse relation | Child entry point | Attach |
+| --- | --- | --- |
+| `order_item_list` | `Q.orderItems()` | `entity.orderItemList().push(child)` |
+
+
+Use `child.auditAs('authorize payment')` to add a local reason. Leave it unset
+to inherit the root reason; creation-query comment is separate. Keep an existing
+child marked with `child.markForDeletion().auditAs('remove unavailable item')`
+in the composed graph. Call only `entity.auditAs('submit order').save(context)`
+on the root. Generated cascades preserve branch-local reasons and assigned IDs;
+the runtime emits committed audit only after the complete graph commits.
 
 
 ---

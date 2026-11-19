@@ -5,15 +5,16 @@
 KSML entity: `Task`  
 KSML field: `Task Status`  
 Type: `Task Status`
+
 | Capability | Generated API |
 | --- | --- |
 | Select | `selectStatusWith(request)` |
 | Filter identity | `filterByStatus(id)`, `filterByStatusIn(...ids)` |
 | Filter nested request | `withStatusMatching(request)`, `withoutStatusMatching(request)` |
-| Constant | `withStatusIsPlanned()` |
-| Constant | `withStatusIsReady()` |
-| Constant | `withStatusIsExecuting()` |
-| Constant | `withStatusIsVerified()` |
+| Constant | `withStatusIs()` |
+| Constant | `withStatusIs()` |
+| Constant | `withStatusIs()` |
+| Constant | `withStatusIs()` |
 | Group | `groupByStatus()`, `groupByStatusAs(alias)` |
 | Facet | `facetByStatusAs(name, request, includeAllFacets)` |
 Execution requires `comment(...)`, `purpose(...)`, and exactly one `context`.
