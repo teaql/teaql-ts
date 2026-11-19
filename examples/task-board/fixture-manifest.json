@@ -8,12 +8,16 @@
     "expression/task_status.md": "3a2ad50910b2b656ea66156be2c26f66411b48382f4e105607dd7a3dd9b468a0",
     "query/platform.md": "f27fa3606997cc8312c42ec570ff42f008beeb7d1207420c4d190b30962ca211",
     "query/task.md": "6f99a202ad68381ffc852ed4501eac7be6194a81548850326219866fa856f9fe",
-    "query/task.name.md": "4fb7e7850b255421d55cf492132a0ca62679f5d42dff064d5fed3cc549628c41",
-    "query/task.status.md": "872774d3e3581fba58c57d5dc44cff58c7622cfb11d4da7233a28a4f41792ef4",
+    "query/task.name.md": "55b74af06357a62e1d016e4d8325a059fc94a3fe7e79d28ed9bda7e4959dcf91",
+    "query/task.status.md": "febd32ee34f658e414c340fb901c119b3c0c1f0b9f1073c1f83601343f4004a7",
     "query/task.task_execution_log_list.md": "1cc26492cf73ed75c5da580ffbc6b07384040356f179c06fca8dd418efba912b",
     "query/task_execution_log.md": "7942681172082053820be0f583e3fef63f7682c73aa390361ed83f41061ec4c3",
     "query/task_status.md": "f0076bfcfb1e67fa745eb3c02fc1a065ee1bb02974e627d5aeb388d1c85ba0b6",
     "update/task.md": "0b5d1112589194f63315c8870f81a95aead57f1a45d730e9ef53cfabdba715bc"
+  },
+  "currentAssistReceipt": {
+    "path": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/retained-assist-ts-rust-current/receipt.json",
+    "sha256": "8ede1e002adb75676244f8717a9fbece49b01433c6beaed91ee1760f3d56cb4d"
   },
   "evaluatedScope": "typescript-node-lib-core",
   "evaluationErrors": 0,
