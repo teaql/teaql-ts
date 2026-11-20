@@ -21,9 +21,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/order-attachment-generation/receipt.json",
     "receiptSHA256": "715bd8f8f61f6ecd96611db1121cb54ce40d72f533b23289c5919e92de0cd95e"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-attachment-native/runtime/object-storage/receipt.json",
+    "businessReceiptSHA256": "78487c187a6b6537a6eb58df965675452525257c763111f75a243bdaaa8362c1",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-attachment-native/receipt.json",
+    "nativeReceiptSHA256": "cab6df01589bdee1b9c5b53c4e3360cb4847f419e2021995811c7ee1f3d9908c",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "e02a0177688862e9b606d88e15825203714397c8"
+  },
   "scene": "Store and retrieve an order receipt through a trusted provider",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "verification": [
     "bash",
     "examples/object-storage/verify.sh"
