@@ -13,7 +13,8 @@ From the runtime checkout:
 ```bash
 npm run build
 cd examples/trace-chain
-npm install
+npm ci
+cd typescript-app-console
 npm run build
 npm start
 npm start
