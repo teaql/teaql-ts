@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import {CheckException, CheckerPresentationModel, UserContext, checkResultToWire,
-  standardCheckerMessageRenderer} from '../../src';
+  standardCheckerMessageRenderer} from '../../../../src';
 import {Q} from 'natural-generated/generated/Q';
 import {E} from 'natural-generated/generated/E';
 import {SQLiteTeaQLClient} from 'natural-generated/teaql-node-sqlite';

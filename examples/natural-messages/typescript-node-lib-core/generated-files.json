@@ -1,5 +1,5 @@
 {
-  "package.json": "586e300694b0099b058720ff213730601a9ec25ae6a52f4b15aea5c9fb675054",
+  "package.json": "2ffbef384c5c7b7127abd0b69edaac9f71b9f9f8175985843683f72eb7b2149f",
   "src/generated-bootstrap.ts": "16fcc4929167fd8a7b5cba38a4da745f86f2cdad20618fcc376faf27887e65f1",
   "src/generated-search-models.ts": "cbef8c139ad276aa2582b260f9bdab1e890964527805493a3887f1bd207f1bc6",
   "src/generated/E.ts": "169d045fc67673c9bcab19851a962af445193be59d70fd5566a59977056c371a",
@@ -8,8 +8,9 @@
   "src/generated/models/Entry.ts": "7df789741336c4cf4552072ab8d97f8c4462872a24a508e9d53ad5acbd898b4a",
   "src/generated/requests/CatalogRequest.ts": "96b5994a31a9c47a598143e35c567af6cd3d4fc3ad3ac002381809f6283ec48c",
   "src/generated/requests/EntryRequest.ts": "d4d4fa110bd58f18c36624c6aec99231ce7f533318e625da3fc7329e094ee9ad",
-  "src/runtime-module.ts": "b3db3c990ece9bf5daf26caebc644c6b6d15e82a1df414f6fde85ba31ec095ff",
-  "src/teaql-schemas.ts": "92133605afea747ce3abdc7b547949860f1761aa2866ca4de8ddada2ad964af3",
+  "src/runtime-module.ts": "4e379d29cedf6485d3435fa6eb0ffd62d97e1478c5832ec6262d0258b69ef574",
+  "src/teaql-node-sql.ts": "92133605afea747ce3abdc7b547949860f1761aa2866ca4de8ddada2ad964af3",
+  "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
   "src/teaql-ts.ts": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b",
   "teaql-i18n.json": "3142adc809a66c3f45df816e926967273ba7fcf3470c00629fcd6fa8da693f06",
   "teaql/checker-model.json": "5ac0524fcb22c68970fc358b685d10081e47048af423951514e8d28ec2bd0bc6",
