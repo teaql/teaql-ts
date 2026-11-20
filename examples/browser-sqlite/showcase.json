@@ -20,9 +20,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-generation-shared-types/receipt.json",
     "receiptSHA256": "d39cf600de08a25446c876ed3c3fc098d1ce7042a36d00abb6608b46ef2f90a2"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-runtime-shared-types/business-receipt.json",
+    "businessReceiptSHA256": "65fbd0f4905df1b1a9c8b60033759923957a071faebd2395345acaf6d422f2a7",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-runtime-shared-types/receipt.json",
+    "nativeReceiptSHA256": "6485b6a93244b780665d9017a18ee872f096e38ed466aeb04df6f0759f0488ea",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "1501fb9c4872a2b79ee070be6f746d7248f7b61d"
+  },
   "runtimeTestExempt": false,
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "title": "Offline order workbench",
   "workspace": {
     "applicationOwnedFiles": [
