@@ -57,20 +57,20 @@ test.each(['sqlite','file'] as const)('generated Context Fix: %s provider',async
     const transaction=kind==='sqlite'?jest.spyOn(provider,'transaction'):undefined;
     const clear=()=>{write.mockClear();transaction?.mockClear();};
     const noWrites=()=>{expect(write).not.toHaveBeenCalled();if(transaction)expect(transaction).not.toHaveBeenCalled();};
-    const make=(name:string)=>Q.entries().comment('Prepare one Context fixture entity')
-      .purpose('Verify automatic values cannot manufacture mutations').newEntity(context).updateName(name).updateCatalog('1');
+    const make=async(name:string)=>(await Q.entries().comment('Prepare one Context fixture entity')
+      .purpose('Verify automatic values cannot manufacture mutations').newEntity(context)).updateName(name).updateCatalog('1');
     const load=async(id:string)=>{
       const rows=await Q.entries().withIdIs(id).limit(1).comment('Reload stored Context fixture')
         .purpose('Observe committed values through generated Q and E').executeForList(context);
       expect(rows).toHaveLength(1);return rows[0];
     };
     const initialAudits=client.auditTrace.length;
-    const broken=make('failed token');failToken=true;clear();
+    const broken=await make('failed token');failToken=true;clear();
     const error=await rejected(()=>broken.auditAs('Reject failed Context source before persistence').save(context),'/guardedToken');
     expect(String(error)).not.toContain('PRIVATE_CONTEXT_PROVIDER_CANARY');noWrites();expect(client.auditTrace).toHaveLength(initialAudits);
     expect(broken.bornAt).toBeUndefined();expect(broken.name).toBe('failed token');failToken=false;
-    let first=make('first');await first.auditAs('Create the first Context A row').save(context);
-    let second=make('second');await second.auditAs('Create an independent Context A sibling').save(context);
+    let first=await make('first');await first.auditAs('Create the first Context A row').save(context);
+    let second=await make('second');await second.auditAs('Create an independent Context A sibling').save(context);
     first=await load(first.id!);const id=first.id!,version=first.version;
     expect(milliseconds(E.entry(first).bornAt().eval())).toBe(A.getTime());
     expect(E.entry(first).lastIp().eval()).toBe('A:last_ip');
