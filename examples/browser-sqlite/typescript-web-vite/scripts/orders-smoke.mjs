@@ -115,12 +115,15 @@ try {
   await page.waitForFunction(() => !document.querySelector('#reset')?.hasAttribute('disabled'));
   assert.deepEqual(await inspect('opfs-reset', 8), baseline);
   assert.deepEqual(errors, []); checkLibrary();
-  assert.ok(workerUrls.length >= 4, 'Expected worker creation after startup, refresh and OPFS transition');
-  for (const value of workerUrls) {
+  const workerPaths = workerUrls.map(value => {
     const url = new URL(value);
     assert.equal(url.origin, 'http://127.0.0.1:4175');
-    assert.match(url.pathname, /^\/assets\/sqlite\.worker-[\w-]+\.js$/);
-  }
+    assert.match(url.pathname, /^\/assets\/(?:sqlite\.worker|sqlite3-opfs-async-proxy)-[\w-]+\.js$/);
+    return url.pathname;
+  });
+  assert.ok(workerPaths.filter(path => path.startsWith('/assets/sqlite.worker-')).length >= 4,
+    'Expected the TeaQL worker after startup, refresh and OPFS transition');
+  assert.ok(workerPaths.some(path => path.startsWith('/assets/sqlite3-opfs-async-proxy-')));
   if (process.env.TEAQL_BROWSER_ORDER_EVIDENCE) writeFileSync(process.env.TEAQL_BROWSER_ORDER_EVIDENCE,
     JSON.stringify({receipts, generatedLibraryUnchanged: true, browserErrors: errors,
       rawMutationConsoleCount: rawMutationConsole.length, workerUrls}, null, 2) + '\n', {flag: 'wx'});

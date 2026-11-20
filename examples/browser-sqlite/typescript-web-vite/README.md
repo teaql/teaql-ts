@@ -1,8 +1,14 @@
 # TeaQL Browser SQLite workspace
 
 Generate `typescript-lib-core` and `typescript-web-vite` from the same SQLite
-model, then extract the scopes as sibling directories. Run `npm install` and
-`npm run dev` from `typescript-web-vite`. The starter page initializes the
+model, then extract the scopes as sibling directories. Install dependencies in
+both directories and run `npm run dev` from `typescript-web-vite`.
+
+```sh
+npm --prefix ../typescript-lib-core install
+npm install
+npm run dev
+``` The starter page initializes the
 generated schema through the browser runtime. Add the application's Q/E
 queries and trusted Context configuration in `src/main.ts`.
 

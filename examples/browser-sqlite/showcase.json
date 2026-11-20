@@ -1,7 +1,7 @@
 {
   "goalId": "typescript:examples/browser-sqlite",
   "library": {
-    "generatedFilesManifestSHA256": "ce6fa3fa7d137bc607209ecf7a9c7e86949520fce76a6ab12fcebc18530796f6",
+    "generatedFilesManifestSHA256": "def2a81c856722782a89eedbdbda2c34d94031b7b635f3876587b1c7be0e6173",
     "root": "typescript-lib-core",
     "scope": "typescript-lib-core"
   },
@@ -12,13 +12,13 @@
   "producer": {
     "generator": {
       "artifactKind": "qualified source build",
-      "jarSHA256": "c20c9ff7bdd481fd71e06808f70347e94360ed0ad82370f787c820513bb30ec4",
-      "qualificationReceiptSHA256": "20927e4eddd936c5be67c82bf2eef45c3d353e16eae71a2df06756a1bd836eaa",
-      "sourceCommit": "07e1ea7d247a72d77cc146f1a05e52a347da698e",
-      "tag": "unreleased-source-07e1ea7d"
+      "jarSHA256": "696c97f599a360a16e29d813e00fc607f2b3975b4d9713ac8692b45e53c95555",
+      "qualificationReceiptSHA256": "dde08cd0b40ff87640cef20d66338ebed178028d56fae988785b124988ce368c",
+      "sourceCommit": "bd96e5c99f4ac179fc871d235a8b8b17296df35e",
+      "tag": "unreleased-source-bd96e5c9"
     },
-    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-generation/receipt.json",
-    "receiptSHA256": "81389f3939f41350382a37300df514ac4e0f3b15966c060e9d9a74bcd89c871e"
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-generation-final/receipt.json",
+    "receiptSHA256": "ec1d693f0fdfeb1fb25900ccac7dd99ac1d234ed495fc204861bf5850b654892"
   },
   "runtimeTestExempt": false,
   "schema": "teaql.model-workspace-showcase/v1",
@@ -32,7 +32,7 @@
       "tsconfig.json",
       "vite.config.ts"
     ],
-    "generatedFilesManifestSHA256": "58daa96724a9ca7545b70c9dc23149f9dda6fb18a5050aec9e64523f33aab96e",
+    "generatedFilesManifestSHA256": "9b2d53d0e059b48f212244654400ca3c8430ac0150bcbbd247ae853b0b8fa45b",
     "root": "typescript-web-vite",
     "scope": "typescript-web-vite"
   }

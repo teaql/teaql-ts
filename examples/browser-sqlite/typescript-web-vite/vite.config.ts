@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, searchForWorkspaceRoot } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
@@ -17,6 +17,13 @@ export default defineConfig({
   },
   optimizeDeps: { exclude: ['@sqlite.org/sqlite-wasm'] },
   server: {
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        ...['../typescript-lib-core', '../../conformance/typescript-node-lib-core', '../../../src']
+          .map(path => fileURLToPath(new URL(path, import.meta.url))),
+      ],
+    },
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
