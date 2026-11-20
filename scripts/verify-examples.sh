@@ -51,10 +51,10 @@ fi
   TEAQL_SCHEMA_BOOTSTRAP_DB="$example_evidence/district-bootstrap.sqlite" npm start
 )
 (
-  cd "$repo/examples/school-management/typescript-app-console"
+  cd "$repo/examples/school-management"
   npm ci
-  npm run build
-  npm start
+  npm run build --workspace school-management-service-console
+  npm start --workspace school-management-service-console
 )
 TEAQL_ORDER_EVIDENCE_DIR="$example_evidence/order-management" bash "$repo/examples/order-management/verify.sh"
 (cd "$repo/examples/task-board" && npm ci && npm run build && \

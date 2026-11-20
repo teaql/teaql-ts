@@ -23,16 +23,19 @@ fingerprint > "$evidence/source-before.sha256"
 cd "$repo"
 npm run build > "$evidence/runtime-build.log" 2>&1
 npm test -- --runInBand tests/object-storage.test.ts 2>&1 | tee "$evidence/provider-tests.log"
-cd "$app"
+cd "$example"
 npm ci > "$evidence/workspace-install.log" 2>&1
-npm run build 2>&1 | tee "$evidence/workspace-build.log"
+npm run build --workspace order-attachment-service-console 2>&1 | tee "$evidence/workspace-build.log"
+cd "$app"
 node - "$repo" "$app" <<'JS' > "$evidence/origins.log"
 const {realpathSync} = require('node:fs'), {join} = require('node:path'), assert = require('node:assert/strict');
 const [repo, app] = process.argv.slice(2);
 for (const [entry, file] of [['teaql-ts','index.js'],['teaql-ts/object-storage/s3','object-storage/s3.js']]) {
-  const resolved = realpathSync(require.resolve(entry,{paths:[app]}));
-  assert.equal(resolved, join(repo,'dist',file));
-  console.log(resolved);
+  for (const from of [app, join(app,'../typescript-lib-core')]) {
+    const resolved = realpathSync(require.resolve(entry,{paths:[from]}));
+    assert.equal(resolved, join(repo,'dist',file));
+    console.log(from, resolved);
+  }
 }
 JS
 node s3-lifecycle.cjs | tee "$evidence/s3-calibration.log"

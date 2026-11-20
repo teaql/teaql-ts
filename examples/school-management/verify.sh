@@ -17,12 +17,12 @@ fingerprint() {
 }
 fingerprint > "$evidence/source-before.sha256"
 (cd "$repo" && npm run build) > "$evidence/runtime-build.log" 2>&1
-(cd "$app" && npm ci && npm run build) > "$evidence/workspace-build.log" 2>&1
-[[ "$(realpath "$app/node_modules/teaql-ts")" == "$(realpath "$repo")" ]]
+(cd "$example" && npm ci && npm run build --workspace school-management-service-console) > "$evidence/workspace-build.log" 2>&1
+[[ "$(realpath "$example/node_modules/teaql-ts")" == "$(realpath "$repo")" ]]
 TEAQL_FILE_BOOTSTRAP_OUTPUT="$evidence/file-bootstrap" \
   node "$example/verify-file-bootstrap.cjs" > "$evidence/file-bootstrap.log" 2>&1
 mkdir "$scratch/application"
-(cd "$scratch/application" && node "$app/node_modules/ts-node/dist/bin.js" \
+(cd "$scratch/application" && node "$example/node_modules/ts-node/dist/bin.js" \
   --project "$app/tsconfig.json" "$app/src/main.ts") > "$evidence/application.log" 2>&1
 cp "$scratch/application/.local/school.sqlite" "$evidence/showcase.sqlite"
 fingerprint > "$evidence/source-after.sha256"

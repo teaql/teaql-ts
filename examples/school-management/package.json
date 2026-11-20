@@ -1,0 +1,17 @@
+{
+  "name": "teaql-school-management-example",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "typescript-lib-core",
+    "typescript-app-console"
+  ],
+  "dependencies": {
+    "teaql-ts": "file:../.."
+  },
+  "overrides": {
+    "teaql-ts": "$teaql-ts"
+  }
+}
