@@ -25,11 +25,7 @@ fi
 # Bind the complete source snapshot before the build replaces tracked dist chunks.
 # Profiles compile repository source in their own isolated copy; no source guard
 # is weakened to accommodate generated build output.
-TEAQL_GENERATED_E_PROFILE_EVIDENCE_DIR="$example_evidence/expression-profiles" \
-  node "$repo/examples/expression-profiles/verify-local.cjs"
-# file: dependencies resolve dist entry points. Rebuild before those consumers
-# so they cannot silently validate stale checked-in output.
-(cd "$repo" && npm run build)
+TEAQL_DISPATCH_PROFILE_EVIDENCE_DIR="$example_evidence/expression-profiles" bash "$repo/examples/expression-profiles/verify-dispatch.sh"
 TEAQL_CONTEXT_FIX_EVIDENCE_DIR="$example_evidence/context-derived" node "$repo/examples/context-derived/verify-local.cjs"
 node "$repo/scripts/verify-natural-messages.cjs" --example --output "$example_evidence/natural-messages"
 bash "$repo/examples/object-storage/verify.sh"
