@@ -7,9 +7,9 @@ import {
   DelegatingMutationPolicyRegistry,
   UserContext,
 } from 'teaql-ts';
-import { Q } from '../../conformance/src/generated/Q';
-import { GENERATED_RUNTIME_MODULE } from '../../conformance/src/runtime-module';
-import { ENTITY_SCHEMAS } from '../../conformance/src/teaql-node-sql';
+import { Q } from '../../conformance/typescript-node-lib-core/src/generated/Q';
+import { GENERATED_RUNTIME_MODULE } from '../../conformance/typescript-node-lib-core/src/runtime-module';
+import { ENTITY_SCHEMAS } from '../../conformance/typescript-node-lib-core/src/teaql-node-sql';
 import './work-items.css';
 
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
