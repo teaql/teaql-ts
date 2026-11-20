@@ -122,16 +122,8 @@ facet values, native operation comments, actual SQL count and unchanged
 generated-library hashes. The repository's `scripts/verify-examples.sh` runs
 both browser smoke tests.
 
-For maintainers with the generator checkout, regenerate the library and Assist:
-
-```bash
-cd /path/to/teaql-code-gen
-TEAQL_TEST_TYPESCRIPT_RUNTIME_PATH=/path/to/teaql-ts \
-  mvn -q -pl generator -am \
-  -Dtest=PolyglotRequestTreeSqliteTest#sharedOrderFixtureExportsBrowserLibraryAndAssist \
-  -Dsurefire.failIfNoSpecifiedTests=false test
-```
-
-Regenerate the two named scopes from the model when a generated API changes.
+Generate `typescript-lib-core` and `typescript-web-vite` from the same
+`order-model.xml`. Keep the application pages and assertions in the web
+workspace and check the emitted file hashes before replacing generated source.
 The workspace resolves this source checkout for verification. The `orders-lib/`
 directory retains the earlier domain fixture and its recorded checksums.
