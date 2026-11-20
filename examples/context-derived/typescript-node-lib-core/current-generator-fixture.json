@@ -1,0 +1,30 @@
+{
+  "applicationManifestsPreserved": false,
+  "evaluatedScope": "typescript-node-lib-core",
+  "evaluationErrors": 0,
+  "files": {
+    "package.json": "0f69d8722c2ec6cb7f9f06402ace83cb3a09eb371a73d4c717a6537397335c19",
+    "src/generated-bootstrap.ts": "16fcc4929167fd8a7b5cba38a4da745f86f2cdad20618fcc376faf27887e65f1",
+    "src/generated-search-models.ts": "0aae657219f68a015137b6d671ea86187af6df454a5cc7d5ea85bbd7b5e61838",
+    "src/generated/E.ts": "dcb6d1c0cc2e170efaadeb9948e8c1f9a4b06888e4d4dbdd0eb78d5ccee11b60",
+    "src/generated/Q.ts": "482e727f3b0cb5c10dce9924a3aff1d64b0b68d90f2f20374cc2b89018fa9f82",
+    "src/generated/models/Catalog.ts": "06a9a5b83085c2fe0df28d76435e759bcc71707652f75f222c209fd1dd20a5a4",
+    "src/generated/models/Entry.ts": "5c709029034028a2d95026a4bbd9743a59a1b5f780b8a104e774e1b8f525e3d5",
+    "src/generated/requests/CatalogRequest.ts": "96b5994a31a9c47a598143e35c567af6cd3d4fc3ad3ac002381809f6283ec48c",
+    "src/generated/requests/EntryRequest.ts": "18808cb08e09596d339a9b32f6e9085489c6ad876c312c52793afca560bed76f",
+    "src/runtime-module.ts": "a611319266a7d2922ccac41fc4a02bbc2c2b2e01b06cb2a7c6237327e2d89be9",
+    "src/teaql-node-sql.ts": "f0e836c68592f335897621411603e089b4fb40859acd865a8171b25756902b01",
+    "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
+    "src/teaql-ts.ts": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b",
+    "teaql-i18n.json": "872f2be4fb4df7d76c732d627ae016b07cb39591ef833169277c67db4ec726e8",
+    "teaql/checker-model.json": "b0cce8e03720ef6aefdf8ed8386c79d1270268dc6e41f762033d32516da2cbfd",
+    "teaql/model-provenance.json": "99582673c6cc5e3cb45d6132180da83936e7cea74bdf0056ca601ce9b0b8f56d",
+    "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
+  },
+  "generatedManifestSha256": "5e3f293e59952afc3b6c7ad3d163cc005a5309d239f38bfe2134fb8377c02b69",
+  "generationReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/context-field-qualified-generation/typescript/context-field-showcase/library/receipt.json",
+  "language": "typescript",
+  "modelSha256": "9bb36d7f9d639d04cfe9344e5152ee68e1844a8552538413c16569c6e8df4f8e",
+  "producerReceiptSha256": "3ea9b43950036349e5e333dae6dbd03b3b2c913c439018d3de3b8bacd287459d",
+  "schema": "teaql.current-model-scope-fixture/v1"
+}

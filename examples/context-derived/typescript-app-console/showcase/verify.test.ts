@@ -1,5 +1,5 @@
 import {CheckException, ContextFix, ContextFixResolver, FixedBusinessClock, RuntimeModule,
-  UserContext, checkResultToWire} from '../../src';
+  UserContext, checkResultToWire} from '../../../../src';
 import {Q} from 'context-generated/generated/Q';
 import {E} from 'context-generated/generated/E';
 import {Entry} from 'context-generated/generated/models/Entry';
