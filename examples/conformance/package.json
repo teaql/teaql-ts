@@ -1,20 +1,19 @@
 {
-  "name": "runtime-example-conformance-service-lib",
-  "version": "1.0.0",
-  "description": "Generated typescript library",
-  "main": "src/generated/Q.ts",
-  "scripts": {
-    "build": "tsc --noEmit",
-    "start": "ts-node src/main.ts",
-    "test:managed": "node verify-managed.cjs"
-  },
   "dependencies": {
-    "teaql-ts": "file:../..",
-    "better-sqlite3": "^13.0.3"},
-  "engines": { "node": ">=22" },
-  "devDependencies": {
-    "typescript": "^5.0.0",
-    "ts-node": "^10.9.2",
-    "@types/node": "^22.0.0",
-    "@types/better-sqlite3": "^7.6.12"}
+    "teaql-ts": "file:../.."
+  },
+  "name": "teaql-work-item-workspace",
+  "overrides": {
+    "teaql-ts": "$teaql-ts"
+  },
+  "private": true,
+  "scripts": {
+    "build": "npm run build --workspace typescript-app-console",
+    "start": "npm run start --workspace typescript-app-console",
+    "test:managed": "npm run test:managed --workspace typescript-app-console"
+  },
+  "workspaces": [
+    "typescript-node-lib-core",
+    "typescript-app-console"
+  ]
 }

@@ -1,8 +1,8 @@
 import {CheckException, UserContext} from 'teaql-ts';
-import {Q} from './src/generated/Q';
-import {E} from './src/generated/E';
-import {WorkItem} from './src/generated/models/WorkItem';
-import {SQLiteTeaQLClient} from './src/teaql-node-sqlite';
+import {Q} from '../typescript-node-lib-core/src/generated/Q';
+import {E} from '../typescript-node-lib-core/src/generated/E';
+import {WorkItem} from '../typescript-node-lib-core/src/generated/models/WorkItem';
+import {SQLiteTeaQLClient} from '../typescript-node-lib-core/src/teaql-node-sqlite';
 
 let context: UserContext, client: SQLiteTeaQLClient;
 const create = () => Q.workItems().comment('reserve managed work item').purpose('verify SQLite creation boundary').newEntity(context);

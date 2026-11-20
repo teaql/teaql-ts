@@ -2,10 +2,10 @@ import {internalId} from 'teaql-ts';
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { CheckException, EntityRoot, UserContext, nextEntityVersion } from "./teaql-ts";
-import { E, TeaQLNotLoadedError } from "./generated/E";
-import { Q } from "./generated/Q";
-import { SQLiteTeaQLClient } from "./teaql-node-sqlite";
+import { CheckException, EntityRoot, UserContext, nextEntityVersion } from "../../typescript-node-lib-core/src/teaql-ts";
+import { E, TeaQLNotLoadedError } from "../../typescript-node-lib-core/src/generated/E";
+import { Q } from "../../typescript-node-lib-core/src/generated/Q";
+import { SQLiteTeaQLClient } from "../../typescript-node-lib-core/src/teaql-node-sqlite";
 import { verifyMaskingLifecycle } from './masking-verification';
 import { LocalCache } from 'teaql-ts';
 import { verifyOperationalClock } from './operational-clock-verification';
@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   assert.equal(target.originalVersion(executionKey), 9);
   console.log("PASS Mutation ledger identity (same ID, different entity types keep versions 3/9)");
 
-  const database = path.resolve(__dirname, "../.local/conformance.sqlite");
+  const database = process.env.TEAQL_CONFORMANCE_DB ?? path.resolve(__dirname, "../.local/conformance.sqlite");
   fs.mkdirSync(path.dirname(database), { recursive: true });
   const client = new SQLiteTeaQLClient(database);
   const context = new UserContext().insertResource("dataService", client);

@@ -1,9 +1,10 @@
 {
-  "evaluatedScope": "typescript-lib-core",
+  "applicationManifestsPreserved": false,
+  "evaluatedScope": "typescript-node-lib-core",
   "evaluationErrors": 0,
   "evaluationWarnings": 0,
   "files": {
-    "package.json": "6ba516ab1c1e50f5218be3d61bcb1eeb2ef0eff84ca7ea12f0d302ccc0d4ac4d",
+    "package.json": "ca7503edf9e60f4a430cc64bfd1c30d006ab1a80b679cecb4826a04a622dd818",
     "src/generated-bootstrap.ts": "10a1133555d160947deb5c2a2756cc28162ff7e75627aeb77029be345ad523e7",
     "src/generated-search-models.ts": "1d044e55eefc0415502f51cfff10a9d71b5261be4e99aeac287af55af56acb39",
     "src/generated/E.ts": "b757b7dee2a5c8b018ebe8aae2c2f92622d90ed71d270b2c523c1ec49d42b5a7",
@@ -12,31 +13,32 @@
     "src/generated/models/WorkItem.ts": "3a635b318233a67b6c786394048d43321db533cf5c388b62fa6acb0b2c9d7c7e",
     "src/generated/requests/PlatformRequest.ts": "9cbecd4d5bea62aaceeaa8f18017f9c636deb15dafc3ef33dd47f33bae6e6f50",
     "src/generated/requests/WorkItemRequest.ts": "54d0f87a6808bf75d908a06db8857fc27b8c15e917e96552b4437937606bb0dd",
-    "src/runtime-module.ts": "402ed45749832caca7c4ef4ae74f3b6c1784988b1f7779e4b29b0d33a9c82a69",
-    "src/teaql-schemas.ts": "ebc992b7f7850e0324a9be563b663cba3d5c7d2bbafd5269f38d54b06ddf9e83",
+    "src/runtime-module.ts": "7c7ffb5284e51206fa9bcacb312d3a118fb751500238ec9c690fd1e4d56d3505",
+    "src/teaql-node-sql.ts": "ebc992b7f7850e0324a9be563b663cba3d5c7d2bbafd5269f38d54b06ddf9e83",
+    "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
     "src/teaql-ts.ts": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b",
     "teaql-i18n.json": "fa0ea9576dccfb6ef4e940b00b53abb843ee492741e98da5001e6ea2ad79b2cb",
     "teaql/checker-model.json": "4824e2986933569c4d827ca44cae7e3a028012aec1e7dbacd245fff5fd5ffe1b",
     "teaql/model-provenance.json": "25c3c0f1f8b30ca2e94d36c7abdb4aa911bd735e0012ccfe1bb987a0882b9107",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
   },
-  "generatedManifestSha256": "75f96e2e2afdcf4338968c0f3d65812c16c6db254a4d873c0c52c63afc45166b",
-  "generationReceipt": "teaql-conformance/evidence/2026-11-19-runtime-examples-refresh/generation-unified-intent-current-source/typescript/conformance/model/receipt.json",
+  "generatedManifestSha256": "764f266caa84e9e648b9a31335af955f09cc1d8074ca007b7588d3aa0f95cb56",
+  "generationReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/work-item-generation/typescript/work-item-showcase/library/receipt.json",
   "generatorCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
   "generatorJarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
   "generatorRelease": "unreleased-source-021b1ed8",
   "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7",
-  "previousFixtureManifestSha256": "e072870a656d2e0a89a14f648d08720b45ca7c7e0504e9a7dbb424f849603119",
+  "previousFixtureManifestSha256": "07a796f9dbdbd5654be68c9f29c016546ce23d2ea1389c7b3aaac0cb57277a14",
   "previousOrigin": {
     "commit": "543cc086cf64e536f7f5fd8e1ef7899bd67cf2da",
     "path": "examples/conformance/current-generator-fixture.json"
   },
-  "producerReceiptSha256": "152172a23845bdd851d17d06b046a357be3f6e7eb0d5a8ac9081ffc5bc097630",
+  "producerReceiptSha256": "ccc2e04b9137f358ebaf27680704ee3b321a240d57add5fc36a75571a6ce3f71",
   "producerSource": {
     "commit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
     "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
     "release": "unreleased-source-021b1ed8"
   },
   "schema": "teaql.typescript-current-example-fixture/v1",
-  "scope": "typescript-lib-core"
+  "scope": "typescript-node-lib-core"
 }

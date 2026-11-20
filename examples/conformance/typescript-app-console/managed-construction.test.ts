@@ -1,6 +1,6 @@
 import {UserContext} from 'teaql-ts';
-import {WorkItem} from './src/generated/models/WorkItem';
-import {Q} from './src/generated/Q';
+import {WorkItem} from '../typescript-node-lib-core/src/generated/models/WorkItem';
+import {Q} from '../typescript-node-lib-core/src/generated/Q';
 
 const creation = (context: UserContext) => Q.workItems().comment('reserve a work item').purpose('verify creation boundary').newEntity(context);
 
