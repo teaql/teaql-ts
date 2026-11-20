@@ -1,8 +1,8 @@
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {S3Client,HeadBucketCommand,CreateBucketCommand}=require('@aws-sdk/client-s3');
-const {UserContext,ObjectKey,ObjectPutOptions,ObjectReadUrlOptions,StorageError}=require('../../dist');
-const {S3ObjectStorage}=require('../../dist/object-storage/s3');
+const {UserContext,ObjectKey,ObjectPutOptions,ObjectReadUrlOptions,StorageError}=require('teaql-ts');
+const {S3ObjectStorage}=require('teaql-ts/object-storage/s3');
 
 async function expect(code,work){await assert.rejects(work,error=>error instanceof StorageError&&error.code===code);}
 async function main(){
