@@ -1,5 +1,5 @@
-import { CheckException, decimal, FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../src';
-import { checkResultToWire } from '../../src/core/i18n';
+import { CheckException, decimal, FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../../../src';
+import { checkResultToWire } from '../../../../src/core/i18n';
 import { Q } from 'generated/generated/Q';
 import { E } from 'generated/generated/E';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';

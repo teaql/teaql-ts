@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { decimal, ExpressionPath, FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../src';
+import { decimal, ExpressionPath, FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../../../src';
 import { E } from 'generated/generated/E';
 import { Q } from 'generated/generated/Q';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';

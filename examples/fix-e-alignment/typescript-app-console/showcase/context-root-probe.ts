@@ -1,7 +1,7 @@
-import { CheckException, decimal, FixedBusinessClock, UserContext } from '../../src';
-import { EntityChecker } from '../../src/core/checker';
-import { ContextEntityRef, ContextRootError } from '../../src/core/context';
-import { checkResultToWire } from '../../src/core/i18n';
+import { CheckException, decimal, FixedBusinessClock, UserContext } from '../../../../src';
+import { EntityChecker } from '../../../../src/core/checker';
+import { ContextEntityRef, ContextRootError } from '../../../../src/core/context';
+import { checkResultToWire } from '../../../../src/core/i18n';
 import { Q } from 'generated/generated/Q';
 import { E } from 'generated/generated/E';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';

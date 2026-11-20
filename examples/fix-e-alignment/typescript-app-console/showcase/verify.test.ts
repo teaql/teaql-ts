@@ -1,8 +1,8 @@
-import { CheckException, decimal, FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../src';
+import { CheckException, decimal, FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../../../src';
 import { E } from 'generated/generated/E';
 import { Q } from 'generated/generated/Q';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';
-import { RuntimeOperation, RuntimeOperationCompletion } from '../../src/core/telemetry';
+import { RuntimeOperation, RuntimeOperationCompletion } from '../../../../src/core/telemetry';
 import { verifyLoading } from './loading-probe';
 import { verifyOwnership } from './ownership-probe';
 import Database from 'better-sqlite3';

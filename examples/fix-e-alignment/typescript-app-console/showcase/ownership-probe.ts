@@ -1,4 +1,4 @@
-import { UserContext } from '../../src';
+import { UserContext } from '../../../../src';
 import { E } from 'generated/generated/E';
 import { Q } from 'generated/generated/Q';
 import { verifyPageStream } from './paged-ownership';

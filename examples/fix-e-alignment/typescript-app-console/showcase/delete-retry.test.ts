@@ -1,5 +1,5 @@
 import {readFileSync} from 'node:fs';
-import {decimal, FixedBusinessClock, UserContext} from '../../src';
+import {decimal, FixedBusinessClock, UserContext} from '../../../../src';
 import {Q} from 'generated/generated/Q';
 import {E} from 'generated/generated/E';
 import {TeaQLClient} from 'generated/teaql-ts';

@@ -1,4 +1,4 @@
-import { CheckException, TeaQLNotLoadedError, UserContext } from '../../src';
+import { CheckException, TeaQLNotLoadedError, UserContext } from '../../../../src';
 import { E } from 'generated/generated/E';
 import { Q } from 'generated/generated/Q';
 

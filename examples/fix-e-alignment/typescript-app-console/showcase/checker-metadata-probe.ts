@@ -1,6 +1,6 @@
-import { CheckException, decimal, FixedBusinessClock, UserContext } from '../../src';
-import { checkResultToWire, CheckResult } from '../../src/core/i18n';
-import { JsonFieldNamingProfile } from '../../src/core/object-location';
+import { CheckException, decimal, FixedBusinessClock, UserContext } from '../../../../src';
+import { checkResultToWire, CheckResult } from '../../../../src/core/i18n';
+import { JsonFieldNamingProfile } from '../../../../src/core/object-location';
 import { Q } from 'generated/generated/Q';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';
 import { TeaQLClient } from 'generated/teaql-ts';

@@ -1,8 +1,8 @@
 import {internalId} from 'teaql-ts';
-import { decimal, FixedBusinessClock, UserContext } from '../../src';
-import { QueryRequest } from '../../src/core/request-intent';
-import { queryExecutionOwner } from '../../src/core/query-snapshot';
-import type { SQLExecutionMetadata } from '../../src/sql/core';
+import { decimal, FixedBusinessClock, UserContext } from '../../../../src';
+import { QueryRequest } from '../../../../src/core/request-intent';
+import { queryExecutionOwner } from '../../../../src/core/query-snapshot';
+import type { SQLExecutionMetadata } from '../../../../src/sql/core';
 import { Q } from 'generated/generated/Q';
 import { E } from 'generated/generated/E';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';

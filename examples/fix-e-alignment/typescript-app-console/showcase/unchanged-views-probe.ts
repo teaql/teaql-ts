@@ -1,4 +1,4 @@
-import { FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../src';
+import { FixedBusinessClock, TeaQLNotLoadedError, UserContext } from '../../../../src';
 import { Q } from 'generated/generated/Q';
 import { E } from 'generated/generated/E';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';

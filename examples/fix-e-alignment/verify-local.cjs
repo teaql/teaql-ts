@@ -3,6 +3,7 @@
 // Run after npm ci at the runtime root. No remote TeaQL package is substituted.
 const fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process"), crypto = require("node:crypto"), assert = require("node:assert/strict");
 const example = __dirname, repo = path.resolve(example, "../..");
+const workspace=path.join(example,'typescript-app-console'),application=path.join(workspace,'showcase');
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex");
 function fingerprint() {
   const manifest = JSON.parse(fs.readFileSync(path.join(example, "fixture-manifest.json")));
@@ -16,9 +17,9 @@ function fingerprint() {
       if (entry.isDirectory()) visit(original, name); else { assert(entry.isFile()); actual.push(name); }
     }
   }
-  visit(path.join(example, "generated"));
+  visit(path.join(example, "typescript-node-lib-core"));
   assert.deepEqual(actual.sort(), Object.keys(manifest.files).sort());
-  for (const [name, expected] of Object.entries(manifest.files)) assert.equal(sha(fs.readFileSync(path.join(example, "generated", name))), expected, name);
+  for (const [name, expected] of Object.entries(manifest.files)) assert.equal(sha(fs.readFileSync(path.join(example, "typescript-node-lib-core", name))), expected, name);
   return manifest;
 }
 const requested = process.env.TEAQL_FIX_E_EVIDENCE_DIR;
@@ -31,25 +32,16 @@ const {createOwnedRunner, ownedBytes} = require('./owned-command.cjs'), runner =
 async function main() {
 try {
   const manifest = fingerprint(); report.modelSha256 = manifest.modelSha256;
-  report.contextRootApplicationSha256 = sha(fs.readFileSync(path.join(example, 'context-root-probe.ts')));
-  report.partialAncestorApplicationSha256 = sha(fs.readFileSync(path.join(example, 'partial-ancestors-probe.ts')));
-  report.partialRootApplicationSha256 = sha(fs.readFileSync(path.join(example, 'partial-root-probe.ts')));
-  report.unchangedViewsApplicationSha256 = sha(fs.readFileSync(path.join(example, 'unchanged-views-probe.ts')));
-  report.checkerBoundaryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'checker-boundaries-probe.ts')));
-  report.graphFixApplicationSha256 = sha(fs.readFileSync(path.join(example, 'graph-fix-idempotence.test.ts')));
-  report.concurrentQueryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'concurrent-query-probe.ts')));
-  report.deleteRetryApplicationSha256 = sha(fs.readFileSync(path.join(example, 'delete-retry.test.ts')));
+  report.contextRootApplicationSha256 = sha(fs.readFileSync(path.join(application, 'context-root-probe.ts')));
+  report.partialAncestorApplicationSha256 = sha(fs.readFileSync(path.join(application, 'partial-ancestors-probe.ts')));
+  report.partialRootApplicationSha256 = sha(fs.readFileSync(path.join(application, 'partial-root-probe.ts')));
+  report.unchangedViewsApplicationSha256 = sha(fs.readFileSync(path.join(application, 'unchanged-views-probe.ts')));
+  report.checkerBoundaryApplicationSha256 = sha(fs.readFileSync(path.join(application, 'checker-boundaries-probe.ts')));
+  report.graphFixApplicationSha256 = sha(fs.readFileSync(path.join(application, 'graph-fix-idempotence.test.ts')));
+  report.concurrentQueryApplicationSha256 = sha(fs.readFileSync(path.join(application, 'concurrent-query-probe.ts')));
+  report.deleteRetryApplicationSha256 = sha(fs.readFileSync(path.join(application, 'delete-retry.test.ts')));
   assert(fs.existsSync(path.join(repo, "node_modules/jest/bin/jest.js")), "run npm ci at the runtime root first");
-  const tsconfig = path.join(scratch, "tsconfig.json"), config = path.join(scratch, "jest.cjs");
-  fs.writeFileSync(tsconfig, JSON.stringify({extends: path.join(repo, "tsconfig.json"), compilerOptions: {
-    types: ["node", "jest"], typeRoots: [path.join(repo, "node_modules/@types")], lib: ["ES2022", "DOM"],
-    baseUrl: repo, paths: {"teaql-ts": [path.join(repo, "src/index.ts")], "teaql-ts/*": [path.join(repo, "src/*")],
-      "generated/*": [path.join(example, "generated/src/*")]}}}));
-  fs.writeFileSync(config, "module.exports = " + JSON.stringify({rootDir: repo, roots: [example], testEnvironment: "node",
-    testMatch: ["**/examples/fix-e-alignment/verify.test.ts", "**/examples/fix-e-alignment/graph-fix-idempotence.test.ts", "**/examples/fix-e-alignment/delete-retry.test.ts", "**/examples/fix-e-alignment/creation-identity.test.ts"],
-    moduleNameMapper: {"^teaql-ts$": path.join(repo, "src/index.ts"), "^teaql-ts/(.*)$": path.join(repo, "src/$1"),
-      "^generated/(.*)$": path.join(example, "generated/src/$1")},
-    transform: {"^.+\\.tsx?$": ["ts-jest", {tsconfig}]}}) + ";\n");
+  const config=path.join(workspace,'jest.showcase.cjs');
   for (const round of [1, 2]) {
     const creationDatabases = path.join(evidence, "creation-round-" + round);
     fs.mkdirSync(creationDatabases);
@@ -57,7 +49,7 @@ try {
       "--runInBand", "--cacheDirectory", path.join(scratch, "jest")];
     const log = path.join(evidence, "round-" + round + ".log"), fd = fs.openSync(log, "w");
     let result;
-    try { result = await runner.run([process.execPath, ...command], {cwd: repo, timeout: 120000,
+    try { result = await runner.run([process.execPath, ...command], {cwd: workspace, timeout: 120000,
       env: {...process.env, TEAQL_FIX_E_DB: path.join(evidence, "fixture.sqlite"), TEAQL_FIX_E_ROUND: String(round), TEAQL_CREATION_DATABASES: creationDatabases}, stdio: ["ignore", fd, fd]}); }
     finally { fs.closeSync(fd); }
     report.rounds.push({command, exitCode: result.status, signal: result.signal, logSha256: sha(fs.readFileSync(log))});

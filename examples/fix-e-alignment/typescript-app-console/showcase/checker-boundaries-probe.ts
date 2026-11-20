@@ -1,7 +1,7 @@
-import { CheckException, decimal, EntityChecker, FixedBusinessClock, RuntimeModule, TeaQLNotLoadedError, UserContext } from '../../src';
-import { checkResultToWire, CheckResult } from '../../src/core/i18n';
-import { JsonFieldNamingProfile } from '../../src/core/object-location';
-import { createWireEntityMetadata, normalizeWireInput, retainSubmittedPaths, WireInputError } from '../../src/core/wire-fields';
+import { CheckException, decimal, EntityChecker, FixedBusinessClock, RuntimeModule, TeaQLNotLoadedError, UserContext } from '../../../../src';
+import { checkResultToWire, CheckResult } from '../../../../src/core/i18n';
+import { JsonFieldNamingProfile } from '../../../../src/core/object-location';
+import { createWireEntityMetadata, normalizeWireInput, retainSubmittedPaths, WireInputError } from '../../../../src/core/wire-fields';
 import { Q } from 'generated/generated/Q';
 import { E } from 'generated/generated/E';
 import { SQLiteTeaQLClient } from 'generated/teaql-node-sqlite';
