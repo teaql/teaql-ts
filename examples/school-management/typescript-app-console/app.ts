@@ -1,0 +1,171 @@
+import {internalId} from 'teaql-ts';
+import { Q } from "./src/generated/Q";
+import { E } from "./src/generated/E";
+import { Platform } from "./src/generated/models/Platform";
+import { SchoolType } from "./src/generated/models/SchoolType";
+import { UserContext, nextEntityVersion, decimal } from "./src/teaql-ts";
+import { normalizeDynamicSearch, SearchModel } from "teaql-ts";
+import { GENERATED_RUNTIME_MODULE } from "./src/runtime-module";
+import { SQLiteTeaQLClient } from "./src/teaql-node-sqlite";
+import { mkdirSync } from "node:fs";
+import { verifyRequestIntent } from './request-intent';
+import { SQLiteTeaQLClient as ReconciledSQLiteTeaQLClient } from './reconciled/typescript-app-console/src/teaql-node-sqlite';
+
+async function main(): Promise<void> {
+    mkdirSync(".local", { recursive: true });
+    const database = ".local/school.sqlite";
+    const client = new SQLiteTeaQLClient(database);
+    client.install(GENERATED_RUNTIME_MODULE);
+    const context = new UserContext().insertResource("dataService", client);
+    await context.ensureSchema();
+    await context.ensureSchema();
+    await verifyRequestIntent(context, client);
+
+    const roots = await Q.platforms().comment("Read repeated root seed")
+        .purpose("Verify School bootstrap idempotency").executeForList(context);
+    const types = await Q.schoolTypes().comment("Read repeated constant seeds")
+        .purpose("Verify School bootstrap idempotency").executeForList(context);
+    if (roots.length !== 1 || roots[0].id !== "1") throw new Error("Platform(1) bootstrap is not idempotent");
+    if (types.filter(value => value.id === "1001" || value.id === "1002").length !== 2) {
+        throw new Error("SchoolType bootstrap is not idempotent");
+    }
+    // Retained second generated library changes only Primary's presentation name.
+    // Its managed mutation bootstrap reconciles the existing SQLite file.
+    const changedClient = new ReconciledSQLiteTeaQLClient(database);
+    const changedContext = new UserContext().insertResource("dataService", changedClient);
+    await changedContext.ensureSchema();
+    await changedContext.ensureSchema();
+    const changedPrimary = await Q.schoolTypes().withIdIs("1001")
+        .comment("Read reconciled Primary constant")
+        .purpose("Verify versioned constant reconciliation")
+        .executeForOne(changedContext);
+    const originalPrimary = types.find(value => value.id === "1001");
+    if (changedPrimary?.name !== "Primary School" || changedPrimary.version !== nextEntityVersion('Update', originalPrimary!.version!)) {
+        throw new Error("Changed SchoolType constant was not reconciled exactly once");
+    }
+    await changedClient.close();
+    const extraType = (await Q.schoolTypes().comment("Create a post-bootstrap school type")
+        .purpose("Verify bootstrap ID floor").newEntity(context));
+    extraType.updatePlatform(Platform.refer("1"));
+    extraType.updateName("Other").updateCode("OTHER").updateDisplayOrder(decimal('3'));
+    await extraType.auditAs("Verify SchoolType ID floor").save(context);
+    if (Number(extraType.id) <= 1002) throw new Error("SchoolType ID floor did not advance beyond 1002");
+
+    const school = (await Q.schools().comment("Create the example school")
+        .purpose("Verify generated TypeScript mutations").newEntity(context));
+    school.updatePlatform(Platform.refer("1"));
+    school.updateSchoolTypeToPrimary();
+    school.updateName("Riverside Primary School");
+    school.updateAddress("12 River Road, Springfield");
+    school.updateEstablishedDate("1995-09-01");
+    school.updateStudentCapacity(800);
+    school.updateActive(true);
+    await school.auditAs("Create Riverside Primary School").save(context);
+
+    await verifyDynamicSearch(context);
+    const primarySchools = await Q.schools().withSchoolTypeIsPrimary().withIdIs(school.id!)
+        .comment("Read schools linked through the PRIMARY helper")
+        .purpose("Verify constant helper mutation-ledger semantics")
+        .executeForList(context);
+    if (primarySchools.length !== 1 || E.school(primarySchools[0]).schoolTypeId().eval() !== "1001") {
+        throw new Error("PRIMARY helper did not persist and hydrate school_type=1001");
+    }
+
+    const loaded = await Q.schools().withIdIs(internalId(school.id))
+        .selectPlatformWith(Q.platformsWithMinimalFields().selectName().selectBaseUrl())
+        .selectSchoolTypeWith(Q.schoolTypesWithMinimalFields().selectName().selectCode().selectDisplayOrder())
+        .comment("Load a school with its forward relations")
+        .purpose("Verify generated forward relation metadata")
+        .executeForOne(context);
+    if (!loaded) throw new Error("School was not loaded");
+    const platform = loaded.platform as Platform;
+    const schoolType = loaded.schoolType as SchoolType;
+    if (platform.name !== "Campus Learning Platform") {
+        throw new Error("Platform forward relation was not hydrated");
+    }
+    if (schoolType.code !== "PRIMARY" || schoolType.displayOrder !== decimal('1')) {
+        throw new Error("SchoolType forward relation was not hydrated");
+    }
+
+    const queryCases: Array<[string, any, number]> = [
+        ["string equality", Q.schools().withNameIs("Riverside Primary School"), 1],
+        ["string inequality", Q.schools().withNameIsNot("Another School"), 1],
+        ["string membership", Q.schools().withNameIn("Riverside Primary School", "Another School"), 1],
+        ["negative membership", Q.schools().withNameNotIn("Another School"), 1],
+        ["contains", Q.schools().withNameContaining("Primary"), 1],
+        ["negative contains", Q.schools().withNameNotContaining("Secondary"), 1],
+        ["starts with", Q.schools().withNameStartingWith("Riverside"), 1],
+        ["negative starts with", Q.schools().withNameNotStartingWith("Lakeside"), 1],
+        ["ends with", Q.schools().withNameEndingWith("School"), 1],
+        ["negative ends with", Q.schools().withNameNotEndingWith("Academy"), 1],
+        ["number range", Q.schools().withStudentCapacityBetween(700, 900), 1],
+        ["strict comparison", Q.schools().withStudentCapacityGreaterThan(799).withStudentCapacityLessThan(801), 1],
+        ["date range", Q.schools().withEstablishedDateBetween("1995-01-01", "1995-12-31"), 1],
+        ["known", Q.schools().withAddressIsKnown(), 1],
+        ["unknown", Q.schools().withAddressIsUnknown(), 0],
+        ["boolean true", Q.schools().whichAreActive(), 1],
+        ["boolean false", Q.schools().whichAreNotActive(), 0],
+        ["constant relation", Q.schools().withSchoolTypeIsPrimary(), 1],
+    ];
+    for (const [label, request, expected] of queryCases) {
+        const result = await request.withIdIs(school.id!).comment(`Query parity: ${label}`)
+            .purpose("Execute the shared School Query conformance case")
+            .executeForList(context);
+        if (result.length !== expected) throw new Error(`${label}: expected ${expected}, got ${result.length}`);
+    }
+    const projected = await Q.schools().withIdIs(school.id!).selectName().orderByIdDescending()
+        .comment("Query parity: projection and ordering")
+        .purpose("Execute the shared School Query conformance case")
+        .executeForList(context);
+    if (projected.length !== 1 || projected[0].name !== "Riverside Primary School") {
+        throw new Error("projection/order query did not preserve typed School result");
+    }
+    const previousVersion = loaded.version;
+    if (previousVersion === undefined) throw new Error("Loaded school has no version");
+    loaded.updateName("Riverside Primary School — verified");
+    await loaded.auditAs("Verify TypeScript update fixes").save(context);
+    if (loaded.version !== nextEntityVersion('Update', previousVersion)) throw new Error("Update did not advance version");
+    const updated = await Q.schools().withIdIs(internalId(loaded.id))
+        .comment("Reload the updated school")
+        .purpose("Verify update_time fix and persisted mutation").executeForOne(context);
+    if (updated?.name !== "Riverside Primary School — verified") {
+        throw new Error("Updated school name was not persisted");
+    }
+    console.log("PASS TypeScript School Management: bootstrap, portable Query parity, relations, and Update");
+    await client.close();
+}
+
+async function verifyDynamicSearch(context: UserContext): Promise<void> {
+    const models: Record<string, SearchModel> = {
+        School: {fields: {name: "string"}, relations: {platform: "Platform"}},
+        Platform: {fields: {name: "string"}, relations: {}},
+    };
+    const populated = {filter: {name: "Riverside Primary School", "platform.name": "Campus Learning Platform",
+        removed: "SECRET_VALUE", "platform.removed": "SECRET_VALUE"},
+        orderBy: [{field: "removed", direction: "asc"}]};
+    for (const authorizedPlatform of ["1", "2"]) {
+        for (const input of [populated, {}]) {
+            // Server authorization is independent from optional client search fields.
+            let request = Q.schools().withNameIs("Riverside Primary School")
+                .withPlatformMatching(Q.platforms().withIdIs(authorizedPlatform));
+            const normalized = normalizeDynamicSearch(input, "School", models, () => {});
+            for (const [field, predicate] of Object.entries(normalized.search.filter ?? {})) {
+                const value = (predicate as {$eq?: unknown}).$eq;
+                if (typeof value !== "string") throw new Error("Demo binding supports string equality only");
+                if (field === "name") request = request.withNameIs(value);
+                else if (field === "platform.name") request = request.withPlatformMatching(Q.platforms().withNameIs(value));
+                else throw new Error("Missing trusted demo binding");
+            }
+            const rows = await request.orderByIdDescending().limit(2)
+                .comment("what: generated School dynamic search")
+                .purpose("why: preserve related authorization with stale or absent search fields")
+                .executeForList(context);
+            if (rows.length !== (authorizedPlatform === "1" ? 1 : 0)) throw new Error("Dynamic search bypassed scope");
+            if (normalized.warnings.length !== (input === populated ? 3 : 0)) throw new Error("Drift warnings mismatch");
+            if (JSON.stringify(normalized.warnings).includes("SECRET_VALUE")) throw new Error("Warning value leak");
+        }
+    }
+    console.log("PASS TypeScript generated School dynamic search: independent related scope and typed Q bindings");
+}
+
+main().catch(error => { console.error(error); process.exit(1); });

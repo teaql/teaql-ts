@@ -47,11 +47,13 @@ fi
 
 for example in conformance ensure-schema-bootstrap school-management; do
   (
-    cd "$repo/examples/$example"
+    example_dir="$repo/examples/$example"
+    if [[ "$example" == school-management ]]; then example_dir="$example_dir/typescript-app-console"; fi
+    cd "$example_dir"
     npm ci
     npm run build
     if [[ "$example" == school-management ]]; then
-      npx ts-node app.ts
+      npm start
     else
       npm start
     fi

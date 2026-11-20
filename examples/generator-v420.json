@@ -903,71 +903,79 @@
     },
     {
       "archiveSHA256": "2ecfbe9f456c3e4f96977a6295e7ef8adaa83dbb42e0018196e499737673f39d",
-      "destination": "examples/school-management",
+      "destination": "examples/school-management/typescript-lib-core",
       "generatedFiles": {
-        "examples/school-management/src/generated-bootstrap.ts": {
+        "examples/school-management/typescript-lib-core/package.json": {
+          "emittedPath": "package.json",
+          "sha256": "5bf1be1a36b26771c9ad6bdd363dfcc11b4e7c13c177c6c05ceb91082e4104e2"
+        },
+        "examples/school-management/typescript-lib-core/src/generated-bootstrap.ts": {
           "emittedPath": "src/generated-bootstrap.ts",
           "sha256": "75c847ca2b29ca42a4520a6cf83d5d72df1ecc15a56fff00bc6e8f44953486c5"
         },
-        "examples/school-management/src/generated-search-models.ts": {
+        "examples/school-management/typescript-lib-core/src/generated-search-models.ts": {
           "emittedPath": "src/generated-search-models.ts",
           "sha256": "3d596870c683b14ea9ca4cc930216cec647e6b216b1b7a073b573626293ce4a5"
         },
-        "examples/school-management/src/generated/E.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/E.ts": {
           "emittedPath": "src/generated/E.ts",
           "sha256": "79a54bc6bf0470b6f62c4b00b45ee27d8b23c706bc39365c138dc1eeab0f7d53"
         },
-        "examples/school-management/src/generated/Q.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/Q.ts": {
           "emittedPath": "src/generated/Q.ts",
           "sha256": "96e150775a079420a4afb57d5be8e9b7696d2b8d8bef6eee3727c2b530b3dd33"
         },
-        "examples/school-management/src/generated/models/Platform.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/models/Platform.ts": {
           "emittedPath": "src/generated/models/Platform.ts",
           "sha256": "f7b52b7b7f9870a9539bb0a003f4003ad15c7e8e77e10360bf63bf9fb34453b8"
         },
-        "examples/school-management/src/generated/models/School.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/models/School.ts": {
           "emittedPath": "src/generated/models/School.ts",
           "sha256": "c0292f32556329339d42a0e87722939d0be1605d956a9ce624401cbbbc2888b2"
         },
-        "examples/school-management/src/generated/models/SchoolType.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/models/SchoolType.ts": {
           "emittedPath": "src/generated/models/SchoolType.ts",
           "sha256": "7e23e77fa4d449f390a0ef9f8dd146b88e473b29ae0f3e4da4e2484254684f24"
         },
-        "examples/school-management/src/generated/requests/PlatformRequest.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/requests/PlatformRequest.ts": {
           "emittedPath": "src/generated/requests/PlatformRequest.ts",
           "sha256": "54b5e78b3ad5f43af526c45ed0ef0f43586e6f86d6f81ab3794a71f3585c51c2"
         },
-        "examples/school-management/src/generated/requests/SchoolRequest.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/requests/SchoolRequest.ts": {
           "emittedPath": "src/generated/requests/SchoolRequest.ts",
           "sha256": "95ab55c16845a991a2d680111218bfc31c337f40604b7ad47b798cea2df2bf4e"
         },
-        "examples/school-management/src/generated/requests/SchoolTypeRequest.ts": {
+        "examples/school-management/typescript-lib-core/src/generated/requests/SchoolTypeRequest.ts": {
           "emittedPath": "src/generated/requests/SchoolTypeRequest.ts",
           "sha256": "e8cf24009e570ca06d97a12f65c73cdabbb2630cc108989a0b91fdda25963a72"
         },
-        "examples/school-management/src/runtime-module.ts": {
+        "examples/school-management/typescript-lib-core/src/runtime-module.ts": {
           "emittedPath": "src/runtime-module.ts",
           "sha256": "aeadf3eb4547008457b755cf310c92d7823c85e12d2497cde50f607b68d71379"
         },
-        "examples/school-management/src/teaql-schemas.ts": {
+        "examples/school-management/typescript-lib-core/src/teaql-schemas.ts": {
           "emittedPath": "src/teaql-schemas.ts",
           "sha256": "9711925deb067f9a8aea963021abff961b83384861c32e19eac1e4d8511dfaa4"
         },
-        "examples/school-management/src/teaql-ts.ts": {
+        "examples/school-management/typescript-lib-core/src/teaql-ts.ts": {
           "emittedPath": "src/teaql-ts.ts",
           "sha256": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b"
         },
-        "examples/school-management/teaql-i18n.json": {
+        "examples/school-management/typescript-lib-core/teaql-i18n.json": {
           "emittedPath": "teaql-i18n.json",
           "sha256": "785b10a761a7e3d13b88878bc8702546b19f9bc637d28e76fa780fc79f97ca3d"
         },
-        "examples/school-management/teaql/checker-model.json": {
+        "examples/school-management/typescript-lib-core/teaql/checker-model.json": {
           "emittedPath": "teaql/checker-model.json",
           "sha256": "8e28ee16cddc21191816ed05999142fccb870bf42795f5a1f21268ebd4469e71"
         },
-        "examples/school-management/teaql/model-provenance.json": {
+        "examples/school-management/typescript-lib-core/teaql/model-provenance.json": {
           "emittedPath": "teaql/model-provenance.json",
           "sha256": "241cf0fa574c4a2d3db4ae7a57ac89b3329d13e342c22196f79c025ed6c3f9e8"
+        },
+        "examples/school-management/typescript-lib-core/tsconfig.json": {
+          "emittedPath": "tsconfig.json",
+          "sha256": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
         }
       },
       "model": "examples/school-management/model.xml",
@@ -986,18 +994,6 @@
           "commit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
           "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
           "release": "unreleased-source-021b1ed8"
-        }
-      },
-      "preservedApplicationFiles": {
-        "examples/school-management/package.json": {
-          "emittedSHA256": "5bf1be1a36b26771c9ad6bdd363dfcc11b4e7c13c177c6c05ceb91082e4104e2",
-          "reason": "Application manifest, local dependency wiring or application-specific instructions preserved",
-          "sha256": "aace897e2bb2d0e0c0fe13ea492e337ff0e57e2753b228f69fc2cfda601f0438"
-        },
-        "examples/school-management/tsconfig.json": {
-          "emittedSHA256": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037",
-          "reason": "Application manifest, local dependency wiring or application-specific instructions preserved",
-          "sha256": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
         }
       }
     },
