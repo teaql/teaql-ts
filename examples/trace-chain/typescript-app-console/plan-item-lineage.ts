@@ -8,9 +8,9 @@ import { DelegatingMutationPolicyApprovalProvider, DelegatingMutationPolicyRegis
 import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore,
   SQLExecutionMetadata, SqlQueryResult, SqlSession } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
-import { Q } from './lib/src/generated/Q';
-import { E } from './lib/src/generated/E';
-import { GENERATED_RUNTIME_MODULE } from './lib/src/runtime-module';
+import { Q } from '../typescript-lib-core/src/generated/Q';
+import { E } from '../typescript-lib-core/src/generated/E';
+import { GENERATED_RUNTIME_MODULE } from '../typescript-lib-core/src/runtime-module';
 
 // Byte fingerprints only; generated source is not used for API discovery.
 function fingerprint(directory: string, prefix = ''): string {
@@ -18,7 +18,7 @@ function fingerprint(directory: string, prefix = ''): string {
     .map(entry => entry.isDirectory() ? fingerprint(join(directory, entry.name), `${prefix}${entry.name}/`)
       : `${createHash('sha256').update(readFileSync(join(directory, entry.name))).digest('hex')} ${prefix}${entry.name}\n`).join('');
 }
-const originalLibrary = fingerprint('lib');
+const originalLibrary = fingerprint('../typescript-lib-core');
 const database = resolve(process.env.TEAQL_TRACE_CHAIN_PLAN_DB ?? '.local/plan-item-lineage.sqlite');
 mkdirSync(join(database, '..'), { recursive: true });
 class Driver extends SQLiteDriver {
@@ -155,7 +155,7 @@ async function main() {
       }
     }
   } finally { await client.close(); }
-  assert.equal(fingerprint('lib'), originalLibrary);
+  assert.equal(fingerprint('../typescript-lib-core'), originalLibrary);
   console.log('PASS TypeScript generated plan item lineage: 4 scenarios; one plan, ordered same-type items, sibling privacy, independent next request');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

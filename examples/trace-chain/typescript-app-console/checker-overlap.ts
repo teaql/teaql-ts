@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path';
 import { CheckException, EntityRoot, GraphMutationSession, MutationIntent, MutationRequest, TraceNode, UserContext } from 'teaql-ts';
 import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore, SQLExecutionMetadata, SqlQueryResult, SqlSession } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
-import { Q } from './lib/src/generated/Q';
-import { E } from './lib/src/generated/E';
-import { GENERATED_RUNTIME_MODULE } from './lib/src/runtime-module';
+import { Q } from '../typescript-lib-core/src/generated/Q';
+import { E } from '../typescript-lib-core/src/generated/E';
+import { GENERATED_RUNTIME_MODULE } from '../typescript-lib-core/src/runtime-module';
 
 // Mechanical fingerprinting only: never inspect generated source for APIs.
 function manifest(directory: string, prefix = ''): string {
@@ -15,7 +15,7 @@ function manifest(directory: string, prefix = ''): string {
     .map(entry => entry.isDirectory() ? manifest(join(directory, entry.name), `${prefix}${entry.name}/`)
       : `${createHash('sha256').update(readFileSync(join(directory, entry.name))).digest('hex')}  ${prefix}${entry.name}\n`).join('');
 }
-const before = manifest('lib');
+const before = manifest('../typescript-lib-core');
 const database = resolve(process.env.TEAQL_TRACE_CHAIN_CHECKER_DB ?? '.local/checker-overlap.sqlite');
 const evidence = resolve(process.env.TEAQL_TRACE_CHAIN_CHECKER_EVIDENCE ?? '.local/checker-overlap-evidence');
 const attempt = process.env.TEAQL_TRACE_CHAIN_CHECKER_RUN ?? 'manual';
@@ -206,7 +206,7 @@ async function main() {
       console.log(JSON.stringify({ ...observation, nextIndependentSave: 'committed', sharedReadonlyReference: true }));
     }
   } finally { await client.close(); }
-  const after = manifest('lib'); assert.equal(after, before);
+  const after = manifest('../typescript-lib-core'); assert.equal(after, before);
   writeFileSync(join(evidence, `${attempt}-library-after.sha256`), after);
   console.log(JSON.stringify({ database, nonce, attempt, generatedFiles: before.trim().split('\n').length, generatedSourceUnchanged: true }));
   console.log('PASS TypeScript generated Checker overlap: 4 scenarios; real Required rejection, no rejected commands/business SQL/audit; transactions serialized');

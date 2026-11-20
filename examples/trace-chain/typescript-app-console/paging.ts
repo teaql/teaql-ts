@@ -5,9 +5,9 @@ import { dirname, join, resolve } from 'node:path';
 import { EntityRoot, SelectQuery, UserContext } from 'teaql-ts';
 import { AbstractSQLTeaQLClient, SQLExecutionEvidenceStore } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
-import { Q } from './lib/src/generated/Q';
-import { E } from './lib/src/generated/E';
-import { GENERATED_RUNTIME_MODULE } from './lib/src/runtime-module';
+import { Q } from '../typescript-lib-core/src/generated/Q';
+import { E } from '../typescript-lib-core/src/generated/E';
+import { GENERATED_RUNTIME_MODULE } from '../typescript-lib-core/src/runtime-module';
 
 function manifest(directory: string, prefix = ''): string {
   return readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))
@@ -29,7 +29,7 @@ class Context extends UserContext {
 }
 const ledger=(entity:unknown)=>(entity as {_root:EntityRoot})._root;
 async function main() {
-  const before=manifest('lib');
+  const before=manifest('../typescript-lib-core');
   const database=resolve(process.env.TEAQL_TRACE_CHAIN_PAGE_DB??'.local/paging.sqlite');
   mkdirSync(dirname(database),{recursive:true});
   const client=new Client(new SQLiteDriver(database)).install(GENERATED_RUNTIME_MODULE).setDiagnosticSQLLogSink(undefined);
@@ -117,7 +117,7 @@ async function main() {
         console.log(`PAGE OWNERSHIP PASSED: ${mode}`);
       } catch(error) {failures.push(error);console.error(`PAGE FAILED: ${mode}`,error);}
     }
-    assert.equal(manifest('lib'),before,'generated library unchanged');
+    assert.equal(manifest('../typescript-lib-core'),before,'generated library unchanged');
     assert.equal(failures.length,0,'all page scenarios must pass');
   } finally {await client.close();}
 }

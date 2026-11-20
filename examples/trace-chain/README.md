@@ -1,5 +1,9 @@
 # Generated TypeScript Trace Chain example
 
+The order workflows run in `typescript-app-console` and import the generated
+domain from `typescript-node-lib-core`. Run
+`bash examples/trace-chain/verify.sh` from the runtime root.
+
 This local-source example exercises request-owned intent, SQL paths and
 committed audit lineage through generated Q, E and Mutation APIs. It is not a
 released-package or complete-provider conformance claim.

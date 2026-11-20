@@ -5,16 +5,16 @@ import { join, resolve } from 'node:path';
 import { EntityRoot, GraphMutationSession, MutationIntent, MutationRequest, TraceNode, UserContext } from 'teaql-ts';
 import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
-import { Q } from './lib/src/generated/Q';
-import { E } from './lib/src/generated/E';
-import { GENERATED_RUNTIME_MODULE } from './lib/src/runtime-module';
+import { Q } from '../typescript-lib-core/src/generated/Q';
+import { E } from '../typescript-lib-core/src/generated/E';
+import { GENERATED_RUNTIME_MODULE } from '../typescript-lib-core/src/runtime-module';
 
 function manifest(directory: string, prefix = ''): string {
   return readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
     .map(entry => entry.isDirectory() ? manifest(join(directory, entry.name), `${prefix}${entry.name}/`)
       : `${createHash('sha256').update(readFileSync(join(directory, entry.name))).digest('hex')}  ${prefix}${entry.name}\n`).join('');
 }
-const before = manifest('lib');
+const before = manifest('../typescript-lib-core');
 const nonce = randomUUID();
 const database = resolve(process.env.TEAQL_TRACE_CHAIN_SHARED_DB ?? '.local/shared-reference.sqlite');
 mkdirSync(join(database, '..'), { recursive: true });
@@ -215,7 +215,7 @@ async function main() {
       console.log('MIXED VERSION PRECLOCK: clocks=0 statements=0 fix_scope_preserved=true');
     }
   } finally { await client.close(); }
-  assert.equal(manifest('lib'), before, 'acceptance must not edit generated source');
+  assert.equal(manifest('../typescript-lib-core'), before, 'acceptance must not edit generated source');
   const evidenceDirectory = process.env.TEAQL_EXAMPLES_EVIDENCE_DIR
     ? resolve(process.env.TEAQL_EXAMPLES_EVIDENCE_DIR, 'trace-chain')
     : resolve('.local/evidence');

@@ -4,9 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { UserContext } from 'teaql-ts';
 import { SQLiteTeaQLClient } from 'teaql-ts/sql/sqlite';
 import { SQLExecutionEvidenceStore } from 'teaql-ts/sql/core';
-import { Q } from './lib/src/generated/Q';
-import { E } from './lib/src/generated/E';
-import { GENERATED_RUNTIME_MODULE } from './lib/src/runtime-module';
+import { Q } from '../typescript-lib-core/src/generated/Q';
+import { E } from '../typescript-lib-core/src/generated/E';
+import { GENERATED_RUNTIME_MODULE } from '../typescript-lib-core/src/runtime-module';
 import { startStandardNodeTelemetry } from 'teaql-ts/telemetry/standard-node';
 
 // Application-owned fault boundary: no SDK setup or business-operation instrumentation.

@@ -61,67 +61,6 @@ TEAQL_ORDER_EVIDENCE_DIR="$example_evidence/order-management" bash "$repo/exampl
   TEAQL_TASK_BOARD_EVIDENCE_DIR="$example_evidence/task-board" npm run verify)
 (cd "$repo/examples/browser-sqlite" && npm ci && npm run build && npm run smoke && \
   TEAQL_BROWSER_ORDER_EVIDENCE="$example_evidence/browser-orders.json" npm run smoke:orders)
-(
-  cd "$repo/examples/trace-chain"
-  npm ci
-  npm run build
-  for attempt in 1 2; do
-    graph_log="$verify_scratch/graph-$attempt.log"
-    npm start | tee "$graph_log"
-    rg -Fxq 'PASS TypeScript graph identity controls: duplicate, missing and equal-ID type collapse rejected' "$graph_log"
-    rg -Fq 'GRAPH IDENTITY EVIDENCE ' "$graph_log"
-    rg -Fxq 'PASS TypeScript generated trace-chain example: 7 checks' "$graph_log"
-    [[ "$(rg -c '^PRIVATE_LINEAGE_OBSERVED ' "$graph_log")" == 8 ]]
-    [[ "$(rg -c '^PASS TypeScript complete private lineage:' "$graph_log")" == 8 ]]
-  done
-  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry
-  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry
-  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry-graph
-  env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT npm run test:standard-telemetry-graph
-  response_directory="$example_evidence/standard-response"
-  mkdir -p "$response_directory"
-  for attempt in 1 2; do
-    response_log="$response_directory/round-$attempt.log"
-    env -u TEAQL_TELEMETRY_ENABLED -u TEAQL_TELEMETRY_SERVICE_NAME -u TEAQL_TELEMETRY_OTLP_ENDPOINT \
-      TEAQL_STANDARD_RESPONSE_DB="$response_directory/graphs.sqlite" \
-      node node_modules/ts-node/dist/bin.js standard-export-responses.ts | tee "$response_log"
-    rg -Fxq 'PASS TypeScript standard response graph: create, rollback, retry, update, delete, Q/E, committed audit' "$response_log"
-    rg -Fq "\"firstSeedAudits\":$((2-attempt)),\"repeatSeedAudits\":0" "$response_log"
-  done
-  env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference
-  env -u TEAQL_TRACE_CHAIN_SCENARIO npm run test:shared-reference
-  npm run test:page
-  npm run test:page
-  npm run test:stream-capture
-  npm run test:stream-capture
-)
-for attempt in 1 2; do
-  aggregate_log="$verify_scratch/aggregate-$attempt.log"
-  (cd "$repo/examples/trace-chain" && npm run test:relation-aggregate) | tee "$aggregate_log"
-  rg -Fq 'FORWARD_NOTLOADED_OBSERVED {"logging":true' "$aggregate_log"
-  rg -Fq 'FORWARD_NOTLOADED_OBSERVED {"logging":false' "$aggregate_log"
-done
-bash "$repo/scripts/verify-current-aggregate.sh"
-for attempt in 1 2; do
-  checker_log="$verify_scratch/checker-$attempt.log"
-  TEAQL_TRACE_CHAIN_CHECKER_RUN="verify-examples-$attempt" \
-    bash "$repo/scripts/run-checker-overlap.sh" "$checker_log"
-done
-for attempt in 1 2; do
-  plan_log="$verify_scratch/plan-items-$attempt.log"
-  (cd "$repo/examples/trace-chain" && timeout --kill-after=5s 90s npm run test:plan-item-lineage) | tee "$plan_log"
-  rg -Fxq 'PASS TypeScript generated plan item lineage: 4 scenarios; one plan, ordered same-type items, sibling privacy, independent next request' "$plan_log"
-done
+TEAQL_TRACE_CHAIN_EVIDENCE_DIRECTORY="$example_evidence/trace-chain" bash "$repo/examples/trace-chain/verify.sh"
 bash "$repo/examples/facet-trace/verify.sh"
-bootstrap_directory="$example_evidence/bootstrap"
-mkdir -p "$bootstrap_directory"
-for attempt in 1 2; do
-  bootstrap_log="$bootstrap_directory/round-$attempt.log"
-  (cd "$repo/examples/trace-chain" && TEAQL_TRACE_CHAIN_BOOTSTRAP_DB="$bootstrap_directory/bootstrap.sqlite" \
-    timeout --kill-after=5s 90s npm run test:bootstrap-intent) | tee "$bootstrap_log"
-  rg -Fxq 'PASS TypeScript generated bootstrap intent: logging off/on, committed audit, repeat no writes, unchanged generated library' "$bootstrap_log"
-  for logging in false true; do
-    rg -Fq "\"path\":\"generated default bootstrap\",\"logging\":$logging,\"firstWrites\":$((2-attempt)),\"repeatWrites\":0" "$bootstrap_log"
-  done
-done
 echo "PASS: all TypeScript examples"

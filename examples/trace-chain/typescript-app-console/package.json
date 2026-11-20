@@ -1,0 +1,30 @@
+{
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "teaql-ts": "file:../../.."
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "5.4.5"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "name": "teaql-typescript-trace-chain-example",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "ts-node src/main.ts",
+    "test:bootstrap-intent": "ts-node bootstrap-intent.ts",
+    "test:checker-overlap": "ts-node checker-overlap.ts",
+    "test:page": "ts-node paging.ts",
+    "test:plan-item-lineage": "ts-node plan-item-lineage.ts",
+    "test:relation-aggregate": "ts-node relation-aggregate.ts",
+    "test:shared-reference": "ts-node shared-reference.ts",
+    "test:standard-telemetry": "ts-node standard-telemetry.ts",
+    "test:standard-telemetry-graph": "ts-node standard-telemetry-graph.ts",
+    "test:stream-capture": "ts-node stream-capture.ts"
+  }
+}

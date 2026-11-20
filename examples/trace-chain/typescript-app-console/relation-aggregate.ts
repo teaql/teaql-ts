@@ -5,9 +5,9 @@ import {dirname, join, resolve} from 'node:path';
 import {UserContext} from 'teaql-ts';
 import {AbstractSQLTeaQLClient, SQLExecutionEvidenceStore} from 'teaql-ts/sql/core';
 import {SQLiteDriver} from 'teaql-ts/sql/sqlite';
-import {Q} from './lib/src/generated/Q';
-import {E} from './lib/src/generated/E';
-import {GENERATED_RUNTIME_MODULE} from './lib/src/runtime-module';
+import {Q} from '../typescript-lib-core/src/generated/Q';
+import {E} from '../typescript-lib-core/src/generated/E';
+import {GENERATED_RUNTIME_MODULE} from '../typescript-lib-core/src/runtime-module';
 
 type Order = Parameters<typeof E.customerOrder>[0];
 type Payment = Parameters<typeof E.payment>[0];
@@ -46,7 +46,7 @@ function relatedCount(entity: object, alias: string): number {
 }
 
 async function main() {
-  const before = manifest('lib');
+  const before = manifest('../typescript-lib-core');
   const path = resolve(process.env.TEAQL_TRACE_CHAIN_AGGREGATE_DB ?? '.local/relation-aggregate.sqlite');
   mkdirSync(dirname(path), {recursive: true});
   const driver = new Driver(path);
@@ -161,7 +161,7 @@ async function main() {
       error => error === failure);
     assert.deepEqual(evidence.snapshot().map(entry => entry.executionOutcome), ['failure', 'failure']);
     driver.aggregateFailure = undefined;
-    assert.equal(manifest('lib'), before, 'generated library must remain unchanged');
+    assert.equal(manifest('../typescript-lib-core'), before, 'generated library must remain unchanged');
     console.log('PASS TypeScript generated relation aggregates: 12 combinations, audited save and stream failure');
   } finally { await client.close(); }
 }

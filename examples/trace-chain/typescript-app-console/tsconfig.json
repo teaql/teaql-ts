@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2020"
+  },
+  "include": [
+    "src/main.ts",
+    "shared-reference.ts",
+    "paging.ts",
+    "stream-capture.ts",
+    "relation-aggregate.ts",
+    "aggregate-membership.ts",
+    "checker-overlap.ts",
+    "plan-item-lineage.ts",
+    "bootstrap-intent.ts",
+    "standard-telemetry.ts",
+    "standard-telemetry-graph.ts",
+    "standard-export-responses.ts",
+    "../typescript-lib-core/src/**/*.ts"
+  ]
+}

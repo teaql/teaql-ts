@@ -5,9 +5,9 @@ import {dirname,join,resolve} from 'node:path';
 import {EntityRoot,SelectQuery,UserContext} from 'teaql-ts';
 import {AbstractSQLTeaQLClient,SQLExecutionEvidenceStore} from 'teaql-ts/sql/core';
 import {SQLiteDriver} from 'teaql-ts/sql/sqlite';
-import {Q} from './lib/src/generated/Q';
-import {E} from './lib/src/generated/E';
-import {GENERATED_RUNTIME_MODULE} from './lib/src/runtime-module';
+import {Q} from '../typescript-lib-core/src/generated/Q';
+import {E} from '../typescript-lib-core/src/generated/E';
+import {GENERATED_RUNTIME_MODULE} from '../typescript-lib-core/src/runtime-module';
 
 const manifest=(directory:string):string=>readdirSync(directory,{withFileTypes:true})
   .sort((a,b)=>a.name.localeCompare(b.name)).map(entry=>entry.isDirectory()
@@ -30,7 +30,7 @@ async function collect<T>(stream:AsyncIterable<T>):Promise<T[]> {
 }
 const ledger=(entity:unknown)=>(entity as {_root:EntityRoot})._root;
 async function main(){
-  const before=manifest('lib');
+  const before=manifest('../typescript-lib-core');
   const path=resolve(process.env.TEAQL_TRACE_CHAIN_STREAM_DB??'.local/stream-capture.sqlite');
   mkdirSync(dirname(path),{recursive:true});
   const client=new Client(new SQLiteDriver(path)).install(GENERATED_RUNTIME_MODULE).setDiagnosticSQLLogSink(undefined);
@@ -89,7 +89,7 @@ async function main(){
     const abandoned=Q.customerOrders().withIdIn(...ids).limit(3)
       .comment('never consumed').purpose('verify no fake SQL').executeForStream(context,1)[Symbol.asyncIterator]();
     await abandoned.return?.();assert.equal(sql.snapshot().length,0);
-    assert.equal(manifest('lib'),before,'generated source unchanged');
+    assert.equal(manifest('../typescript-lib-core'),before,'generated source unchanged');
     console.log(`STREAM_CAPTURE_OBSERVED ${JSON.stringify({group,ids,first:a.length,second:b.length,physicalQueries:observations.length,cancelledRows:terminal[0].resultCount,neverPolledStatements:0})}`);
     console.log('PASS TypeScript generated creation-time stream capture');
   }catch(error){console.error('STREAM_CAPTURE_SQL_SHAPES',client.sqlTrace.slice(-5));throw error;}

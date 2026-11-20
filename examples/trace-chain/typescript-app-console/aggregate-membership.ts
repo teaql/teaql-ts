@@ -5,9 +5,9 @@ import {dirname, join, resolve} from 'node:path';
 import {UserContext} from 'teaql-ts';
 import {AbstractSQLTeaQLClient, SQLExecutionEvidenceStore, SQLExecutionMetadata, MutationResult} from 'teaql-ts/sql/core';
 import {SQLiteDriver} from 'teaql-ts/sql/sqlite';
-import {Q} from './lib/src/generated/Q';
-import {E} from './lib/src/generated/E';
-import {GENERATED_RUNTIME_MODULE} from './lib/src/runtime-module';
+import {Q} from '../typescript-lib-core/src/generated/Q';
+import {E} from '../typescript-lib-core/src/generated/E';
+import {GENERATED_RUNTIME_MODULE} from '../typescript-lib-core/src/runtime-module';
 
 type Order = Parameters<typeof E.customerOrder>[0];
 type Payment = Parameters<typeof E.payment>[0];
@@ -54,7 +54,7 @@ function route(root: string, edges: string[]) {
   path.push(['provider','sqlite',''],['sql','select','']);return path;
 }
 async function main() {
-  const before=hashes('lib');
+  const before=hashes('../typescript-lib-core');
   const database=resolve(process.env.TEAQL_TRACE_CHAIN_MEMBERSHIP_DB??'.local/aggregate-membership.sqlite');
   mkdirSync(dirname(database),{recursive:true});
   const driver=new Driver(database),client=new Client(driver).install(GENERATED_RUNTIME_MODULE);
@@ -127,7 +127,7 @@ async function main() {
           for(const item of items)assert.throws(()=>E.orderItem(item).customerOrder().description().eval(),{name:'TeaQLNotLoadedError'});
         }
       }
-    assert.equal(hashes('lib'),before,'generated library is unchanged');
+    assert.equal(hashes('../typescript-lib-core'),before,'generated library is unchanged');
     const entry=require.resolve('teaql-ts'),runtimeRoot=resolve(dirname(entry),'..');
     console.log('TS_AGGREGATE_RUNTIME '+JSON.stringify({entry,runtimeRoot,
       modules:Object.keys(require.cache).filter(file=>file.startsWith(runtimeRoot+'/dist/')).sort()

@@ -7,8 +7,8 @@ import { MutationRequest, QueryRequest, UserContext } from 'teaql-ts';
 import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore,
   SQLExecutionMetadata, SqlSession } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
-import { Q } from './lib/src/generated/Q';
-import { GENERATED_RUNTIME_MODULE } from './lib/src/runtime-module';
+import { Q } from '../typescript-lib-core/src/generated/Q';
+import { GENERATED_RUNTIME_MODULE } from '../typescript-lib-core/src/runtime-module';
 
 // Mechanical fingerprints, not generated-source API discovery.
 function fingerprint(directory: string, prefix = ''): string {
@@ -16,7 +16,7 @@ function fingerprint(directory: string, prefix = ''): string {
     .map(entry => entry.isDirectory() ? fingerprint(join(directory, entry.name), `${prefix}${entry.name}/`)
       : `${createHash('sha256').update(readFileSync(join(directory, entry.name))).digest('hex')} ${prefix}${entry.name}\n`).join('');
 }
-const before = fingerprint('lib');
+const before = fingerprint('../typescript-lib-core');
 const base = resolve(process.env.TEAQL_TRACE_CHAIN_BOOTSTRAP_DB ?? '.local/bootstrap-intent.sqlite');
 mkdirSync(join(base, '..'), { recursive: true });
 
@@ -154,7 +154,7 @@ async function run(logging: boolean): Promise<void> {
 }
 async function main(): Promise<void> {
   for (const logging of [false, true]) await run(logging);
-  assert.equal(fingerprint('lib'), before);
+  assert.equal(fingerprint('../typescript-lib-core'), before);
   console.log('PASS TypeScript generated bootstrap intent: logging off/on, committed audit, repeat no writes, unchanged generated library');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

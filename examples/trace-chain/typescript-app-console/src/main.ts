@@ -6,9 +6,9 @@ import { join, resolve } from 'node:path';
 import { MutationRequest, TraceNode, UserContext } from 'teaql-ts';
 import { AbstractSQLTeaQLClient, MutationResult, SQLExecutionEvidenceStore, SQLExecutionMetadata, SqlQueryResult, SqlSession } from 'teaql-ts/sql/core';
 import { SQLiteDriver } from 'teaql-ts/sql/sqlite';
-import { Q } from './lib/src/generated/Q';
-import { E } from './lib/src/generated/E';
-import { GENERATED_RUNTIME_MODULE } from './lib/src/runtime-module';
+import { Q } from '../../typescript-lib-core/src/generated/Q';
+import { E } from '../../typescript-lib-core/src/generated/E';
+import { GENERATED_RUNTIME_MODULE } from '../../typescript-lib-core/src/runtime-module';
 
 const database = resolve(process.env.TEAQL_TRACE_CHAIN_DB ?? '.local/trace-chain.sqlite');
 mkdirSync(join(database, '..'), { recursive: true });
@@ -19,7 +19,7 @@ function manifest(directory: string, prefix = ''): string {
     .map(entry => entry.isDirectory() ? manifest(join(directory, entry.name), `${prefix}${entry.name}/`)
       : `${createHash('sha256').update(readFileSync(join(directory, entry.name))).digest('hex')}  ${prefix}${entry.name}\n`).join('');
 }
-const generatedBefore = manifest('lib');
+const generatedBefore = manifest('../typescript-lib-core');
 
 type GraphIdentity = Readonly<{ entity: string; id: string }>;
 type ObservedCommand = GraphIdentity & Readonly<{ action: string; lineage: readonly TraceNode[] }>;
@@ -428,7 +428,7 @@ async function main() {
     }
     checks.push('generated loaded old-value privacy, committed refresh, rollback retry and independent request isolation');
   } finally { await client.close(); }
-  assert.equal(manifest('lib'), generatedBefore, 'application execution changed generated source');
+  assert.equal(manifest('../typescript-lib-core'), generatedBefore, 'application execution changed generated source');
   const evidenceDirectory = process.env.TEAQL_EXAMPLES_EVIDENCE_DIR
     ? resolve(process.env.TEAQL_EXAMPLES_EVIDENCE_DIR, 'trace-chain')
     : resolve('.local/evidence');
