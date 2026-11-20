@@ -10,6 +10,14 @@
     "path": "model.xml",
     "sha256": "9fc6724c828e10aca8cea9f53b65460f26577f74ba5396f04376ad4f20ddc30e"
   },
+  "priorFocusedQualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-facet-native-scopes/runtime/facet-trace/business-receipt.json",
+    "businessReceiptSHA256": "b3bdc68502b97820a3e2a2addd84ac3b434a0e71bd89ca78ad99ca3bc501e32c",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-facet-native-scopes/receipt.json",
+    "nativeReceiptSHA256": "42aa6e94a44fb13c63eb83588b42aace690fae1834f950718c7cfaf439124159",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "cf43a37402e861edf6178181634341e9bd134cab"
+  },
   "producer": {
     "generator": {
       "artifactKind": "qualified source build; not a public release",
@@ -21,17 +29,9 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/facet-typescript-node-generation/receipt.json",
     "receiptSHA256": "f0820d7e5e98c5e964749d8b0ea72d0b43f9663b2808f5e86261ccaeafb40399"
   },
-  "qualification": {
-    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-facet-native-scopes/runtime/facet-trace/business-receipt.json",
-    "businessReceiptSHA256": "b3bdc68502b97820a3e2a2addd84ac3b434a0e71bd89ca78ad99ca3bc501e32c",
-    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-facet-native-scopes/receipt.json",
-    "nativeReceiptSHA256": "42aa6e94a44fb13c63eb83588b42aace690fae1834f950718c7cfaf439124159",
-    "remainingFullRuntimeInventory": true,
-    "sourceCommit": "cf43a37402e861edf6178181634341e9bd134cab"
-  },
   "scene": "School catalog Facets, full membership counts and retained business/privacy assertions",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "focused-verified",
+  "status": "implemented-pending-native-qualification",
   "verification": [
     "bash",
     "verify.sh"
