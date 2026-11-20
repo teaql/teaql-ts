@@ -21,9 +21,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/district-school-bootstrap-id-generation/receipt.json",
     "receiptSHA256": "8b7d75296c2dfb5c94e15fff03f2d32d6aa94870d1968ddc34bf4dcaed41a6e8"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-district-school-bootstrap-native/runtime/ensure-schema-bootstrap/receipt.json",
+    "businessReceiptSHA256": "d651637df5f131dfc3035b02d595ec16469ca0159d81061603e9781a076cd338",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-district-school-bootstrap-native/receipt.json",
+    "nativeReceiptSHA256": "68f076579bb523eed623aee53c9f4d669da1b7d171d5e862afcda29dfc14005d",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "4f9543156763613a83cb976aba50d3a5945fe245"
+  },
   "scene": "Explicit schema bootstrap for two school districts",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "verification": [
     "typescript-app-console/src/main.ts"
   ],
