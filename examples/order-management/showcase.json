@@ -30,9 +30,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/order-generation/receipt.json",
     "receiptSHA256": "5041246b7c9f452219d943efa393ea380ce7f7e172da739a945bb49da2ba5db2"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-scopes/runtime/order-management/business-receipt.json",
+    "businessReceiptSHA256": "a70446a016fa458882961078521de38b04ab6871dd4557cccde92bd5a7d3909c",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-scopes/receipt.json",
+    "nativeReceiptSHA256": "9c578a72d038e5e7839f20794d57e0d446e3f5a18554f16c603205e3f14ae900",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "4985faa074c16b710fd640bd7e20169165014fb2"
+  },
   "scene": "Order terminal, exact amount and idempotent search presets",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "verification": [
     "bash",
     "verify.sh"

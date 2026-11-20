@@ -22,7 +22,7 @@ Read `typescript-app-console/app.ts` first. Discover generated APIs through curr
 
 ## Verify the first result
 
-Expect `WEB-2026-001`, `2026-08-12`, and `129.95`. The first run reports four audited mutations and SQL trace entries; the second reports zero mutations.
+Expect `WEB-2026-001`, `2026-08-12`, and `129.95`. The first run reports six audited mutations and SQL trace entries; the second reports zero mutations.
 
 ## Customize it
 
