@@ -36,7 +36,7 @@ bash "$repo/examples/object-storage/verify.sh"
 (cd "$repo" && npm test -- --runInBand tests/sql-relation-membership.test.ts)
 mkdir -p "$repo/.local"
 TEAQL_FIX_E_EVIDENCE_DIR="${TEAQL_FIX_E_EVIDENCE_DIR:-$example_evidence/fix-e-alignment}" node "$repo/examples/fix-e-alignment/verify-local.cjs"
-TEAQL_SCALAR_EVIDENCE_DIR="${TEAQL_SCALAR_EVIDENCE_DIR:-$example_evidence/scalar-type-probe}" node "$repo/examples/scalar-type-probe/verify-local.cjs"
+TEAQL_FREIGHT_QUOTE_EVIDENCE_DIR="$example_evidence/freight-quotes" bash "$repo/examples/scalar-type-probe/verify-freight-quotes.sh"
 TEAQL_FILE_BOOTSTRAP_OUTPUT="$example_evidence/file-bootstrap" node "$repo/examples/school-management/verify-file-bootstrap.cjs"
 TEAQL_CONFORMANCE_EVIDENCE_DIR="$example_evidence/conformance" bash "$repo/examples/conformance/verify.sh"
 if rg -n --glob '*.ts' --glob '!**/node_modules/**' --glob '!**/dist/**' \
