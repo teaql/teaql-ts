@@ -19,10 +19,10 @@ if [[ "${1:-}" == '--standard' ]]; then
   esac
   cd "$workspace"
   for attempt in 1 2; do
-    npm run test:standard-telemetry | tee "$example_evidence/telemetry-$attempt.log"
-    npm run test:standard-telemetry-graph | tee "$example_evidence/graph-$attempt.log"
+    npm run test:standard-telemetry 2>&1 | tee "$example_evidence/telemetry-$attempt.log"
+    npm run test:standard-telemetry-graph 2>&1 | tee "$example_evidence/graph-$attempt.log"
     TEAQL_STANDARD_RESPONSE_DB="$example_evidence/response.sqlite" \
-      node "$example/node_modules/ts-node/dist/bin.js" standard-export-responses.ts | tee "$example_evidence/response-$attempt.log"
+      node "$example/node_modules/ts-node/dist/bin.js" standard-export-responses.ts 2>&1 | tee "$example_evidence/response-$attempt.log"
     rg -Fxq 'PASS TypeScript standard response graph: create, rollback, retry, update, delete, Q/E, committed audit' "$example_evidence/response-$attempt.log"
     rg -Fq "\"firstSeedAudits\":$((2-attempt)),\"repeatSeedAudits\":0" "$example_evidence/response-$attempt.log"
   done
