@@ -21,9 +21,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/purchase-order-fix-generation/receipt.json",
     "receiptSHA256": "920c683d71de38e609d2be2c3d8b7f2fb6c014e3b123edd5c4ea694fc6e91a48"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-purchase-order-native-scopes/runtime/fix-e/receipt.json",
+    "businessReceiptSHA256": "3c483b703b28dcb4712b29c6760ab2a0722ff64c7de999cb6ba3e02ade6ac2a6",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-purchase-order-native-scopes/receipt.json",
+    "nativeReceiptSHA256": "384cfb22f7889f47e2f6aa1c6b05d6db9e1599eda2e1d73bb34bee9a80281fd4",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "922a85273c1341b99faa43ec3729c7f7e4c52eb9"
+  },
   "scene": "Purchase-order Fix, graph edits and precise loaded-state business outcomes",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "verification": [
     "node",
     "verify-local.cjs"
