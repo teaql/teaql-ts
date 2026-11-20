@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { CheckException, QueryParser, RequestIntentError, TeaQLNotLoadedError, UserContext } from 'teaql-ts';
-import { Q } from './ts-lib-core/src/generated/Q';
-import { E } from './ts-lib-core/src/generated/E';
-import { SQLiteTeaQLClient } from './ts-lib-core/src/teaql-node-sqlite';
-import { GENERATED_RUNTIME_MODULE } from './ts-lib-core/src/runtime-module';
-import { runNativeExamples } from './app-native/src/main';
-import { runDynamicExamples } from './app-dynamic/src/main';
+import { Q } from '../../typescript-node-lib-core/src/generated/Q';
+import { E } from '../../typescript-node-lib-core/src/generated/E';
+import { SQLiteTeaQLClient } from '../../typescript-node-lib-core/src/teaql-node-sqlite';
+import { GENERATED_RUNTIME_MODULE } from '../../typescript-node-lib-core/src/runtime-module';
+import { runNativeExamples } from '../app-native/src/main';
+import { runDynamicExamples } from '../app-dynamic/src/main';
 
 async function main() {
   const database = process.env.TEAQL_TASK_BOARD_DB;

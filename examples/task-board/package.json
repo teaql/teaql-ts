@@ -1,12 +1,4 @@
 {
-  "name": "teaql-task-board-examples",
-  "private": true,
-  "scripts": {
-    "build": "tsc --noEmit",
-    "verify": "node verify-local.cjs",
-    "demo:native": "ts-node app-native/src/main.ts",
-    "demo:dynamic": "ts-node app-dynamic/src/main.ts"
-  },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "teaql-ts": "file:../.."
@@ -16,5 +8,20 @@
     "@types/node": "^22.0.0",
     "ts-node": "10.9.2",
     "typescript": "5.4.5"
-  }
+  },
+  "name": "teaql-task-board-examples",
+  "overrides": {
+    "teaql-ts": "$teaql-ts"
+  },
+  "private": true,
+  "scripts": {
+    "build": "npm run build --workspace robot-task-board-service-console",
+    "demo:dynamic": "ts-node --project typescript-app-console/tsconfig.json typescript-app-console/app-dynamic/src/main.ts",
+    "demo:native": "ts-node --project typescript-app-console/tsconfig.json typescript-app-console/app-native/src/main.ts",
+    "verify": "node verify-local.cjs"
+  },
+  "workspaces": [
+    "typescript-node-lib-core",
+    "typescript-app-console"
+  ]
 }

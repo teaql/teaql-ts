@@ -1,0 +1,41 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/task-board",
+  "library": {
+    "generatedFilesManifestSHA256": "711d3dee8784b0916f49ff111ae3fc57e45c515cbab3513006d3e7fb3ef39af7",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "4a1ec513cb362e4c25a5bc9479fe27a2034558633a9e5760245919af7c601856"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "029f602cf0e2de4ec0910495c340fbeb41f11772b6aca875569f498811158e7d",
+      "qualificationReceiptSHA256": "1012520de60d49cfc1e45c7e08fcf204dd2db36a163909e1e36752065a31047a",
+      "sourceCommit": "99d6bde2351d79b7d8b1b1c5cbc78c5dc777b6f2",
+      "tag": "unreleased-source-99d6bde2"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/robot-task-board-generation/receipt.json",
+    "receiptSHA256": "7289a98fb719c2c8eece8ffa3d218725e125d766f659f78b4bc4cd2dbca3b635"
+  },
+  "scene": "Robot task creation, rename and execution history",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "implemented-pending-native-qualification",
+  "verification": [
+    "typescript-app-console/src/main.ts"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts",
+      "package.json",
+      "app-native/src/main.ts",
+      "app-dynamic/src/main.ts"
+    ],
+    "generatedFilesManifestSHA256": "49613a03a44ce54593bf11bb79eff43952a42ddd1c743a67b5bc73fe6ce16e59",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

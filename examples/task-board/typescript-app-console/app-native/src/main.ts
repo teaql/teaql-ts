@@ -1,5 +1,5 @@
 import { TeaQLClient, UserContext } from 'teaql-ts';
-import { Q } from '../../ts-lib-core/src/generated/Q';
+import { Q } from '../../../typescript-node-lib-core/src/generated/Q';
 
 /** The same query can run on local SQLite or an explicitly configured HTTP client. */
 export async function runNativeExamples(context: UserContext) {

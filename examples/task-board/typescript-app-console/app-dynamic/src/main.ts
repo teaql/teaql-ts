@@ -1,6 +1,6 @@
 import { QueryParser, SmartList, TeaQLClient, UserContext } from 'teaql-ts';
-import { Q } from '../../ts-lib-core/src/generated/Q';
-import { Task } from '../../ts-lib-core/src/generated/models/Task';
+import { Q } from '../../../typescript-node-lib-core/src/generated/Q';
+import { Task } from '../../../typescript-node-lib-core/src/generated/models/Task';
 
 export const taskQuery = 'Q.tasksWithMinimalFields().selectName().withNameContaining("bug-")'
   + '.orderByIdAscending().limit(20).comment("load dynamic bug task list").purpose("render the task board")';
