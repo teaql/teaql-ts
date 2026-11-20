@@ -1,0 +1,40 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/ensure-schema-bootstrap",
+  "library": {
+    "generatedFilesManifestSHA256": "fede1852ec773edd331b549f4c71200ffa033ca7ca0535490f1f99e320f79429",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "427cf99a72185d02f7c30b3f3b4cb872ef8d2f56c74c16fa535705b80b2c1d49"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "029f602cf0e2de4ec0910495c340fbeb41f11772b6aca875569f498811158e7d",
+      "qualificationReceiptSHA256": "1012520de60d49cfc1e45c7e08fcf204dd2db36a163909e1e36752065a31047a",
+      "sourceCommit": "99d6bde2351d79b7d8b1b1c5cbc78c5dc777b6f2",
+      "tag": "unreleased-source-99d6bde2"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/district-school-bootstrap-id-generation/receipt.json",
+    "receiptSHA256": "8b7d75296c2dfb5c94e15fff03f2d32d6aa94870d1968ddc34bf4dcaed41a6e8"
+  },
+  "scene": "Explicit schema bootstrap for two school districts",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "implemented-pending-native-qualification",
+  "verification": [
+    "typescript-app-console/src/main.ts"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts",
+      "package.json",
+      "calibration/main.ts"
+    ],
+    "generatedFilesManifestSHA256": "ed4c59f4ce8abe51ced256aadd27f28e32f4a7f83d740d7480c948fb0be2412e",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

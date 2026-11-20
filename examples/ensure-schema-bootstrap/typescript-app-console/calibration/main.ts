@@ -39,9 +39,9 @@ function read(entity: string): SelectQuery {
 }
 
 async function main(): Promise<void> {
-  const directory = path.join(__dirname, '.local');
-  fs.mkdirSync(directory, { recursive: true });
-  const client = new SQLiteTeaQLClient(path.join(directory, 'bootstrap.sqlite'), {});
+  const database = process.env.TEAQL_SCHEMA_CALIBRATION_DB ?? path.join(__dirname, '.local', 'bootstrap.sqlite');
+  fs.mkdirSync(path.dirname(database), { recursive: true });
+  const client = new SQLiteTeaQLClient(database, {});
 
   client.install(generatedModule); // passive: metadata only
   const context = new UserContext().insertResource('dataService', client);

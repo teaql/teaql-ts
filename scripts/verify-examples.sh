@@ -45,20 +45,21 @@ if rg -n --glob '*.ts' --glob '!**/node_modules/**' --glob '!**/dist/**' \
   exit 1
 fi
 
-for example in ensure-schema-bootstrap school-management; do
-  (
-    example_dir="$repo/examples/$example"
-    if [[ "$example" == school-management ]]; then example_dir="$example_dir/typescript-app-console"; fi
-    cd "$example_dir"
-    npm ci
-    npm run build
-    if [[ "$example" == school-management ]]; then
-      npm start
-    else
-      npm start
-    fi
-  )
-done
+(
+  cd "$repo/examples/ensure-schema-bootstrap"
+  npm ci
+  npm run build
+  TEAQL_SCHEMA_CALIBRATION_DB="$example_evidence/bootstrap-calibration.sqlite" npm run calibrate
+  TEAQL_SCHEMA_BOOTSTRAP_DB="$example_evidence/district-bootstrap.sqlite" TEAQL_SCHEMA_BOOTSTRAP_INSTALL_ONLY=1 npm start
+  TEAQL_SCHEMA_BOOTSTRAP_DB="$example_evidence/district-bootstrap.sqlite" npm start
+  TEAQL_SCHEMA_BOOTSTRAP_DB="$example_evidence/district-bootstrap.sqlite" npm start
+)
+(
+  cd "$repo/examples/school-management/typescript-app-console"
+  npm ci
+  npm run build
+  npm start
+)
 TEAQL_ORDER_EVIDENCE_DIR="$example_evidence/order-management" bash "$repo/examples/order-management/verify.sh"
 (cd "$repo/examples/task-board" && npm ci && npm run build && \
   TEAQL_TASK_BOARD_EVIDENCE_DIR="$example_evidence/task-board" npm run verify)
