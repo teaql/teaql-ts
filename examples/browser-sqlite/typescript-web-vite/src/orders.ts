@@ -1,11 +1,12 @@
-import { BrowserSQLiteTeaQLClient, type BrowserSQLiteStorage } from 'teaql-ts/sql/browser-sqlite';
+import type { BrowserSQLiteTeaQLClient, BrowserSQLiteStorage } from 'teaql-ts/sql/browser-sqlite';
 import { DelegatingMutationPolicyApprovalProvider, DelegatingMutationPolicyRegistry, UserContext, decimal } from 'teaql-ts';
 import { SQLExecutionEvidenceStore, type SQLExecutionMetadata } from 'teaql-ts/sql/core';
-import { Q } from '../orders-lib/src/generated/Q';
-import { E } from '../orders-lib/src/generated/E';
-import { OrderStatus } from '../orders-lib/src/generated/models/OrderStatus';
-import { GENERATED_RUNTIME_MODULE } from '../orders-lib/src/runtime-module';
-import { ENTITY_SCHEMAS } from '../orders-lib/src/teaql-schemas';
+import { Q } from '../../typescript-lib-core/src/generated/Q';
+import { E } from '../../typescript-lib-core/src/generated/E';
+import { OrderStatus } from '../../typescript-lib-core/src/generated/models/OrderStatus';
+import { GENERATED_RUNTIME_MODULE } from '../../typescript-lib-core/src/runtime-module';
+import { ENTITY_SCHEMAS } from '../../typescript-lib-core/src/teaql-schemas';
+import { openBrowserDatabase } from './open-browser-database';
 import './style.css';
 
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
@@ -24,8 +25,7 @@ let active: Runtime | undefined;
 persist.checked = localStorage.getItem('teaql-browser-order-storage') === 'opfs';
 
 async function open(storage: BrowserSQLiteStorage): Promise<Runtime> {
-  const worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), {type: 'module'});
-  const client = await BrowserSQLiteTeaQLClient.open(worker, {...ENTITY_SCHEMAS}, {
+  const client = await openBrowserDatabase({...ENTITY_SCHEMAS}, {
     storage, databaseName: 'teaql-browser-orders.sqlite3',
   });
   client.install(GENERATED_RUNTIME_MODULE);

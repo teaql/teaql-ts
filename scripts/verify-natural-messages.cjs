@@ -89,7 +89,7 @@ async function main(){
         {TEAQL_FIX_E_EVIDENCE_DIR:path.join(output,'fix-e-alignment')});
     }
     if(args.includes('--browser-example')){
-      const browser=path.join(runtime,'examples/browser-sqlite');
+      const browser=path.join(runtime,'examples/browser-sqlite/typescript-web-vite');
       await run('browser-example-dependencies',['npm','--prefix',browser,'ci','--offline','--no-audit','--fund=false']);
       await run('browser-example-build',['npm','--prefix',browser,'run','build']);
       await run('browser-example-smoke',['npm','--prefix',browser,'run','smoke']);

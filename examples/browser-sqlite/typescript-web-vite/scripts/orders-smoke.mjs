@@ -8,7 +8,7 @@ import puppeteer from 'puppeteer-core';
 const generated = JSON.parse(readFileSync('generated-order-hashes.json', 'utf8'));
 function checkLibrary() {
   for (const [file, expected] of Object.entries(generated))
-    assert.equal(createHash('sha256').update(readFileSync(join('orders-lib', file))).digest('hex'), expected, `generated file changed: ${file}`);
+    assert.equal(createHash('sha256').update(readFileSync(join('..', 'typescript-lib-core', file))).digest('hex'), expected, `generated file changed: ${file}`);
 }
 checkLibrary();
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4175', '--strictPort'],
@@ -30,6 +30,8 @@ try {
       : '/usr/bin/google-chrome'),
     args: ['--no-sandbox', '--disable-dev-shm-usage'], headless: true});
   const page = await browser.newPage(), errors = [], rawMutationConsole = [];
+  const workerUrls = [];
+  page.on('workercreated', worker => workerUrls.push(worker.url()));
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', event => {
     if (event.type() === 'error') errors.push(event.text());
@@ -113,9 +115,15 @@ try {
   await page.waitForFunction(() => !document.querySelector('#reset')?.hasAttribute('disabled'));
   assert.deepEqual(await inspect('opfs-reset', 8), baseline);
   assert.deepEqual(errors, []); checkLibrary();
+  assert.ok(workerUrls.length >= 4, 'Expected worker creation after startup, refresh and OPFS transition');
+  for (const value of workerUrls) {
+    const url = new URL(value);
+    assert.equal(url.origin, 'http://127.0.0.1:4175');
+    assert.match(url.pathname, /^\/assets\/sqlite\.worker-[\w-]+\.js$/);
+  }
   if (process.env.TEAQL_BROWSER_ORDER_EVIDENCE) writeFileSync(process.env.TEAQL_BROWSER_ORDER_EVIDENCE,
     JSON.stringify({receipts, generatedLibraryUnchanged: true, browserErrors: errors,
-      rawMutationConsoleCount: rawMutationConsole.length}, null, 2) + '\n', {flag: 'wx'});
+      rawMutationConsoleCount: rawMutationConsole.length, workerUrls}, null, 2) + '\n', {flag: 'wx'});
   console.log('BROWSER_RAW_SQL_OBSERVATION=' + JSON.stringify({rawMutationConsoleCount: rawMutationConsole.length}));
   assert.equal(rawMutationConsole.length, 0, 'An ungoverned SQLite write tracer bypassed the runtime diagnostic policy');
   console.log('PASS browser generated order TraceChain: memory/OPFS, refresh/reset, logging on/off, exact facets/counts/previews, actual SQL=8, unchanged generated library');

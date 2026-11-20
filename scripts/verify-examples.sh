@@ -59,7 +59,7 @@ fi
 TEAQL_ORDER_EVIDENCE_DIR="$example_evidence/order-management" bash "$repo/examples/order-management/verify.sh"
 (cd "$repo/examples/task-board" && npm ci && npm run build && \
   TEAQL_TASK_BOARD_EVIDENCE_DIR="$example_evidence/task-board" npm run verify)
-(cd "$repo/examples/browser-sqlite" && npm ci && npm run build && npm run smoke && \
+(cd "$repo/examples/browser-sqlite/typescript-web-vite" && npm ci && npm run build && npm run smoke && \
   TEAQL_BROWSER_ORDER_EVIDENCE="$example_evidence/browser-orders.json" npm run smoke:orders)
 TEAQL_TRACE_CHAIN_EVIDENCE_DIRECTORY="$example_evidence/trace-chain" bash "$repo/examples/trace-chain/verify.sh"
 bash "$repo/examples/facet-trace/verify.sh"

@@ -1,4 +1,4 @@
-import {
+import type {
   BrowserSQLiteStorage,
   BrowserSQLiteTeaQLClient,
 } from 'teaql-ts/sql/browser-sqlite';
@@ -15,6 +15,7 @@ import {
 } from 'teaql-ts';
 import { ORDER_SCHEMAS, ORDER_SEED, ORDER_STATUS, ORDER_STATUS_CONSTANTS } from './order-model';
 import { Q } from './generated/Q';
+import { openBrowserDatabase } from './open-browser-database';
 import './style.css';
 
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
@@ -545,8 +546,7 @@ const warnings = request.warnings();`,
 const allQueries = QUERY_GROUPS.flatMap(group => group.queries);
 
 async function openRuntime(storage: BrowserSQLiteStorage): Promise<Runtime> {
-  const worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' });
-  const client = await BrowserSQLiteTeaQLClient.open(worker, { ...ORDER_SCHEMAS }, {
+  const client = await openBrowserDatabase({ ...ORDER_SCHEMAS }, {
     storage,
     databaseName: 'teaql-order-playground-v4.sqlite3',
   });

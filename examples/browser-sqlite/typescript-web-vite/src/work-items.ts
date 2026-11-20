@@ -1,4 +1,4 @@
-import {
+import type {
   BrowserSQLiteStorage,
   BrowserSQLiteTeaQLClient,
 } from 'teaql-ts/sql/browser-sqlite';
@@ -7,9 +7,10 @@ import {
   DelegatingMutationPolicyRegistry,
   UserContext,
 } from 'teaql-ts';
-import { Q } from '../../conformance/typescript-node-lib-core/src/generated/Q';
-import { GENERATED_RUNTIME_MODULE } from '../../conformance/typescript-node-lib-core/src/runtime-module';
-import { ENTITY_SCHEMAS } from '../../conformance/typescript-node-lib-core/src/teaql-node-sql';
+import { Q } from '../../../conformance/typescript-node-lib-core/src/generated/Q';
+import { GENERATED_RUNTIME_MODULE } from '../../../conformance/typescript-node-lib-core/src/runtime-module';
+import { ENTITY_SCHEMAS } from '../../../conformance/typescript-node-lib-core/src/teaql-node-sql';
+import { openBrowserDatabase } from './open-browser-database';
 import './work-items.css';
 
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
@@ -23,8 +24,7 @@ const storagePreference = localStorage.getItem('teaql-browser-storage') === 'opf
 persist.checked = storagePreference === 'opfs';
 
 async function openRuntime(storage: BrowserSQLiteStorage): Promise<Runtime> {
-  const worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' });
-  const client = await BrowserSQLiteTeaQLClient.open(worker, { ...ENTITY_SCHEMAS }, {
+  const client = await openBrowserDatabase({ ...ENTITY_SCHEMAS }, {
     storage,
     databaseName: 'teaql-browser-example.sqlite3',
   });

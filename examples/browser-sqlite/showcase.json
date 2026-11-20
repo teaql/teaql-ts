@@ -1,0 +1,39 @@
+{
+  "goalId": "typescript:examples/browser-sqlite",
+  "library": {
+    "generatedFilesManifestSHA256": "ce6fa3fa7d137bc607209ecf7a9c7e86949520fce76a6ab12fcebc18530796f6",
+    "root": "typescript-lib-core",
+    "scope": "typescript-lib-core"
+  },
+  "model": {
+    "path": "order-model.xml",
+    "sha256": "44d20c0d236de9c79f767054deba773e11aa6ae4eaed1ede98cf7c6ed8d18495"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "c20c9ff7bdd481fd71e06808f70347e94360ed0ad82370f787c820513bb30ec4",
+      "qualificationReceiptSHA256": "20927e4eddd936c5be67c82bf2eef45c3d353e16eae71a2df06756a1bd836eaa",
+      "sourceCommit": "07e1ea7d247a72d77cc146f1a05e52a347da698e",
+      "tag": "unreleased-source-07e1ea7d"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-generation/receipt.json",
+    "receiptSHA256": "81389f3939f41350382a37300df514ac4e0f3b15966c060e9d9a74bcd89c871e"
+  },
+  "runtimeTestExempt": false,
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "implemented-pending-native-qualification",
+  "title": "Offline order workbench",
+  "workspace": {
+    "applicationOwnedFiles": [
+      "index.html",
+      "package.json",
+      "src/main.ts",
+      "tsconfig.json",
+      "vite.config.ts"
+    ],
+    "generatedFilesManifestSHA256": "58daa96724a9ca7545b70c9dc23149f9dda6fb18a5050aec9e64523f33aab96e",
+    "root": "typescript-web-vite",
+    "scope": "typescript-web-vite"
+  }
+}
