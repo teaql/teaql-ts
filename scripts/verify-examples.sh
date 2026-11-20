@@ -59,7 +59,7 @@ for example in conformance ensure-schema-bootstrap school-management; do
     fi
   )
 done
-(cd "$repo/examples/order-management" && npm ci && npm run build && npm start)
+TEAQL_ORDER_EVIDENCE_DIR="$example_evidence/order-management" bash "$repo/examples/order-management/verify.sh"
 (cd "$repo/examples/task-board" && npm ci && npm run build && \
   TEAQL_TASK_BOARD_EVIDENCE_DIR="$example_evidence/task-board" npm run verify)
 (cd "$repo/examples/browser-sqlite" && npm ci && npm run build && npm run smoke && \

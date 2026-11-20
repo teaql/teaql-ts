@@ -1,5 +1,13 @@
 # Order Management — TypeScript + SQLite
 
+`model.xml` owns the native `typescript-node-lib-core` and
+`typescript-app-console` scopes. The native entry starts the maintained business
+program and consumes the named sibling Node library. Parent workspace policy
+binds its runtime dependency to this checkout without editing generated domain
+code. Current provenance is in `showcase.json`. Run `bash verify.sh` from this
+scene for two starts on one retained SQLite file, actual package-origin checks
+and independent order/preset calibration. Owned scratch is removed.
+
 Use Node.js 22. No database server, fixture DB, model input, or generator installation is needed.
 
 ```bash
@@ -10,7 +18,7 @@ npm start
 
 The first run creates `../.local/order.db`, ensures schema, seeds through generated entities, performs a governed query, and saves an audited preset. The second run demonstrates idempotency.
 
-Read `typescript-app-console/app.ts` first (handwritten), then `typescript-node-lib-core/src/generated/Q.ts`, `requests/CustomerOrderRequest.ts`, and `models/CustomerOrder.ts` (generated). `purpose(...)` returns the executable request; runtime dependencies come only from the trusted `UserContext`.
+Read `typescript-app-console/app.ts` first. Discover generated APIs through current model-aware Assist. `purpose(...)` returns the executable request; runtime dependencies come only from the trusted `UserContext`.
 
 ## Verify the first result
 

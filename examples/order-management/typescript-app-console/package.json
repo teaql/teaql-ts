@@ -2,7 +2,7 @@
   "name": "order-management-example",
   "private": true,
   "scripts": {
-    "start": "ts-node app.ts",
+    "start": "ts-node src/main.ts",
     "build": "tsc --noEmit"
   },
   "dependencies": {
