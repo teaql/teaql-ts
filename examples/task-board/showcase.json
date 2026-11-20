@@ -21,9 +21,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/robot-task-board-generation/receipt.json",
     "receiptSHA256": "7289a98fb719c2c8eece8ffa3d218725e125d766f659f78b4bc4cd2dbca3b635"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-robot-task-board-native/runtime/task-board/receipt.json",
+    "businessReceiptSHA256": "8265f47f737a99aca4526133803fb825ce0da91b6e4274986de28938b089823c",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-robot-task-board-native/receipt.json",
+    "nativeReceiptSHA256": "9bdf1209d72bd265657c7231b07f5a50b237f24db5c529e24daa9263390ea932",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "59bb27b66f70e841f8bd8803e6d2522389e887fc"
+  },
   "scene": "Robot task creation, rename and execution history",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "verification": [
     "typescript-app-console/src/main.ts"
   ],
