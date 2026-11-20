@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { Q } from './lib/src/generated/Q';
-import { School } from './lib/src/generated/models/School';
-import { SmartList, UserContext } from './lib/src/teaql-ts';
-import { SQLiteTeaQLClient } from './lib/src/teaql-node-sqlite';
+import { Q } from '../typescript-node-lib-core/src/generated/Q';
+import { School } from '../typescript-node-lib-core/src/generated/models/School';
+import { SmartList, UserContext } from '../typescript-node-lib-core/src/teaql-ts';
+import { SQLiteTeaQLClient } from '../typescript-node-lib-core/src/teaql-node-sqlite';
 import { SQLExecutionEvidenceStore, SQLExecutionMetadata } from 'teaql-ts/sql/core';
 
 const privateName = 'FACET-PRIVATE-SCHOOL';
