@@ -42,6 +42,24 @@
       "app-native/src/main.ts",
       "app-dynamic/src/main.ts"
     ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/Task.ts",
+      "src/generated/models/TaskExecutionLog.ts",
+      "src/generated/models/TaskStatus.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/TaskExecutionLogRequest.ts",
+      "src/generated/requests/TaskRequest.ts",
+      "src/generated/requests/TaskStatusRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
     "generatedFilesManifestSHA256": "49613a03a44ce54593bf11bb79eff43952a42ddd1c743a67b5bc73fe6ce16e59",
     "root": "typescript-app-console",
     "scope": "typescript-app-console"

@@ -1,11 +1,11 @@
 import {internalId} from 'teaql-ts';
-import { Q } from "./src/generated/Q";
-import { E } from "./src/generated/E";
-import { Platform } from "./src/generated/models/Platform";
-import { SchoolType } from "./src/generated/models/SchoolType";
-import { UserContext, nextEntityVersion, decimal } from "./src/teaql-ts";
+import { Q } from "../typescript-lib-core/src/generated/Q";
+import { E } from "../typescript-lib-core/src/generated/E";
+import { Platform } from "../typescript-lib-core/src/generated/models/Platform";
+import { SchoolType } from "../typescript-lib-core/src/generated/models/SchoolType";
+import { UserContext, nextEntityVersion, decimal } from "../typescript-lib-core/src/teaql-ts";
 import { normalizeDynamicSearch, SearchModel } from "teaql-ts";
-import { GENERATED_RUNTIME_MODULE } from "./src/runtime-module";
+import { GENERATED_RUNTIME_MODULE } from "../typescript-lib-core/src/runtime-module";
 import { SQLiteTeaQLClient } from "./src/teaql-node-sqlite";
 import { mkdirSync } from "node:fs";
 import { verifyRequestIntent } from './request-intent';

@@ -1,5 +1,5 @@
-import { Q } from './src/generated/Q';
-import { UserContext } from './src/teaql-ts';
+import { Q } from '../typescript-lib-core/src/generated/Q';
+import { UserContext } from '../typescript-lib-core/src/teaql-ts';
 import { SQLiteTeaQLClient } from './src/teaql-node-sqlite';
 import { RequestIntentError } from 'teaql-ts';
 

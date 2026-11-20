@@ -1,9 +1,9 @@
 // Application-owned acceptance. APIs are the same ones exercised in app.ts.
-import {Q} from './src/generated/Q';
-import {E} from './src/generated/E';
-import {Platform} from './src/generated/models/Platform';
-import {TeaQLClient} from './src/teaql-ts';
-import {GENERATED_RUNTIME_MODULE} from './src/runtime-module';
+import {Q} from '../typescript-lib-core/src/generated/Q';
+import {E} from '../typescript-lib-core/src/generated/E';
+import {Platform} from '../typescript-lib-core/src/generated/models/Platform';
+import {TeaQLClient} from '../typescript-lib-core/src/teaql-ts';
+import {GENERATED_RUNTIME_MODULE} from '../typescript-lib-core/src/runtime-module';
 import {GENERATED_RUNTIME_MODULE as RECONCILED_MODULE} from './reconciled/typescript-lib-core/src/runtime-module';
 import {FixedBusinessClock,RuntimeModule,UserContext,decimal} from 'teaql-ts';
 import {existsSync,readFileSync,writeFileSync} from 'node:fs';

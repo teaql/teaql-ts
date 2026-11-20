@@ -41,7 +41,22 @@
       "package.json",
       "jest.showcase.cjs",
       "tsconfig.showcase.json",
-      "showcase/verify.test.ts"
+      "showcase/verify.test.ts",
+      "src/main.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Catalog.ts",
+      "src/generated/models/Entry.ts",
+      "src/generated/requests/CatalogRequest.ts",
+      "src/generated/requests/EntryRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
     ],
     "generatedFilesManifestSHA256": "3ff16c1241a6951e37e112b28519d6c876e215c0fda7ac3dd7504c8f36abc432",
     "root": "typescript-app-console",

@@ -32,6 +32,20 @@
     "applicationOwnedFiles": [
       "src/main.ts"
     ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/DispatchOrder.ts",
+      "src/generated/models/DistributionCenter.ts",
+      "src/generated/requests/DispatchOrderRequest.ts",
+      "src/generated/requests/DistributionCenterRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
     "generatedFilesManifestSHA256": "9d74f0c25d711eabb8e21cc8fe7791ed44fa98c46a43e3f1ba3b29b484bca694",
     "root": "typescript-app-console",
     "scope": "typescript-app-console"

@@ -54,10 +54,25 @@
       "src/main.ts",
       "app.ts",
       "request-intent.ts",
-      "file-bootstrap.test.ts"
+      "file-bootstrap.test.ts",
+      "src/teaql-node-sqlite.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/School.ts",
+      "src/generated/models/SchoolType.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/SchoolRequest.ts",
+      "src/generated/requests/SchoolTypeRequest.ts",
+      "src/teaql-ts.ts"
     ],
     "generatedFilesManifestSHA256": "f31f5a964920b8c12c023a015902caab5ed1745e5a9a9dc2ad0ae1764a40e60d",
     "root": "typescript-app-console",
-    "scope": "typescript-app-console"
+    "scope": "typescript-app-console",
+    "usePortableTypeScriptModule": true
   }
 }

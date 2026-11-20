@@ -2,7 +2,7 @@ import {
     SQLiteDriver,
     SQLiteTeaQLClient as RuntimeSQLiteTeaQLClient
 } from "teaql-ts/sql/sqlite";
-import { GENERATED_RUNTIME_MODULE } from "./runtime-module";
+import { GENERATED_RUNTIME_MODULE } from "../../typescript-lib-core/src/runtime-module";
 
 export { SQLiteDriver } from "teaql-ts/sql/sqlite";
 

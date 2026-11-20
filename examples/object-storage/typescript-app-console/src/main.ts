@@ -6,9 +6,9 @@ import { ObjectKey, ObjectPutOptions, StorageError, UserContext } from 'teaql-ts
 import type { ObjectStorageEvent } from 'teaql-ts';
 import { S3ObjectStorage } from 'teaql-ts/object-storage/s3';
 import { SQLiteTeaQLClient } from 'teaql-ts/sql/sqlite';
-import { E } from './generated/E';
-import { Q } from './generated/Q';
-import { GENERATED_RUNTIME_MODULE } from './runtime-module';
+import { E } from '../../typescript-lib-core/src/generated/E';
+import { Q } from '../../typescript-lib-core/src/generated/Q';
+import { GENERATED_RUNTIME_MODULE } from '../../typescript-lib-core/src/runtime-module';
 
 const receipt = Buffer.from('TeaQL order receipt fixture\nItem: tea\nTotal: 12.50\n');
 const filename = 'receipt.txt';

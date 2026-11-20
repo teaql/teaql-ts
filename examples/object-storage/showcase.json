@@ -40,10 +40,25 @@
     "applicationOwnedFiles": [
       "package.json",
       "package-lock.json",
-      "src/main.ts"
+      "src/main.ts",
+      "src/teaql-node-sqlite.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/CommercePlatform.ts",
+      "src/generated/models/CustomerOrder.ts",
+      "src/generated/models/OrderAttachment.ts",
+      "src/generated/requests/CommercePlatformRequest.ts",
+      "src/generated/requests/CustomerOrderRequest.ts",
+      "src/generated/requests/OrderAttachmentRequest.ts",
+      "src/teaql-ts.ts"
     ],
     "generatedFilesManifestSHA256": "21dcf941444e9b0d1d4cac08c42e057098b9692867590d9d4f2340e41e9e7759",
     "root": "typescript-app-console",
-    "scope": "typescript-app-console"
+    "scope": "typescript-app-console",
+    "usePortableTypeScriptModule": true
   }
 }

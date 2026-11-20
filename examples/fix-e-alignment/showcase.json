@@ -55,7 +55,24 @@
       "showcase/partial-ancestors-probe.ts",
       "showcase/partial-root-probe.ts",
       "showcase/unchanged-views-probe.ts",
-      "showcase/verify.test.ts"
+      "showcase/verify.test.ts",
+      "src/main.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/OrderItem.ts",
+      "src/generated/models/PurchaseOrder.ts",
+      "src/generated/models/Tenant.ts",
+      "src/generated/requests/OrderItemRequest.ts",
+      "src/generated/requests/PurchaseOrderRequest.ts",
+      "src/generated/requests/TenantRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
     ],
     "generatedFilesManifestSHA256": "63826e77226d6ff1687c221bc5c41f4696b0056fb0c6b8c2b7f3cac181a7b53f",
     "root": "typescript-app-console",

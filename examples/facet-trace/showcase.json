@@ -51,6 +51,22 @@
       "package.json",
       "tsconfig.json"
     ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/School.ts",
+      "src/generated/models/SchoolType.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/SchoolRequest.ts",
+      "src/generated/requests/SchoolTypeRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
     "generatedFilesManifestSHA256": "e28d0b6150cd3edacc4b0ecfef6bba812fe6becd86664d72f7953d70a29d5936",
     "root": "typescript-app-console",
     "scope": "typescript-app-console"

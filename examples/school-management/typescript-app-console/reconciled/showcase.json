@@ -34,8 +34,26 @@
   "status": "focused-verified",
   "usedBy": "Parent typescript-app-console application and file-bootstrap tests",
   "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts",
+      "src/teaql-node-sqlite.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/School.ts",
+      "src/generated/models/SchoolType.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/SchoolRequest.ts",
+      "src/generated/requests/SchoolTypeRequest.ts",
+      "src/teaql-ts.ts"
+    ],
     "generatedFilesManifestSHA256": "3deb03e397c229190cdc0653c669b6a125f775b8f9fba077294d46ceb0aa106c",
     "root": "typescript-app-console",
-    "scope": "typescript-app-console"
+    "scope": "typescript-app-console",
+    "usePortableTypeScriptModule": true
   }
 }

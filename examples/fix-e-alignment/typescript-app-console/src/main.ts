@@ -1,5 +1,5 @@
-import { UserContext } from "./teaql-ts";
-import { GENERATED_RUNTIME_MODULE } from "./runtime-module";
+import { UserContext } from "../../typescript-node-lib-core/src/teaql-ts";
+import { GENERATED_RUNTIME_MODULE } from "../../typescript-node-lib-core/src/runtime-module";
 
 const context = new UserContext();
 console.log("checker-fix-advanced TeaQL console ready", {

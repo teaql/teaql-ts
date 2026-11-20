@@ -47,6 +47,20 @@
       "managed-construction.test.ts",
       "managed-sqlite.test.ts"
     ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/WorkItem.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/WorkItemRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
     "generatedFilesManifestSHA256": "e9dfe7bd990e9c6562ebd7ef4d94a8437cffe5bea399d10a6c9bdbf32f8ac66d",
     "root": "typescript-app-console",
     "scope": "typescript-app-console"
