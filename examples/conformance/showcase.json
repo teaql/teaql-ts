@@ -21,9 +21,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/work-item-generation/receipt.json",
     "receiptSHA256": "99afd2b0806d9aec86d271cd5154f9447b895e9f3a5e69f2e95468bcd8a1644a"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-work-item-native-scopes/runtime/conformance/business-receipt.json",
+    "businessReceiptSHA256": "dab90d4c40864364a3e9ab3151a8e695b7aa8fcd7dba0d118811afdc920b21a2",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-work-item-native-scopes/receipt.json",
+    "nativeReceiptSHA256": "1b075c77ba88fd6dc93f9b3a7322165b75fd1d8acba6023aefc4b2e4e9ddcbf7",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "2154da7f11252bb9bb575713e46f066bd6d4e68c"
+  },
   "scene": "WorkItem governed lifecycle, managed creation and exact loaded-state boundaries",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "verification": [
     "bash",
     "verify.sh"
