@@ -30,12 +30,20 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/school-generation/receipt.json",
     "receiptSHA256": "86cdc634a758fdf746de3323e8cd5c4fd32a050e50c0b7b04c5e64b397a1165f"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/runtime/school-management/business-receipt.json",
+    "businessReceiptSHA256": "b10b6ab75c47654f6eb0ae2c6b0fe64495247cf3ea21aa5b7df0280357e58ebd",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/receipt.json",
+    "nativeReceiptSHA256": "9525ac96dd9c19e0eedf62252c4fa0541cb9a95ceeb328df5b7aba98cbf330e3",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "2bb127991d587a14aca8483a0e44054a55db686c"
+  },
   "relatedShowcases": [
     "typescript-app-console/reconciled/showcase.json"
   ],
   "scene": "School startup, ID floor, query and audited update",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "verification": [
     "bash",
     "verify.sh"

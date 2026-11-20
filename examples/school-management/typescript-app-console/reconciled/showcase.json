@@ -21,9 +21,17 @@
     "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/school-reconciled-generation/receipt.json",
     "receiptSHA256": "ad090498790fe42ed489b7ef88128be5a99328b708ad290d30013e576d9f8e65"
   },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/runtime/school-management/business-receipt.json",
+    "businessReceiptSHA256": "b10b6ab75c47654f6eb0ae2c6b0fe64495247cf3ea21aa5b7df0280357e58ebd",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/receipt.json",
+    "nativeReceiptSHA256": "9525ac96dd9c19e0eedf62252c4fa0541cb9a95ceeb328df5b7aba98cbf330e3",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "2bb127991d587a14aca8483a0e44054a55db686c"
+  },
   "scene": "School constant reconciliation",
   "schema": "teaql.model-workspace-showcase/v1",
-  "status": "implemented-pending-native-qualification",
+  "status": "focused-verified",
   "usedBy": "Parent typescript-app-console application and file-bootstrap tests",
   "workspace": {
     "generatedFilesManifestSHA256": "3deb03e397c229190cdc0653c669b6a125f775b8f9fba077294d46ceb0aa106c",
