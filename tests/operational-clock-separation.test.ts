@@ -1,6 +1,6 @@
 import {LocalCache, SelectQuery, UserContext} from '../src';
 import {ExportHealth, lifecycleDeadline} from '../src/telemetry/export-health';
-import {verifyOperationalClock} from '../examples/conformance/src/operational-clock-verification';
+import {verifyOperationalClock} from '../examples/conformance/typescript-app-console/src/operational-clock-verification';
 
 const SYSTEM = Date.parse('2030-01-01T00:00:00Z');
 function fixture(unreadable = false) {
