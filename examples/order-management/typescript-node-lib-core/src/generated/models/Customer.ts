@@ -5,9 +5,20 @@ import { CustomerOrder } from './CustomerOrder';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class Customer {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        EMAIL_PROPERTY: { member: "email", model: "email" },
+        COMMERCE_PLATFORM_PROPERTY: { member: "commercePlatform", model: "commerce_platform" },
+        CREATE_TIME_PROPERTY: { member: "createTime", model: "create_time" },
+        UPDATE_TIME_PROPERTY: { member: "updateTime", model: "update_time" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("Customer",
-        ["id", "name", "email", "commerce_platform", "create_time", "update_time", "version"], { id: "immutable_field", version: "immutable_field" });
+        [Customer.__teaqlFields.ID_PROPERTY.model, Customer.__teaqlFields.NAME_PROPERTY.model, Customer.__teaqlFields.EMAIL_PROPERTY.model, Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model, Customer.__teaqlFields.CREATE_TIME_PROPERTY.model, Customer.__teaqlFields.UPDATE_TIME_PROPERTY.model, Customer.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         name?: string;
         email?: string;
@@ -34,7 +45,7 @@ export class Customer {
                 this.commercePlatform = (init as any).commercePlatform instanceof CommercePlatform
                     ? (init as any).commercePlatform
                     : CommercePlatform.fromRecord((init as any).commercePlatform);
-                this.markLoaded("commercePlatform");
+                this.markLoaded(Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
             }
             if (Array.isArray((init as any).customerOrderList)) {
                 const selected = (init as any).customerOrderList;
@@ -58,7 +69,7 @@ export class Customer {
     private teaqlEntityKey(): EntityKey { return { entity: "Customer", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "email", canonical: "email" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: Customer.__teaqlFields.ID_PROPERTY.member, canonical: Customer.__teaqlFields.ID_PROPERTY.model }, { member: Customer.__teaqlFields.NAME_PROPERTY.member, canonical: Customer.__teaqlFields.NAME_PROPERTY.model }, { member: Customer.__teaqlFields.EMAIL_PROPERTY.member, canonical: Customer.__teaqlFields.EMAIL_PROPERTY.model }, { member: Customer.__teaqlFields.CREATE_TIME_PROPERTY.member, canonical: Customer.__teaqlFields.CREATE_TIME_PROPERTY.model }, { member: Customer.__teaqlFields.UPDATE_TIME_PROPERTY.member, canonical: Customer.__teaqlFields.UPDATE_TIME_PROPERTY.model }, { member: Customer.__teaqlFields.VERSION_PROPERTY.member, canonical: Customer.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -238,7 +249,7 @@ export class Customer {
         graph.discardRestoredFields(Customer.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "commerce_platform": "CommercePlatform"
+            [Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model]: "CommercePlatform"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -271,7 +282,7 @@ export class Customer {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "email", canonical: "email" }, { member: "commercePlatform", canonical: "commerce_platform" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: Customer.__teaqlFields.ID_PROPERTY.member, canonical: Customer.__teaqlFields.ID_PROPERTY.model }, { member: Customer.__teaqlFields.NAME_PROPERTY.member, canonical: Customer.__teaqlFields.NAME_PROPERTY.model }, { member: Customer.__teaqlFields.EMAIL_PROPERTY.member, canonical: Customer.__teaqlFields.EMAIL_PROPERTY.model }, { member: Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, canonical: Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model }, { member: Customer.__teaqlFields.CREATE_TIME_PROPERTY.member, canonical: Customer.__teaqlFields.CREATE_TIME_PROPERTY.model }, { member: Customer.__teaqlFields.UPDATE_TIME_PROPERTY.member, canonical: Customer.__teaqlFields.UPDATE_TIME_PROPERTY.model }, { member: Customer.__teaqlFields.VERSION_PROPERTY.member, canonical: Customer.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "Customer", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -299,7 +310,7 @@ export class Customer {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "email", canonical: "email" }, { member: "commercePlatform", canonical: "commerce_platform" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: Customer.__teaqlFields.ID_PROPERTY.member, canonical: Customer.__teaqlFields.ID_PROPERTY.model }, { member: Customer.__teaqlFields.NAME_PROPERTY.member, canonical: Customer.__teaqlFields.NAME_PROPERTY.model }, { member: Customer.__teaqlFields.EMAIL_PROPERTY.member, canonical: Customer.__teaqlFields.EMAIL_PROPERTY.model }, { member: Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, canonical: Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model }, { member: Customer.__teaqlFields.CREATE_TIME_PROPERTY.member, canonical: Customer.__teaqlFields.CREATE_TIME_PROPERTY.model }, { member: Customer.__teaqlFields.UPDATE_TIME_PROPERTY.member, canonical: Customer.__teaqlFields.UPDATE_TIME_PROPERTY.model }, { member: Customer.__teaqlFields.VERSION_PROPERTY.member, canonical: Customer.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -448,13 +459,13 @@ export class Customer {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "name": this.name,
-            "email": this.email,
-            "commerce_platform": this.commercePlatform,
-            "create_time": this.createTime,
-            "update_time": this.updateTime,
-            "version": this.version
+            [Customer.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [Customer.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [Customer.__teaqlFields.EMAIL_PROPERTY.model]: this.email,
+            [Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model]: this.commercePlatform,
+            [Customer.__teaqlFields.CREATE_TIME_PROPERTY.model]: this.createTime,
+            [Customer.__teaqlFields.UPDATE_TIME_PROPERTY.model]: this.updateTime,
+            [Customer.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -464,49 +475,49 @@ export class Customer {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(Customer.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Customer.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(Customer.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Customer.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateEmail(value: string): this {
         this.email = value;
-        this.markLoaded("email");
-        (this as any)._root.set(this.teaqlEntityKey(), "email", value);
+        this.markLoaded(Customer.__teaqlFields.EMAIL_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Customer.__teaqlFields.EMAIL_PROPERTY.model, value);
         return this;
     }
 
     updateCreateTime(value: string): this {
         this.createTime = value;
-        this.markLoaded("createTime");
-        (this as any)._root.set(this.teaqlEntityKey(), "create_time", value);
+        this.markLoaded(Customer.__teaqlFields.CREATE_TIME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Customer.__teaqlFields.CREATE_TIME_PROPERTY.model, value);
         return this;
     }
 
     updateUpdateTime(value: string): this {
         this.updateTime = value;
-        this.markLoaded("updateTime");
-        (this as any)._root.set(this.teaqlEntityKey(), "update_time", value);
+        this.markLoaded(Customer.__teaqlFields.UPDATE_TIME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Customer.__teaqlFields.UPDATE_TIME_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(Customer.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Customer.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateCommercePlatform(value: any): this {
         this.commercePlatform = value?.id ?? value;
-        this.markLoaded("commercePlatform");
-        (this as any)._root.set(this.teaqlEntityKey(), "commerce_platform", this.commercePlatform);
+        this.markLoaded(Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Customer.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model, this.commercePlatform);
         return this;
     }
 

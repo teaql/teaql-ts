@@ -4,9 +4,18 @@ import { DistributionCenter } from './DistributionCenter';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class DispatchOrder {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        DISTRIBUTION_CENTER_PROPERTY: { member: "distributionCenter", model: "distribution_center" },
+        ORDER_REFERENCE_PROPERTY: { member: "orderReference", model: "order_reference" },
+        HANDLING_NOTE_PROPERTY: { member: "handlingNote", model: "handling_note" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("DispatchOrder",
-        ["id", "distribution_center", "order_reference", "handling_note", "version"], { id: "immutable_field", version: "immutable_field" });
+        [DispatchOrder.__teaqlFields.ID_PROPERTY.model, DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.model, DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.model, DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.model, DispatchOrder.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         distributionCenter?: DistributionCenter | string;
         orderReference?: string;
@@ -29,7 +38,7 @@ export class DispatchOrder {
                 this.distributionCenter = (init as any).distributionCenter instanceof DistributionCenter
                     ? (init as any).distributionCenter
                     : DistributionCenter.fromRecord((init as any).distributionCenter);
-                this.markLoaded("distributionCenter");
+                this.markLoaded(DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -43,7 +52,7 @@ export class DispatchOrder {
     private teaqlEntityKey(): EntityKey { return { entity: "DispatchOrder", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "orderReference", canonical: "order_reference" }, { member: "handlingNote", canonical: "handling_note" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: DispatchOrder.__teaqlFields.ID_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.ID_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.VERSION_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -201,7 +210,7 @@ export class DispatchOrder {
         graph.discardRestoredFields(DispatchOrder.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "distribution_center": "DistributionCenter"
+            [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.model]: "DistributionCenter"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -224,7 +233,7 @@ export class DispatchOrder {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "distributionCenter", canonical: "distribution_center" }, { member: "orderReference", canonical: "order_reference" }, { member: "handlingNote", canonical: "handling_note" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: DispatchOrder.__teaqlFields.ID_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.ID_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.VERSION_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "DispatchOrder", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -244,7 +253,7 @@ export class DispatchOrder {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "distributionCenter", canonical: "distribution_center" }, { member: "orderReference", canonical: "order_reference" }, { member: "handlingNote", canonical: "handling_note" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: DispatchOrder.__teaqlFields.ID_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.ID_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.model }, { member: DispatchOrder.__teaqlFields.VERSION_PROPERTY.member, canonical: DispatchOrder.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -345,11 +354,11 @@ export class DispatchOrder {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "distribution_center": this.distributionCenter,
-            "order_reference": this.orderReference,
-            "handling_note": this.handlingNote,
-            "version": this.version
+            [DispatchOrder.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.model]: this.distributionCenter,
+            [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.model]: this.orderReference,
+            [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.model]: this.handlingNote,
+            [DispatchOrder.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -359,35 +368,35 @@ export class DispatchOrder {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(DispatchOrder.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), DispatchOrder.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateOrderReference(value: string): this {
         this.orderReference = value;
-        this.markLoaded("orderReference");
-        (this as any)._root.set(this.teaqlEntityKey(), "order_reference", value);
+        this.markLoaded(DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.model, value);
         return this;
     }
 
     updateHandlingNote(value: string): this {
         this.handlingNote = value;
-        this.markLoaded("handlingNote");
-        (this as any)._root.set(this.teaqlEntityKey(), "handling_note", value);
+        this.markLoaded(DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(DispatchOrder.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), DispatchOrder.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateDistributionCenter(value: any): this {
         this.distributionCenter = value?.id ?? value;
-        this.markLoaded("distributionCenter");
-        (this as any)._root.set(this.teaqlEntityKey(), "distribution_center", this.distributionCenter);
+        this.markLoaded(DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.model, this.distributionCenter);
         return this;
     }
 

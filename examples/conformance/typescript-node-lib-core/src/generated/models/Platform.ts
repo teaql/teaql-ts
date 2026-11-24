@@ -4,9 +4,16 @@ import { WorkItem } from './WorkItem';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class Platform {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("Platform",
-        ["id", "name", "version"], { id: "immutable_field", version: "immutable_field" });
+        [Platform.__teaqlFields.ID_PROPERTY.model, Platform.__teaqlFields.NAME_PROPERTY.model, Platform.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         name?: string;
         version?: EntityVersion;
@@ -47,7 +54,7 @@ export class Platform {
     private teaqlEntityKey(): EntityKey { return { entity: "Platform", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: Platform.__teaqlFields.ID_PROPERTY.member, canonical: Platform.__teaqlFields.ID_PROPERTY.model }, { member: Platform.__teaqlFields.NAME_PROPERTY.member, canonical: Platform.__teaqlFields.NAME_PROPERTY.model }, { member: Platform.__teaqlFields.VERSION_PROPERTY.member, canonical: Platform.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -259,7 +266,7 @@ export class Platform {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: Platform.__teaqlFields.ID_PROPERTY.member, canonical: Platform.__teaqlFields.ID_PROPERTY.model }, { member: Platform.__teaqlFields.NAME_PROPERTY.member, canonical: Platform.__teaqlFields.NAME_PROPERTY.model }, { member: Platform.__teaqlFields.VERSION_PROPERTY.member, canonical: Platform.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "Platform", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -287,7 +294,7 @@ export class Platform {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: Platform.__teaqlFields.ID_PROPERTY.member, canonical: Platform.__teaqlFields.ID_PROPERTY.model }, { member: Platform.__teaqlFields.NAME_PROPERTY.member, canonical: Platform.__teaqlFields.NAME_PROPERTY.model }, { member: Platform.__teaqlFields.VERSION_PROPERTY.member, canonical: Platform.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -436,9 +443,9 @@ export class Platform {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "name": this.name,
-            "version": this.version
+            [Platform.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [Platform.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [Platform.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -448,22 +455,22 @@ export class Platform {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(Platform.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Platform.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(Platform.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Platform.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(Platform.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Platform.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     workItemList(): SmartList<WorkItem> {

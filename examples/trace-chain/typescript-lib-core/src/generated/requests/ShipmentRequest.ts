@@ -117,38 +117,38 @@ export class ShipmentRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "customerOrder", "referenceCode", "version"]);
+        this.query.select([Shipment.__teaqlFields.ID_PROPERTY.member, Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member, Shipment.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([Shipment.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
     selectReferenceCode(): this {
-        this.query.select(["referenceCode"]);
+        this.query.select([Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([Shipment.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectCustomerOrderWith(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
-        this.query.select(["customerOrder"]);
+        this.query.select([Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]);
         this.query.relationQuery(
-            "customerOrder", request.toQuery(), "customerOrder", "id", false,
-            { kind: "relation-select", method: "selectCustomerOrderWith", relation: "customerOrder" });
+            Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, request.toQuery(), Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectCustomerOrderWith", relation: Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member });
         return this;
     }
 
     withCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "customerOrder": {
+            [Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -157,7 +157,7 @@ export class ShipmentRequest {
 
     withoutCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "customerOrder": {
+            [Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -168,252 +168,252 @@ export class ShipmentRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [Shipment.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByCustomerOrder(val: any): this {
-            this.filters.push({ "customerOrder": { "$eq": val } });
+            this.filters.push({ [Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByCustomerOrderIn(...vals: any[]): this {
-            this.filters.push({ "customerOrder": { "$in": vals } });
+            this.filters.push({ [Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withCustomerOrderIsKnown(): this {
-            this.filters.push({ "customerOrder": { "$isNull": false } });
+            this.filters.push({ [Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withCustomerOrderIsUnknown(): this {
-            this.filters.push({ "customerOrder": { "$isNull": true } });
+            this.filters.push({ [Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withReferenceCodeContaining(val: string): this {
-            this.filters.push({ "referenceCode": { "$contains": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withReferenceCodeIs(val: string): this {
-            this.filters.push({ "referenceCode": { "$eq": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withReferenceCodeIsNot(val: string): this {
-            this.filters.push({ "referenceCode": { "$ne": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withReferenceCodeIn(...vals: string[]): this {
-            this.filters.push({ "referenceCode": { "$in": vals } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withReferenceCodeNotIn(...vals: string[]): this {
-            this.filters.push({ "referenceCode": { "$notIn": vals } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withReferenceCodeGreaterThan(val: string): this {
-            this.filters.push({ "referenceCode": { "$gt": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withReferenceCodeGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "referenceCode": { "$gte": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withReferenceCodeLessThan(val: string): this {
-            this.filters.push({ "referenceCode": { "$lt": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withReferenceCodeLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "referenceCode": { "$lte": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withReferenceCodeBetween(lower: string, upper: string): this {
-            this.filters.push({ "referenceCode": { "$between": [lower, upper] } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withReferenceCodeIsKnown(): this {
-            this.filters.push({ "referenceCode": { "$isNull": false } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withReferenceCodeIsUnknown(): this {
-            this.filters.push({ "referenceCode": { "$isNull": true } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withReferenceCodeNotContaining(val: string): this {
-            this.filters.push({ "referenceCode": { "$notContains": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withReferenceCodeStartingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$startsWith": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withReferenceCodeNotStartingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$notStartsWith": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withReferenceCodeEndingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$endsWith": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withReferenceCodeNotEndingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$notEndsWith": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withReferenceCodeSoundingLike(val: string): this {
-            this.filters.push({ "referenceCode": { "$soundLike": val } });
+            this.filters.push({ [Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [Shipment.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(Shipment.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(Shipment.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByReferenceCodeAscending(): this {
-        this.query.orderBy("referenceCode", "asc");
+        this.query.orderBy(Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member, "asc");
         return this;
     }
 
     orderByReferenceCodeDescending(): this {
-        this.query.orderBy("referenceCode", "desc");
+        this.query.orderBy(Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(Shipment.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(Shipment.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -436,39 +436,39 @@ export class ShipmentRequest {
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(Shipment.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(Shipment.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByCustomerOrder(): this {
-        this.query.groupBy("customerOrder");
+        this.query.groupBy(Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
         return this;
     }
 
     groupByCustomerOrderAs(retName: string): this {
-        this.query.groupBy("customerOrder", retName);
+        this.query.groupBy(Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, retName);
         return this;
     }
     groupByReferenceCode(): this {
-        this.query.groupBy("referenceCode");
+        this.query.groupBy(Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member);
         return this;
     }
 
     groupByReferenceCodeAs(retName: string): this {
-        this.query.groupBy("referenceCode", retName);
+        this.query.groupBy(Shipment.__teaqlFields.REFERENCE_CODE_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(Shipment.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(Shipment.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -478,8 +478,8 @@ export class ShipmentRequest {
         request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "customerOrder", request, includeAllFacets,
-            { kind: "facet", method: "facetByCustomerOrderAs", relation: "customerOrder", alias: facetName });
+        this.query.facetBy(facetName, Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByCustomerOrderAs", relation: Shipment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, alias: facetName });
         return this;
     }
 

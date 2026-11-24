@@ -10,6 +10,8 @@ else
 fi
 scratch="$(mktemp -d -t teaql-ts-work-item-scratch.XXXXXXXX)"
 trap 'status=$?; trap - EXIT; rm -rf -- "$scratch"; exit "$status"' EXIT
+# Keep the runtime log out of the source tree covered by fingerprint().
+export TEAQL_LOG_ENDPOINT="$evidence/runtime.log"
 fingerprint() {
   (cd "$example" && find typescript-node-lib-core typescript-app-console -type f \
     ! -path '*/node_modules/*' ! -path '*/.local/*' -print0 | sort -z | xargs -0 sha256sum)

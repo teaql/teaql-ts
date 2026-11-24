@@ -4,9 +4,17 @@ import { Payment } from './Payment';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class PaymentAttempt {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        PAYMENT_PROPERTY: { member: "payment", model: "payment" },
+        REFERENCE_CODE_PROPERTY: { member: "referenceCode", model: "reference_code" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("PaymentAttempt",
-        ["id", "payment", "reference_code", "version"], { id: "immutable_field", version: "immutable_field" });
+        [PaymentAttempt.__teaqlFields.ID_PROPERTY.model, PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.model, PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.model, PaymentAttempt.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         payment?: Payment | string;
         referenceCode?: string;
@@ -28,7 +36,7 @@ export class PaymentAttempt {
                 this.payment = (init as any).payment instanceof Payment
                     ? (init as any).payment
                     : Payment.fromRecord((init as any).payment);
-                this.markLoaded("payment");
+                this.markLoaded(PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -42,7 +50,7 @@ export class PaymentAttempt {
     private teaqlEntityKey(): EntityKey { return { entity: "PaymentAttempt", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: PaymentAttempt.__teaqlFields.ID_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.ID_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -200,7 +208,7 @@ export class PaymentAttempt {
         graph.discardRestoredFields(PaymentAttempt.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "payment": "Payment"
+            [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.model]: "Payment"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -223,7 +231,7 @@ export class PaymentAttempt {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "payment", canonical: "payment" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: PaymentAttempt.__teaqlFields.ID_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.ID_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "PaymentAttempt", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -243,7 +251,7 @@ export class PaymentAttempt {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "payment", canonical: "payment" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: PaymentAttempt.__teaqlFields.ID_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.ID_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.model }, { member: PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member, canonical: PaymentAttempt.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -344,10 +352,10 @@ export class PaymentAttempt {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "payment": this.payment,
-            "reference_code": this.referenceCode,
-            "version": this.version
+            [PaymentAttempt.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.model]: this.payment,
+            [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.model]: this.referenceCode,
+            [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -357,28 +365,28 @@ export class PaymentAttempt {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(PaymentAttempt.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), PaymentAttempt.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateReferenceCode(value: string): this {
         this.referenceCode = value;
-        this.markLoaded("referenceCode");
-        (this as any)._root.set(this.teaqlEntityKey(), "reference_code", value);
+        this.markLoaded(PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), PaymentAttempt.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updatePayment(value: any): this {
         this.payment = value?.id ?? value;
-        this.markLoaded("payment");
-        (this as any)._root.set(this.teaqlEntityKey(), "payment", this.payment);
+        this.markLoaded(PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.model, this.payment);
         return this;
     }
 

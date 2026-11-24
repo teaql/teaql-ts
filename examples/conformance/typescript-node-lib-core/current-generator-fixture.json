@@ -2,43 +2,34 @@
   "applicationManifestsPreserved": false,
   "evaluatedScope": "typescript-node-lib-core",
   "evaluationErrors": 0,
-  "evaluationWarnings": 0,
   "files": {
     "package.json": "ca7503edf9e60f4a430cc64bfd1c30d006ab1a80b679cecb4826a04a622dd818",
     "src/generated-bootstrap.ts": "10a1133555d160947deb5c2a2756cc28162ff7e75627aeb77029be345ad523e7",
     "src/generated-search-models.ts": "1d044e55eefc0415502f51cfff10a9d71b5261be4e99aeac287af55af56acb39",
     "src/generated/E.ts": "b757b7dee2a5c8b018ebe8aae2c2f92622d90ed71d270b2c523c1ec49d42b5a7",
     "src/generated/Q.ts": "4e7f90a3b34385ab94a44d1bdf84a91c1294d5a51784588bd3da22b983bd3027",
-    "src/generated/models/Platform.ts": "88a8c2df665920dd5aa2b964999f1ea3fab7203be3fbc8878bd370196b44932c",
-    "src/generated/models/WorkItem.ts": "3a635b318233a67b6c786394048d43321db533cf5c388b62fa6acb0b2c9d7c7e",
-    "src/generated/requests/PlatformRequest.ts": "9cbecd4d5bea62aaceeaa8f18017f9c636deb15dafc3ef33dd47f33bae6e6f50",
-    "src/generated/requests/WorkItemRequest.ts": "54d0f87a6808bf75d908a06db8857fc27b8c15e917e96552b4437937606bb0dd",
+    "src/generated/models/Platform.ts": "97e79ab2bf5fc32a02319ece68f811ed4a51403353ab08e845b1682a78a38457",
+    "src/generated/models/WorkItem.ts": "4765e3c0ae1eb5916a3ea88127024729dcc93ccabf8931f5ef0851b131a634ac",
+    "src/generated/requests/PlatformRequest.ts": "d9994de3b2f37c6bef139707eae7d1df9c2dcba94bd7bb65b6951d676455567f",
+    "src/generated/requests/WorkItemRequest.ts": "6538fd48f5641f1466c235ed47b17a461cddf7198ec77f8a3ab11574f37e369c",
     "src/runtime-module.ts": "7c7ffb5284e51206fa9bcacb312d3a118fb751500238ec9c690fd1e4d56d3505",
     "src/teaql-node-sql.ts": "ebc992b7f7850e0324a9be563b663cba3d5c7d2bbafd5269f38d54b06ddf9e83",
     "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
     "src/teaql-ts.ts": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b",
     "teaql-i18n.json": "fa0ea9576dccfb6ef4e940b00b53abb843ee492741e98da5001e6ea2ad79b2cb",
     "teaql/checker-model.json": "4824e2986933569c4d827ca44cae7e3a028012aec1e7dbacd245fff5fd5ffe1b",
-    "teaql/model-provenance.json": "25c3c0f1f8b30ca2e94d36c7abdb4aa911bd735e0012ccfe1bb987a0882b9107",
+    "teaql/model-provenance.json": "3b6c48164a41d047adc9d684bc259b71a6c18e6fa9fe70aeae067b520cc75688",
     "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
   },
-  "generatedManifestSha256": "764f266caa84e9e648b9a31335af955f09cc1d8074ca007b7588d3aa0f95cb56",
-  "generationReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/work-item-generation/typescript/work-item-showcase/library/receipt.json",
-  "generatorCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
-  "generatorJarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
-  "generatorRelease": "unreleased-source-021b1ed8",
+  "generationReceipt": "../../generator-v5.0.0.json",
+  "generatorCommit": "783ff0d81751b030c1209043476e8326cc6da58b",
+  "generatorJarSHA256": "ba0a502363884c206a46b6d5da89b0854b7f3e84072dd88544b15573c0d70812",
+  "generatorRelease": "v5.0.0",
   "modelSha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7",
-  "previousFixtureManifestSha256": "07a796f9dbdbd5654be68c9f29c016546ce23d2ea1389c7b3aaac0cb57277a14",
   "previousOrigin": {
-    "commit": "543cc086cf64e536f7f5fd8e1ef7899bd67cf2da",
-    "path": "examples/conformance/current-generator-fixture.json"
+    "commit": "a332c8ad2cb6288e6bda1e4a8b243bbf3c7b4f36",
+    "path": "examples/conformance/typescript-node-lib-core/current-generator-fixture.json",
+    "sha256": "b71d12e3c6893bfe875b77d1e97edc9db4c82913939c2e75f735208ff2a11d6d"
   },
-  "producerReceiptSha256": "ccc2e04b9137f358ebaf27680704ee3b321a240d57add5fc36a75571a6ce3f71",
-  "producerSource": {
-    "commit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
-    "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
-    "release": "unreleased-source-021b1ed8"
-  },
-  "schema": "teaql.typescript-current-example-fixture/v1",
-  "scope": "typescript-node-lib-core"
+  "schema": "teaql.typescript-current-example-fixture/v1"
 }

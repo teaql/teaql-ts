@@ -117,46 +117,46 @@ export class SchoolRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "platform", "schoolType", "name", "version"]);
+        this.query.select([School.__teaqlFields.ID_PROPERTY.member, School.__teaqlFields.PLATFORM_PROPERTY.member, School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, School.__teaqlFields.NAME_PROPERTY.member, School.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([School.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
 
     selectName(): this {
-        this.query.select(["name"]);
+        this.query.select([School.__teaqlFields.NAME_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([School.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectPlatformWith(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
-        this.query.select(["platform"]);
+        this.query.select([School.__teaqlFields.PLATFORM_PROPERTY.member]);
         this.query.relationQuery(
-            "platform", request.toQuery(), "platform", "id", false,
-            { kind: "relation-select", method: "selectPlatformWith", relation: "platform" });
+            School.__teaqlFields.PLATFORM_PROPERTY.member, request.toQuery(), School.__teaqlFields.PLATFORM_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectPlatformWith", relation: School.__teaqlFields.PLATFORM_PROPERTY.member });
         return this;
     }
     selectSchoolTypeWith(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
-        this.query.select(["schoolType"]);
+        this.query.select([School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]);
         this.query.relationQuery(
-            "schoolType", request.toQuery(), "schoolType", "id", false,
-            { kind: "relation-select", method: "selectSchoolTypeWith", relation: "schoolType" });
+            School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, request.toQuery(), School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectSchoolTypeWith", relation: School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member });
         return this;
     }
 
     withPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "platform": {
+            [School.__teaqlFields.PLATFORM_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -165,7 +165,7 @@ export class SchoolRequest {
 
     withoutPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "platform": {
+            [School.__teaqlFields.PLATFORM_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -173,7 +173,7 @@ export class SchoolRequest {
     }
     withSchoolTypeMatching(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "schoolType": {
+            [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -182,7 +182,7 @@ export class SchoolRequest {
 
     withoutSchoolTypeMatching(request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "schoolType": {
+            [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -193,281 +193,281 @@ export class SchoolRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [School.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByPlatform(val: any): this {
-            this.filters.push({ "platform": { "$eq": val } });
+            this.filters.push({ [School.__teaqlFields.PLATFORM_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByPlatformIn(...vals: any[]): this {
-            this.filters.push({ "platform": { "$in": vals } });
+            this.filters.push({ [School.__teaqlFields.PLATFORM_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withPlatformIsKnown(): this {
-            this.filters.push({ "platform": { "$isNull": false } });
+            this.filters.push({ [School.__teaqlFields.PLATFORM_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withPlatformIsUnknown(): this {
-            this.filters.push({ "platform": { "$isNull": true } });
+            this.filters.push({ [School.__teaqlFields.PLATFORM_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterBySchoolType(val: any): this {
-            this.filters.push({ "schoolType": { "$eq": val } });
+            this.filters.push({ [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterBySchoolTypeIn(...vals: any[]): this {
-            this.filters.push({ "schoolType": { "$in": vals } });
+            this.filters.push({ [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withSchoolTypeIsKnown(): this {
-            this.filters.push({ "schoolType": { "$isNull": false } });
+            this.filters.push({ [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withSchoolTypeIsUnknown(): this {
-            this.filters.push({ "schoolType": { "$isNull": true } });
+            this.filters.push({ [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withSchoolTypeIsPrimary(): this {
-            this.filters.push({ "schoolType": { "$eq": "1001" } });
+            this.filters.push({ [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: { "$eq": "1001" } });
             return this;
         }
         withSchoolTypeIsSecondary(): this {
-            this.filters.push({ "schoolType": { "$eq": "1002" } });
+            this.filters.push({ [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member]: { "$eq": "1002" } });
             return this;
         }
 
         withNameContaining(val: string): this {
-            this.filters.push({ "name": { "$contains": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withNameIs(val: string): this {
-            this.filters.push({ "name": { "$eq": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withNameIsNot(val: string): this {
-            this.filters.push({ "name": { "$ne": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withNameIn(...vals: string[]): this {
-            this.filters.push({ "name": { "$in": vals } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withNameNotIn(...vals: string[]): this {
-            this.filters.push({ "name": { "$notIn": vals } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withNameGreaterThan(val: string): this {
-            this.filters.push({ "name": { "$gt": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withNameGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "name": { "$gte": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withNameLessThan(val: string): this {
-            this.filters.push({ "name": { "$lt": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withNameLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "name": { "$lte": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withNameBetween(lower: string, upper: string): this {
-            this.filters.push({ "name": { "$between": [lower, upper] } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withNameIsKnown(): this {
-            this.filters.push({ "name": { "$isNull": false } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withNameIsUnknown(): this {
-            this.filters.push({ "name": { "$isNull": true } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withNameNotContaining(val: string): this {
-            this.filters.push({ "name": { "$notContains": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withNameStartingWith(val: string): this {
-            this.filters.push({ "name": { "$startsWith": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withNameNotStartingWith(val: string): this {
-            this.filters.push({ "name": { "$notStartsWith": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withNameEndingWith(val: string): this {
-            this.filters.push({ "name": { "$endsWith": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withNameNotEndingWith(val: string): this {
-            this.filters.push({ "name": { "$notEndsWith": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withNameSoundingLike(val: string): this {
-            this.filters.push({ "name": { "$soundLike": val } });
+            this.filters.push({ [School.__teaqlFields.NAME_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [School.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(School.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(School.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
 
     orderByNameAscending(): this {
-        this.query.orderBy("name", "asc");
+        this.query.orderBy(School.__teaqlFields.NAME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByNameDescending(): this {
-        this.query.orderBy("name", "desc");
+        this.query.orderBy(School.__teaqlFields.NAME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(School.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(School.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -490,48 +490,48 @@ export class SchoolRequest {
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(School.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(School.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByPlatform(): this {
-        this.query.groupBy("platform");
+        this.query.groupBy(School.__teaqlFields.PLATFORM_PROPERTY.member);
         return this;
     }
 
     groupByPlatformAs(retName: string): this {
-        this.query.groupBy("platform", retName);
+        this.query.groupBy(School.__teaqlFields.PLATFORM_PROPERTY.member, retName);
         return this;
     }
     groupBySchoolType(): this {
-        this.query.groupBy("schoolType");
+        this.query.groupBy(School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member);
         return this;
     }
 
     groupBySchoolTypeAs(retName: string): this {
-        this.query.groupBy("schoolType", retName);
+        this.query.groupBy(School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, retName);
         return this;
     }
     groupByName(): this {
-        this.query.groupBy("name");
+        this.query.groupBy(School.__teaqlFields.NAME_PROPERTY.member);
         return this;
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name", retName);
+        this.query.groupBy(School.__teaqlFields.NAME_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(School.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(School.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -541,8 +541,8 @@ export class SchoolRequest {
         request: { readonly entityName: "Platform"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "platform", request, includeAllFacets,
-            { kind: "facet", method: "facetByPlatformAs", relation: "platform", alias: facetName });
+        this.query.facetBy(facetName, School.__teaqlFields.PLATFORM_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByPlatformAs", relation: School.__teaqlFields.PLATFORM_PROPERTY.member, alias: facetName });
         return this;
     }
 
@@ -551,8 +551,8 @@ export class SchoolRequest {
         request: { readonly entityName: "SchoolType"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "schoolType", request, includeAllFacets,
-            { kind: "facet", method: "facetBySchoolTypeAs", relation: "schoolType", alias: facetName });
+        this.query.facetBy(facetName, School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetBySchoolTypeAs", relation: School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, alias: facetName });
         return this;
     }
 

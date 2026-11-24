@@ -117,22 +117,22 @@ export class DistributionCenterRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "dockName", "version"]);
+        this.query.select([DistributionCenter.__teaqlFields.ID_PROPERTY.member, DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member, DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([DistributionCenter.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
     selectDockName(): this {
-        this.query.select(["dockName"]);
+        this.query.select([DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
@@ -206,231 +206,231 @@ export class DistributionCenterRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withDockNameContaining(val: string): this {
-            this.filters.push({ "dockName": { "$contains": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withDockNameIs(val: string): this {
-            this.filters.push({ "dockName": { "$eq": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withDockNameIsNot(val: string): this {
-            this.filters.push({ "dockName": { "$ne": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withDockNameIn(...vals: string[]): this {
-            this.filters.push({ "dockName": { "$in": vals } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withDockNameNotIn(...vals: string[]): this {
-            this.filters.push({ "dockName": { "$notIn": vals } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withDockNameGreaterThan(val: string): this {
-            this.filters.push({ "dockName": { "$gt": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withDockNameGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "dockName": { "$gte": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withDockNameLessThan(val: string): this {
-            this.filters.push({ "dockName": { "$lt": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withDockNameLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "dockName": { "$lte": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withDockNameBetween(lower: string, upper: string): this {
-            this.filters.push({ "dockName": { "$between": [lower, upper] } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withDockNameIsKnown(): this {
-            this.filters.push({ "dockName": { "$isNull": false } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withDockNameIsUnknown(): this {
-            this.filters.push({ "dockName": { "$isNull": true } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withDockNameNotContaining(val: string): this {
-            this.filters.push({ "dockName": { "$notContains": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withDockNameStartingWith(val: string): this {
-            this.filters.push({ "dockName": { "$startsWith": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withDockNameNotStartingWith(val: string): this {
-            this.filters.push({ "dockName": { "$notStartsWith": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withDockNameEndingWith(val: string): this {
-            this.filters.push({ "dockName": { "$endsWith": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withDockNameNotEndingWith(val: string): this {
-            this.filters.push({ "dockName": { "$notEndsWith": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withDockNameSoundingLike(val: string): this {
-            this.filters.push({ "dockName": { "$soundLike": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [DistributionCenter.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(DistributionCenter.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(DistributionCenter.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
     orderByDockNameAscending(): this {
-        this.query.orderBy("dockName", "asc");
+        this.query.orderBy(DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByDockNameDescending(): this {
-        this.query.orderBy("dockName", "desc");
+        this.query.orderBy(DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(DistributionCenter.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(DistributionCenter.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -453,30 +453,30 @@ export class DistributionCenterRequest {
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(DistributionCenter.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(DistributionCenter.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByDockName(): this {
-        this.query.groupBy("dockName");
+        this.query.groupBy(DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member);
         return this;
     }
 
     groupByDockNameAs(retName: string): this {
-        this.query.groupBy("dockName", retName);
+        this.query.groupBy(DistributionCenter.__teaqlFields.DOCK_NAME_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(DistributionCenter.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(DistributionCenter.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 

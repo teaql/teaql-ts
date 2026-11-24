@@ -117,73 +117,73 @@ export class FreightQuoteRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "platform", "reference", "amount", "shipmentNumber", "packageCount", "deliveryDate", "pickupTime", "quotedAt", "instructions", "version"]);
+        this.query.select([FreightQuote.__teaqlFields.ID_PROPERTY.member, FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member, FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member, FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member, FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member, FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member, FreightQuote.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([FreightQuote.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
     selectReference(): this {
-        this.query.select(["reference"]);
+        this.query.select([FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]);
         return this;
     }
 
     selectAmount(): this {
-        this.query.select(["amount"]);
+        this.query.select([FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]);
         return this;
     }
 
     selectShipmentNumber(): this {
-        this.query.select(["shipmentNumber"]);
+        this.query.select([FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]);
         return this;
     }
 
     selectPackageCount(): this {
-        this.query.select(["packageCount"]);
+        this.query.select([FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]);
         return this;
     }
 
     selectDeliveryDate(): this {
-        this.query.select(["deliveryDate"]);
+        this.query.select([FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]);
         return this;
     }
 
     selectPickupTime(): this {
-        this.query.select(["pickupTime"]);
+        this.query.select([FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]);
         return this;
     }
 
     selectQuotedAt(): this {
-        this.query.select(["quotedAt"]);
+        this.query.select([FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]);
         return this;
     }
 
     selectInstructions(): this {
-        this.query.select(["instructions"]);
+        this.query.select([FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([FreightQuote.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectPlatformWith(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
-        this.query.select(["platform"]);
+        this.query.select([FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member]);
         this.query.relationQuery(
-            "platform", request.toQuery(), "platform", "id", false,
-            { kind: "relation-select", method: "selectPlatformWith", relation: "platform" });
+            FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, request.toQuery(), FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectPlatformWith", relation: FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member });
         return this;
     }
 
     withPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "platform": {
+            [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -192,7 +192,7 @@ export class FreightQuoteRequest {
 
     withoutPlatformMatching(request: { readonly entityName: "Platform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "platform": {
+            [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -203,741 +203,741 @@ export class FreightQuoteRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByPlatform(val: any): this {
-            this.filters.push({ "platform": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByPlatformIn(...vals: any[]): this {
-            this.filters.push({ "platform": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withPlatformIsKnown(): this {
-            this.filters.push({ "platform": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withPlatformIsUnknown(): this {
-            this.filters.push({ "platform": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withReferenceContaining(val: string): this {
-            this.filters.push({ "reference": { "$contains": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withReferenceIs(val: string): this {
-            this.filters.push({ "reference": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withReferenceIsNot(val: string): this {
-            this.filters.push({ "reference": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withReferenceIn(...vals: string[]): this {
-            this.filters.push({ "reference": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withReferenceNotIn(...vals: string[]): this {
-            this.filters.push({ "reference": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withReferenceGreaterThan(val: string): this {
-            this.filters.push({ "reference": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withReferenceGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "reference": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withReferenceLessThan(val: string): this {
-            this.filters.push({ "reference": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withReferenceLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "reference": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withReferenceBetween(lower: string, upper: string): this {
-            this.filters.push({ "reference": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withReferenceIsKnown(): this {
-            this.filters.push({ "reference": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withReferenceIsUnknown(): this {
-            this.filters.push({ "reference": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withReferenceNotContaining(val: string): this {
-            this.filters.push({ "reference": { "$notContains": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withReferenceStartingWith(val: string): this {
-            this.filters.push({ "reference": { "$startsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withReferenceNotStartingWith(val: string): this {
-            this.filters.push({ "reference": { "$notStartsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withReferenceEndingWith(val: string): this {
-            this.filters.push({ "reference": { "$endsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withReferenceNotEndingWith(val: string): this {
-            this.filters.push({ "reference": { "$notEndsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withReferenceSoundingLike(val: string): this {
-            this.filters.push({ "reference": { "$soundLike": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withAmountIs(val: Decimal): this {
-            this.filters.push({ "amount": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withAmountIsNot(val: Decimal): this {
-            this.filters.push({ "amount": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withAmountIn(...vals: Decimal[]): this {
-            this.filters.push({ "amount": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withAmountNotIn(...vals: Decimal[]): this {
-            this.filters.push({ "amount": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withAmountGreaterThan(val: Decimal): this {
-            this.filters.push({ "amount": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withAmountGreaterThanOrEqualTo(val: Decimal): this {
-            this.filters.push({ "amount": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withAmountLessThan(val: Decimal): this {
-            this.filters.push({ "amount": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withAmountLessThanOrEqualTo(val: Decimal): this {
-            this.filters.push({ "amount": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withAmountBetween(lower: Decimal, upper: Decimal): this {
-            this.filters.push({ "amount": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withAmountIsKnown(): this {
-            this.filters.push({ "amount": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withAmountIsUnknown(): this {
-            this.filters.push({ "amount": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withShipmentNumberIs(val: Long): this {
-            this.filters.push({ "shipmentNumber": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withShipmentNumberIsNot(val: Long): this {
-            this.filters.push({ "shipmentNumber": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withShipmentNumberIn(...vals: Long[]): this {
-            this.filters.push({ "shipmentNumber": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withShipmentNumberNotIn(...vals: Long[]): this {
-            this.filters.push({ "shipmentNumber": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withShipmentNumberGreaterThan(val: Long): this {
-            this.filters.push({ "shipmentNumber": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withShipmentNumberGreaterThanOrEqualTo(val: Long): this {
-            this.filters.push({ "shipmentNumber": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withShipmentNumberLessThan(val: Long): this {
-            this.filters.push({ "shipmentNumber": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withShipmentNumberLessThanOrEqualTo(val: Long): this {
-            this.filters.push({ "shipmentNumber": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withShipmentNumberBetween(lower: Long, upper: Long): this {
-            this.filters.push({ "shipmentNumber": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withShipmentNumberIsKnown(): this {
-            this.filters.push({ "shipmentNumber": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withShipmentNumberIsUnknown(): this {
-            this.filters.push({ "shipmentNumber": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withPackageCountIs(val: number): this {
-            this.filters.push({ "packageCount": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withPackageCountIsNot(val: number): this {
-            this.filters.push({ "packageCount": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withPackageCountIn(...vals: number[]): this {
-            this.filters.push({ "packageCount": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withPackageCountNotIn(...vals: number[]): this {
-            this.filters.push({ "packageCount": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withPackageCountGreaterThan(val: number): this {
-            this.filters.push({ "packageCount": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withPackageCountGreaterThanOrEqualTo(val: number): this {
-            this.filters.push({ "packageCount": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withPackageCountLessThan(val: number): this {
-            this.filters.push({ "packageCount": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withPackageCountLessThanOrEqualTo(val: number): this {
-            this.filters.push({ "packageCount": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withPackageCountBetween(lower: number, upper: number): this {
-            this.filters.push({ "packageCount": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withPackageCountIsKnown(): this {
-            this.filters.push({ "packageCount": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withPackageCountIsUnknown(): this {
-            this.filters.push({ "packageCount": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withDeliveryDateIs(val: string): this {
-            this.filters.push({ "deliveryDate": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withDeliveryDateIsNot(val: string): this {
-            this.filters.push({ "deliveryDate": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withDeliveryDateIn(...vals: string[]): this {
-            this.filters.push({ "deliveryDate": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withDeliveryDateNotIn(...vals: string[]): this {
-            this.filters.push({ "deliveryDate": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withDeliveryDateGreaterThan(val: string): this {
-            this.filters.push({ "deliveryDate": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withDeliveryDateGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "deliveryDate": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withDeliveryDateLessThan(val: string): this {
-            this.filters.push({ "deliveryDate": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withDeliveryDateLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "deliveryDate": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withDeliveryDateBetween(lower: string, upper: string): this {
-            this.filters.push({ "deliveryDate": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withDeliveryDateIsKnown(): this {
-            this.filters.push({ "deliveryDate": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withDeliveryDateIsUnknown(): this {
-            this.filters.push({ "deliveryDate": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withPickupTimeIs(val: LocalTime): this {
-            this.filters.push({ "pickupTime": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withPickupTimeIsNot(val: LocalTime): this {
-            this.filters.push({ "pickupTime": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withPickupTimeIn(...vals: LocalTime[]): this {
-            this.filters.push({ "pickupTime": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withPickupTimeNotIn(...vals: LocalTime[]): this {
-            this.filters.push({ "pickupTime": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withPickupTimeGreaterThan(val: LocalTime): this {
-            this.filters.push({ "pickupTime": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withPickupTimeGreaterThanOrEqualTo(val: LocalTime): this {
-            this.filters.push({ "pickupTime": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withPickupTimeLessThan(val: LocalTime): this {
-            this.filters.push({ "pickupTime": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withPickupTimeLessThanOrEqualTo(val: LocalTime): this {
-            this.filters.push({ "pickupTime": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withPickupTimeBetween(lower: LocalTime, upper: LocalTime): this {
-            this.filters.push({ "pickupTime": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withPickupTimeIsKnown(): this {
-            this.filters.push({ "pickupTime": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withPickupTimeIsUnknown(): this {
-            this.filters.push({ "pickupTime": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withQuotedAtIs(val: string): this {
-            this.filters.push({ "quotedAt": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withQuotedAtIsNot(val: string): this {
-            this.filters.push({ "quotedAt": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withQuotedAtIn(...vals: string[]): this {
-            this.filters.push({ "quotedAt": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withQuotedAtNotIn(...vals: string[]): this {
-            this.filters.push({ "quotedAt": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withQuotedAtGreaterThan(val: string): this {
-            this.filters.push({ "quotedAt": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withQuotedAtGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "quotedAt": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withQuotedAtLessThan(val: string): this {
-            this.filters.push({ "quotedAt": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withQuotedAtLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "quotedAt": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withQuotedAtBetween(lower: string, upper: string): this {
-            this.filters.push({ "quotedAt": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withQuotedAtIsKnown(): this {
-            this.filters.push({ "quotedAt": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withQuotedAtIsUnknown(): this {
-            this.filters.push({ "quotedAt": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withInstructionsContaining(val: string): this {
-            this.filters.push({ "instructions": { "$contains": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withInstructionsIs(val: string): this {
-            this.filters.push({ "instructions": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withInstructionsIsNot(val: string): this {
-            this.filters.push({ "instructions": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withInstructionsIn(...vals: string[]): this {
-            this.filters.push({ "instructions": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withInstructionsNotIn(...vals: string[]): this {
-            this.filters.push({ "instructions": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withInstructionsGreaterThan(val: string): this {
-            this.filters.push({ "instructions": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withInstructionsGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "instructions": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withInstructionsLessThan(val: string): this {
-            this.filters.push({ "instructions": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withInstructionsLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "instructions": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withInstructionsBetween(lower: string, upper: string): this {
-            this.filters.push({ "instructions": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withInstructionsIsKnown(): this {
-            this.filters.push({ "instructions": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withInstructionsIsUnknown(): this {
-            this.filters.push({ "instructions": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withInstructionsNotContaining(val: string): this {
-            this.filters.push({ "instructions": { "$notContains": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withInstructionsStartingWith(val: string): this {
-            this.filters.push({ "instructions": { "$startsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withInstructionsNotStartingWith(val: string): this {
-            this.filters.push({ "instructions": { "$notStartsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withInstructionsEndingWith(val: string): this {
-            this.filters.push({ "instructions": { "$endsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withInstructionsNotEndingWith(val: string): this {
-            this.filters.push({ "instructions": { "$notEndsWith": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withInstructionsSoundingLike(val: string): this {
-            this.filters.push({ "instructions": { "$soundLike": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [FreightQuote.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByReferenceAscending(): this {
-        this.query.orderBy("reference", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member, "asc");
         return this;
     }
 
     orderByReferenceDescending(): this {
-        this.query.orderBy("reference", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member, "desc");
         return this;
     }
 
     orderByAmountAscending(): this {
-        this.query.orderBy("amount", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, "asc");
         return this;
     }
 
     orderByAmountDescending(): this {
-        this.query.orderBy("amount", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, "desc");
         return this;
     }
 
     orderByShipmentNumberAscending(): this {
-        this.query.orderBy("shipmentNumber", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, "asc");
         return this;
     }
 
     orderByShipmentNumberDescending(): this {
-        this.query.orderBy("shipmentNumber", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, "desc");
         return this;
     }
 
     orderByPackageCountAscending(): this {
-        this.query.orderBy("packageCount", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, "asc");
         return this;
     }
 
     orderByPackageCountDescending(): this {
-        this.query.orderBy("packageCount", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, "desc");
         return this;
     }
 
     orderByDeliveryDateAscending(): this {
-        this.query.orderBy("deliveryDate", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member, "asc");
         return this;
     }
 
     orderByDeliveryDateDescending(): this {
-        this.query.orderBy("deliveryDate", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member, "desc");
         return this;
     }
 
     orderByPickupTimeAscending(): this {
-        this.query.orderBy("pickupTime", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByPickupTimeDescending(): this {
-        this.query.orderBy("pickupTime", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByQuotedAtAscending(): this {
-        this.query.orderBy("quotedAt", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member, "asc");
         return this;
     }
 
     orderByQuotedAtDescending(): this {
-        this.query.orderBy("quotedAt", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member, "desc");
         return this;
     }
 
     orderByInstructionsAscending(): this {
-        this.query.orderBy("instructions", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member, "asc");
         return this;
     }
 
     orderByInstructionsDescending(): this {
-        this.query.orderBy("instructions", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(FreightQuote.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(FreightQuote.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -962,7 +962,7 @@ export class FreightQuoteRequest {
     }
 
     minAmountAs(retName: string): this {
-        this.query.aggregate("min", "amount", retName);
+        this.query.aggregate("min", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     maxAmount(): this {
@@ -970,7 +970,7 @@ export class FreightQuoteRequest {
     }
 
     maxAmountAs(retName: string): this {
-        this.query.aggregate("max", "amount", retName);
+        this.query.aggregate("max", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     sumAmount(): this {
@@ -978,7 +978,7 @@ export class FreightQuoteRequest {
     }
 
     sumAmountAs(retName: string): this {
-        this.query.aggregate("sum", "amount", retName);
+        this.query.aggregate("sum", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     avgAmount(): this {
@@ -986,7 +986,7 @@ export class FreightQuoteRequest {
     }
 
     avgAmountAs(retName: string): this {
-        this.query.aggregate("avg", "amount", retName);
+        this.query.aggregate("avg", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     standardDeviationAmount(): this {
@@ -994,7 +994,7 @@ export class FreightQuoteRequest {
     }
 
     standardDeviationAmountAs(retName: string): this {
-        this.query.aggregate("stddev", "amount", retName);
+        this.query.aggregate("stddev", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     squareRootOfPopulationStandardDeviationAmount(): this {
@@ -1002,7 +1002,7 @@ export class FreightQuoteRequest {
     }
 
     squareRootOfPopulationStandardDeviationAmountAs(retName: string): this {
-        this.query.aggregate("stddev_pop", "amount", retName);
+        this.query.aggregate("stddev_pop", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     sampleVarianceAmount(): this {
@@ -1010,7 +1010,7 @@ export class FreightQuoteRequest {
     }
 
     sampleVarianceAmountAs(retName: string): this {
-        this.query.aggregate("var_samp", "amount", retName);
+        this.query.aggregate("var_samp", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     samplePopulationVarianceAmount(): this {
@@ -1018,7 +1018,7 @@ export class FreightQuoteRequest {
     }
 
     samplePopulationVarianceAmountAs(retName: string): this {
-        this.query.aggregate("var_pop", "amount", retName);
+        this.query.aggregate("var_pop", FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     minShipmentNumber(): this {
@@ -1026,7 +1026,7 @@ export class FreightQuoteRequest {
     }
 
     minShipmentNumberAs(retName: string): this {
-        this.query.aggregate("min", "shipmentNumber", retName);
+        this.query.aggregate("min", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     maxShipmentNumber(): this {
@@ -1034,7 +1034,7 @@ export class FreightQuoteRequest {
     }
 
     maxShipmentNumberAs(retName: string): this {
-        this.query.aggregate("max", "shipmentNumber", retName);
+        this.query.aggregate("max", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     sumShipmentNumber(): this {
@@ -1042,7 +1042,7 @@ export class FreightQuoteRequest {
     }
 
     sumShipmentNumberAs(retName: string): this {
-        this.query.aggregate("sum", "shipmentNumber", retName);
+        this.query.aggregate("sum", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     avgShipmentNumber(): this {
@@ -1050,7 +1050,7 @@ export class FreightQuoteRequest {
     }
 
     avgShipmentNumberAs(retName: string): this {
-        this.query.aggregate("avg", "shipmentNumber", retName);
+        this.query.aggregate("avg", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     standardDeviationShipmentNumber(): this {
@@ -1058,7 +1058,7 @@ export class FreightQuoteRequest {
     }
 
     standardDeviationShipmentNumberAs(retName: string): this {
-        this.query.aggregate("stddev", "shipmentNumber", retName);
+        this.query.aggregate("stddev", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     squareRootOfPopulationStandardDeviationShipmentNumber(): this {
@@ -1066,7 +1066,7 @@ export class FreightQuoteRequest {
     }
 
     squareRootOfPopulationStandardDeviationShipmentNumberAs(retName: string): this {
-        this.query.aggregate("stddev_pop", "shipmentNumber", retName);
+        this.query.aggregate("stddev_pop", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     sampleVarianceShipmentNumber(): this {
@@ -1074,7 +1074,7 @@ export class FreightQuoteRequest {
     }
 
     sampleVarianceShipmentNumberAs(retName: string): this {
-        this.query.aggregate("var_samp", "shipmentNumber", retName);
+        this.query.aggregate("var_samp", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     samplePopulationVarianceShipmentNumber(): this {
@@ -1082,7 +1082,7 @@ export class FreightQuoteRequest {
     }
 
     samplePopulationVarianceShipmentNumberAs(retName: string): this {
-        this.query.aggregate("var_pop", "shipmentNumber", retName);
+        this.query.aggregate("var_pop", FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     minPackageCount(): this {
@@ -1090,7 +1090,7 @@ export class FreightQuoteRequest {
     }
 
     minPackageCountAs(retName: string): this {
-        this.query.aggregate("min", "packageCount", retName);
+        this.query.aggregate("min", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     maxPackageCount(): this {
@@ -1098,7 +1098,7 @@ export class FreightQuoteRequest {
     }
 
     maxPackageCountAs(retName: string): this {
-        this.query.aggregate("max", "packageCount", retName);
+        this.query.aggregate("max", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     sumPackageCount(): this {
@@ -1106,7 +1106,7 @@ export class FreightQuoteRequest {
     }
 
     sumPackageCountAs(retName: string): this {
-        this.query.aggregate("sum", "packageCount", retName);
+        this.query.aggregate("sum", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     avgPackageCount(): this {
@@ -1114,7 +1114,7 @@ export class FreightQuoteRequest {
     }
 
     avgPackageCountAs(retName: string): this {
-        this.query.aggregate("avg", "packageCount", retName);
+        this.query.aggregate("avg", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     standardDeviationPackageCount(): this {
@@ -1122,7 +1122,7 @@ export class FreightQuoteRequest {
     }
 
     standardDeviationPackageCountAs(retName: string): this {
-        this.query.aggregate("stddev", "packageCount", retName);
+        this.query.aggregate("stddev", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     squareRootOfPopulationStandardDeviationPackageCount(): this {
@@ -1130,7 +1130,7 @@ export class FreightQuoteRequest {
     }
 
     squareRootOfPopulationStandardDeviationPackageCountAs(retName: string): this {
-        this.query.aggregate("stddev_pop", "packageCount", retName);
+        this.query.aggregate("stddev_pop", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     sampleVariancePackageCount(): this {
@@ -1138,7 +1138,7 @@ export class FreightQuoteRequest {
     }
 
     sampleVariancePackageCountAs(retName: string): this {
-        this.query.aggregate("var_samp", "packageCount", retName);
+        this.query.aggregate("var_samp", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     samplePopulationVariancePackageCount(): this {
@@ -1146,108 +1146,108 @@ export class FreightQuoteRequest {
     }
 
     samplePopulationVariancePackageCountAs(retName: string): this {
-        this.query.aggregate("var_pop", "packageCount", retName);
+        this.query.aggregate("var_pop", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(FreightQuote.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByPlatform(): this {
-        this.query.groupBy("platform");
+        this.query.groupBy(FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member);
         return this;
     }
 
     groupByPlatformAs(retName: string): this {
-        this.query.groupBy("platform", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, retName);
         return this;
     }
     groupByReference(): this {
-        this.query.groupBy("reference");
+        this.query.groupBy(FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member);
         return this;
     }
 
     groupByReferenceAs(retName: string): this {
-        this.query.groupBy("reference", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member, retName);
         return this;
     }
     groupByAmount(): this {
-        this.query.groupBy("amount");
+        this.query.groupBy(FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member);
         return this;
     }
 
     groupByAmountAs(retName: string): this {
-        this.query.groupBy("amount", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, retName);
         return this;
     }
     groupByShipmentNumber(): this {
-        this.query.groupBy("shipmentNumber");
+        this.query.groupBy(FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member);
         return this;
     }
 
     groupByShipmentNumberAs(retName: string): this {
-        this.query.groupBy("shipmentNumber", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, retName);
         return this;
     }
     groupByPackageCount(): this {
-        this.query.groupBy("packageCount");
+        this.query.groupBy(FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member);
         return this;
     }
 
     groupByPackageCountAs(retName: string): this {
-        this.query.groupBy("packageCount", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, retName);
         return this;
     }
     groupByDeliveryDate(): this {
-        this.query.groupBy("deliveryDate");
+        this.query.groupBy(FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member);
         return this;
     }
 
     groupByDeliveryDateAs(retName: string): this {
-        this.query.groupBy("deliveryDate", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member, retName);
         return this;
     }
     groupByPickupTime(): this {
-        this.query.groupBy("pickupTime");
+        this.query.groupBy(FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member);
         return this;
     }
 
     groupByPickupTimeAs(retName: string): this {
-        this.query.groupBy("pickupTime", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member, retName);
         return this;
     }
     groupByQuotedAt(): this {
-        this.query.groupBy("quotedAt");
+        this.query.groupBy(FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member);
         return this;
     }
 
     groupByQuotedAtAs(retName: string): this {
-        this.query.groupBy("quotedAt", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member, retName);
         return this;
     }
     groupByInstructions(): this {
-        this.query.groupBy("instructions");
+        this.query.groupBy(FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member);
         return this;
     }
 
     groupByInstructionsAs(retName: string): this {
-        this.query.groupBy("instructions", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(FreightQuote.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(FreightQuote.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -1257,8 +1257,8 @@ export class FreightQuoteRequest {
         request: { readonly entityName: "Platform"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "platform", request, includeAllFacets,
-            { kind: "facet", method: "facetByPlatformAs", relation: "platform", alias: facetName });
+        this.query.facetBy(facetName, FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByPlatformAs", relation: FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, alias: facetName });
         return this;
     }
 

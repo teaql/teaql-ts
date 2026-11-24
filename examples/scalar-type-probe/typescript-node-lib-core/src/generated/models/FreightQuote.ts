@@ -4,9 +4,24 @@ import { Platform } from './Platform';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class FreightQuote {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        PLATFORM_PROPERTY: { member: "platform", model: "platform" },
+        REFERENCE_PROPERTY: { member: "reference", model: "reference" },
+        AMOUNT_PROPERTY: { member: "amount", model: "amount" },
+        SHIPMENT_NUMBER_PROPERTY: { member: "shipmentNumber", model: "shipment_number" },
+        PACKAGE_COUNT_PROPERTY: { member: "packageCount", model: "package_count" },
+        DELIVERY_DATE_PROPERTY: { member: "deliveryDate", model: "delivery_date" },
+        PICKUP_TIME_PROPERTY: { member: "pickupTime", model: "pickup_time" },
+        QUOTED_AT_PROPERTY: { member: "quotedAt", model: "quoted_at" },
+        INSTRUCTIONS_PROPERTY: { member: "instructions", model: "instructions" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("FreightQuote",
-        ["id", "platform", "reference", "amount", "shipment_number", "package_count", "delivery_date", "pickup_time", "quoted_at", "instructions", "version"], { id: "immutable_field", version: "immutable_field" });
+        [FreightQuote.__teaqlFields.ID_PROPERTY.model, FreightQuote.__teaqlFields.PLATFORM_PROPERTY.model, FreightQuote.__teaqlFields.REFERENCE_PROPERTY.model, FreightQuote.__teaqlFields.AMOUNT_PROPERTY.model, FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.model, FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model, FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.model, FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.model, FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.model, FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.model, FreightQuote.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         platform?: Platform | string;
         reference?: string;
@@ -21,7 +36,7 @@ export class FreightQuote {
 
     private constructor(init?: Partial<FreightQuote>, token?: symbol, creation = false) {
         if (token !== teaqlConstruction) throw new EntityCreationError();
-        { const error = integer32Error(init?.packageCount, "FreightQuote", "package_count"); if (error) throw error; }
+        { const error = integer32Error(init?.packageCount, "FreightQuote", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model); if (error) throw error; }
 
 
 
@@ -42,7 +57,7 @@ export class FreightQuote {
                 this.platform = (init as any).platform instanceof Platform
                     ? (init as any).platform
                     : Platform.fromRecord((init as any).platform);
-                this.markLoaded("platform");
+                this.markLoaded(FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -56,7 +71,7 @@ export class FreightQuote {
     private teaqlEntityKey(): EntityKey { return { entity: "FreightQuote", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "reference", canonical: "reference" }, { member: "amount", canonical: "amount" }, { member: "shipmentNumber", canonical: "shipment_number" }, { member: "packageCount", canonical: "package_count" }, { member: "deliveryDate", canonical: "delivery_date" }, { member: "pickupTime", canonical: "pickup_time" }, { member: "quotedAt", canonical: "quoted_at" }, { member: "instructions", canonical: "instructions" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: FreightQuote.__teaqlFields.ID_PROPERTY.member, canonical: FreightQuote.__teaqlFields.ID_PROPERTY.model }, { member: FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member, canonical: FreightQuote.__teaqlFields.REFERENCE_PROPERTY.model }, { member: FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.AMOUNT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, canonical: FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member, canonical: FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.model }, { member: FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member, canonical: FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.model }, { member: FreightQuote.__teaqlFields.VERSION_PROPERTY.member, canonical: FreightQuote.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -74,7 +89,7 @@ export class FreightQuote {
     }
 
     toJSON(): Record<string, unknown> {
-        { const error = integer32Error(this.packageCount, "FreightQuote", "package_count"); if (error) throw error; }
+        { const error = integer32Error(this.packageCount, "FreightQuote", FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model); if (error) throw error; }
 
 
 
@@ -221,7 +236,7 @@ export class FreightQuote {
         graph.discardRestoredFields(FreightQuote.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "platform": "Platform"
+            [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.model]: "Platform"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -244,7 +259,7 @@ export class FreightQuote {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "platform", canonical: "platform" }, { member: "reference", canonical: "reference" }, { member: "amount", canonical: "amount" }, { member: "shipmentNumber", canonical: "shipment_number" }, { member: "packageCount", canonical: "package_count" }, { member: "deliveryDate", canonical: "delivery_date" }, { member: "pickupTime", canonical: "pickup_time" }, { member: "quotedAt", canonical: "quoted_at" }, { member: "instructions", canonical: "instructions" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: FreightQuote.__teaqlFields.ID_PROPERTY.member, canonical: FreightQuote.__teaqlFields.ID_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PLATFORM_PROPERTY.model }, { member: FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member, canonical: FreightQuote.__teaqlFields.REFERENCE_PROPERTY.model }, { member: FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.AMOUNT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, canonical: FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member, canonical: FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.model }, { member: FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member, canonical: FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.model }, { member: FreightQuote.__teaqlFields.VERSION_PROPERTY.member, canonical: FreightQuote.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "FreightQuote", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -264,7 +279,7 @@ export class FreightQuote {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "platform", canonical: "platform" }, { member: "reference", canonical: "reference" }, { member: "amount", canonical: "amount" }, { member: "shipmentNumber", canonical: "shipment_number" }, { member: "packageCount", canonical: "package_count" }, { member: "deliveryDate", canonical: "delivery_date" }, { member: "pickupTime", canonical: "pickup_time" }, { member: "quotedAt", canonical: "quoted_at" }, { member: "instructions", canonical: "instructions" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: FreightQuote.__teaqlFields.ID_PROPERTY.member, canonical: FreightQuote.__teaqlFields.ID_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PLATFORM_PROPERTY.model }, { member: FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member, canonical: FreightQuote.__teaqlFields.REFERENCE_PROPERTY.model }, { member: FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.AMOUNT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member, canonical: FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member, canonical: FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.model }, { member: FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member, canonical: FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.model }, { member: FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member, canonical: FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.model }, { member: FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member, canonical: FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.model }, { member: FreightQuote.__teaqlFields.VERSION_PROPERTY.member, canonical: FreightQuote.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -365,17 +380,17 @@ export class FreightQuote {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "platform": this.platform,
-            "reference": this.reference,
-            "amount": this.amount,
-            "shipment_number": this.shipmentNumber,
-            "package_count": this.packageCount,
-            "delivery_date": this.deliveryDate,
-            "pickup_time": this.pickupTime,
-            "quoted_at": this.quotedAt,
-            "instructions": this.instructions,
-            "version": this.version
+            [FreightQuote.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [FreightQuote.__teaqlFields.PLATFORM_PROPERTY.model]: this.platform,
+            [FreightQuote.__teaqlFields.REFERENCE_PROPERTY.model]: this.reference,
+            [FreightQuote.__teaqlFields.AMOUNT_PROPERTY.model]: this.amount,
+            [FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.model]: this.shipmentNumber,
+            [FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model]: this.packageCount,
+            [FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.model]: this.deliveryDate,
+            [FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.model]: this.pickupTime,
+            [FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.model]: this.quotedAt,
+            [FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.model]: this.instructions,
+            [FreightQuote.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -385,80 +400,80 @@ export class FreightQuote {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(FreightQuote.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateReference(value: string): this {
         this.reference = value;
-        this.markLoaded("reference");
-        (this as any)._root.set(this.teaqlEntityKey(), "reference", value);
+        this.markLoaded(FreightQuote.__teaqlFields.REFERENCE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.REFERENCE_PROPERTY.model, value);
         return this;
     }
 
     updateAmount(value: Decimal): this {
         if (value != null) value = decimal(value);
         this.amount = value;
-        this.markLoaded("amount");
-        (this as any)._root.set(this.teaqlEntityKey(), "amount", value);
+        this.markLoaded(FreightQuote.__teaqlFields.AMOUNT_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.AMOUNT_PROPERTY.model, value);
         return this;
     }
 
     updateShipmentNumber(value: Long): this {
         if (value != null) value = long(value);
         this.shipmentNumber = value;
-        this.markLoaded("shipmentNumber");
-        (this as any)._root.set(this.teaqlEntityKey(), "shipment_number", value);
+        this.markLoaded(FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.SHIPMENT_NUMBER_PROPERTY.model, value);
         return this;
     }
 
     updatePackageCount(value: number): this {
         this.packageCount = value;
-        this.markLoaded("packageCount");
-        (this as any)._root.set(this.teaqlEntityKey(), "package_count", value);
+        this.markLoaded(FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.PACKAGE_COUNT_PROPERTY.model, value);
         return this;
     }
 
     updateDeliveryDate(value: string): this {
         this.deliveryDate = value;
-        this.markLoaded("deliveryDate");
-        (this as any)._root.set(this.teaqlEntityKey(), "delivery_date", value);
+        this.markLoaded(FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.DELIVERY_DATE_PROPERTY.model, value);
         return this;
     }
 
     updatePickupTime(value: LocalTime): this {
         if (value != null) value = localTime(value);
         this.pickupTime = value;
-        this.markLoaded("pickupTime");
-        (this as any)._root.set(this.teaqlEntityKey(), "pickup_time", value);
+        this.markLoaded(FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.PICKUP_TIME_PROPERTY.model, value);
         return this;
     }
 
     updateQuotedAt(value: string): this {
         this.quotedAt = value;
-        this.markLoaded("quotedAt");
-        (this as any)._root.set(this.teaqlEntityKey(), "quoted_at", value);
+        this.markLoaded(FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.QUOTED_AT_PROPERTY.model, value);
         return this;
     }
 
     updateInstructions(value: string | null): this {
         this.instructions = value;
-        this.markLoaded("instructions");
-        (this as any)._root.set(this.teaqlEntityKey(), "instructions", value);
+        this.markLoaded(FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.INSTRUCTIONS_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(FreightQuote.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updatePlatform(value: any): this {
         this.platform = value?.id ?? value;
-        this.markLoaded("platform");
-        (this as any)._root.set(this.teaqlEntityKey(), "platform", this.platform);
+        this.markLoaded(FreightQuote.__teaqlFields.PLATFORM_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), FreightQuote.__teaqlFields.PLATFORM_PROPERTY.model, this.platform);
         return this;
     }
 

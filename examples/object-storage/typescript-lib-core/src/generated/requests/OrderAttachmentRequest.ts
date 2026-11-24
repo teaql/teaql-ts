@@ -117,58 +117,58 @@ export class OrderAttachmentRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "customerOrder", "fileName", "contentType", "contentLength", "contentSha256", "objectKey", "version"]);
+        this.query.select([OrderAttachment.__teaqlFields.ID_PROPERTY.member, OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member, OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member, OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member, OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member, OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([OrderAttachment.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
     selectFileName(): this {
-        this.query.select(["fileName"]);
+        this.query.select([OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]);
         return this;
     }
 
     selectContentType(): this {
-        this.query.select(["contentType"]);
+        this.query.select([OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]);
         return this;
     }
 
     selectContentLength(): this {
-        this.query.select(["contentLength"]);
+        this.query.select([OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]);
         return this;
     }
 
     selectContentSha256(): this {
-        this.query.select(["contentSha256"]);
+        this.query.select([OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]);
         return this;
     }
 
     selectObjectKey(): this {
-        this.query.select(["objectKey"]);
+        this.query.select([OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectCustomerOrderWith(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
-        this.query.select(["customerOrder"]);
+        this.query.select([OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]);
         this.query.relationQuery(
-            "customerOrder", request.toQuery(), "customerOrder", "id", false,
-            { kind: "relation-select", method: "selectCustomerOrderWith", relation: "customerOrder" });
+            OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, request.toQuery(), OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectCustomerOrderWith", relation: OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member });
         return this;
     }
 
     withCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "customerOrder": {
+            [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -177,7 +177,7 @@ export class OrderAttachmentRequest {
 
     withoutCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "customerOrder": {
+            [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -188,614 +188,614 @@ export class OrderAttachmentRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByCustomerOrder(val: any): this {
-            this.filters.push({ "customerOrder": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByCustomerOrderIn(...vals: any[]): this {
-            this.filters.push({ "customerOrder": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withCustomerOrderIsKnown(): this {
-            this.filters.push({ "customerOrder": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withCustomerOrderIsUnknown(): this {
-            this.filters.push({ "customerOrder": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withFileNameContaining(val: string): this {
-            this.filters.push({ "fileName": { "$contains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withFileNameIs(val: string): this {
-            this.filters.push({ "fileName": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withFileNameIsNot(val: string): this {
-            this.filters.push({ "fileName": { "$ne": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withFileNameIn(...vals: string[]): this {
-            this.filters.push({ "fileName": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withFileNameNotIn(...vals: string[]): this {
-            this.filters.push({ "fileName": { "$notIn": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withFileNameGreaterThan(val: string): this {
-            this.filters.push({ "fileName": { "$gt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withFileNameGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "fileName": { "$gte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withFileNameLessThan(val: string): this {
-            this.filters.push({ "fileName": { "$lt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withFileNameLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "fileName": { "$lte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withFileNameBetween(lower: string, upper: string): this {
-            this.filters.push({ "fileName": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withFileNameIsKnown(): this {
-            this.filters.push({ "fileName": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withFileNameIsUnknown(): this {
-            this.filters.push({ "fileName": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withFileNameNotContaining(val: string): this {
-            this.filters.push({ "fileName": { "$notContains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withFileNameStartingWith(val: string): this {
-            this.filters.push({ "fileName": { "$startsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withFileNameNotStartingWith(val: string): this {
-            this.filters.push({ "fileName": { "$notStartsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withFileNameEndingWith(val: string): this {
-            this.filters.push({ "fileName": { "$endsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withFileNameNotEndingWith(val: string): this {
-            this.filters.push({ "fileName": { "$notEndsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withFileNameSoundingLike(val: string): this {
-            this.filters.push({ "fileName": { "$soundLike": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withContentTypeContaining(val: string): this {
-            this.filters.push({ "contentType": { "$contains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withContentTypeIs(val: string): this {
-            this.filters.push({ "contentType": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withContentTypeIsNot(val: string): this {
-            this.filters.push({ "contentType": { "$ne": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withContentTypeIn(...vals: string[]): this {
-            this.filters.push({ "contentType": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withContentTypeNotIn(...vals: string[]): this {
-            this.filters.push({ "contentType": { "$notIn": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withContentTypeGreaterThan(val: string): this {
-            this.filters.push({ "contentType": { "$gt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withContentTypeGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "contentType": { "$gte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withContentTypeLessThan(val: string): this {
-            this.filters.push({ "contentType": { "$lt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withContentTypeLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "contentType": { "$lte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withContentTypeBetween(lower: string, upper: string): this {
-            this.filters.push({ "contentType": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withContentTypeIsKnown(): this {
-            this.filters.push({ "contentType": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withContentTypeIsUnknown(): this {
-            this.filters.push({ "contentType": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withContentTypeNotContaining(val: string): this {
-            this.filters.push({ "contentType": { "$notContains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withContentTypeStartingWith(val: string): this {
-            this.filters.push({ "contentType": { "$startsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withContentTypeNotStartingWith(val: string): this {
-            this.filters.push({ "contentType": { "$notStartsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withContentTypeEndingWith(val: string): this {
-            this.filters.push({ "contentType": { "$endsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withContentTypeNotEndingWith(val: string): this {
-            this.filters.push({ "contentType": { "$notEndsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withContentTypeSoundingLike(val: string): this {
-            this.filters.push({ "contentType": { "$soundLike": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withContentLengthIs(val: number): this {
-            this.filters.push({ "contentLength": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withContentLengthIsNot(val: number): this {
-            this.filters.push({ "contentLength": { "$ne": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withContentLengthIn(...vals: number[]): this {
-            this.filters.push({ "contentLength": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withContentLengthNotIn(...vals: number[]): this {
-            this.filters.push({ "contentLength": { "$notIn": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withContentLengthGreaterThan(val: number): this {
-            this.filters.push({ "contentLength": { "$gt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withContentLengthGreaterThanOrEqualTo(val: number): this {
-            this.filters.push({ "contentLength": { "$gte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withContentLengthLessThan(val: number): this {
-            this.filters.push({ "contentLength": { "$lt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withContentLengthLessThanOrEqualTo(val: number): this {
-            this.filters.push({ "contentLength": { "$lte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withContentLengthBetween(lower: number, upper: number): this {
-            this.filters.push({ "contentLength": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withContentLengthIsKnown(): this {
-            this.filters.push({ "contentLength": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withContentLengthIsUnknown(): this {
-            this.filters.push({ "contentLength": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withContentSha256Containing(val: string): this {
-            this.filters.push({ "contentSha256": { "$contains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withContentSha256Is(val: string): this {
-            this.filters.push({ "contentSha256": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withContentSha256IsNot(val: string): this {
-            this.filters.push({ "contentSha256": { "$ne": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withContentSha256In(...vals: string[]): this {
-            this.filters.push({ "contentSha256": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withContentSha256NotIn(...vals: string[]): this {
-            this.filters.push({ "contentSha256": { "$notIn": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withContentSha256GreaterThan(val: string): this {
-            this.filters.push({ "contentSha256": { "$gt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withContentSha256GreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "contentSha256": { "$gte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withContentSha256LessThan(val: string): this {
-            this.filters.push({ "contentSha256": { "$lt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withContentSha256LessThanOrEqualTo(val: string): this {
-            this.filters.push({ "contentSha256": { "$lte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withContentSha256Between(lower: string, upper: string): this {
-            this.filters.push({ "contentSha256": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withContentSha256IsKnown(): this {
-            this.filters.push({ "contentSha256": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withContentSha256IsUnknown(): this {
-            this.filters.push({ "contentSha256": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withContentSha256NotContaining(val: string): this {
-            this.filters.push({ "contentSha256": { "$notContains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withContentSha256StartingWith(val: string): this {
-            this.filters.push({ "contentSha256": { "$startsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withContentSha256NotStartingWith(val: string): this {
-            this.filters.push({ "contentSha256": { "$notStartsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withContentSha256EndingWith(val: string): this {
-            this.filters.push({ "contentSha256": { "$endsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withContentSha256NotEndingWith(val: string): this {
-            this.filters.push({ "contentSha256": { "$notEndsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withContentSha256SoundingLike(val: string): this {
-            this.filters.push({ "contentSha256": { "$soundLike": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withObjectKeyContaining(val: string): this {
-            this.filters.push({ "objectKey": { "$contains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withObjectKeyIs(val: string): this {
-            this.filters.push({ "objectKey": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withObjectKeyIsNot(val: string): this {
-            this.filters.push({ "objectKey": { "$ne": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withObjectKeyIn(...vals: string[]): this {
-            this.filters.push({ "objectKey": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withObjectKeyNotIn(...vals: string[]): this {
-            this.filters.push({ "objectKey": { "$notIn": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withObjectKeyGreaterThan(val: string): this {
-            this.filters.push({ "objectKey": { "$gt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withObjectKeyGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "objectKey": { "$gte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withObjectKeyLessThan(val: string): this {
-            this.filters.push({ "objectKey": { "$lt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withObjectKeyLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "objectKey": { "$lte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withObjectKeyBetween(lower: string, upper: string): this {
-            this.filters.push({ "objectKey": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withObjectKeyIsKnown(): this {
-            this.filters.push({ "objectKey": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withObjectKeyIsUnknown(): this {
-            this.filters.push({ "objectKey": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withObjectKeyNotContaining(val: string): this {
-            this.filters.push({ "objectKey": { "$notContains": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withObjectKeyStartingWith(val: string): this {
-            this.filters.push({ "objectKey": { "$startsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withObjectKeyNotStartingWith(val: string): this {
-            this.filters.push({ "objectKey": { "$notStartsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withObjectKeyEndingWith(val: string): this {
-            this.filters.push({ "objectKey": { "$endsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withObjectKeyNotEndingWith(val: string): this {
-            this.filters.push({ "objectKey": { "$notEndsWith": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withObjectKeySoundingLike(val: string): this {
-            this.filters.push({ "objectKey": { "$soundLike": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [OrderAttachment.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByFileNameAscending(): this {
-        this.query.orderBy("fileName", "asc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByFileNameDescending(): this {
-        this.query.orderBy("fileName", "desc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByContentTypeAscending(): this {
-        this.query.orderBy("contentType", "asc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member, "asc");
         return this;
     }
 
     orderByContentTypeDescending(): this {
-        this.query.orderBy("contentType", "desc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member, "desc");
         return this;
     }
 
     orderByContentLengthAscending(): this {
-        this.query.orderBy("contentLength", "asc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, "asc");
         return this;
     }
 
     orderByContentLengthDescending(): this {
-        this.query.orderBy("contentLength", "desc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, "desc");
         return this;
     }
 
     orderByContentSha256Ascending(): this {
-        this.query.orderBy("contentSha256", "asc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member, "asc");
         return this;
     }
 
     orderByContentSha256Descending(): this {
-        this.query.orderBy("contentSha256", "desc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member, "desc");
         return this;
     }
 
     orderByObjectKeyAscending(): this {
-        this.query.orderBy("objectKey", "asc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member, "asc");
         return this;
     }
 
     orderByObjectKeyDescending(): this {
-        this.query.orderBy("objectKey", "desc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(OrderAttachment.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -820,7 +820,7 @@ export class OrderAttachmentRequest {
     }
 
     minContentLengthAs(retName: string): this {
-        this.query.aggregate("min", "contentLength", retName);
+        this.query.aggregate("min", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     maxContentLength(): this {
@@ -828,7 +828,7 @@ export class OrderAttachmentRequest {
     }
 
     maxContentLengthAs(retName: string): this {
-        this.query.aggregate("max", "contentLength", retName);
+        this.query.aggregate("max", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     sumContentLength(): this {
@@ -836,7 +836,7 @@ export class OrderAttachmentRequest {
     }
 
     sumContentLengthAs(retName: string): this {
-        this.query.aggregate("sum", "contentLength", retName);
+        this.query.aggregate("sum", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     avgContentLength(): this {
@@ -844,7 +844,7 @@ export class OrderAttachmentRequest {
     }
 
     avgContentLengthAs(retName: string): this {
-        this.query.aggregate("avg", "contentLength", retName);
+        this.query.aggregate("avg", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     standardDeviationContentLength(): this {
@@ -852,7 +852,7 @@ export class OrderAttachmentRequest {
     }
 
     standardDeviationContentLengthAs(retName: string): this {
-        this.query.aggregate("stddev", "contentLength", retName);
+        this.query.aggregate("stddev", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     squareRootOfPopulationStandardDeviationContentLength(): this {
@@ -860,7 +860,7 @@ export class OrderAttachmentRequest {
     }
 
     squareRootOfPopulationStandardDeviationContentLengthAs(retName: string): this {
-        this.query.aggregate("stddev_pop", "contentLength", retName);
+        this.query.aggregate("stddev_pop", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     sampleVarianceContentLength(): this {
@@ -868,7 +868,7 @@ export class OrderAttachmentRequest {
     }
 
     sampleVarianceContentLengthAs(retName: string): this {
-        this.query.aggregate("var_samp", "contentLength", retName);
+        this.query.aggregate("var_samp", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     samplePopulationVarianceContentLength(): this {
@@ -876,81 +876,81 @@ export class OrderAttachmentRequest {
     }
 
     samplePopulationVarianceContentLengthAs(retName: string): this {
-        this.query.aggregate("var_pop", "contentLength", retName);
+        this.query.aggregate("var_pop", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(OrderAttachment.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByCustomerOrder(): this {
-        this.query.groupBy("customerOrder");
+        this.query.groupBy(OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
         return this;
     }
 
     groupByCustomerOrderAs(retName: string): this {
-        this.query.groupBy("customerOrder", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, retName);
         return this;
     }
     groupByFileName(): this {
-        this.query.groupBy("fileName");
+        this.query.groupBy(OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member);
         return this;
     }
 
     groupByFileNameAs(retName: string): this {
-        this.query.groupBy("fileName", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member, retName);
         return this;
     }
     groupByContentType(): this {
-        this.query.groupBy("contentType");
+        this.query.groupBy(OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member);
         return this;
     }
 
     groupByContentTypeAs(retName: string): this {
-        this.query.groupBy("contentType", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member, retName);
         return this;
     }
     groupByContentLength(): this {
-        this.query.groupBy("contentLength");
+        this.query.groupBy(OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member);
         return this;
     }
 
     groupByContentLengthAs(retName: string): this {
-        this.query.groupBy("contentLength", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, retName);
         return this;
     }
     groupByContentSha256(): this {
-        this.query.groupBy("contentSha256");
+        this.query.groupBy(OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member);
         return this;
     }
 
     groupByContentSha256As(retName: string): this {
-        this.query.groupBy("contentSha256", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member, retName);
         return this;
     }
     groupByObjectKey(): this {
-        this.query.groupBy("objectKey");
+        this.query.groupBy(OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member);
         return this;
     }
 
     groupByObjectKeyAs(retName: string): this {
-        this.query.groupBy("objectKey", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(OrderAttachment.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(OrderAttachment.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -960,8 +960,8 @@ export class OrderAttachmentRequest {
         request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "customerOrder", request, includeAllFacets,
-            { kind: "facet", method: "facetByCustomerOrderAs", relation: "customerOrder", alias: facetName });
+        this.query.facetBy(facetName, OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByCustomerOrderAs", relation: OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, alias: facetName });
         return this;
     }
 

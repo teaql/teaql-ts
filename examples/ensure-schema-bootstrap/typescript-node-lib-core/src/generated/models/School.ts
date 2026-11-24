@@ -5,9 +5,18 @@ import { SchoolType } from './SchoolType';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class School {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        PLATFORM_PROPERTY: { member: "platform", model: "platform" },
+        SCHOOL_TYPE_PROPERTY: { member: "schoolType", model: "school_type" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("School",
-        ["id", "platform", "school_type", "name", "version"], { id: "immutable_field", version: "immutable_field" });
+        [School.__teaqlFields.ID_PROPERTY.model, School.__teaqlFields.PLATFORM_PROPERTY.model, School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model, School.__teaqlFields.NAME_PROPERTY.model, School.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         platform?: Platform | string;
         schoolType?: SchoolType | string;
@@ -30,13 +39,13 @@ export class School {
                 this.platform = (init as any).platform instanceof Platform
                     ? (init as any).platform
                     : Platform.fromRecord((init as any).platform);
-                this.markLoaded("platform");
+                this.markLoaded(School.__teaqlFields.PLATFORM_PROPERTY.member);
             }
             if ((init as any).schoolType && typeof (init as any).schoolType === "object") {
                 this.schoolType = (init as any).schoolType instanceof SchoolType
                     ? (init as any).schoolType
                     : SchoolType.fromRecord((init as any).schoolType);
-                this.markLoaded("schoolType");
+                this.markLoaded(School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -50,7 +59,7 @@ export class School {
     private teaqlEntityKey(): EntityKey { return { entity: "School", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: School.__teaqlFields.ID_PROPERTY.member, canonical: School.__teaqlFields.ID_PROPERTY.model }, { member: School.__teaqlFields.NAME_PROPERTY.member, canonical: School.__teaqlFields.NAME_PROPERTY.model }, { member: School.__teaqlFields.VERSION_PROPERTY.member, canonical: School.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -208,8 +217,8 @@ export class School {
         graph.discardRestoredFields(School.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "platform": "Platform",
-            "school_type": "SchoolType"
+            [School.__teaqlFields.PLATFORM_PROPERTY.model]: "Platform",
+            [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model]: "SchoolType"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -232,7 +241,7 @@ export class School {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "platform", canonical: "platform" }, { member: "schoolType", canonical: "school_type" }, { member: "name", canonical: "name" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: School.__teaqlFields.ID_PROPERTY.member, canonical: School.__teaqlFields.ID_PROPERTY.model }, { member: School.__teaqlFields.PLATFORM_PROPERTY.member, canonical: School.__teaqlFields.PLATFORM_PROPERTY.model }, { member: School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, canonical: School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model }, { member: School.__teaqlFields.NAME_PROPERTY.member, canonical: School.__teaqlFields.NAME_PROPERTY.model }, { member: School.__teaqlFields.VERSION_PROPERTY.member, canonical: School.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "School", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -252,7 +261,7 @@ export class School {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "platform", canonical: "platform" }, { member: "schoolType", canonical: "school_type" }, { member: "name", canonical: "name" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: School.__teaqlFields.ID_PROPERTY.member, canonical: School.__teaqlFields.ID_PROPERTY.model }, { member: School.__teaqlFields.PLATFORM_PROPERTY.member, canonical: School.__teaqlFields.PLATFORM_PROPERTY.model }, { member: School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member, canonical: School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model }, { member: School.__teaqlFields.NAME_PROPERTY.member, canonical: School.__teaqlFields.NAME_PROPERTY.model }, { member: School.__teaqlFields.VERSION_PROPERTY.member, canonical: School.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -353,11 +362,11 @@ export class School {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "platform": this.platform,
-            "school_type": this.schoolType,
-            "name": this.name,
-            "version": this.version
+            [School.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [School.__teaqlFields.PLATFORM_PROPERTY.model]: this.platform,
+            [School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model]: this.schoolType,
+            [School.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [School.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -367,48 +376,48 @@ export class School {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(School.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), School.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(School.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), School.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(School.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), School.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updatePlatform(value: any): this {
         this.platform = value?.id ?? value;
-        this.markLoaded("platform");
-        (this as any)._root.set(this.teaqlEntityKey(), "platform", this.platform);
+        this.markLoaded(School.__teaqlFields.PLATFORM_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), School.__teaqlFields.PLATFORM_PROPERTY.model, this.platform);
         return this;
     }
 
 
     updateSchoolType(value: any): this {
         this.schoolType = value?.id ?? value;
-        this.markLoaded("schoolType");
-        (this as any)._root.set(this.teaqlEntityKey(), "school_type", this.schoolType);
+        this.markLoaded(School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model, this.schoolType);
         return this;
     }
     public updateSchoolTypeToPrimary(): School {
         this.schoolType = "1001";
-        this.markLoaded("schoolType");
-        (this as any)._root.set(this.teaqlEntityKey(), "school_type", this.schoolType);
+        this.markLoaded(School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model, this.schoolType);
         return this;
     }
     public updateSchoolTypeToSecondary(): School {
         this.schoolType = "1002";
-        this.markLoaded("schoolType");
-        (this as any)._root.set(this.teaqlEntityKey(), "school_type", this.schoolType);
+        this.markLoaded(School.__teaqlFields.SCHOOL_TYPE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), School.__teaqlFields.SCHOOL_TYPE_PROPERTY.model, this.schoolType);
         return this;
     }
 

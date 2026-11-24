@@ -4,9 +4,21 @@ import { CustomerOrder } from './CustomerOrder';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class OrderAttachment {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        CUSTOMER_ORDER_PROPERTY: { member: "customerOrder", model: "customer_order" },
+        FILE_NAME_PROPERTY: { member: "fileName", model: "file_name" },
+        CONTENT_TYPE_PROPERTY: { member: "contentType", model: "content_type" },
+        CONTENT_LENGTH_PROPERTY: { member: "contentLength", model: "content_length" },
+        CONTENT_SHA256_PROPERTY: { member: "contentSha256", model: "content_sha256" },
+        OBJECT_KEY_PROPERTY: { member: "objectKey", model: "object_key" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("OrderAttachment",
-        ["id", "customer_order", "file_name", "content_type", "content_length", "content_sha256", "object_key", "version"], { id: "immutable_field", version: "immutable_field" });
+        [OrderAttachment.__teaqlFields.ID_PROPERTY.model, OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model, OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.model, OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.model, OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model, OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.model, OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.model, OrderAttachment.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         customerOrder?: CustomerOrder | string;
         fileName?: string;
@@ -18,7 +30,7 @@ export class OrderAttachment {
 
     private constructor(init?: Partial<OrderAttachment>, token?: symbol, creation = false) {
         if (token !== teaqlConstruction) throw new EntityCreationError();
-        { const error = integer32Error(init?.contentLength, "OrderAttachment", "content_length"); if (error) throw error; }
+        { const error = integer32Error(init?.contentLength, "OrderAttachment", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model); if (error) throw error; }
 
 
 
@@ -37,7 +49,7 @@ export class OrderAttachment {
                 this.customerOrder = (init as any).customerOrder instanceof CustomerOrder
                     ? (init as any).customerOrder
                     : CustomerOrder.fromRecord((init as any).customerOrder);
-                this.markLoaded("customerOrder");
+                this.markLoaded(OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -51,7 +63,7 @@ export class OrderAttachment {
     private teaqlEntityKey(): EntityKey { return { entity: "OrderAttachment", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "fileName", canonical: "file_name" }, { member: "contentType", canonical: "content_type" }, { member: "contentLength", canonical: "content_length" }, { member: "contentSha256", canonical: "content_sha256" }, { member: "objectKey", canonical: "object_key" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: OrderAttachment.__teaqlFields.ID_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.ID_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -69,7 +81,7 @@ export class OrderAttachment {
     }
 
     toJSON(): Record<string, unknown> {
-        { const error = integer32Error(this.contentLength, "OrderAttachment", "content_length"); if (error) throw error; }
+        { const error = integer32Error(this.contentLength, "OrderAttachment", OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model); if (error) throw error; }
 
 
 
@@ -214,7 +226,7 @@ export class OrderAttachment {
         graph.discardRestoredFields(OrderAttachment.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "customer_order": "CustomerOrder"
+            [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model]: "CustomerOrder"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -237,7 +249,7 @@ export class OrderAttachment {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "fileName", canonical: "file_name" }, { member: "contentType", canonical: "content_type" }, { member: "contentLength", canonical: "content_length" }, { member: "contentSha256", canonical: "content_sha256" }, { member: "objectKey", canonical: "object_key" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: OrderAttachment.__teaqlFields.ID_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.ID_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "OrderAttachment", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -257,7 +269,7 @@ export class OrderAttachment {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "fileName", canonical: "file_name" }, { member: "contentType", canonical: "content_type" }, { member: "contentLength", canonical: "content_length" }, { member: "contentSha256", canonical: "content_sha256" }, { member: "objectKey", canonical: "object_key" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: OrderAttachment.__teaqlFields.ID_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.ID_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.model }, { member: OrderAttachment.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderAttachment.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -358,14 +370,14 @@ export class OrderAttachment {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "customer_order": this.customerOrder,
-            "file_name": this.fileName,
-            "content_type": this.contentType,
-            "content_length": this.contentLength,
-            "content_sha256": this.contentSha256,
-            "object_key": this.objectKey,
-            "version": this.version
+            [OrderAttachment.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model]: this.customerOrder,
+            [OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.model]: this.fileName,
+            [OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.model]: this.contentType,
+            [OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model]: this.contentLength,
+            [OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.model]: this.contentSha256,
+            [OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.model]: this.objectKey,
+            [OrderAttachment.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -375,56 +387,56 @@ export class OrderAttachment {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(OrderAttachment.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateFileName(value: string): this {
         this.fileName = value;
-        this.markLoaded("fileName");
-        (this as any)._root.set(this.teaqlEntityKey(), "file_name", value);
+        this.markLoaded(OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.FILE_NAME_PROPERTY.model, value);
         return this;
     }
 
     updateContentType(value: string): this {
         this.contentType = value;
-        this.markLoaded("contentType");
-        (this as any)._root.set(this.teaqlEntityKey(), "content_type", value);
+        this.markLoaded(OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.CONTENT_TYPE_PROPERTY.model, value);
         return this;
     }
 
     updateContentLength(value: number): this {
         this.contentLength = value;
-        this.markLoaded("contentLength");
-        (this as any)._root.set(this.teaqlEntityKey(), "content_length", value);
+        this.markLoaded(OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.CONTENT_LENGTH_PROPERTY.model, value);
         return this;
     }
 
     updateContentSha256(value: string): this {
         this.contentSha256 = value;
-        this.markLoaded("contentSha256");
-        (this as any)._root.set(this.teaqlEntityKey(), "content_sha256", value);
+        this.markLoaded(OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.CONTENT_SHA256_PROPERTY.model, value);
         return this;
     }
 
     updateObjectKey(value: string): this {
         this.objectKey = value;
-        this.markLoaded("objectKey");
-        (this as any)._root.set(this.teaqlEntityKey(), "object_key", value);
+        this.markLoaded(OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.OBJECT_KEY_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(OrderAttachment.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateCustomerOrder(value: any): this {
         this.customerOrder = value?.id ?? value;
-        this.markLoaded("customerOrder");
-        (this as any)._root.set(this.teaqlEntityKey(), "customer_order", this.customerOrder);
+        this.markLoaded(OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderAttachment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model, this.customerOrder);
         return this;
     }
 

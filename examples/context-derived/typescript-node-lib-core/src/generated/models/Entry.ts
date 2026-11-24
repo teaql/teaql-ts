@@ -4,9 +4,24 @@ import { Catalog } from './Catalog';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class Entry {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        CATALOG_PROPERTY: { member: "catalog", model: "catalog" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        BORN_AT_PROPERTY: { member: "bornAt", model: "born_at" },
+        TOUCHED_AT_PROPERTY: { member: "touchedAt", model: "touched_at" },
+        SOURCE_IP_PROPERTY: { member: "sourceIp", model: "source_ip" },
+        LAST_IP_PROPERTY: { member: "lastIp", model: "last_ip" },
+        OPENED_BY_PROPERTY: { member: "openedBy", model: "opened_by" },
+        CHANGED_BY_PROPERTY: { member: "changedBy", model: "changed_by" },
+        GUARDED_TOKEN_PROPERTY: { member: "guardedToken", model: "guarded_token" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("Entry",
-        ["id", "catalog", "name", "born_at", "touched_at", "source_ip", "last_ip", "opened_by", "changed_by", "guarded_token", "version"], { id: "immutable_field", version: "immutable_field" });
+        [Entry.__teaqlFields.ID_PROPERTY.model, Entry.__teaqlFields.CATALOG_PROPERTY.model, Entry.__teaqlFields.NAME_PROPERTY.model, Entry.__teaqlFields.BORN_AT_PROPERTY.model, Entry.__teaqlFields.TOUCHED_AT_PROPERTY.model, Entry.__teaqlFields.SOURCE_IP_PROPERTY.model, Entry.__teaqlFields.LAST_IP_PROPERTY.model, Entry.__teaqlFields.OPENED_BY_PROPERTY.model, Entry.__teaqlFields.CHANGED_BY_PROPERTY.model, Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.model, Entry.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         catalog?: Catalog | string;
         name?: string;
@@ -35,7 +50,7 @@ export class Entry {
                 this.catalog = (init as any).catalog instanceof Catalog
                     ? (init as any).catalog
                     : Catalog.fromRecord((init as any).catalog);
-                this.markLoaded("catalog");
+                this.markLoaded(Entry.__teaqlFields.CATALOG_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -49,7 +64,7 @@ export class Entry {
     private teaqlEntityKey(): EntityKey { return { entity: "Entry", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "bornAt", canonical: "born_at" }, { member: "touchedAt", canonical: "touched_at" }, { member: "sourceIp", canonical: "source_ip" }, { member: "lastIp", canonical: "last_ip" }, { member: "openedBy", canonical: "opened_by" }, { member: "changedBy", canonical: "changed_by" }, { member: "guardedToken", canonical: "guarded_token" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: Entry.__teaqlFields.ID_PROPERTY.member, canonical: Entry.__teaqlFields.ID_PROPERTY.model }, { member: Entry.__teaqlFields.NAME_PROPERTY.member, canonical: Entry.__teaqlFields.NAME_PROPERTY.model }, { member: Entry.__teaqlFields.BORN_AT_PROPERTY.member, canonical: Entry.__teaqlFields.BORN_AT_PROPERTY.model }, { member: Entry.__teaqlFields.TOUCHED_AT_PROPERTY.member, canonical: Entry.__teaqlFields.TOUCHED_AT_PROPERTY.model }, { member: Entry.__teaqlFields.SOURCE_IP_PROPERTY.member, canonical: Entry.__teaqlFields.SOURCE_IP_PROPERTY.model }, { member: Entry.__teaqlFields.LAST_IP_PROPERTY.member, canonical: Entry.__teaqlFields.LAST_IP_PROPERTY.model }, { member: Entry.__teaqlFields.OPENED_BY_PROPERTY.member, canonical: Entry.__teaqlFields.OPENED_BY_PROPERTY.model }, { member: Entry.__teaqlFields.CHANGED_BY_PROPERTY.member, canonical: Entry.__teaqlFields.CHANGED_BY_PROPERTY.model }, { member: Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.member, canonical: Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.model }, { member: Entry.__teaqlFields.VERSION_PROPERTY.member, canonical: Entry.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -207,7 +222,7 @@ export class Entry {
         graph.discardRestoredFields(Entry.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "catalog": "Catalog"
+            [Entry.__teaqlFields.CATALOG_PROPERTY.model]: "Catalog"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -230,7 +245,7 @@ export class Entry {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "catalog", canonical: "catalog" }, { member: "name", canonical: "name" }, { member: "bornAt", canonical: "born_at" }, { member: "touchedAt", canonical: "touched_at" }, { member: "sourceIp", canonical: "source_ip" }, { member: "lastIp", canonical: "last_ip" }, { member: "openedBy", canonical: "opened_by" }, { member: "changedBy", canonical: "changed_by" }, { member: "guardedToken", canonical: "guarded_token" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: Entry.__teaqlFields.ID_PROPERTY.member, canonical: Entry.__teaqlFields.ID_PROPERTY.model }, { member: Entry.__teaqlFields.CATALOG_PROPERTY.member, canonical: Entry.__teaqlFields.CATALOG_PROPERTY.model }, { member: Entry.__teaqlFields.NAME_PROPERTY.member, canonical: Entry.__teaqlFields.NAME_PROPERTY.model }, { member: Entry.__teaqlFields.BORN_AT_PROPERTY.member, canonical: Entry.__teaqlFields.BORN_AT_PROPERTY.model }, { member: Entry.__teaqlFields.TOUCHED_AT_PROPERTY.member, canonical: Entry.__teaqlFields.TOUCHED_AT_PROPERTY.model }, { member: Entry.__teaqlFields.SOURCE_IP_PROPERTY.member, canonical: Entry.__teaqlFields.SOURCE_IP_PROPERTY.model }, { member: Entry.__teaqlFields.LAST_IP_PROPERTY.member, canonical: Entry.__teaqlFields.LAST_IP_PROPERTY.model }, { member: Entry.__teaqlFields.OPENED_BY_PROPERTY.member, canonical: Entry.__teaqlFields.OPENED_BY_PROPERTY.model }, { member: Entry.__teaqlFields.CHANGED_BY_PROPERTY.member, canonical: Entry.__teaqlFields.CHANGED_BY_PROPERTY.model }, { member: Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.member, canonical: Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.model }, { member: Entry.__teaqlFields.VERSION_PROPERTY.member, canonical: Entry.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "Entry", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -250,7 +265,7 @@ export class Entry {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "catalog", canonical: "catalog" }, { member: "name", canonical: "name" }, { member: "bornAt", canonical: "born_at" }, { member: "touchedAt", canonical: "touched_at" }, { member: "sourceIp", canonical: "source_ip" }, { member: "lastIp", canonical: "last_ip" }, { member: "openedBy", canonical: "opened_by" }, { member: "changedBy", canonical: "changed_by" }, { member: "guardedToken", canonical: "guarded_token" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: Entry.__teaqlFields.ID_PROPERTY.member, canonical: Entry.__teaqlFields.ID_PROPERTY.model }, { member: Entry.__teaqlFields.CATALOG_PROPERTY.member, canonical: Entry.__teaqlFields.CATALOG_PROPERTY.model }, { member: Entry.__teaqlFields.NAME_PROPERTY.member, canonical: Entry.__teaqlFields.NAME_PROPERTY.model }, { member: Entry.__teaqlFields.BORN_AT_PROPERTY.member, canonical: Entry.__teaqlFields.BORN_AT_PROPERTY.model }, { member: Entry.__teaqlFields.TOUCHED_AT_PROPERTY.member, canonical: Entry.__teaqlFields.TOUCHED_AT_PROPERTY.model }, { member: Entry.__teaqlFields.SOURCE_IP_PROPERTY.member, canonical: Entry.__teaqlFields.SOURCE_IP_PROPERTY.model }, { member: Entry.__teaqlFields.LAST_IP_PROPERTY.member, canonical: Entry.__teaqlFields.LAST_IP_PROPERTY.model }, { member: Entry.__teaqlFields.OPENED_BY_PROPERTY.member, canonical: Entry.__teaqlFields.OPENED_BY_PROPERTY.model }, { member: Entry.__teaqlFields.CHANGED_BY_PROPERTY.member, canonical: Entry.__teaqlFields.CHANGED_BY_PROPERTY.model }, { member: Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.member, canonical: Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.model }, { member: Entry.__teaqlFields.VERSION_PROPERTY.member, canonical: Entry.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -351,17 +366,17 @@ export class Entry {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "catalog": this.catalog,
-            "name": this.name,
-            "born_at": this.bornAt,
-            "touched_at": this.touchedAt,
-            "source_ip": this.sourceIp,
-            "last_ip": this.lastIp,
-            "opened_by": this.openedBy,
-            "changed_by": this.changedBy,
-            "guarded_token": this.guardedToken,
-            "version": this.version
+            [Entry.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [Entry.__teaqlFields.CATALOG_PROPERTY.model]: this.catalog,
+            [Entry.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [Entry.__teaqlFields.BORN_AT_PROPERTY.model]: this.bornAt,
+            [Entry.__teaqlFields.TOUCHED_AT_PROPERTY.model]: this.touchedAt,
+            [Entry.__teaqlFields.SOURCE_IP_PROPERTY.model]: this.sourceIp,
+            [Entry.__teaqlFields.LAST_IP_PROPERTY.model]: this.lastIp,
+            [Entry.__teaqlFields.OPENED_BY_PROPERTY.model]: this.openedBy,
+            [Entry.__teaqlFields.CHANGED_BY_PROPERTY.model]: this.changedBy,
+            [Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.model]: this.guardedToken,
+            [Entry.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -371,77 +386,77 @@ export class Entry {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(Entry.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(Entry.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateBornAt(value: string): this {
         this.bornAt = value;
-        this.markLoaded("bornAt");
-        (this as any)._root.set(this.teaqlEntityKey(), "born_at", value);
+        this.markLoaded(Entry.__teaqlFields.BORN_AT_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.BORN_AT_PROPERTY.model, value);
         return this;
     }
 
     updateTouchedAt(value: string): this {
         this.touchedAt = value;
-        this.markLoaded("touchedAt");
-        (this as any)._root.set(this.teaqlEntityKey(), "touched_at", value);
+        this.markLoaded(Entry.__teaqlFields.TOUCHED_AT_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.TOUCHED_AT_PROPERTY.model, value);
         return this;
     }
 
     updateSourceIp(value: string): this {
         this.sourceIp = value;
-        this.markLoaded("sourceIp");
-        (this as any)._root.set(this.teaqlEntityKey(), "source_ip", value);
+        this.markLoaded(Entry.__teaqlFields.SOURCE_IP_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.SOURCE_IP_PROPERTY.model, value);
         return this;
     }
 
     updateLastIp(value: string): this {
         this.lastIp = value;
-        this.markLoaded("lastIp");
-        (this as any)._root.set(this.teaqlEntityKey(), "last_ip", value);
+        this.markLoaded(Entry.__teaqlFields.LAST_IP_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.LAST_IP_PROPERTY.model, value);
         return this;
     }
 
     updateOpenedBy(value: string): this {
         this.openedBy = value;
-        this.markLoaded("openedBy");
-        (this as any)._root.set(this.teaqlEntityKey(), "opened_by", value);
+        this.markLoaded(Entry.__teaqlFields.OPENED_BY_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.OPENED_BY_PROPERTY.model, value);
         return this;
     }
 
     updateChangedBy(value: string): this {
         this.changedBy = value;
-        this.markLoaded("changedBy");
-        (this as any)._root.set(this.teaqlEntityKey(), "changed_by", value);
+        this.markLoaded(Entry.__teaqlFields.CHANGED_BY_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.CHANGED_BY_PROPERTY.model, value);
         return this;
     }
 
     updateGuardedToken(value: string): this {
         this.guardedToken = value;
-        this.markLoaded("guardedToken");
-        (this as any)._root.set(this.teaqlEntityKey(), "guarded_token", value);
+        this.markLoaded(Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.GUARDED_TOKEN_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(Entry.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateCatalog(value: any): this {
         this.catalog = value?.id ?? value;
-        this.markLoaded("catalog");
-        (this as any)._root.set(this.teaqlEntityKey(), "catalog", this.catalog);
+        this.markLoaded(Entry.__teaqlFields.CATALOG_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Entry.__teaqlFields.CATALOG_PROPERTY.model, this.catalog);
         return this;
     }
 

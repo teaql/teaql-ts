@@ -117,38 +117,38 @@ export class PaymentAttemptRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "payment", "referenceCode", "version"]);
+        this.query.select([PaymentAttempt.__teaqlFields.ID_PROPERTY.member, PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member, PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([PaymentAttempt.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
     selectReferenceCode(): this {
-        this.query.select(["referenceCode"]);
+        this.query.select([PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectPaymentWith(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
-        this.query.select(["payment"]);
+        this.query.select([PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member]);
         this.query.relationQuery(
-            "payment", request.toQuery(), "payment", "id", false,
-            { kind: "relation-select", method: "selectPaymentWith", relation: "payment" });
+            PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, request.toQuery(), PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectPaymentWith", relation: PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member });
         return this;
     }
 
     withPaymentMatching(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "payment": {
+            [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -157,7 +157,7 @@ export class PaymentAttemptRequest {
 
     withoutPaymentMatching(request: { readonly entityName: "Payment"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "payment": {
+            [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -168,252 +168,252 @@ export class PaymentAttemptRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByPayment(val: any): this {
-            this.filters.push({ "payment": { "$eq": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByPaymentIn(...vals: any[]): this {
-            this.filters.push({ "payment": { "$in": vals } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withPaymentIsKnown(): this {
-            this.filters.push({ "payment": { "$isNull": false } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withPaymentIsUnknown(): this {
-            this.filters.push({ "payment": { "$isNull": true } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withReferenceCodeContaining(val: string): this {
-            this.filters.push({ "referenceCode": { "$contains": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withReferenceCodeIs(val: string): this {
-            this.filters.push({ "referenceCode": { "$eq": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withReferenceCodeIsNot(val: string): this {
-            this.filters.push({ "referenceCode": { "$ne": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withReferenceCodeIn(...vals: string[]): this {
-            this.filters.push({ "referenceCode": { "$in": vals } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withReferenceCodeNotIn(...vals: string[]): this {
-            this.filters.push({ "referenceCode": { "$notIn": vals } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withReferenceCodeGreaterThan(val: string): this {
-            this.filters.push({ "referenceCode": { "$gt": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withReferenceCodeGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "referenceCode": { "$gte": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withReferenceCodeLessThan(val: string): this {
-            this.filters.push({ "referenceCode": { "$lt": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withReferenceCodeLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "referenceCode": { "$lte": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withReferenceCodeBetween(lower: string, upper: string): this {
-            this.filters.push({ "referenceCode": { "$between": [lower, upper] } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withReferenceCodeIsKnown(): this {
-            this.filters.push({ "referenceCode": { "$isNull": false } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withReferenceCodeIsUnknown(): this {
-            this.filters.push({ "referenceCode": { "$isNull": true } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withReferenceCodeNotContaining(val: string): this {
-            this.filters.push({ "referenceCode": { "$notContains": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withReferenceCodeStartingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$startsWith": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withReferenceCodeNotStartingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$notStartsWith": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withReferenceCodeEndingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$endsWith": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withReferenceCodeNotEndingWith(val: string): this {
-            this.filters.push({ "referenceCode": { "$notEndsWith": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withReferenceCodeSoundingLike(val: string): this {
-            this.filters.push({ "referenceCode": { "$soundLike": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(PaymentAttempt.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(PaymentAttempt.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByReferenceCodeAscending(): this {
-        this.query.orderBy("referenceCode", "asc");
+        this.query.orderBy(PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member, "asc");
         return this;
     }
 
     orderByReferenceCodeDescending(): this {
-        this.query.orderBy("referenceCode", "desc");
+        this.query.orderBy(PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -436,39 +436,39 @@ export class PaymentAttemptRequest {
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(PaymentAttempt.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(PaymentAttempt.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByPayment(): this {
-        this.query.groupBy("payment");
+        this.query.groupBy(PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member);
         return this;
     }
 
     groupByPaymentAs(retName: string): this {
-        this.query.groupBy("payment", retName);
+        this.query.groupBy(PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, retName);
         return this;
     }
     groupByReferenceCode(): this {
-        this.query.groupBy("referenceCode");
+        this.query.groupBy(PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member);
         return this;
     }
 
     groupByReferenceCodeAs(retName: string): this {
-        this.query.groupBy("referenceCode", retName);
+        this.query.groupBy(PaymentAttempt.__teaqlFields.REFERENCE_CODE_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(PaymentAttempt.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -478,8 +478,8 @@ export class PaymentAttemptRequest {
         request: { readonly entityName: "Payment"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "payment", request, includeAllFacets,
-            { kind: "facet", method: "facetByPaymentAs", relation: "payment", alias: facetName });
+        this.query.facetBy(facetName, PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByPaymentAs", relation: PaymentAttempt.__teaqlFields.PAYMENT_PROPERTY.member, alias: facetName });
         return this;
     }
 

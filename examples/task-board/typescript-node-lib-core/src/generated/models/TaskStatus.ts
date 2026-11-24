@@ -5,9 +5,21 @@ import { Task } from './Task';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class TaskStatus {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        CODE_PROPERTY: { member: "code", model: "code" },
+        COLOR_PROPERTY: { member: "color", model: "color" },
+        DISPLAY_ORDER_PROPERTY: { member: "displayOrder", model: "display_order" },
+        PROGRESS_PROPERTY: { member: "progress", model: "progress" },
+        PLATFORM_PROPERTY: { member: "platform", model: "platform" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("TaskStatus",
-        ["id", "name", "code", "color", "display_order", "progress", "platform", "version"], { id: "immutable_field", version: "immutable_field" });
+        [TaskStatus.__teaqlFields.ID_PROPERTY.model, TaskStatus.__teaqlFields.NAME_PROPERTY.model, TaskStatus.__teaqlFields.CODE_PROPERTY.model, TaskStatus.__teaqlFields.COLOR_PROPERTY.model, TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model, TaskStatus.__teaqlFields.PROGRESS_PROPERTY.model, TaskStatus.__teaqlFields.PLATFORM_PROPERTY.model, TaskStatus.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         name?: string;
         code?: string;
@@ -35,7 +47,7 @@ export class TaskStatus {
                 this.platform = (init as any).platform instanceof Platform
                     ? (init as any).platform
                     : Platform.fromRecord((init as any).platform);
-                this.markLoaded("platform");
+                this.markLoaded(TaskStatus.__teaqlFields.PLATFORM_PROPERTY.member);
             }
             if (Array.isArray((init as any).taskList)) {
                 const selected = (init as any).taskList;
@@ -59,7 +71,7 @@ export class TaskStatus {
     private teaqlEntityKey(): EntityKey { return { entity: "TaskStatus", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "progress", canonical: "progress" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: TaskStatus.__teaqlFields.ID_PROPERTY.member, canonical: TaskStatus.__teaqlFields.ID_PROPERTY.model }, { member: TaskStatus.__teaqlFields.NAME_PROPERTY.member, canonical: TaskStatus.__teaqlFields.NAME_PROPERTY.model }, { member: TaskStatus.__teaqlFields.CODE_PROPERTY.member, canonical: TaskStatus.__teaqlFields.CODE_PROPERTY.model }, { member: TaskStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: TaskStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: TaskStatus.__teaqlFields.PROGRESS_PROPERTY.member, canonical: TaskStatus.__teaqlFields.PROGRESS_PROPERTY.model }, { member: TaskStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: TaskStatus.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -239,7 +251,7 @@ export class TaskStatus {
         graph.discardRestoredFields(TaskStatus.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "platform": "Platform"
+            [TaskStatus.__teaqlFields.PLATFORM_PROPERTY.model]: "Platform"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -272,7 +284,7 @@ export class TaskStatus {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "progress", canonical: "progress" }, { member: "platform", canonical: "platform" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: TaskStatus.__teaqlFields.ID_PROPERTY.member, canonical: TaskStatus.__teaqlFields.ID_PROPERTY.model }, { member: TaskStatus.__teaqlFields.NAME_PROPERTY.member, canonical: TaskStatus.__teaqlFields.NAME_PROPERTY.model }, { member: TaskStatus.__teaqlFields.CODE_PROPERTY.member, canonical: TaskStatus.__teaqlFields.CODE_PROPERTY.model }, { member: TaskStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: TaskStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: TaskStatus.__teaqlFields.PROGRESS_PROPERTY.member, canonical: TaskStatus.__teaqlFields.PROGRESS_PROPERTY.model }, { member: TaskStatus.__teaqlFields.PLATFORM_PROPERTY.member, canonical: TaskStatus.__teaqlFields.PLATFORM_PROPERTY.model }, { member: TaskStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: TaskStatus.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "TaskStatus", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -300,7 +312,7 @@ export class TaskStatus {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "progress", canonical: "progress" }, { member: "platform", canonical: "platform" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: TaskStatus.__teaqlFields.ID_PROPERTY.member, canonical: TaskStatus.__teaqlFields.ID_PROPERTY.model }, { member: TaskStatus.__teaqlFields.NAME_PROPERTY.member, canonical: TaskStatus.__teaqlFields.NAME_PROPERTY.model }, { member: TaskStatus.__teaqlFields.CODE_PROPERTY.member, canonical: TaskStatus.__teaqlFields.CODE_PROPERTY.model }, { member: TaskStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: TaskStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: TaskStatus.__teaqlFields.PROGRESS_PROPERTY.member, canonical: TaskStatus.__teaqlFields.PROGRESS_PROPERTY.model }, { member: TaskStatus.__teaqlFields.PLATFORM_PROPERTY.member, canonical: TaskStatus.__teaqlFields.PLATFORM_PROPERTY.model }, { member: TaskStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: TaskStatus.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -449,14 +461,14 @@ export class TaskStatus {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "name": this.name,
-            "code": this.code,
-            "color": this.color,
-            "display_order": this.displayOrder,
-            "progress": this.progress,
-            "platform": this.platform,
-            "version": this.version
+            [TaskStatus.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [TaskStatus.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [TaskStatus.__teaqlFields.CODE_PROPERTY.model]: this.code,
+            [TaskStatus.__teaqlFields.COLOR_PROPERTY.model]: this.color,
+            [TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model]: this.displayOrder,
+            [TaskStatus.__teaqlFields.PROGRESS_PROPERTY.model]: this.progress,
+            [TaskStatus.__teaqlFields.PLATFORM_PROPERTY.model]: this.platform,
+            [TaskStatus.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -466,58 +478,58 @@ export class TaskStatus {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(TaskStatus.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(TaskStatus.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateCode(value: string): this {
         this.code = value;
-        this.markLoaded("code");
-        (this as any)._root.set(this.teaqlEntityKey(), "code", value);
+        this.markLoaded(TaskStatus.__teaqlFields.CODE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.CODE_PROPERTY.model, value);
         return this;
     }
 
     updateColor(value: string): this {
         this.color = value;
-        this.markLoaded("color");
-        (this as any)._root.set(this.teaqlEntityKey(), "color", value);
+        this.markLoaded(TaskStatus.__teaqlFields.COLOR_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.COLOR_PROPERTY.model, value);
         return this;
     }
 
     updateDisplayOrder(value: Decimal): this {
         if (value != null) value = decimal(value);
         this.displayOrder = value;
-        this.markLoaded("displayOrder");
-        (this as any)._root.set(this.teaqlEntityKey(), "display_order", value);
+        this.markLoaded(TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model, value);
         return this;
     }
 
     updateProgress(value: Decimal): this {
         if (value != null) value = decimal(value);
         this.progress = value;
-        this.markLoaded("progress");
-        (this as any)._root.set(this.teaqlEntityKey(), "progress", value);
+        this.markLoaded(TaskStatus.__teaqlFields.PROGRESS_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.PROGRESS_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(TaskStatus.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updatePlatform(value: any): this {
         this.platform = value?.id ?? value;
-        this.markLoaded("platform");
-        (this as any)._root.set(this.teaqlEntityKey(), "platform", this.platform);
+        this.markLoaded(TaskStatus.__teaqlFields.PLATFORM_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), TaskStatus.__teaqlFields.PLATFORM_PROPERTY.model, this.platform);
         return this;
     }
 

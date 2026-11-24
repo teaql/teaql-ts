@@ -117,43 +117,43 @@ export class TaskExecutionLogRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "task", "action", "detail", "version"]);
+        this.query.select([TaskExecutionLog.__teaqlFields.ID_PROPERTY.member, TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member, TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member, TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member, TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
     selectAction(): this {
-        this.query.select(["action"]);
+        this.query.select([TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]);
         return this;
     }
 
     selectDetail(): this {
-        this.query.select(["detail"]);
+        this.query.select([TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectTaskWith(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
-        this.query.select(["task"]);
+        this.query.select([TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member]);
         this.query.relationQuery(
-            "task", request.toQuery(), "task", "id", false,
-            { kind: "relation-select", method: "selectTaskWith", relation: "task" });
+            TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member, request.toQuery(), TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectTaskWith", relation: TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member });
         return this;
     }
 
     withTaskMatching(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "task": {
+            [TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -162,7 +162,7 @@ export class TaskExecutionLogRequest {
 
     withoutTaskMatching(request: { readonly entityName: "Task"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "task": {
+            [TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -173,351 +173,351 @@ export class TaskExecutionLogRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByTask(val: any): this {
-            this.filters.push({ "task": { "$eq": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByTaskIn(...vals: any[]): this {
-            this.filters.push({ "task": { "$in": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withTaskIsKnown(): this {
-            this.filters.push({ "task": { "$isNull": false } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withTaskIsUnknown(): this {
-            this.filters.push({ "task": { "$isNull": true } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withActionContaining(val: string): this {
-            this.filters.push({ "action": { "$contains": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withActionIs(val: string): this {
-            this.filters.push({ "action": { "$eq": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withActionIsNot(val: string): this {
-            this.filters.push({ "action": { "$ne": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withActionIn(...vals: string[]): this {
-            this.filters.push({ "action": { "$in": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withActionNotIn(...vals: string[]): this {
-            this.filters.push({ "action": { "$notIn": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withActionGreaterThan(val: string): this {
-            this.filters.push({ "action": { "$gt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withActionGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "action": { "$gte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withActionLessThan(val: string): this {
-            this.filters.push({ "action": { "$lt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withActionLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "action": { "$lte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withActionBetween(lower: string, upper: string): this {
-            this.filters.push({ "action": { "$between": [lower, upper] } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withActionIsKnown(): this {
-            this.filters.push({ "action": { "$isNull": false } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withActionIsUnknown(): this {
-            this.filters.push({ "action": { "$isNull": true } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withActionNotContaining(val: string): this {
-            this.filters.push({ "action": { "$notContains": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withActionStartingWith(val: string): this {
-            this.filters.push({ "action": { "$startsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withActionNotStartingWith(val: string): this {
-            this.filters.push({ "action": { "$notStartsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withActionEndingWith(val: string): this {
-            this.filters.push({ "action": { "$endsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withActionNotEndingWith(val: string): this {
-            this.filters.push({ "action": { "$notEndsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withActionSoundingLike(val: string): this {
-            this.filters.push({ "action": { "$soundLike": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withDetailContaining(val: string): this {
-            this.filters.push({ "detail": { "$contains": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withDetailIs(val: string): this {
-            this.filters.push({ "detail": { "$eq": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withDetailIsNot(val: string): this {
-            this.filters.push({ "detail": { "$ne": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withDetailIn(...vals: string[]): this {
-            this.filters.push({ "detail": { "$in": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withDetailNotIn(...vals: string[]): this {
-            this.filters.push({ "detail": { "$notIn": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withDetailGreaterThan(val: string): this {
-            this.filters.push({ "detail": { "$gt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withDetailGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "detail": { "$gte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withDetailLessThan(val: string): this {
-            this.filters.push({ "detail": { "$lt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withDetailLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "detail": { "$lte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withDetailBetween(lower: string, upper: string): this {
-            this.filters.push({ "detail": { "$between": [lower, upper] } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withDetailIsKnown(): this {
-            this.filters.push({ "detail": { "$isNull": false } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withDetailIsUnknown(): this {
-            this.filters.push({ "detail": { "$isNull": true } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withDetailNotContaining(val: string): this {
-            this.filters.push({ "detail": { "$notContains": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withDetailStartingWith(val: string): this {
-            this.filters.push({ "detail": { "$startsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withDetailNotStartingWith(val: string): this {
-            this.filters.push({ "detail": { "$notStartsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withDetailEndingWith(val: string): this {
-            this.filters.push({ "detail": { "$endsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withDetailNotEndingWith(val: string): this {
-            this.filters.push({ "detail": { "$notEndsWith": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withDetailSoundingLike(val: string): this {
-            this.filters.push({ "detail": { "$soundLike": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByActionAscending(): this {
-        this.query.orderBy("action", "asc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByActionDescending(): this {
-        this.query.orderBy("action", "desc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member, "desc");
         return this;
     }
 
     orderByDetailAscending(): this {
-        this.query.orderBy("detail", "asc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member, "asc");
         return this;
     }
 
     orderByDetailDescending(): this {
-        this.query.orderBy("detail", "desc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -540,48 +540,48 @@ export class TaskExecutionLogRequest {
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByTask(): this {
-        this.query.groupBy("task");
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member);
         return this;
     }
 
     groupByTaskAs(retName: string): this {
-        this.query.groupBy("task", retName);
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member, retName);
         return this;
     }
     groupByAction(): this {
-        this.query.groupBy("action");
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member);
         return this;
     }
 
     groupByActionAs(retName: string): this {
-        this.query.groupBy("action", retName);
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.ACTION_PROPERTY.member, retName);
         return this;
     }
     groupByDetail(): this {
-        this.query.groupBy("detail");
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member);
         return this;
     }
 
     groupByDetailAs(retName: string): this {
-        this.query.groupBy("detail", retName);
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.DETAIL_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(TaskExecutionLog.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -591,8 +591,8 @@ export class TaskExecutionLogRequest {
         request: { readonly entityName: "Task"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "task", request, includeAllFacets,
-            { kind: "facet", method: "facetByTaskAs", relation: "task", alias: facetName });
+        this.query.facetBy(facetName, TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByTaskAs", relation: TaskExecutionLog.__teaqlFields.TASK_PROPERTY.member, alias: facetName });
         return this;
     }
 

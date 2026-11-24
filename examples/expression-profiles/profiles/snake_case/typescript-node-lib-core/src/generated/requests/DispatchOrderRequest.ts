@@ -117,43 +117,43 @@ export class DispatchOrderRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "distributionCenter", "orderReference", "handlingNote", "version"]);
+        this.query.select([DispatchOrder.__teaqlFields.ID_PROPERTY.member, DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member, DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member, DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([DispatchOrder.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
     selectOrderReference(): this {
-        this.query.select(["orderReference"]);
+        this.query.select([DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]);
         return this;
     }
 
     selectHandlingNote(): this {
-        this.query.select(["handlingNote"]);
+        this.query.select([DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectDistributionCenterWith(request: { readonly entityName: "DistributionCenter"; toQuery(): SelectQuery }): this {
-        this.query.select(["distributionCenter"]);
+        this.query.select([DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member]);
         this.query.relationQuery(
-            "distributionCenter", request.toQuery(), "distributionCenter", "id", false,
-            { kind: "relation-select", method: "selectDistributionCenterWith", relation: "distributionCenter" });
+            DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, request.toQuery(), DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectDistributionCenterWith", relation: DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member });
         return this;
     }
 
     withDistributionCenterMatching(request: { readonly entityName: "DistributionCenter"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "distributionCenter": {
+            [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -162,7 +162,7 @@ export class DispatchOrderRequest {
 
     withoutDistributionCenterMatching(request: { readonly entityName: "DistributionCenter"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "distributionCenter": {
+            [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -173,351 +173,351 @@ export class DispatchOrderRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByDistributionCenter(val: any): this {
-            this.filters.push({ "distributionCenter": { "$eq": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByDistributionCenterIn(...vals: any[]): this {
-            this.filters.push({ "distributionCenter": { "$in": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withDistributionCenterIsKnown(): this {
-            this.filters.push({ "distributionCenter": { "$isNull": false } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withDistributionCenterIsUnknown(): this {
-            this.filters.push({ "distributionCenter": { "$isNull": true } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withOrderReferenceContaining(val: string): this {
-            this.filters.push({ "orderReference": { "$contains": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withOrderReferenceIs(val: string): this {
-            this.filters.push({ "orderReference": { "$eq": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withOrderReferenceIsNot(val: string): this {
-            this.filters.push({ "orderReference": { "$ne": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withOrderReferenceIn(...vals: string[]): this {
-            this.filters.push({ "orderReference": { "$in": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withOrderReferenceNotIn(...vals: string[]): this {
-            this.filters.push({ "orderReference": { "$notIn": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withOrderReferenceGreaterThan(val: string): this {
-            this.filters.push({ "orderReference": { "$gt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withOrderReferenceGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "orderReference": { "$gte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withOrderReferenceLessThan(val: string): this {
-            this.filters.push({ "orderReference": { "$lt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withOrderReferenceLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "orderReference": { "$lte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withOrderReferenceBetween(lower: string, upper: string): this {
-            this.filters.push({ "orderReference": { "$between": [lower, upper] } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withOrderReferenceIsKnown(): this {
-            this.filters.push({ "orderReference": { "$isNull": false } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withOrderReferenceIsUnknown(): this {
-            this.filters.push({ "orderReference": { "$isNull": true } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withOrderReferenceNotContaining(val: string): this {
-            this.filters.push({ "orderReference": { "$notContains": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withOrderReferenceStartingWith(val: string): this {
-            this.filters.push({ "orderReference": { "$startsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withOrderReferenceNotStartingWith(val: string): this {
-            this.filters.push({ "orderReference": { "$notStartsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withOrderReferenceEndingWith(val: string): this {
-            this.filters.push({ "orderReference": { "$endsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withOrderReferenceNotEndingWith(val: string): this {
-            this.filters.push({ "orderReference": { "$notEndsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withOrderReferenceSoundingLike(val: string): this {
-            this.filters.push({ "orderReference": { "$soundLike": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withHandlingNoteContaining(val: string): this {
-            this.filters.push({ "handlingNote": { "$contains": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withHandlingNoteIs(val: string): this {
-            this.filters.push({ "handlingNote": { "$eq": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withHandlingNoteIsNot(val: string): this {
-            this.filters.push({ "handlingNote": { "$ne": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withHandlingNoteIn(...vals: string[]): this {
-            this.filters.push({ "handlingNote": { "$in": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withHandlingNoteNotIn(...vals: string[]): this {
-            this.filters.push({ "handlingNote": { "$notIn": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withHandlingNoteGreaterThan(val: string): this {
-            this.filters.push({ "handlingNote": { "$gt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withHandlingNoteGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "handlingNote": { "$gte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withHandlingNoteLessThan(val: string): this {
-            this.filters.push({ "handlingNote": { "$lt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withHandlingNoteLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "handlingNote": { "$lte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withHandlingNoteBetween(lower: string, upper: string): this {
-            this.filters.push({ "handlingNote": { "$between": [lower, upper] } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withHandlingNoteIsKnown(): this {
-            this.filters.push({ "handlingNote": { "$isNull": false } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withHandlingNoteIsUnknown(): this {
-            this.filters.push({ "handlingNote": { "$isNull": true } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withHandlingNoteNotContaining(val: string): this {
-            this.filters.push({ "handlingNote": { "$notContains": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withHandlingNoteStartingWith(val: string): this {
-            this.filters.push({ "handlingNote": { "$startsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withHandlingNoteNotStartingWith(val: string): this {
-            this.filters.push({ "handlingNote": { "$notStartsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withHandlingNoteEndingWith(val: string): this {
-            this.filters.push({ "handlingNote": { "$endsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withHandlingNoteNotEndingWith(val: string): this {
-            this.filters.push({ "handlingNote": { "$notEndsWith": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withHandlingNoteSoundingLike(val: string): this {
-            this.filters.push({ "handlingNote": { "$soundLike": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [DispatchOrder.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByOrderReferenceAscending(): this {
-        this.query.orderBy("orderReference", "asc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member, "asc");
         return this;
     }
 
     orderByOrderReferenceDescending(): this {
-        this.query.orderBy("orderReference", "desc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member, "desc");
         return this;
     }
 
     orderByHandlingNoteAscending(): this {
-        this.query.orderBy("handlingNote", "asc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member, "asc");
         return this;
     }
 
     orderByHandlingNoteDescending(): this {
-        this.query.orderBy("handlingNote", "desc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(DispatchOrder.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -540,48 +540,48 @@ export class DispatchOrderRequest {
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(DispatchOrder.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(DispatchOrder.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByDistributionCenter(): this {
-        this.query.groupBy("distributionCenter");
+        this.query.groupBy(DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member);
         return this;
     }
 
     groupByDistributionCenterAs(retName: string): this {
-        this.query.groupBy("distributionCenter", retName);
+        this.query.groupBy(DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, retName);
         return this;
     }
     groupByOrderReference(): this {
-        this.query.groupBy("orderReference");
+        this.query.groupBy(DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member);
         return this;
     }
 
     groupByOrderReferenceAs(retName: string): this {
-        this.query.groupBy("orderReference", retName);
+        this.query.groupBy(DispatchOrder.__teaqlFields.ORDER_REFERENCE_PROPERTY.member, retName);
         return this;
     }
     groupByHandlingNote(): this {
-        this.query.groupBy("handlingNote");
+        this.query.groupBy(DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member);
         return this;
     }
 
     groupByHandlingNoteAs(retName: string): this {
-        this.query.groupBy("handlingNote", retName);
+        this.query.groupBy(DispatchOrder.__teaqlFields.HANDLING_NOTE_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(DispatchOrder.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(DispatchOrder.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -591,8 +591,8 @@ export class DispatchOrderRequest {
         request: { readonly entityName: "DistributionCenter"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "distributionCenter", request, includeAllFacets,
-            { kind: "facet", method: "facetByDistributionCenterAs", relation: "distributionCenter", alias: facetName });
+        this.query.facetBy(facetName, DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByDistributionCenterAs", relation: DispatchOrder.__teaqlFields.DISTRIBUTION_CENTER_PROPERTY.member, alias: facetName });
         return this;
     }
 

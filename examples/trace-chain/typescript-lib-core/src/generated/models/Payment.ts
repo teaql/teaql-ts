@@ -5,9 +5,17 @@ import { PaymentAttempt } from './PaymentAttempt';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class Payment {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        CUSTOMER_ORDER_PROPERTY: { member: "customerOrder", model: "customer_order" },
+        REFERENCE_CODE_PROPERTY: { member: "referenceCode", model: "reference_code" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("Payment",
-        ["id", "customer_order", "reference_code", "version"], { id: "immutable_field", version: "immutable_field" });
+        [Payment.__teaqlFields.ID_PROPERTY.model, Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model, Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.model, Payment.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         customerOrder?: CustomerOrder | string;
         referenceCode?: string;
@@ -31,7 +39,7 @@ export class Payment {
                 this.customerOrder = (init as any).customerOrder instanceof CustomerOrder
                     ? (init as any).customerOrder
                     : CustomerOrder.fromRecord((init as any).customerOrder);
-                this.markLoaded("customerOrder");
+                this.markLoaded(Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
             }
             if (Array.isArray((init as any).paymentAttemptList)) {
                 const selected = (init as any).paymentAttemptList;
@@ -55,7 +63,7 @@ export class Payment {
     private teaqlEntityKey(): EntityKey { return { entity: "Payment", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: Payment.__teaqlFields.ID_PROPERTY.member, canonical: Payment.__teaqlFields.ID_PROPERTY.model }, { member: Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.member, canonical: Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.model }, { member: Payment.__teaqlFields.VERSION_PROPERTY.member, canonical: Payment.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -235,7 +243,7 @@ export class Payment {
         graph.discardRestoredFields(Payment.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "customer_order": "CustomerOrder"
+            [Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model]: "CustomerOrder"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -268,7 +276,7 @@ export class Payment {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: Payment.__teaqlFields.ID_PROPERTY.member, canonical: Payment.__teaqlFields.ID_PROPERTY.model }, { member: Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, canonical: Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model }, { member: Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.member, canonical: Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.model }, { member: Payment.__teaqlFields.VERSION_PROPERTY.member, canonical: Payment.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "Payment", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -296,7 +304,7 @@ export class Payment {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "referenceCode", canonical: "reference_code" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: Payment.__teaqlFields.ID_PROPERTY.member, canonical: Payment.__teaqlFields.ID_PROPERTY.model }, { member: Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, canonical: Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model }, { member: Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.member, canonical: Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.model }, { member: Payment.__teaqlFields.VERSION_PROPERTY.member, canonical: Payment.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -445,10 +453,10 @@ export class Payment {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "customer_order": this.customerOrder,
-            "reference_code": this.referenceCode,
-            "version": this.version
+            [Payment.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model]: this.customerOrder,
+            [Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.model]: this.referenceCode,
+            [Payment.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -458,28 +466,28 @@ export class Payment {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(Payment.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Payment.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateReferenceCode(value: string): this {
         this.referenceCode = value;
-        this.markLoaded("referenceCode");
-        (this as any)._root.set(this.teaqlEntityKey(), "reference_code", value);
+        this.markLoaded(Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Payment.__teaqlFields.REFERENCE_CODE_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(Payment.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Payment.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateCustomerOrder(value: any): this {
         this.customerOrder = value?.id ?? value;
-        this.markLoaded("customerOrder");
-        (this as any)._root.set(this.teaqlEntityKey(), "customer_order", this.customerOrder);
+        this.markLoaded(Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), Payment.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model, this.customerOrder);
         return this;
     }
 

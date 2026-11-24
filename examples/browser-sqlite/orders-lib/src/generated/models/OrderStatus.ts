@@ -5,9 +5,20 @@ import { CustomerOrder } from './CustomerOrder';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class OrderStatus {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        PLATFORM_PROPERTY: { member: "platform", model: "platform" },
+        ID_PROPERTY: { member: "id", model: "id" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        CODE_PROPERTY: { member: "code", model: "code" },
+        COLOR_PROPERTY: { member: "color", model: "color" },
+        DISPLAY_ORDER_PROPERTY: { member: "displayOrder", model: "display_order" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("OrderStatus",
-        ["platform", "id", "name", "code", "color", "display_order", "version"], { id: "immutable_field", version: "immutable_field" });
+        [OrderStatus.__teaqlFields.PLATFORM_PROPERTY.model, OrderStatus.__teaqlFields.ID_PROPERTY.model, OrderStatus.__teaqlFields.NAME_PROPERTY.model, OrderStatus.__teaqlFields.CODE_PROPERTY.model, OrderStatus.__teaqlFields.COLOR_PROPERTY.model, OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model, OrderStatus.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         platform?: Platform | string;
         id?: string;
         name?: string;
@@ -18,7 +29,7 @@ export class OrderStatus {
 
     private constructor(init?: Partial<OrderStatus>, token?: symbol, creation = false) {
         if (token !== teaqlConstruction) throw new EntityCreationError();
-        { const error = integer32Error(init?.displayOrder, "OrderStatus", "display_order"); if (error) throw error; }
+        { const error = integer32Error(init?.displayOrder, "OrderStatus", OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model); if (error) throw error; }
 
 
         Object.defineProperty(this, "_action", { value: creation ? "Create" : "Update", writable: true, enumerable: false });
@@ -37,7 +48,7 @@ export class OrderStatus {
                 this.platform = (init as any).platform instanceof Platform
                     ? (init as any).platform
                     : Platform.fromRecord((init as any).platform);
-                this.markLoaded("platform");
+                this.markLoaded(OrderStatus.__teaqlFields.PLATFORM_PROPERTY.member);
             }
             if (Array.isArray((init as any).customerOrderList)) {
                 const selected = (init as any).customerOrderList;
@@ -61,7 +72,7 @@ export class OrderStatus {
     private teaqlEntityKey(): EntityKey { return { entity: "OrderStatus", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: OrderStatus.__teaqlFields.ID_PROPERTY.member, canonical: OrderStatus.__teaqlFields.ID_PROPERTY.model }, { member: OrderStatus.__teaqlFields.NAME_PROPERTY.member, canonical: OrderStatus.__teaqlFields.NAME_PROPERTY.model }, { member: OrderStatus.__teaqlFields.CODE_PROPERTY.member, canonical: OrderStatus.__teaqlFields.CODE_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: OrderStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderStatus.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -80,7 +91,7 @@ export class OrderStatus {
     }
 
     toJSON(): Record<string, unknown> {
-        { const error = integer32Error(this.displayOrder, "OrderStatus", "display_order"); if (error) throw error; }
+        { const error = integer32Error(this.displayOrder, "OrderStatus", OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model); if (error) throw error; }
 
 
         return this.teaqlJson(new Set());
@@ -244,7 +255,7 @@ export class OrderStatus {
         graph.discardRestoredFields(OrderStatus.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "platform": "Platform"
+            [OrderStatus.__teaqlFields.PLATFORM_PROPERTY.model]: "Platform"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -277,7 +288,7 @@ export class OrderStatus {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "platform", canonical: "platform" }, { member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: OrderStatus.__teaqlFields.PLATFORM_PROPERTY.member, canonical: OrderStatus.__teaqlFields.PLATFORM_PROPERTY.model }, { member: OrderStatus.__teaqlFields.ID_PROPERTY.member, canonical: OrderStatus.__teaqlFields.ID_PROPERTY.model }, { member: OrderStatus.__teaqlFields.NAME_PROPERTY.member, canonical: OrderStatus.__teaqlFields.NAME_PROPERTY.model }, { member: OrderStatus.__teaqlFields.CODE_PROPERTY.member, canonical: OrderStatus.__teaqlFields.CODE_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: OrderStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderStatus.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "OrderStatus", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -305,7 +316,7 @@ export class OrderStatus {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "platform", canonical: "platform" }, { member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: OrderStatus.__teaqlFields.PLATFORM_PROPERTY.member, canonical: OrderStatus.__teaqlFields.PLATFORM_PROPERTY.model }, { member: OrderStatus.__teaqlFields.ID_PROPERTY.member, canonical: OrderStatus.__teaqlFields.ID_PROPERTY.model }, { member: OrderStatus.__teaqlFields.NAME_PROPERTY.member, canonical: OrderStatus.__teaqlFields.NAME_PROPERTY.model }, { member: OrderStatus.__teaqlFields.CODE_PROPERTY.member, canonical: OrderStatus.__teaqlFields.CODE_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: OrderStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderStatus.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -454,13 +465,13 @@ export class OrderStatus {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "platform": this.platform,
-            "id": this.id,
-            "name": this.name,
-            "code": this.code,
-            "color": this.color,
-            "display_order": this.displayOrder,
-            "version": this.version
+            [OrderStatus.__teaqlFields.PLATFORM_PROPERTY.model]: this.platform,
+            [OrderStatus.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [OrderStatus.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [OrderStatus.__teaqlFields.CODE_PROPERTY.model]: this.code,
+            [OrderStatus.__teaqlFields.COLOR_PROPERTY.model]: this.color,
+            [OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model]: this.displayOrder,
+            [OrderStatus.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -470,49 +481,49 @@ export class OrderStatus {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(OrderStatus.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(OrderStatus.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateCode(value: string): this {
         this.code = value;
-        this.markLoaded("code");
-        (this as any)._root.set(this.teaqlEntityKey(), "code", value);
+        this.markLoaded(OrderStatus.__teaqlFields.CODE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.CODE_PROPERTY.model, value);
         return this;
     }
 
     updateColor(value: string): this {
         this.color = value;
-        this.markLoaded("color");
-        (this as any)._root.set(this.teaqlEntityKey(), "color", value);
+        this.markLoaded(OrderStatus.__teaqlFields.COLOR_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.COLOR_PROPERTY.model, value);
         return this;
     }
 
     updateDisplayOrder(value: number): this {
         this.displayOrder = value;
-        this.markLoaded("displayOrder");
-        (this as any)._root.set(this.teaqlEntityKey(), "display_order", value);
+        this.markLoaded(OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(OrderStatus.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updatePlatform(value: any): this {
         this.platform = value?.id ?? value;
-        this.markLoaded("platform");
-        (this as any)._root.set(this.teaqlEntityKey(), "platform", this.platform);
+        this.markLoaded(OrderStatus.__teaqlFields.PLATFORM_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.PLATFORM_PROPERTY.model, this.platform);
         return this;
     }
 

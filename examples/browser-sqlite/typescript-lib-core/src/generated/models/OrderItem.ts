@@ -4,9 +4,19 @@ import { CustomerOrder } from './CustomerOrder';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class OrderItem {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        CUSTOMER_ORDER_PROPERTY: { member: "customerOrder", model: "customer_order" },
+        PRODUCT_NAME_PROPERTY: { member: "productName", model: "product_name" },
+        QUANTITY_PROPERTY: { member: "quantity", model: "quantity" },
+        UNIT_PRICE_PROPERTY: { member: "unitPrice", model: "unit_price" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("OrderItem",
-        ["id", "customer_order", "product_name", "quantity", "unit_price", "version"], { id: "immutable_field", version: "immutable_field" });
+        [OrderItem.__teaqlFields.ID_PROPERTY.model, OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model, OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.model, OrderItem.__teaqlFields.QUANTITY_PROPERTY.model, OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.model, OrderItem.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         customerOrder?: CustomerOrder | string;
         productName?: string;
@@ -16,7 +26,7 @@ export class OrderItem {
 
     private constructor(init?: Partial<OrderItem>, token?: symbol, creation = false) {
         if (token !== teaqlConstruction) throw new EntityCreationError();
-        { const error = integer32Error(init?.quantity, "OrderItem", "quantity"); if (error) throw error; }
+        { const error = integer32Error(init?.quantity, "OrderItem", OrderItem.__teaqlFields.QUANTITY_PROPERTY.model); if (error) throw error; }
 
 
 
@@ -34,7 +44,7 @@ export class OrderItem {
                 this.customerOrder = (init as any).customerOrder instanceof CustomerOrder
                     ? (init as any).customerOrder
                     : CustomerOrder.fromRecord((init as any).customerOrder);
-                this.markLoaded("customerOrder");
+                this.markLoaded(OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -48,7 +58,7 @@ export class OrderItem {
     private teaqlEntityKey(): EntityKey { return { entity: "OrderItem", id: (this as any)._ledgerId }; }
     /** @internal Restore known equal scalars after the prepared graph completes. */
     private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
-        for (const field of [{ member: "id", canonical: "id" }, { member: "productName", canonical: "product_name" }, { member: "quantity", canonical: "quantity" }, { member: "unitPrice", canonical: "unit_price" }, { member: "version", canonical: "version" }]) {
+        for (const field of [{ member: OrderItem.__teaqlFields.ID_PROPERTY.member, canonical: OrderItem.__teaqlFields.ID_PROPERTY.model }, { member: OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.member, canonical: OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.model }, { member: OrderItem.__teaqlFields.QUANTITY_PROPERTY.member, canonical: OrderItem.__teaqlFields.QUANTITY_PROPERTY.model }, { member: OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.member, canonical: OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.model }, { member: OrderItem.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderItem.__teaqlFields.VERSION_PROPERTY.model }]) {
             if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
         }
     }
@@ -66,7 +76,7 @@ export class OrderItem {
     }
 
     toJSON(): Record<string, unknown> {
-        { const error = integer32Error(this.quantity, "OrderItem", "quantity"); if (error) throw error; }
+        { const error = integer32Error(this.quantity, "OrderItem", OrderItem.__teaqlFields.QUANTITY_PROPERTY.model); if (error) throw error; }
 
 
 
@@ -210,7 +220,7 @@ export class OrderItem {
         graph.discardRestoredFields(OrderItem.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "customer_order": "CustomerOrder"
+            [OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model]: "CustomerOrder"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
@@ -233,7 +243,7 @@ export class OrderItem {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "productName", canonical: "product_name" }, { member: "quantity", canonical: "quantity" }, { member: "unitPrice", canonical: "unit_price" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: OrderItem.__teaqlFields.ID_PROPERTY.member, canonical: OrderItem.__teaqlFields.ID_PROPERTY.model }, { member: OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, canonical: OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model }, { member: OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.member, canonical: OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.model }, { member: OrderItem.__teaqlFields.QUANTITY_PROPERTY.member, canonical: OrderItem.__teaqlFields.QUANTITY_PROPERTY.model }, { member: OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.member, canonical: OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.model }, { member: OrderItem.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderItem.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "OrderItem", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -253,7 +263,7 @@ export class OrderItem {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "customerOrder", canonical: "customer_order" }, { member: "productName", canonical: "product_name" }, { member: "quantity", canonical: "quantity" }, { member: "unitPrice", canonical: "unit_price" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: OrderItem.__teaqlFields.ID_PROPERTY.member, canonical: OrderItem.__teaqlFields.ID_PROPERTY.model }, { member: OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, canonical: OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model }, { member: OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.member, canonical: OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.model }, { member: OrderItem.__teaqlFields.QUANTITY_PROPERTY.member, canonical: OrderItem.__teaqlFields.QUANTITY_PROPERTY.model }, { member: OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.member, canonical: OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.model }, { member: OrderItem.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderItem.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -354,12 +364,12 @@ export class OrderItem {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "customer_order": this.customerOrder,
-            "product_name": this.productName,
-            "quantity": this.quantity,
-            "unit_price": this.unitPrice,
-            "version": this.version
+            [OrderItem.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model]: this.customerOrder,
+            [OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.model]: this.productName,
+            [OrderItem.__teaqlFields.QUANTITY_PROPERTY.model]: this.quantity,
+            [OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.model]: this.unitPrice,
+            [OrderItem.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -369,43 +379,43 @@ export class OrderItem {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(OrderItem.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderItem.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateProductName(value: string): this {
         this.productName = value;
-        this.markLoaded("productName");
-        (this as any)._root.set(this.teaqlEntityKey(), "product_name", value);
+        this.markLoaded(OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderItem.__teaqlFields.PRODUCT_NAME_PROPERTY.model, value);
         return this;
     }
 
     updateQuantity(value: number): this {
         this.quantity = value;
-        this.markLoaded("quantity");
-        (this as any)._root.set(this.teaqlEntityKey(), "quantity", value);
+        this.markLoaded(OrderItem.__teaqlFields.QUANTITY_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderItem.__teaqlFields.QUANTITY_PROPERTY.model, value);
         return this;
     }
 
     updateUnitPrice(value: Decimal): this {
         if (value != null) value = decimal(value);
         this.unitPrice = value;
-        this.markLoaded("unitPrice");
-        (this as any)._root.set(this.teaqlEntityKey(), "unit_price", value);
+        this.markLoaded(OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderItem.__teaqlFields.UNIT_PRICE_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(OrderItem.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderItem.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateCustomerOrder(value: any): this {
         this.customerOrder = value?.id ?? value;
-        this.markLoaded("customerOrder");
-        (this as any)._root.set(this.teaqlEntityKey(), "customer_order", this.customerOrder);
+        this.markLoaded(OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderItem.__teaqlFields.CUSTOMER_ORDER_PROPERTY.model, this.customerOrder);
         return this;
     }
 
