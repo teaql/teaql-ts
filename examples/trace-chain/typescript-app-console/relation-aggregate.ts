@@ -20,10 +20,10 @@ const manifest = (path: string): string => readdirSync(path, {withFileTypes: tru
 class Driver extends SQLiteDriver {
   calls = 0;
   aggregateFailure?: Error;
-  override async query(sql: string, values: any[] = []) {
+  protected override async queryConnection(sql: string, values: any[] = []) {
     this.calls++;
     if (this.aggregateFailure && /COUNT\(/i.test(sql)) throw this.aggregateFailure;
-    return super.query(sql, values);
+    return super.queryConnection(sql, values);
   }
   override async *stream(sql: string, values: any[] = []) {
     this.calls++;

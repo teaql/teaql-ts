@@ -86,13 +86,13 @@ class Driver extends SQLiteDriver {
       throw error;
     }
   }
-  async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+  protected override async queryConnection(sql: string, values: any[] = []): Promise<SqlQueryResult> {
     this.attemptedSQL.push({ sql, values: [...values] });
     if (this.failureTable && sql.includes(this.failureTable)
       && (this.readbackFailure ? sql.startsWith('SELECT') && sql.includes('WHERE "id" = ?') : sql.startsWith('INSERT'))) {
       throw new Error('injected trace-chain provider failure');
     }
-    return super.query(sql, values);
+    return super.queryConnection(sql, values);
   }
 }
 class Client extends AbstractSQLTeaQLClient {

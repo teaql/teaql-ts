@@ -20,9 +20,9 @@ function hashes(dir: string): string {
 }
 class Driver extends SQLiteDriver {
   reads: Array<{sql: string; values: unknown[]}> = [];
-  override async query(sql: string, values: any[] = []) {
+  protected override async queryConnection(sql: string, values: any[] = []) {
     if (/^SELECT\b/.test(sql)) this.reads.push({sql,values:[...values]});
-    return super.query(sql,values);
+    return super.queryConnection(sql,values);
   }
   override async *stream(sql: string, values: any[] = []) {
     this.reads.push({sql,values:[...values]});

@@ -36,9 +36,9 @@ class Driver extends SQLiteDriver {
     catch (error) { transaction.outcome = 'rollback'; throw error; }
     finally { this.current = undefined; }
   }
-  async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+  protected override async queryConnection(sql: string, values: any[] = []): Promise<SqlQueryResult> {
     this.current?.sql.push(sql);
-    return super.query(sql, values);
+    return super.queryConnection(sql, values);
   }
 }
 class Client extends AbstractSQLTeaQLClient {
