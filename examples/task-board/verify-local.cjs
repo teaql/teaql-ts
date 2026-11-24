@@ -7,8 +7,12 @@ function fixture(){
  assert.equal(manifest.schema,'teaql.typescript-task-board-fixture/v1');assert.equal(manifest.evaluationErrors,0);
  assert.equal(sha(fs.readFileSync(path.join(example,'model.xml'))),manifest.modelSha256);
  const actual=[];function visit(dir,prefix=''){for(const e of fs.readdirSync(dir,{withFileTypes:true})){assert(!e.isSymbolicLink());const n=path.join(prefix,e.name),f=path.join(dir,e.name);if(e.isDirectory())visit(f,n);else{assert(e.isFile());actual.push(n);}}}
- visit(path.join(example,'ts-lib-core'));assert.deepEqual(actual.sort(),Object.keys(manifest.files).sort());
- for(const[n,h]of Object.entries(manifest.files))assert.equal(sha(fs.readFileSync(path.join(example,'ts-lib-core',n))),h);
+ visit(path.join(example,'typescript-node-lib-core'));
+ const generatedManifest=fs.readFileSync(path.join(example,'typescript-node-lib-core','generated-files.json'));
+ assert.equal(sha(generatedManifest),manifest.generatedManifestSha256);
+ assert.deepEqual(JSON.parse(generatedManifest),manifest.files);
+ assert.deepEqual(actual.sort(),[...Object.keys(manifest.files),'generated-files.json'].sort());
+ for(const[n,h]of Object.entries(manifest.files))assert.equal(sha(fs.readFileSync(path.join(example,'typescript-node-lib-core',n))),h);
  for(const[n,h]of Object.entries(manifest.assist))assert.equal(sha(fs.readFileSync(path.join(example,'assist',n))),h);
  return manifest;
 }
@@ -24,11 +28,11 @@ async function main(){
   assert.equal(r.runtimeOrigin,r.expectedRuntime,'runtime origin must be explicit and exact');
   runner=createOwnedRunner();
   async function run(name,command,extra={}){const f=path.join(output,name+'.log'),fd=fs.openSync(f,'wx');let q;try{q=await runner.run(command,{cwd:example,env:{...process.env,...extra,TMPDIR:scratch},timeout:120000,stdio:['ignore',fd,fd]});}finally{fs.closeSync(fd);}const text=fs.readFileSync(f,'utf8');assert(!q.error&&!q.signal&&q.status===0&&runner.safeToClean,name+': '+text.slice(-5000));return{text,exitCode:q.status,signal:q.signal,logSha256:sha(Buffer.from(text))};}
-  const compile=await run('compile',[process.execPath,require.resolve('typescript/bin/tsc'),'--noEmit','--pretty','false','-p','tsconfig.json']);r.compile={...compile,text:undefined};
+  const compile=await run('compile',[process.execPath,require.resolve('typescript/bin/tsc'),'--noEmit','--pretty','false','-p','typescript-app-console/tsconfig.json']);r.compile={...compile,text:undefined};
   const database=path.join(output,'task-board.sqlite');
   for(const round of[1,2]){
    assert.equal(fs.existsSync(database),round===2);
-   const result=await run('round-'+round,[process.execPath,require.resolve('ts-node/dist/bin.js'),'verify.ts'],{TEAQL_TASK_BOARD_DB:database,TEAQL_TASK_BOARD_ROUND:String(round)});
+   const result=await run('round-'+round,[process.execPath,require.resolve('ts-node/dist/bin.js'),'--project','typescript-app-console/tsconfig.json','typescript-app-console/src/main.ts'],{TEAQL_TASK_BOARD_DB:database,TEAQL_TASK_BOARD_ROUND:String(round)});
    const frames=result.text.split(/\r?\n/).filter(n=>n.startsWith('TYPESCRIPT_TASK_BOARD=')).map(n=>JSON.parse(n.slice('TYPESCRIPT_TASK_BOARD='.length)));assert.equal(frames.length,1);
    const v=frames[0];assert(v.passed&&v.round===round&&v.typedDynamicMatch&&v.checkerRejected&&v.missingAuditRejected&&v.notLoadedRejected&&v.parserInjectionRejected);
    assert.equal(v.seeded,round===1?2:0);assert.equal(v.renamed,round===1?2:0);assert.equal(v.runtimeOrigin,r.runtimeOrigin);

@@ -74,8 +74,9 @@ rejected before provider work. All three cases run twice on retained databases.
 The file, audit history, optimistic baseline and parent version remain unchanged;
 the Delete intent survives, but loaded validation values must not become field
 writes. Saving the same graph again commits one child tombstone and one audit
-event, without reloading or updating the parent. Repeating Delete on the committed
-tombstone is rejected before persistence, mutation execution or another audit.
+event, without reloading or updating the parent. Saving the clean committed graph
+again performs no work. Explicitly marking the committed tombstone for Delete again
+is rejected before persistence, mutation execution or another audit.
 Both rounds use the same retained JSON store, also checked independently.
 
 `fixture-manifest.json` records the unified generator revision, all 17 exported
@@ -83,3 +84,24 @@ file hashes and the previous manifest hash. The four updated generated files
 are exact export bytes, including the file-client Delete guard and generated
 GroupBy aliases. The prior collector qualification remains historical metadata;
 it is not presented as evidence for this export.
+
+## Model and workspace
+
+This showcase uses `model.xml`: Tenant owns PurchaseOrder and OrderItem.
+The generated domain library is read-only in `typescript-node-lib-core/`; application code is
+in `typescript-app-console/showcase`. The workspace hosts the original scenario checks and
+trusted Context/runtime setup.
+
+From the SDK repository root, run:
+
+```bash
+node examples/fix-e-alignment/verify-local.cjs
+```
+
+The verifier checks the model and exact generated-library hashes, builds the
+native workspace with the local SDK, then runs the original business cases
+twice on retained stores. Assertions cover real generated Q/E and audited
+saves, precise loaded state, rejected writes and transaction outcomes. It
+keeps compact receipts and result data and removes owned build output.
+`showcase.json` binds this model, both generation scopes and the focused result;
+the final full SDK example inventory remains a separate gate.

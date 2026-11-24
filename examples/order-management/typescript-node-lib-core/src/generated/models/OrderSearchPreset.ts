@@ -4,9 +4,22 @@ import { CommercePlatform } from './CommercePlatform';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class OrderSearchPreset {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        FILTER_JSON_PROPERTY: { member: "filterJson", model: "filter_json" },
+        REQUEST_ID_PROPERTY: { member: "requestId", model: "request_id" },
+        OWNER_USER_ID_PROPERTY: { member: "ownerUserId", model: "owner_user_id" },
+        COMMERCE_PLATFORM_PROPERTY: { member: "commercePlatform", model: "commerce_platform" },
+        CREATE_TIME_PROPERTY: { member: "createTime", model: "create_time" },
+        UPDATE_TIME_PROPERTY: { member: "updateTime", model: "update_time" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("OrderSearchPreset",
-        ["id", "name", "filter_json", "request_id", "owner_user_id", "commerce_platform", "create_time", "update_time", "version"], { id: "immutable_field", version: "immutable_field" });
+        [OrderSearchPreset.__teaqlFields.ID_PROPERTY.model, OrderSearchPreset.__teaqlFields.NAME_PROPERTY.model, OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.model, OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.model, OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.model, OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model, OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.model, OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.model, OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         name?: string;
         filterJson?: string;
@@ -33,7 +46,7 @@ export class OrderSearchPreset {
                 this.commercePlatform = (init as any).commercePlatform instanceof CommercePlatform
                     ? (init as any).commercePlatform
                     : CommercePlatform.fromRecord((init as any).commercePlatform);
-                this.markLoaded("commercePlatform");
+                this.markLoaded(OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
             }
         }
         const key = this.teaqlEntityKey();
@@ -45,6 +58,12 @@ export class OrderSearchPreset {
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "OrderSearchPreset", id: (this as any)._ledgerId }; }
+    /** @internal Restore known equal scalars after the prepared graph completes. */
+    private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
+        for (const field of [{ member: OrderSearchPreset.__teaqlFields.ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.NAME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.model }]) {
+            if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
+        }
+    }
     private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
         if ((this as any)._root !== root) {
             root.mergeEntityFrom((this as any)._root, this.teaqlEntityKey());
@@ -59,8 +78,28 @@ export class OrderSearchPreset {
     }
 
     toJSON(): Record<string, unknown> {
-        const result = Object.fromEntries(Object.entries(this));
-        return result;
+        return this.teaqlJson(new Set());
+    }
+
+    private static teaqlJsonValue(value: any, active: Set<object>): any {
+        if (value === null || value === undefined) return value;
+        if (typeof value.teaqlJson === "function") return value.teaqlJson(active);
+        if (Array.isArray(value)) return Array.from(value, item => this.teaqlJsonValue(item, active));
+        if (typeof value.toJSON === "function") return value.toJSON();
+        if (typeof value === "object") return Object.fromEntries(Object.entries(value).map(
+            ([key, item]) => [key, this.teaqlJsonValue(item, active)]));
+        return typeof value === "bigint" ? value.toString() : value;
+    }
+
+    private teaqlJson(active: Set<object>): Record<string, unknown> {
+        if (active.has(this)) return { id: this.id, version: this.version };
+        active.add(this);
+        try {
+            // Only enumerable business/query data participates; runtime state is private.
+            const payload = Object.fromEntries(Object.entries(this).filter(([key]) => this.isLoaded(key))
+                .map(([key, value]) => [key, OrderSearchPreset.teaqlJsonValue(value, active)]));
+            return payload;
+        } finally { active.delete(this); }
     }
 
     isLoaded(field: string): boolean {
@@ -108,6 +147,9 @@ export class OrderSearchPreset {
     async save(context: UserContext): Promise<OrderSearchPreset> {
         const intent = new MutationIntent((this as any)._comment);
         this.teaqlValidateLoadedIdentities();
+        if (this.teaqlIsCancelledNew()) throw new CheckException([{ruleId: "invalid_deletion_state",
+            entityType: "OrderSearchPreset", location: ObjectLocation.property("id"),
+            message: "Cannot save a cancelled new root"}]);
         if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
@@ -126,8 +168,25 @@ export class OrderSearchPreset {
         });
     }
 
+    /** @internal Cancellation is admitted only for a real Context-reserved creation. */
+    private teaqlIsCancelledNew(): boolean {
+        const key = this.teaqlEntityKey(), root = (this as any)._root;
+        if ((this as any)._action !== "Delete" || !root.isNew(key) || !root.isDeleted(key)) return false;
+        EntityCreation.requireMutation(this, key, this.id, "Create", root, true);
+        return true;
+    }
+
+    /** @internal Pure pending-state check; nested cancellation is not an implicit cascade. */
+    private teaqlHasPendingGraph(seen = new Set<object>()): boolean {
+        if (seen.has(this)) return false;
+        seen.add(this);
+        let pending = (this as any)._action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        return pending;
+    }
+
     /** @internal Pure provenance pass before resolving any Context resources. */
     private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
         if (seen.has(this)) return false;
         seen.add(this);
         const action = (this as any)._action;
@@ -145,6 +204,7 @@ export class OrderSearchPreset {
 
     /** @internal Cancel known no-ops across the graph before any derived FK edits. */
     private teaqlDiscardRestoredGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (seen.has(this)) return;
         seen.add(this);
         graph.discardRestoredFields(OrderSearchPreset.teaqlMutationFields,
@@ -158,16 +218,19 @@ export class OrderSearchPreset {
         graph.discardRestoredFields(OrderSearchPreset.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "commerce_platform": "CommercePlatform"
+            [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model]: "CommercePlatform"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
             __teaql_load: {fullyLoaded: (this as any)._fullyLoaded, fields: [...(this as any)._loadedFields].sort()},
         }));
+        // Keep omitted nodes in the immutable input review, not in the write plan.
+        if (this.teaqlIsCancelledNew()) return;
     }
 
     /** @internal Whole-input version/completeness pass; does not use Context or Fix. */
     private teaqlAdmitGraph(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
         if (seen.has(this)) return false;
         seen.add(this);
         const action = (this as any)._action;
@@ -178,7 +241,7 @@ export class OrderSearchPreset {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "filterJson", canonical: "filter_json" }, { member: "requestId", canonical: "request_id" }, { member: "ownerUserId", canonical: "owner_user_id" }, { member: "commercePlatform", canonical: "commerce_platform" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: OrderSearchPreset.__teaqlFields.ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.NAME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "OrderSearchPreset", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -189,6 +252,7 @@ export class OrderSearchPreset {
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return;
         seen.add(this);
@@ -197,7 +261,7 @@ export class OrderSearchPreset {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "filterJson", canonical: "filter_json" }, { member: "requestId", canonical: "request_id" }, { member: "ownerUserId", canonical: "owner_user_id" }, { member: "commercePlatform", canonical: "commerce_platform" }, { member: "createTime", canonical: "create_time" }, { member: "updateTime", canonical: "update_time" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: OrderSearchPreset.__teaqlFields.ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.NAME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.model }, { member: OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -224,6 +288,7 @@ export class OrderSearchPreset {
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
     async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<OrderSearchPreset> {
+        if (this.teaqlIsCancelledNew()) { graph.validatePreparedSources(); return this; }
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return this;
         seen.add(this);
@@ -279,7 +344,10 @@ export class OrderSearchPreset {
         });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
-        if (mutation.action !== "Delete") (this as any)._action = "Update";
+        // Normalize the native action before the prepared result captures it.
+        // The ledger keeps pending deletion until commit; rollback restores
+        // rollbackState.action so the same graph can retry every mutation kind.
+        (this as any)._action = "Update";
         graph.acceptPreparedResult((this as any)._root, oldKey, newKey);
         const scope = request.scopeFor(newKey);
         service.afterGraphCommit(() => {
@@ -294,15 +362,15 @@ export class OrderSearchPreset {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "name": this.name,
-            "filter_json": this.filterJson,
-            "request_id": this.requestId,
-            "owner_user_id": this.ownerUserId,
-            "commerce_platform": this.commercePlatform,
-            "create_time": this.createTime,
-            "update_time": this.updateTime,
-            "version": this.version
+            [OrderSearchPreset.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.model]: this.filterJson,
+            [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.model]: this.requestId,
+            [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.model]: this.ownerUserId,
+            [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model]: this.commercePlatform,
+            [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.model]: this.createTime,
+            [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.model]: this.updateTime,
+            [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -312,63 +380,63 @@ export class OrderSearchPreset {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateFilterJson(value: string): this {
         this.filterJson = value;
-        this.markLoaded("filterJson");
-        (this as any)._root.set(this.teaqlEntityKey(), "filter_json", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.model, value);
         return this;
     }
 
     updateRequestId(value: string): this {
         this.requestId = value;
-        this.markLoaded("requestId");
-        (this as any)._root.set(this.teaqlEntityKey(), "request_id", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.model, value);
         return this;
     }
 
     updateOwnerUserId(value: string): this {
         this.ownerUserId = value;
-        this.markLoaded("ownerUserId");
-        (this as any)._root.set(this.teaqlEntityKey(), "owner_user_id", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.model, value);
         return this;
     }
 
     updateCreateTime(value: string): this {
         this.createTime = value;
-        this.markLoaded("createTime");
-        (this as any)._root.set(this.teaqlEntityKey(), "create_time", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.model, value);
         return this;
     }
 
     updateUpdateTime(value: string): this {
         this.updateTime = value;
-        this.markLoaded("updateTime");
-        (this as any)._root.set(this.teaqlEntityKey(), "update_time", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateCommercePlatform(value: any): this {
         this.commercePlatform = value?.id ?? value;
-        this.markLoaded("commercePlatform");
-        (this as any)._root.set(this.teaqlEntityKey(), "commerce_platform", this.commercePlatform);
+        this.markLoaded(OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model, this.commercePlatform);
         return this;
     }
 

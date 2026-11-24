@@ -1,0 +1,81 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/fix-e-alignment",
+  "library": {
+    "generatedFilesManifestSHA256": "0b4797974115b638e7144eb470cc3b08cdffc575ea8345605e8f3b35acabce78",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "a2cf4c907cb084cb0946e993eeba586c8c0701a89fdc4a849808aa743be033b7"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build; not a public release",
+      "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+      "qualificationReceiptSHA256": "5119b9f3a5c95fb84f527885fdd5bac0fe79a56352a55b8acf116f67fd12787d",
+      "sourceCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+      "tag": "unreleased-source-021b1ed8"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/purchase-order-fix-generation/receipt.json",
+    "receiptSHA256": "920c683d71de38e609d2be2c3d8b7f2fb6c014e3b123edd5c4ea694fc6e91a48"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-purchase-order-native-scopes/runtime/fix-e/receipt.json",
+    "businessReceiptSHA256": "3c483b703b28dcb4712b29c6760ab2a0722ff64c7de999cb6ba3e02ade6ac2a6",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-purchase-order-native-scopes/receipt.json",
+    "nativeReceiptSHA256": "384cfb22f7889f47e2f6aa1c6b05d6db9e1599eda2e1d73bb34bee9a80281fd4",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "922a85273c1341b99faa43ec3729c7f7e4c52eb9"
+  },
+  "scene": "Purchase-order Fix, graph edits and precise loaded-state business outcomes",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "verification": [
+    "node",
+    "verify-local.cjs"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "package.json",
+      "jest.showcase.cjs",
+      "tsconfig.showcase.json",
+      "showcase/checker-boundaries-probe.ts",
+      "showcase/checker-metadata-probe.ts",
+      "showcase/concurrent-query-probe.ts",
+      "showcase/context-root-probe.ts",
+      "showcase/creation-identity.test.ts",
+      "showcase/delete-retry.test.ts",
+      "showcase/expression-boundary-probe.ts",
+      "showcase/graph-fix-idempotence.test.ts",
+      "showcase/loading-probe.ts",
+      "showcase/ownership-probe.ts",
+      "showcase/paged-ownership.ts",
+      "showcase/partial-ancestors-probe.ts",
+      "showcase/partial-root-probe.ts",
+      "showcase/unchanged-views-probe.ts",
+      "showcase/verify.test.ts",
+      "src/main.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/OrderItem.ts",
+      "src/generated/models/PurchaseOrder.ts",
+      "src/generated/models/Tenant.ts",
+      "src/generated/requests/OrderItemRequest.ts",
+      "src/generated/requests/PurchaseOrderRequest.ts",
+      "src/generated/requests/TenantRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "63826e77226d6ff1687c221bc5c41f4696b0056fb0c6b8c2b7f3cac181a7b53f",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

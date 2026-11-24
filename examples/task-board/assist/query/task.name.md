@@ -14,7 +14,7 @@ For nullable fields, use known/unknown predicates instead of passing `null`.
 | Equality/set | `withNameIs(value)`, `withNameIsNot(value)`, `withNameIn(...values)`, `withNameNotIn(...values)` |
 | Comparison | `withNameGreaterThan(value)`, `withNameGreaterThanOrEqualTo(value)`, `withNameLessThan(value)`, `withNameLessThanOrEqualTo(value)`, `withNameBetween(lower, upper)` |
 | Null state | `withNameIsKnown()`, `withNameIsUnknown()` |
-| String | `withNameContaining(value)`, `withNameNotContaining(value)`, `withNameStartingWith(value)`, `withNameNotStartingWith(value)`, `withNameEndingWith(value)`, `withNameNotEndingWith(value)`, `withNameSoundingLike(value)` |
+| String | `withNameContaining(value)`, `withNameNotContaining(value)`, `withNameStartingWith(value)`, `withNameEndingWith(value)`, `withNameSoundingLike(value)` |
 | Order | `orderByNameAscending()`, `orderByNameDescending()` |
 | Group | `groupByName()`, `groupByNameAs(alias)` |
 Execution requires `comment(...)`, `purpose(...)`, and exactly one `context`.

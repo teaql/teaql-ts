@@ -3,10 +3,11 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {createOwnedRunner,ownedBytes}=require('../fix-e-alignment/owned-command.cjs');
 const repo=path.resolve(__dirname,'../..'),sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const app=path.join(__dirname,'typescript-app-console'),library=path.join(__dirname,'typescript-node-lib-core');
 function fixture(){
-  const m=JSON.parse(fs.readFileSync(path.join(__dirname,'current-generator-fixture.json')));
+  const m=JSON.parse(fs.readFileSync(path.join(library,'current-generator-fixture.json')));
   assert.equal(sha(fs.readFileSync(path.join(__dirname,'model.xml'))),m.modelSha256);
-  for(const[n,h]of Object.entries(m.files))assert.equal(sha(fs.readFileSync(path.join(__dirname,n))),h,n);
+  for(const[n,h]of Object.entries(m.files))assert.equal(sha(fs.readFileSync(path.join(library,n))),h,n);
   return m;
 }
 async function main(){
@@ -17,7 +18,7 @@ async function main(){
     scratch=fs.mkdtempSync(path.join(os.tmpdir(),'teaql-ts-managed-example-'));runner=createOwnedRunner();const before=fixture();r.modelSha256=before.modelSha256;
     const config=path.join(scratch,'jest.cjs'),tsconfig=path.join(scratch,'tsconfig.json');
     fs.writeFileSync(tsconfig,JSON.stringify({extends:path.join(repo,'tsconfig.json'),compilerOptions:{baseUrl:repo,types:['node','jest'],typeRoots:[path.join(repo,'node_modules/@types')],lib:['ES2022','DOM'],paths:{'teaql-ts':[path.join(repo,'src/index.ts')],'teaql-ts/*':[path.join(repo,'src/*')]}}}));
-    fs.writeFileSync(config,'module.exports='+JSON.stringify({rootDir:repo,roots:[__dirname],testEnvironment:'node',testTimeout:30000,testMatch:[__dirname+'/managed-*.test.ts'],moduleNameMapper:{'^teaql-ts$':repo+'/src/index.ts','^teaql-ts/(.*)$':repo+'/src/$1'},transform:{'^.+\\.tsx?$':['ts-jest',{tsconfig}]}})+';\n');
+    fs.writeFileSync(config,'module.exports='+JSON.stringify({rootDir:repo,roots:[app],testEnvironment:'node',testTimeout:30000,testMatch:[app+'/managed-*.test.ts'],moduleNameMapper:{'^teaql-ts$':repo+'/src/index.ts','^teaql-ts/(.*)$':repo+'/src/$1'},transform:{'^.+\\.tsx?$':['ts-jest',{tsconfig}]}})+';\n');
     for(const round of [1,2]){
       const results=path.join(output,'round-'+round+'.json'),log=path.join(output,'round-'+round+'.log'),fd=fs.openSync(log,'wx');let q;
       const command=[process.execPath,path.join(repo,'node_modules/jest/bin/jest.js'),'--config',config,'--runInBand','--no-cache','--json','--outputFile',results];

@@ -1,0 +1,64 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/object-storage",
+  "library": {
+    "generatedFilesManifestSHA256": "a58557d0f00af2ab0c779f1d75e50b1cfdcc3aa1e2627671112c8ad5651b4a43",
+    "root": "typescript-lib-core",
+    "scope": "typescript-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "1e35ffb88509f292b75620d82996bbc50868c61fd34716f8be010dff7280eafc"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "029f602cf0e2de4ec0910495c340fbeb41f11772b6aca875569f498811158e7d",
+      "qualificationReceiptSHA256": "1012520de60d49cfc1e45c7e08fcf204dd2db36a163909e1e36752065a31047a",
+      "sourceCommit": "99d6bde2351d79b7d8b1b1c5cbc78c5dc777b6f2",
+      "tag": "unreleased-source-99d6bde2"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/order-attachment-generation/receipt.json",
+    "receiptSHA256": "715bd8f8f61f6ecd96611db1121cb54ce40d72f533b23289c5919e92de0cd95e"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-attachment-native/runtime/object-storage/receipt.json",
+    "businessReceiptSHA256": "78487c187a6b6537a6eb58df965675452525257c763111f75a243bdaaa8362c1",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-attachment-native/receipt.json",
+    "nativeReceiptSHA256": "cab6df01589bdee1b9c5b53c4e3360cb4847f419e2021995811c7ee1f3d9908c",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "e02a0177688862e9b606d88e15825203714397c8"
+  },
+  "scene": "Store and retrieve an order receipt through a trusted provider",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "verification": [
+    "bash",
+    "examples/object-storage/verify.sh"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "package.json",
+      "package-lock.json",
+      "src/main.ts",
+      "src/teaql-node-sqlite.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/CommercePlatform.ts",
+      "src/generated/models/CustomerOrder.ts",
+      "src/generated/models/OrderAttachment.ts",
+      "src/generated/requests/CommercePlatformRequest.ts",
+      "src/generated/requests/CustomerOrderRequest.ts",
+      "src/generated/requests/OrderAttachmentRequest.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "21dcf941444e9b0d1d4cac08c42e057098b9692867590d9d4f2340e41e9e7759",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console",
+    "usePortableTypeScriptModule": true
+  }
+}

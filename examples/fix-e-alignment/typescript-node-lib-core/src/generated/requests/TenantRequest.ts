@@ -1,0 +1,797 @@
+import { EntityRoot, SelectQuery, SmartList, TeaQLDataService, UserContext, executeRelationFacets } from '../../teaql-ts';
+import { Tenant } from '../models/Tenant';
+import { mergeGeneratedScalarSearch, DynamicSearchWarning, QueryIntent } from 'teaql-ts';
+import type { Decimal, Long, LocalTime } from 'teaql-ts';
+import { GENERATED_SEARCH_MODELS } from '../../generated-search-models';
+
+
+
+export class TenantRequest {
+    private query: SelectQuery;
+    private filters: any[] = [];
+    private _purpose: string | undefined;
+    private _comment: string | undefined;
+    private _pageCountAlias: string | undefined;
+    private _pageCountMethod: "count" | "countAs" | undefined;
+    private _dynamicSearchWarnings: DynamicSearchWarning[] = [];
+
+    constructor(minimal = false) {
+        this.query = new SelectQuery("Tenant");
+        this.filters.push({ version: { "$gte": 1 } });
+        if (minimal) {
+            this.selectId();
+            this.selectVersion();
+        }
+        else this.selectSelfFields();
+    }
+
+    get entityName(): "Tenant" {
+        return "Tenant";
+    }
+
+    comment(c: string): this {
+        this.query.comment(c);
+        this._comment = c;
+        return this;
+    }
+
+    filterByJson(source: unknown, warn?: (warning: DynamicSearchWarning) => void): this {
+        const base = this.query.clone();
+        if (this.filters.length > 0) base.filter({ "$and": this.filters });
+        const merged = mergeGeneratedScalarSearch(base, source, GENERATED_SEARCH_MODELS, warn);
+        this.query = merged.query as SelectQuery;
+        this.filters = this.query.filterCondition ? [this.query.filterCondition] : [];
+        this._dynamicSearchWarnings.push(...merged.warnings);
+        return this;
+    }
+
+    get dynamicSearchWarnings(): readonly DynamicSearchWarning[] {
+        return this._dynamicSearchWarnings.map(warning => ({ ...warning }));
+    }
+
+    purpose(p: string): ExecutableTenantRequest {
+        this.query.purpose(p);
+        this._purpose = p;
+        return new ExecutableTenantRequest(
+            (context) => context.withQueryRequest(this.query, () => this.executeForListInternal(context)),
+            (context) => context.withQueryRequest(this.query, () => this.executeForRowsInternal(context)),
+            (context, chunkSize) => this.executeForStreamInternal(context, chunkSize),
+            () => this.limit(1),
+            (c) => this.comment(c),
+            () => this.ensureIntent());
+    }
+
+    optimizeForContinuousPageFetch(): this {
+        this.query.optimizeForContinuousPageFetch();
+        return this;
+    }
+
+    optimizeForContinuousPageFetchWith(namespace: string, ttlSeconds: number): this {
+        this.query.optimizeForContinuousPageFetchWith(namespace, ttlSeconds);
+        return this;
+    }
+
+    optimizePaginationWithIdSet(): this {
+        this.query.optimizePaginationWithIdSet();
+        return this;
+    }
+
+    optimizePaginationWithIdSetConfig(namespace: string, ttlSeconds: number, maxIds: number): this {
+        this.query.optimizePaginationWithIdSetConfig(namespace, ttlSeconds, maxIds);
+        return this;
+    }
+
+    topNProbeParentThreshold(threshold: number): this {
+        this.query.topNProbeParentThreshold(threshold);
+        return this;
+    }
+
+    limit(n: number): this {
+        this.query.limit(n);
+        return this;
+    }
+
+    offset(n: number): this {
+        this.query.offset(n);
+        return this;
+    }
+
+    toQuery(): SelectQuery {
+        if (this.filters.length > 0) {
+            this.query.filter({ "$and": this.filters });
+        }
+        return this.query;
+    }
+
+    withDeletedRows(): this {
+        this.query.withDeletedRows();
+        this.filters = this.filters.filter(filter => !("version" in filter));
+        return this;
+    }
+
+    deletedRowsOnly(): this {
+        this.withDeletedRows();
+        this.query.deletedRowsOnly();
+        this.filters.push({ version: { "$lte": -1 } });
+        return this;
+    }
+
+    selectSelfFields(): this {
+        this.query.select([Tenant.__teaqlFields.ID_PROPERTY.member, Tenant.__teaqlFields.NAME_PROPERTY.member, Tenant.__teaqlFields.VERSION_PROPERTY.member]);
+        return this;
+    }
+
+    selectId(): this {
+        this.query.select([Tenant.__teaqlFields.ID_PROPERTY.member]);
+        return this;
+    }
+
+    selectName(): this {
+        this.query.select([Tenant.__teaqlFields.NAME_PROPERTY.member]);
+        return this;
+    }
+
+    selectVersion(): this {
+        this.query.select([Tenant.__teaqlFields.VERSION_PROPERTY.member]);
+        return this;
+    }
+
+
+
+
+    selectPurchaseOrderListWith(request: { readonly entityName: "PurchaseOrder"; toQuery(): SelectQuery }): this {
+        this.query.relationQuery(
+            "purchaseOrderList", request.toQuery(), "id", "tenant", true,
+            { kind: "relation-select", method: "selectPurchaseOrderListWith", relation: "purchaseOrderList" });
+        return this;
+    }
+    selectOrderItemListWith(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        this.query.relationQuery(
+            "orderItemList", request.toQuery(), "id", "tenant", true,
+            { kind: "relation-select", method: "selectOrderItemListWith", relation: "orderItemList" });
+        return this;
+    }
+
+    havePurchaseOrders(): this {
+        return this.withPurchaseOrderListMatching({
+            entityName: "PurchaseOrder",
+            toQuery: () => new SelectQuery("PurchaseOrder"),
+        });
+    }
+
+    haveNoPurchaseOrders(): this {
+        return this.withoutPurchaseOrderListMatching({
+            entityName: "PurchaseOrder",
+            toQuery: () => new SelectQuery("PurchaseOrder"),
+        });
+    }
+
+    withPurchaseOrderListMatching(request: { readonly entityName: "PurchaseOrder"; toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$inSubquery": {
+                    query: request.toQuery(), field: "tenant",
+                },
+            },
+        });
+        return this;
+    }
+
+    withoutPurchaseOrderListMatching(request: { readonly entityName: "PurchaseOrder"; toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$notInSubquery": {
+                    query: request.toQuery(), field: "tenant",
+                },
+            },
+        });
+        return this;
+    }
+    haveOrderItems(): this {
+        return this.withOrderItemListMatching({
+            entityName: "OrderItem",
+            toQuery: () => new SelectQuery("OrderItem"),
+        });
+    }
+
+    haveNoOrderItems(): this {
+        return this.withoutOrderItemListMatching({
+            entityName: "OrderItem",
+            toQuery: () => new SelectQuery("OrderItem"),
+        });
+    }
+
+    withOrderItemListMatching(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$inSubquery": {
+                    query: request.toQuery(), field: "tenant",
+                },
+            },
+        });
+        return this;
+    }
+
+    withoutOrderItemListMatching(request: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        this.filters.push({
+            "id": {
+                "$notInSubquery": {
+                    query: request.toQuery(), field: "tenant",
+                },
+            },
+        });
+        return this;
+    }
+
+    countPurchaseOrders(): this {
+        return this.countPurchaseOrdersAs("countPurchaseOrders");
+    }
+
+    countPurchaseOrdersAs(alias: string): this {
+        const query = new SelectQuery("PurchaseOrder").filter({ version: { "$gte": 1 } });
+        this.countPurchaseOrdersWith(alias, { entityName: "PurchaseOrder", toQuery: () => query });
+        this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
+            kind: "relation-count", method: "countPurchaseOrdersAs", relation: "purchaseOrderList", alias };
+        return this;
+    }
+
+    countPurchaseOrdersWith(alias: string, child: { readonly entityName: "PurchaseOrder"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("Count", "id", alias);
+        this.query.relationAggregate("purchaseOrderList", alias, query, true,
+            { kind: "relation-count", method: "countPurchaseOrdersWith", relation: "purchaseOrderList", alias });
+        return this;
+    }
+
+
+    countOrderItems(): this {
+        return this.countOrderItemsAs("countOrderItems");
+    }
+
+    countOrderItemsAs(alias: string): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        this.countOrderItemsWith(alias, { entityName: "OrderItem", toQuery: () => query });
+        this.query.relationAggregates[this.query.relationAggregates.length - 1].operation = {
+            kind: "relation-count", method: "countOrderItemsAs", relation: "orderItemList", alias };
+        return this;
+    }
+
+    countOrderItemsWith(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("Count", "id", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "relation-count", method: "countOrderItemsWith", relation: "orderItemList", alias });
+        return this;
+    }
+
+    minUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.minUnitPriceOfOrderItemsAs(
+            "minOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    minUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("min", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "minUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+    maxUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.maxUnitPriceOfOrderItemsAs(
+            "maxOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    maxUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("max", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "maxUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+    sumUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.sumUnitPriceOfOrderItemsAs(
+            "sumOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    sumUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("sum", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "sumUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+    avgUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.avgUnitPriceOfOrderItemsAs(
+            "avgOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    avgUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("avg", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "avgUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+    standardDeviationUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.standardDeviationUnitPriceOfOrderItemsAs(
+            "standardDeviationOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    standardDeviationUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("stddev", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "standardDeviationUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+    squareRootOfPopulationStandardDeviationUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.squareRootOfPopulationStandardDeviationUnitPriceOfOrderItemsAs(
+            "squareRootOfPopulationStandardDeviationOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    squareRootOfPopulationStandardDeviationUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("stddev_pop", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "squareRootOfPopulationStandardDeviationUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+    sampleVarianceUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.sampleVarianceUnitPriceOfOrderItemsAs(
+            "sampleVarianceOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    sampleVarianceUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("var_samp", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "sampleVarianceUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+    samplePopulationVarianceUnitPriceOfOrderItems(): this {
+        const query = new SelectQuery("OrderItem").filter({ version: { "$gte": 1 } });
+        return this.samplePopulationVarianceUnitPriceOfOrderItemsAs(
+            "samplePopulationVarianceOfUnitPriceOfOrderItems", { entityName: "OrderItem", toQuery: () => query });
+    }
+
+    samplePopulationVarianceUnitPriceOfOrderItemsAs(alias: string, child: { readonly entityName: "OrderItem"; toQuery(): SelectQuery }): this {
+        const query = child.toQuery().clone();
+        query.aggregateItems = [];
+        query.aggregate("var_pop", "unitPrice", alias);
+        this.query.relationAggregate("orderItemList", alias, query, true,
+            { kind: "aggregate", method: "samplePopulationVarianceUnitPriceOfOrderItemsAs", relation: "orderItemList", alias });
+        return this;
+    }
+
+        withIdIs(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
+            return this;
+        }
+
+        withIdIsNot(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
+            return this;
+        }
+
+        withIdIn(...vals: string[]): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
+            return this;
+        }
+
+        withIdNotIn(...vals: string[]): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
+            return this;
+        }
+
+        withIdGreaterThan(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
+            return this;
+        }
+
+        withIdGreaterThanOrEqualTo(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
+            return this;
+        }
+
+        withIdLessThan(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
+            return this;
+        }
+
+        withIdLessThanOrEqualTo(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
+            return this;
+        }
+
+        withIdBetween(lower: string, upper: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withIdIsKnown(): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
+            return this;
+        }
+
+        withIdIsUnknown(): this {
+            this.filters.push({ [Tenant.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
+            return this;
+        }
+
+        withNameContaining(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$contains": val } });
+            return this;
+        }
+
+        withNameIs(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$eq": val } });
+            return this;
+        }
+
+        withNameIsNot(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$ne": val } });
+            return this;
+        }
+
+        withNameIn(...vals: string[]): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$in": vals } });
+            return this;
+        }
+
+        withNameNotIn(...vals: string[]): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$notIn": vals } });
+            return this;
+        }
+
+        withNameGreaterThan(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$gt": val } });
+            return this;
+        }
+
+        withNameGreaterThanOrEqualTo(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$gte": val } });
+            return this;
+        }
+
+        withNameLessThan(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$lt": val } });
+            return this;
+        }
+
+        withNameLessThanOrEqualTo(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$lte": val } });
+            return this;
+        }
+
+        withNameBetween(lower: string, upper: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withNameIsKnown(): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$isNull": false } });
+            return this;
+        }
+
+        withNameIsUnknown(): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$isNull": true } });
+            return this;
+        }
+        withNameNotContaining(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$notContains": val } });
+            return this;
+        }
+
+        withNameStartingWith(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$startsWith": val } });
+            return this;
+        }
+
+        withNameNotStartingWith(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$notStartsWith": val } });
+            return this;
+        }
+
+        withNameEndingWith(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$endsWith": val } });
+            return this;
+        }
+
+        withNameNotEndingWith(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$notEndsWith": val } });
+            return this;
+        }
+
+        withNameSoundingLike(val: string): this {
+            this.filters.push({ [Tenant.__teaqlFields.NAME_PROPERTY.member]: { "$soundLike": val } });
+            return this;
+        }
+
+        withVersionIs(val: unknown): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
+            return this;
+        }
+
+        withVersionIsNot(val: unknown): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
+            return this;
+        }
+
+        withVersionIn(...vals: unknown[]): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
+            return this;
+        }
+
+        withVersionNotIn(...vals: unknown[]): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
+            return this;
+        }
+
+        withVersionGreaterThan(val: unknown): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
+            return this;
+        }
+
+        withVersionGreaterThanOrEqualTo(val: unknown): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
+            return this;
+        }
+
+        withVersionLessThan(val: unknown): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
+            return this;
+        }
+
+        withVersionLessThanOrEqualTo(val: unknown): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
+            return this;
+        }
+
+        withVersionBetween(lower: unknown, upper: unknown): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
+            return this;
+        }
+
+        withVersionIsKnown(): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
+            return this;
+        }
+
+        withVersionIsUnknown(): this {
+            this.filters.push({ [Tenant.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
+            return this;
+        }
+
+    orderByIdAscending(): this {
+        this.query.orderBy(Tenant.__teaqlFields.ID_PROPERTY.member, "asc");
+        return this;
+    }
+
+    orderByIdDescending(): this {
+        this.query.orderBy(Tenant.__teaqlFields.ID_PROPERTY.member, "desc");
+        return this;
+    }
+
+    orderByNameAscending(): this {
+        this.query.orderBy(Tenant.__teaqlFields.NAME_PROPERTY.member, "asc");
+        return this;
+    }
+
+    orderByNameDescending(): this {
+        this.query.orderBy(Tenant.__teaqlFields.NAME_PROPERTY.member, "desc");
+        return this;
+    }
+
+    orderByVersionAscending(): this {
+        this.query.orderBy(Tenant.__teaqlFields.VERSION_PROPERTY.member, "asc");
+        return this;
+    }
+
+    orderByVersionDescending(): this {
+        this.query.orderBy(Tenant.__teaqlFields.VERSION_PROPERTY.member, "desc");
+        return this;
+    }
+
+
+    // --- Aggregations ---
+    count(): this {
+        this.query.aggregate("Count", "id", "count");
+        this._pageCountAlias = "count";
+        this._pageCountMethod = "count";
+        return this;
+    }
+
+    countAs(retName: string): this {
+        this.query.aggregate("Count", "id", retName);
+        this._pageCountAlias = retName;
+        this._pageCountMethod = "countAs";
+        return this;
+    }
+
+
+    // --- Group By ---
+    groupById(): this {
+        this.query.groupBy(Tenant.__teaqlFields.ID_PROPERTY.member);
+        return this;
+    }
+
+    groupByIdAs(retName: string): this {
+        this.query.groupBy(Tenant.__teaqlFields.ID_PROPERTY.member, retName);
+        return this;
+    }
+    groupByName(): this {
+        this.query.groupBy(Tenant.__teaqlFields.NAME_PROPERTY.member);
+        return this;
+    }
+
+    groupByNameAs(retName: string): this {
+        this.query.groupBy(Tenant.__teaqlFields.NAME_PROPERTY.member, retName);
+        return this;
+    }
+    groupByVersion(): this {
+        this.query.groupBy(Tenant.__teaqlFields.VERSION_PROPERTY.member);
+        return this;
+    }
+
+    groupByVersionAs(retName: string): this {
+        this.query.groupBy(Tenant.__teaqlFields.VERSION_PROPERTY.member, retName);
+        return this;
+    }
+
+    // --- Facets ---
+
+    private async executeForListInternal(context: UserContext): Promise<SmartList<Tenant>> {
+        this.ensureIntent();
+        if (this.query.groupByItems.length > 0) throw new Error("Grouped projections require executeForRows");
+        if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
+        if (this.filters.length > 0) {
+            this.query.filter({ "$and": this.filters });
+        }
+
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        const rows = await service.executeQuery(context.prepareQuery(this.query));
+        const aggregateOnly = this.query.aggregateItems.length > 0 && this.query.groupByItems.length === 0;
+        const data = aggregateOnly ? [] : rows.map((row: unknown) =>
+            row instanceof Tenant
+                ? row
+                : Tenant.fromRecord(row as Record<string, unknown>, new EntityRoot()));
+        const result = new SmartList<Tenant>(data);
+        if (aggregateOnly && rows[0]) Object.assign(result.aggregations, rows[0]);
+
+        if (this.query.facets.length > 0) {
+            result.facets = await executeRelationFacets(
+                service, (query: any) => context.prepareQuery(query), this.query, this.query.facets);
+        }
+
+        return result;
+    }
+
+    private async executeForRowsInternal(context: UserContext): Promise<SmartList<Record<string, unknown>>> {
+        this.ensureIntent();
+        if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        return new SmartList<Record<string, unknown>>(
+            await service.executeQuery(context.prepareQuery(this.query)) as Record<string, unknown>[]);
+    }
+
+    private async executeCountedListInternal(
+        context: UserContext,
+    ): Promise<SmartList<Tenant>> {
+        this.ensureIntent();
+        if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        const preparedQuery = context.prepareQuery(this.query);
+        const useIdSet = preparedQuery.localIdSetPaginationOptions() !== undefined;
+        const countOperation = { kind: "named-count" as const,
+            method: this._pageCountMethod ?? "count",
+            ...(this._pageCountMethod === "countAs" ? { alias: this._pageCountAlias } : {}) };
+        const totalCountBeforeRows = useIdSet ? undefined : await service.executeCount(
+            preparedQuery, this._pageCountAlias, countOperation);
+        const pageQuery = preparedQuery.clone();
+        // A page count describes the full filtered set, not an aggregate-only page row.
+        pageQuery.aggregateItems = pageQuery.aggregateItems.filter(item =>
+            !(String(item.function).toLowerCase() === "count" && item.alias === this._pageCountAlias));
+        const rows = await service.executeQuery(pageQuery);
+        const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
+            ? context.idSetPaginationCount!
+            : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
+        const aggregateOnly = pageQuery.aggregateItems.length > 0;
+        const data = new SmartList<Tenant>(aggregateOnly ? [] : rows.map((row: unknown) =>
+            row instanceof Tenant
+                ? row
+                : Tenant.fromRecord(row as Record<string, unknown>, new EntityRoot())));
+        if (aggregateOnly && rows[0]) Object.assign(data.aggregations, rows[0]);
+        data.totalCount = totalCount;
+        if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
+        if (this.query.facets.length > 0) {
+            data.facets = await executeRelationFacets(
+                service, (query: any) => context.prepareQuery(query), preparedQuery, preparedQuery.facets);
+        }
+        return data;
+    }
+
+    private executeForStreamInternal(context: UserContext, chunkSize: number): AsyncIterable<Tenant> {
+        this.ensureIntent();
+        if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
+        const service = context.requireResource<TeaQLDataService>("dataService");
+        const preparedQuery = context.prepareQuery(this.query);
+        if (preparedQuery.aggregateItems.length > 0 || preparedQuery.groupByItems.length > 0) {
+            throw new Error("Entity streams require entity rows; use a record or aggregation query");
+        }
+        // Prepare Context and capture the runtime request before returning a lazy iterator.
+        const chunks = service.executeForStream(preparedQuery, chunkSize);
+        return (async function* () {
+            for await (const chunk of chunks) {
+                for (const entity of chunk) {
+                    yield entity instanceof Tenant
+                        ? entity
+                        : Tenant.fromRecord(entity as Record<string, unknown>, new EntityRoot());
+                }
+            }
+        })();
+    }
+
+    private ensureIntent(): void {
+        // Runtime owns validation, Unicode whitespace rules and typed diagnostics.
+        new QueryIntent(this._comment, this._purpose);
+    }
+
+}
+
+export class ExecutableTenantRequest {
+    constructor(
+        private readonly execute: (context: UserContext) => Promise<SmartList<Tenant>>,
+        private readonly executeRows: (context: UserContext) => Promise<SmartList<Record<string, unknown>>>,
+        private readonly stream: (context: UserContext, chunkSize: number) => AsyncIterable<Tenant>,
+        private readonly limitOne: () => void,
+        private readonly addComment: (comment: string) => void,
+        private readonly ensureIntent: () => void,
+    ) {}
+
+    comment(c: string): this {
+        this.addComment(c);
+        return this;
+    }
+
+    async newEntity(context: UserContext): Promise<Tenant> {
+        this.ensureIntent();
+        if (!(context instanceof UserContext)) throw new TypeError("UserContext is required for creation");
+        return Tenant.teaqlCreate(context);
+    }
+
+    executeForList(context: UserContext): Promise<SmartList<Tenant>> {
+        this.ensureIntent();
+        return this.execute(context);
+    }
+
+    executeForRows(context: UserContext): Promise<SmartList<Record<string, unknown>>> {
+        this.ensureIntent();
+        return this.executeRows(context);
+    }
+
+    executeForStream(context: UserContext, chunkSize = 1000): AsyncIterable<Tenant> {
+        this.ensureIntent();
+        return this.stream(context, chunkSize);
+    }
+
+    async executeForOne(context: UserContext): Promise<Tenant | undefined> {
+        this.limitOne();
+        return (await this.executeForList(context))[0];
+    }
+}

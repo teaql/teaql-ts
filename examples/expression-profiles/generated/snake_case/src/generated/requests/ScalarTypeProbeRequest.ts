@@ -2940,6 +2940,7 @@ export class ScalarTypeProbeRequest {
 
     private async executeForListInternal(context: UserContext): Promise<SmartList<ScalarTypeProbe>> {
         this.ensureIntent();
+        if (this.query.groupByItems.length > 0) throw new Error("Grouped projections require executeForRows");
         if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
         if (this.filters.length > 0) {
             this.query.filter({ "$and": this.filters });
@@ -2992,10 +2993,12 @@ export class ScalarTypeProbeRequest {
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
             : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
-        const data = new SmartList(rows.map((row: unknown) =>
+        const aggregateOnly = pageQuery.aggregateItems.length > 0;
+        const data = new SmartList<ScalarTypeProbe>(aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof ScalarTypeProbe
                 ? row
                 : ScalarTypeProbe.fromRecord(row as Record<string, unknown>, new EntityRoot())));
+        if (aggregateOnly && rows[0]) Object.assign(data.aggregations, rows[0]);
         data.totalCount = totalCount;
         if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
         if (this.query.facets.length > 0) {
@@ -3010,6 +3013,9 @@ export class ScalarTypeProbeRequest {
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
         const preparedQuery = context.prepareQuery(this.query);
+        if (preparedQuery.aggregateItems.length > 0 || preparedQuery.groupByItems.length > 0) {
+            throw new Error("Entity streams require entity rows; use a record or aggregation query");
+        }
         // Prepare Context and capture the runtime request before returning a lazy iterator.
         const chunks = service.executeForStream(preparedQuery, chunkSize);
         return (async function* () {

@@ -1,0 +1,24 @@
+{
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "teaql-ts": "file:../../.."
+  },
+  "description": "Generated typescript library",
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "src/generated/Q.ts",
+  "name": "runtime-example-conformance-service-console",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "ts-node src/main.ts",
+    "test:managed": "node ../verify-managed.cjs"
+  },
+  "version": "1.0.0"
+}

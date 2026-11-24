@@ -3,6 +3,26 @@
 Tracking: [TypeScript #53](https://github.com/teaql/teaql-ts/issues/53),
 [shared contract #122](https://github.com/teaql/teaql-conformance/issues/122).
 
+
+## File an order receipt
+
+`model.xml` defines the commerce platform, order and attachment. The
+`typescript-app-console` uses the generated domain model and installs the S3 provider
+in trusted Context setup. It uploads a receipt, saves the order association
+with generated mutations, then uses generated Q and E to recover the
+reference and check the downloaded bytes, content type and SHA-256.
+
+Run `bash examples/object-storage/verify.sh` with the dedicated fixture settings
+below. The script preserves the provider and lifecycle checks and runs the
+order scenario twice against one SQLite file. A create-only conflict and a
+too-small read limit leave the receipt intact. After the example removes its
+own test object, a fresh get reports missing while the order association
+remains available. Downloaded fixture bytes, SQLite and compact logs stay in
+the evidence directory. Set `TEAQL_ORDER_ATTACHMENT_EVIDENCE_DIR` to select a
+fresh output path.
+
+## Provider setup
+
 Core exports contain portable typed values and asynchronous byte-stream contracts.
 The optional server-only `@teaql/teaql/object-storage/s3` entry requires the pinned
 `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` peers (3.1151.0), Node 20+,

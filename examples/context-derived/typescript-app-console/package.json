@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "teaql-ts": "npm:@teaql/teaql@0.6.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "name": "context-fix-service-console",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "ts-node src/main.ts",
+    "test:showcase": "node ../verify-local.cjs"
+  },
+  "version": "1.0.0"
+}

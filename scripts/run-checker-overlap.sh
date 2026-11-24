@@ -13,7 +13,7 @@ fi
 marker='PASS TypeScript generated Checker overlap: 4 scenarios; real Required rejection, no rejected commands/business SQL/audit; transactions serialized'
 
 if (
-  cd "$repo/examples/trace-chain"
+  cd "$repo/examples/trace-chain/typescript-app-console"
   timeout --kill-after=5s "${seconds}s" env -u TEAQL_ALLOW_SENSITIVE_PLAINTEXT_LOGS \
     npm run test:checker-overlap
 ) > "$log" 2>&1; then

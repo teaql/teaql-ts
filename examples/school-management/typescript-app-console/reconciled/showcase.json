@@ -1,0 +1,59 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/school-management",
+  "library": {
+    "generatedFilesManifestSHA256": "df8e9ed7f70b52c690c380dece11a6d29fceee89dd25f6cd7864aa2bac1de0e4",
+    "root": "typescript-lib-core",
+    "scope": "typescript-lib-core"
+  },
+  "model": {
+    "path": "../../model-reconciled.xml",
+    "sha256": "896c579f3c9dded55c9728cb4af23cc8b920776e93ddcb95c8b0e95efdbcb451"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build; not a public release",
+      "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+      "qualificationReceiptSHA256": "5119b9f3a5c95fb84f527885fdd5bac0fe79a56352a55b8acf116f67fd12787d",
+      "sourceCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+      "tag": "unreleased-source-021b1ed8"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/school-reconciled-generation/receipt.json",
+    "receiptSHA256": "ad090498790fe42ed489b7ef88128be5a99328b708ad290d30013e576d9f8e65"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/runtime/school-management/business-receipt.json",
+    "businessReceiptSHA256": "b10b6ab75c47654f6eb0ae2c6b0fe64495247cf3ea21aa5b7df0280357e58ebd",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/receipt.json",
+    "nativeReceiptSHA256": "9525ac96dd9c19e0eedf62252c4fa0541cb9a95ceeb328df5b7aba98cbf330e3",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "2bb127991d587a14aca8483a0e44054a55db686c"
+  },
+  "scene": "School constant reconciliation",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "usedBy": "Parent typescript-app-console application and file-bootstrap tests",
+  "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts",
+      "src/teaql-node-sqlite.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/School.ts",
+      "src/generated/models/SchoolType.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/SchoolRequest.ts",
+      "src/generated/requests/SchoolTypeRequest.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "3deb03e397c229190cdc0653c669b6a125f775b8f9fba077294d46ceb0aa106c",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console",
+    "usePortableTypeScriptModule": true
+  }
+}

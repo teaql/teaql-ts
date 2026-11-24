@@ -1,24 +1,20 @@
-# Ensure Schema Bootstrap
+# Start a district school catalog
 
-This is the smallest executable TypeScript example of TeaQL's explicit schema
-and system-bootstrap contract.
+Installing the generated module registers metadata. The install-only entry
+opens an empty SQLite database and verifies that installation issues no SQL.
+Explicit schema setup then creates the default district and two school types.
+A second ensure preserves their identities and versions. The generated Q APIs
+allocate an additional district and register a school under that root.
+Reopening the same database reuses both records.
 
-It proves that:
+- `model.xml` models the districts, school types and school.
+- `typescript-node-lib-core/` holds the generated Node domain library.
+- `typescript-app-console/src/main.ts` runs the generated workspace.
+- `typescript-app-console/calibration/main.ts` retains the original
+  manual bootstrap probe.
 
-- installing a `RuntimeModule` is passive;
-- explicit `ensureSchema()` creates the Default Domain Root `Platform(1)`;
-- the same call creates or reconciles generated constants;
-- a second call is idempotent;
-- an additional Platform is allocated without a hard-coded ID and becomes an
-  Isolated Domain Root for another Data Graph.
-
-The bootstrap manifest in `app.ts` stands in for generated metadata. Ordinary
-sample business data does not belong in this manifest.
-
-```bash
-npm install
-npm start
-npm start # demonstrates restart idempotency
-```
-
-The SQLite database is written to `.local/bootstrap.sqlite`.
+Run `npm ci` and `npm run build` in this directory. Set
+`TEAQL_SCHEMA_BOOTSTRAP_DB` to a writable SQLite file and use `npm start`.
+Set `TEAQL_SCHEMA_BOOTSTRAP_INSTALL_ONLY=1` for the installation-only phase.
+The focused gate independently verifies the SQLite table inventory before
+ensure and all persisted rows after both launches.

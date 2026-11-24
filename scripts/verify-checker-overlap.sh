@@ -12,7 +12,7 @@ export TEAQL_TRACE_CHAIN_CHECKER_DB="$database"
 # file: dependencies execute dist. Rebuild without installing packages or
 # resetting data, then replay both modes/orderings against one retained DB.
 (cd "$repo" && npm run build) > "$evidence/runtime-build.log" 2>&1
-(cd "$repo/examples/trace-chain" && npm run build) > "$evidence/app-build.log" 2>&1
+(cd "$repo/examples/trace-chain/typescript-app-console" && npm run build) > "$evidence/app-build.log" 2>&1
 for attempt in 1 2; do
   TEAQL_TRACE_CHAIN_CHECKER_RUN="attempt-$attempt" \
     bash "$repo/scripts/run-checker-overlap.sh" "$evidence/attempt-$attempt.log"

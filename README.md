@@ -71,7 +71,7 @@ own TypeScript APIs.
 These application-code excerpts assume the example's generated imports, trusted
 Context and an existing object identity. `Q` and `E` belong to the generated
 domain library, not a generic runtime object with arbitrary field strings.
-See the [application source](examples/school-management/app.ts) for complete setup.
+See the [application source](examples/school-management/typescript-app-console/app.ts) for complete setup.
 
 ```typescript
 const schoolTypeDetails = Q.schoolTypesWithMinimalFields().selectName().selectCode();
@@ -291,7 +291,7 @@ requirement does not apply to browser SQLite/WASM or Expo SQLite, and does not
 raise the runtime core's Node requirement for unrelated providers.
 
 ```bash
-cd examples/school-management
+cd examples/school-management/typescript-app-console
 npm install
 npx ts-node app.ts
 ```

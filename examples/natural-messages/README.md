@@ -20,7 +20,7 @@ Source snapshots exclude only the rebuilt `dist/` tree. Missing actual source,
 source symlinks and symlink ancestors still fail the gate; three focused tests
 check that boundary before dependency installation.
 
-The complete unedited Catalog/Entry library in `fixture/` is produced by
+The complete unedited Catalog/Entry library in `typescript-node-lib-core/` is produced by
 `TypescriptNaturalMessagesGenerationTest`. The model supplies Chinese labels and
 classifies `name` as sensitive. Its generated module installs immutable message
 descriptors automatically; no presentation model is installed by the application
@@ -43,3 +43,23 @@ The runtime renderer is browser-safe and has no Node-only context-local dependen
 
 Tracking: [teaql-ts #65](https://github.com/teaql/teaql-ts/issues/65),
 [conformance #244](https://github.com/teaql/teaql-conformance/issues/244).
+
+## Current model and workspace
+
+`model.xml` defines the Catalog and Entry business graph. The exact generated
+domain library is read-only in `typescript-node-lib-core/`; its current provenance points to
+the qualified generator source build, with the prior generation identity retained
+separately in its metadata. The application lives in `typescript-app-console/showcase/verify.test.ts`.
+
+Run this focused business entry from the SDK repository root:
+
+```bash
+node examples/natural-messages/verify-local.cjs
+```
+
+The same graph is rejected before writes for an invalid second Entry, then
+corrected and saved through generated Q/E and audited Save. Two runs check
+actual stored values, precise machine locations, English/Chinese messages and
+private-value redaction. Language-specific native length rules remain intact.
+The verifier preserves result stores and compact receipts and removes owned
+build outputs. Full runtime example qualification remains a separate gate.

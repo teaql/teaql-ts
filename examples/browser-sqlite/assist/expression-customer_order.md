@@ -7,6 +7,12 @@ The generated E facade preserves Value, loaded null/undefined, and NotLoaded.
 `TeaQLNotLoadedError` for the third. `orElse` is nullish-only and never hides
 NotLoaded.
 
+Use the error's `toWire()` for structured diagnostics: `location` is the first
+missing canonical path; `attemptedLocation` retains the full suffix and real
+list indices. `expressionWithBrokenPoint` marks one `<broken>` in the complete
+native chain. Use `suggestedFix.location` with Q Assist; never parse the message
+or guess a preload method.
+
 ```typescript
 import { E } from './E';
 import { CustomerOrder } from './models/CustomerOrder';

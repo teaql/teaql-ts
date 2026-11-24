@@ -1,32 +1,35 @@
 {
-  "schema": "teaql.typescript-current-example-fixture/v1",
-  "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4",
-  "scope": "typescript-lib-core",
-  "producerReceiptSha256": "a09fb7991972743b7f603f5771e321cef772583af30e3763979c190a657c8e6d",
-  "producerSource": {
-    "commit": "e6cd611ae1d5413c24c717c3650c9f5a3c301b08",
-    "sourceContentsSha256": "2adbc3e7d627fe0a355dcc4459a244749c8bd51022576eb307efcbab49e03937"
-  },
+  "evaluatedScope": "typescript-lib-core",
+  "evaluationErrors": 0,
   "files": {
-    "src/generated/Q.ts": "96e150775a079420a4afb57d5be8e9b7696d2b8d8bef6eee3727c2b530b3dd33",
-    "src/generated/requests/PlatformRequest.ts": "9688521d546f907faeefb35b76dda49247ccaef6dca034ae9624036766cdbb60",
-    "src/generated/requests/SchoolTypeRequest.ts": "98ebdc64f9889386dc835f5dd1c1c76854b2c2a653221cd06f5c34521c50d118",
-    "src/generated/requests/SchoolRequest.ts": "ce09fa5542c811f68fe58fde72367c298c8b46a190e26b7c96594a01c787bdb5",
-    "src/generated/E.ts": "79a54bc6bf0470b6f62c4b00b45ee27d8b23c706bc39365c138dc1eeab0f7d53",
-    "src/teaql-ts.ts": "3ddf92defac1865617a737415bbadb86ffba6f071822463440413f7c12d1b814",
-    "src/generated-search-models.ts": "3d596870c683b14ea9ca4cc930216cec647e6b216b1b7a073b573626293ce4a5",
-    "src/teaql-schemas.ts": "b326b194b719290d5a3f5e5945195846f88f5d8b537441066fa13483d0cf454c",
-    "src/runtime-module.ts": "3bdea1228818d5e81c888cb61426c6688c9bd510449a25d2032bdee07a95c6ae",
+    "package.json": "5bf1be1a36b26771c9ad6bdd363dfcc11b4e7c13c177c6c05ceb91082e4104e2",
     "src/generated-bootstrap.ts": "75c847ca2b29ca42a4520a6cf83d5d72df1ecc15a56fff00bc6e8f44953486c5",
-    "src/generated/models/Platform.ts": "1424aff7c56193ee94d3ef2ade6e48268a06234b830eca23e5e6401d069eb09d",
-    "src/generated/models/SchoolType.ts": "c0ae70c638ddc08f2ad1347a12c53013e5ac969ff07834c9b8c648a344784f08",
-    "src/generated/models/School.ts": "8e104213e38082dc700eabbae024172d61fd00cf1ccb5d36484042ca811337b7"
+    "src/generated-search-models.ts": "3d596870c683b14ea9ca4cc930216cec647e6b216b1b7a073b573626293ce4a5",
+    "src/generated/E.ts": "79a54bc6bf0470b6f62c4b00b45ee27d8b23c706bc39365c138dc1eeab0f7d53",
+    "src/generated/Q.ts": "96e150775a079420a4afb57d5be8e9b7696d2b8d8bef6eee3727c2b530b3dd33",
+    "src/generated/models/Platform.ts": "45a9b312a84f6eb71a1baa74f66eb8ba0a9692e2abf5457cf05b25e8587a23ec",
+    "src/generated/models/School.ts": "43e7bec3476fefbd320f94a1e08ed9e8dc7dfd28fff788eb2e9f78bd161a6a39",
+    "src/generated/models/SchoolType.ts": "06f4f32fe7136565d1c5fd1e516f2c9eca91406a0eff13a4ae34c34dd780f27c",
+    "src/generated/requests/PlatformRequest.ts": "f2592b61d21ec9480118a6375e5b08b0116e414ee9597772ef210276e9825a29",
+    "src/generated/requests/SchoolRequest.ts": "6bbab325efc1b5eb294a802a9e31c0aa5ebb44ab1ef437aa935ea1facce72b1f",
+    "src/generated/requests/SchoolTypeRequest.ts": "e906d980b819d4386b82f99674b2e5f6b852b5397cf437c816e1b3186556545f",
+    "src/runtime-module.ts": "aeadf3eb4547008457b755cf310c92d7823c85e12d2497cde50f607b68d71379",
+    "src/teaql-schemas.ts": "9711925deb067f9a8aea963021abff961b83384861c32e19eac1e4d8511dfaa4",
+    "src/teaql-ts.ts": "436d9147aaeb7a8b9f1a5b608d185ac106bf7330c8a53652d55f4cb412dcb44b",
+    "teaql-i18n.json": "785b10a761a7e3d13b88878bc8702546b19f9bc637d28e76fa780fc79f97ca3d",
+    "teaql/checker-model.json": "8e28ee16cddc21191816ed05999142fccb870bf42795f5a1f21268ebd4469e71",
+    "teaql/model-provenance.json": "c1c7c2c6173a2f0e6c46c8b5597106fc747f1ca3243a5f62b8491c180ede6714",
+    "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
   },
-  "generatedManifestSha256": "104e28e215a041d06fd86976833a3e3ebe818eee0e326df08e16b01389911709",
-  "previousFixtureManifestSha256": "391026fe13cbf33022400658621a8c4ee5ff134cff1ecd73b2b98134aba0f2bb",
-  "previousSourceGuard": {
-    "accepted": true,
-    "sourceCommit": "dda8add95e6e5402fe1155ecbd68ad8427d7ac29",
-    "differences": []
-  }
+  "generationReceipt": "../generator-v5.0.0.json",
+  "generatorCommit": "783ff0d81751b030c1209043476e8326cc6da58b",
+  "generatorJarSHA256": "ba0a502363884c206a46b6d5da89b0854b7f3e84072dd88544b15573c0d70812",
+  "generatorRelease": "v5.0.0",
+  "modelSha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4",
+  "previousOrigin": {
+    "commit": "a332c8ad2cb6288e6bda1e4a8b243bbf3c7b4f36",
+    "path": "examples/school-management/current-generator-fixture.json",
+    "sha256": "ab9a54768d20bd80a7a7d5bb63884eb4363e7c4c5db46222823ff755903b441e"
+  },
+  "schema": "teaql.typescript-current-example-fixture/v1"
 }

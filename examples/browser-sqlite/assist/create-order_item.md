@@ -7,7 +7,7 @@ trusted `UserContext` supplies actor, tenant, policy, provider, and audit sink;
 none of those values may be accepted from the writable input.
 
 ```typescript
-import { UserContext } from '../teaql-ts';
+import { Decimal, UserContext, decimal } from '../teaql-ts';
 import { Q } from './Q';
 import { OrderItem } from './models/OrderItem';
 
@@ -15,7 +15,7 @@ export interface CreateOrderItemInput {
     customerOrder: string | number;
     productName: string;
     quantity: number;
-    unitPrice: number;
+    unitPrice: Decimal;
 
 }
 
@@ -23,7 +23,7 @@ export async function createOrderItem(
     input: CreateOrderItemInput,
     context: UserContext,
 ): Promise<OrderItem> {
-    const entity = Q.orderItems()
+    const entity = await Q.orderItems()
         .comment('what: initialize Order Item')
         .purpose('why: create Order Item')
         .newEntity(context);
@@ -42,6 +42,9 @@ export async function createOrderItem(
 
 Only the generated updater methods above are writable. Constant relation
 candidates, when present, are also generated and must be copied exactly:
+
+For Decimal fields, construct exact values with `decimal('3.50')`. Do not pass a
+JavaScript `number`, which can lose digits before the runtime sees it.
 
 Compile the result unchanged. Test persistence and query-back, and prove that
 blank/missing intent, blank/missing audit reason, unknown fields, and attempted

@@ -117,63 +117,63 @@ export class OrderSearchPresetRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "name", "filterJson", "requestId", "ownerUserId", "commercePlatform", "createTime", "updateTime", "version"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.ID_PROPERTY.member, OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member, OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member, OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member, OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member, OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member, OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member, OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
     selectName(): this {
-        this.query.select(["name"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]);
         return this;
     }
 
     selectFilterJson(): this {
-        this.query.select(["filterJson"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]);
         return this;
     }
 
     selectRequestId(): this {
-        this.query.select(["requestId"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]);
         return this;
     }
 
     selectOwnerUserId(): this {
-        this.query.select(["ownerUserId"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]);
         return this;
     }
 
 
     selectCreateTime(): this {
-        this.query.select(["createTime"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]);
         return this;
     }
 
     selectUpdateTime(): this {
-        this.query.select(["updateTime"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectCommercePlatformWith(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
-        this.query.select(["commercePlatform"]);
+        this.query.select([OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]);
         this.query.relationQuery(
-            "commercePlatform", request.toQuery(), "commercePlatform", "id", false,
-            { kind: "relation-select", method: "selectCommercePlatformWith", relation: "commercePlatform" });
+            OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, request.toQuery(), OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectCommercePlatformWith", relation: OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member });
         return this;
     }
 
     withCommercePlatformMatching(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "commercePlatform": {
+            [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -182,7 +182,7 @@ export class OrderSearchPresetRequest {
 
     withoutCommercePlatformMatching(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "commercePlatform": {
+            [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -193,679 +193,679 @@ export class OrderSearchPresetRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withNameContaining(val: string): this {
-            this.filters.push({ "name": { "$contains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withNameIs(val: string): this {
-            this.filters.push({ "name": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withNameIsNot(val: string): this {
-            this.filters.push({ "name": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withNameIn(...vals: string[]): this {
-            this.filters.push({ "name": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withNameNotIn(...vals: string[]): this {
-            this.filters.push({ "name": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withNameGreaterThan(val: string): this {
-            this.filters.push({ "name": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withNameGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "name": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withNameLessThan(val: string): this {
-            this.filters.push({ "name": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withNameLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "name": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withNameBetween(lower: string, upper: string): this {
-            this.filters.push({ "name": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withNameIsKnown(): this {
-            this.filters.push({ "name": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withNameIsUnknown(): this {
-            this.filters.push({ "name": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withNameNotContaining(val: string): this {
-            this.filters.push({ "name": { "$notContains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withNameStartingWith(val: string): this {
-            this.filters.push({ "name": { "$startsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withNameNotStartingWith(val: string): this {
-            this.filters.push({ "name": { "$notStartsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withNameEndingWith(val: string): this {
-            this.filters.push({ "name": { "$endsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withNameNotEndingWith(val: string): this {
-            this.filters.push({ "name": { "$notEndsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withNameSoundingLike(val: string): this {
-            this.filters.push({ "name": { "$soundLike": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withFilterJsonContaining(val: string): this {
-            this.filters.push({ "filterJson": { "$contains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withFilterJsonIs(val: string): this {
-            this.filters.push({ "filterJson": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withFilterJsonIsNot(val: string): this {
-            this.filters.push({ "filterJson": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withFilterJsonIn(...vals: string[]): this {
-            this.filters.push({ "filterJson": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withFilterJsonNotIn(...vals: string[]): this {
-            this.filters.push({ "filterJson": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withFilterJsonGreaterThan(val: string): this {
-            this.filters.push({ "filterJson": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withFilterJsonGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "filterJson": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withFilterJsonLessThan(val: string): this {
-            this.filters.push({ "filterJson": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withFilterJsonLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "filterJson": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withFilterJsonBetween(lower: string, upper: string): this {
-            this.filters.push({ "filterJson": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withFilterJsonIsKnown(): this {
-            this.filters.push({ "filterJson": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withFilterJsonIsUnknown(): this {
-            this.filters.push({ "filterJson": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withFilterJsonNotContaining(val: string): this {
-            this.filters.push({ "filterJson": { "$notContains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withFilterJsonStartingWith(val: string): this {
-            this.filters.push({ "filterJson": { "$startsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withFilterJsonNotStartingWith(val: string): this {
-            this.filters.push({ "filterJson": { "$notStartsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withFilterJsonEndingWith(val: string): this {
-            this.filters.push({ "filterJson": { "$endsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withFilterJsonNotEndingWith(val: string): this {
-            this.filters.push({ "filterJson": { "$notEndsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withFilterJsonSoundingLike(val: string): this {
-            this.filters.push({ "filterJson": { "$soundLike": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withRequestIdContaining(val: string): this {
-            this.filters.push({ "requestId": { "$contains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withRequestIdIs(val: string): this {
-            this.filters.push({ "requestId": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withRequestIdIsNot(val: string): this {
-            this.filters.push({ "requestId": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withRequestIdIn(...vals: string[]): this {
-            this.filters.push({ "requestId": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withRequestIdNotIn(...vals: string[]): this {
-            this.filters.push({ "requestId": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withRequestIdGreaterThan(val: string): this {
-            this.filters.push({ "requestId": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withRequestIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "requestId": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withRequestIdLessThan(val: string): this {
-            this.filters.push({ "requestId": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withRequestIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "requestId": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withRequestIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "requestId": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withRequestIdIsKnown(): this {
-            this.filters.push({ "requestId": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withRequestIdIsUnknown(): this {
-            this.filters.push({ "requestId": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withRequestIdNotContaining(val: string): this {
-            this.filters.push({ "requestId": { "$notContains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withRequestIdStartingWith(val: string): this {
-            this.filters.push({ "requestId": { "$startsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withRequestIdNotStartingWith(val: string): this {
-            this.filters.push({ "requestId": { "$notStartsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withRequestIdEndingWith(val: string): this {
-            this.filters.push({ "requestId": { "$endsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withRequestIdNotEndingWith(val: string): this {
-            this.filters.push({ "requestId": { "$notEndsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withRequestIdSoundingLike(val: string): this {
-            this.filters.push({ "requestId": { "$soundLike": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withOwnerUserIdContaining(val: string): this {
-            this.filters.push({ "ownerUserId": { "$contains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withOwnerUserIdIs(val: string): this {
-            this.filters.push({ "ownerUserId": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withOwnerUserIdIsNot(val: string): this {
-            this.filters.push({ "ownerUserId": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withOwnerUserIdIn(...vals: string[]): this {
-            this.filters.push({ "ownerUserId": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withOwnerUserIdNotIn(...vals: string[]): this {
-            this.filters.push({ "ownerUserId": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withOwnerUserIdGreaterThan(val: string): this {
-            this.filters.push({ "ownerUserId": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withOwnerUserIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "ownerUserId": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withOwnerUserIdLessThan(val: string): this {
-            this.filters.push({ "ownerUserId": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withOwnerUserIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "ownerUserId": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withOwnerUserIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "ownerUserId": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withOwnerUserIdIsKnown(): this {
-            this.filters.push({ "ownerUserId": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withOwnerUserIdIsUnknown(): this {
-            this.filters.push({ "ownerUserId": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withOwnerUserIdNotContaining(val: string): this {
-            this.filters.push({ "ownerUserId": { "$notContains": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withOwnerUserIdStartingWith(val: string): this {
-            this.filters.push({ "ownerUserId": { "$startsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withOwnerUserIdNotStartingWith(val: string): this {
-            this.filters.push({ "ownerUserId": { "$notStartsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withOwnerUserIdEndingWith(val: string): this {
-            this.filters.push({ "ownerUserId": { "$endsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withOwnerUserIdNotEndingWith(val: string): this {
-            this.filters.push({ "ownerUserId": { "$notEndsWith": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withOwnerUserIdSoundingLike(val: string): this {
-            this.filters.push({ "ownerUserId": { "$soundLike": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         filterByCommercePlatform(val: any): this {
-            this.filters.push({ "commercePlatform": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByCommercePlatformIn(...vals: any[]): this {
-            this.filters.push({ "commercePlatform": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withCommercePlatformIsKnown(): this {
-            this.filters.push({ "commercePlatform": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withCommercePlatformIsUnknown(): this {
-            this.filters.push({ "commercePlatform": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withCreateTimeIs(val: unknown): this {
-            this.filters.push({ "createTime": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withCreateTimeIsNot(val: unknown): this {
-            this.filters.push({ "createTime": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withCreateTimeIn(...vals: unknown[]): this {
-            this.filters.push({ "createTime": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withCreateTimeNotIn(...vals: unknown[]): this {
-            this.filters.push({ "createTime": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withCreateTimeGreaterThan(val: unknown): this {
-            this.filters.push({ "createTime": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withCreateTimeGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "createTime": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withCreateTimeLessThan(val: unknown): this {
-            this.filters.push({ "createTime": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withCreateTimeLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "createTime": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withCreateTimeBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "createTime": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withCreateTimeIsKnown(): this {
-            this.filters.push({ "createTime": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withCreateTimeIsUnknown(): this {
-            this.filters.push({ "createTime": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withUpdateTimeIs(val: unknown): this {
-            this.filters.push({ "updateTime": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withUpdateTimeIsNot(val: unknown): this {
-            this.filters.push({ "updateTime": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withUpdateTimeIn(...vals: unknown[]): this {
-            this.filters.push({ "updateTime": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withUpdateTimeNotIn(...vals: unknown[]): this {
-            this.filters.push({ "updateTime": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withUpdateTimeGreaterThan(val: unknown): this {
-            this.filters.push({ "updateTime": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withUpdateTimeGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "updateTime": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withUpdateTimeLessThan(val: unknown): this {
-            this.filters.push({ "updateTime": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withUpdateTimeLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "updateTime": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withUpdateTimeBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "updateTime": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withUpdateTimeIsKnown(): this {
-            this.filters.push({ "updateTime": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withUpdateTimeIsUnknown(): this {
-            this.filters.push({ "updateTime": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
     orderByNameAscending(): this {
-        this.query.orderBy("name", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByNameDescending(): this {
-        this.query.orderBy("name", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByFilterJsonAscending(): this {
-        this.query.orderBy("filterJson", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member, "asc");
         return this;
     }
 
     orderByFilterJsonDescending(): this {
-        this.query.orderBy("filterJson", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member, "desc");
         return this;
     }
 
     orderByRequestIdAscending(): this {
-        this.query.orderBy("requestId", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByRequestIdDescending(): this {
-        this.query.orderBy("requestId", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member, "desc");
         return this;
     }
 
     orderByOwnerUserIdAscending(): this {
-        this.query.orderBy("ownerUserId", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByOwnerUserIdDescending(): this {
-        this.query.orderBy("ownerUserId", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByCreateTimeAscending(): this {
-        this.query.orderBy("createTime", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByCreateTimeDescending(): this {
-        this.query.orderBy("createTime", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByUpdateTimeAscending(): this {
-        this.query.orderBy("updateTime", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByUpdateTimeDescending(): this {
-        this.query.orderBy("updateTime", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -888,84 +888,84 @@ export class OrderSearchPresetRequest {
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByName(): this {
-        this.query.groupBy("name");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member);
         return this;
     }
 
     groupByNameAs(retName: string): this {
-        this.query.groupBy("name", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.NAME_PROPERTY.member, retName);
         return this;
     }
     groupByFilterJson(): this {
-        this.query.groupBy("filterJson");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member);
         return this;
     }
 
     groupByFilterJsonAs(retName: string): this {
-        this.query.groupBy("filterJson", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.FILTER_JSON_PROPERTY.member, retName);
         return this;
     }
     groupByRequestId(): this {
-        this.query.groupBy("requestId");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member);
         return this;
     }
 
     groupByRequestIdAs(retName: string): this {
-        this.query.groupBy("requestId", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.REQUEST_ID_PROPERTY.member, retName);
         return this;
     }
     groupByOwnerUserId(): this {
-        this.query.groupBy("ownerUserId");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member);
         return this;
     }
 
     groupByOwnerUserIdAs(retName: string): this {
-        this.query.groupBy("ownerUserId", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.OWNER_USER_ID_PROPERTY.member, retName);
         return this;
     }
     groupByCommercePlatform(): this {
-        this.query.groupBy("commercePlatform");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
         return this;
     }
 
     groupByCommercePlatformAs(retName: string): this {
-        this.query.groupBy("commercePlatform", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, retName);
         return this;
     }
     groupByCreateTime(): this {
-        this.query.groupBy("createTime");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member);
         return this;
     }
 
     groupByCreateTimeAs(retName: string): this {
-        this.query.groupBy("createTime", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.CREATE_TIME_PROPERTY.member, retName);
         return this;
     }
     groupByUpdateTime(): this {
-        this.query.groupBy("updateTime");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member);
         return this;
     }
 
     groupByUpdateTimeAs(retName: string): this {
-        this.query.groupBy("updateTime", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.UPDATE_TIME_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(OrderSearchPreset.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -975,14 +975,15 @@ export class OrderSearchPresetRequest {
         request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "commercePlatform", request, includeAllFacets,
-            { kind: "facet", method: "facetByCommercePlatformAs", relation: "commercePlatform", alias: facetName });
+        this.query.facetBy(facetName, OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByCommercePlatformAs", relation: OrderSearchPreset.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, alias: facetName });
         return this;
     }
 
 
     private async executeForListInternal(context: UserContext): Promise<SmartList<OrderSearchPreset>> {
         this.ensureIntent();
+        if (this.query.groupByItems.length > 0) throw new Error("Grouped projections require executeForRows");
         if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
         if (this.filters.length > 0) {
             this.query.filter({ "$and": this.filters });
@@ -1035,10 +1036,12 @@ export class OrderSearchPresetRequest {
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
             : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
-        const data = new SmartList(rows.map((row: unknown) =>
+        const aggregateOnly = pageQuery.aggregateItems.length > 0;
+        const data = new SmartList<OrderSearchPreset>(aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof OrderSearchPreset
                 ? row
                 : OrderSearchPreset.fromRecord(row as Record<string, unknown>, new EntityRoot())));
+        if (aggregateOnly && rows[0]) Object.assign(data.aggregations, rows[0]);
         data.totalCount = totalCount;
         if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
         if (this.query.facets.length > 0) {
@@ -1053,6 +1056,9 @@ export class OrderSearchPresetRequest {
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
         const preparedQuery = context.prepareQuery(this.query);
+        if (preparedQuery.aggregateItems.length > 0 || preparedQuery.groupByItems.length > 0) {
+            throw new Error("Entity streams require entity rows; use a record or aggregation query");
+        }
         // Prepare Context and capture the runtime request before returning a lazy iterator.
         const chunks = service.executeForStream(preparedQuery, chunkSize);
         return (async function* () {
