@@ -20,7 +20,7 @@ export async function verifyUnchangedView(filename: string, scenario: UnchangedV
   const client = new SQLiteTeaQLClient(filename).setUserContext(context);
   context.insertResource('dataService', client);
   const driver = (client as any).driver;
-  const actualQuery = driver.query.bind(driver), actualExec = driver.database.exec.bind(driver.database);
+  const actualQuery = driver.queryConnection.bind(driver), actualTransaction = driver.transaction.bind(driver);
   const query = jest.spyOn(driver, 'queryConnection'), transaction = jest.spyOn(driver, 'transaction');
   const exec = jest.spyOn(driver.database as Database.Database, 'exec');
   const allocation = jest.spyOn(driver, 'nextId'), policy = jest.spyOn(context, 'enterMutationPolicy');
@@ -136,7 +136,11 @@ export async function verifyUnchangedView(filename: string, scenario: UnchangedV
         return result;
       });
     } else {
-      exec.mockImplementation((sql: string) => {if (/^COMMIT\b/i.test(sql)) observeWritten(); return actualExec(sql);});
+      transaction.mockImplementation((work: (session: unknown) => Promise<unknown>) =>
+        actualTransaction(async (session: unknown) => {
+          await work(session);
+          observeWritten();
+        }));
     }
     reset();
     await expect(row.auditAs('Roll back a real write without losing the original view or retry intent').save(context)).rejects.toBe(failure);
@@ -147,7 +151,7 @@ export async function verifyUnchangedView(filename: string, scenario: UnchangedV
     expect(root.originalVersion(key)).toBe(baselineVersion); expect(pending()).toHaveProperty('contact_phone', '5550801');
     expect(E.purchaseOrder(row).contactPhone().eval()).toBe('5550801');
     const retainedIntent = {...pending()};
-    query.mockImplementation(actualQuery); exec.mockImplementation(actualExec); reset();
+    query.mockImplementation(actualQuery); transaction.mockImplementation(actualTransaction); reset();
     await row.auditAs('Retry the same rolled-back object without querying or rebasing it').save(context);
     const accepted = effects();
     expect(accepted).toMatchObject({queries: 2, transactions: 1, begins: 1, commits: 1, rollbacks: 0,
