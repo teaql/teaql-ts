@@ -12,6 +12,15 @@ Java, Rust, Go, Python, .NET and Swift runtimes. The seven-language strip links
 to each runtime source and marks TypeScript as the current browser runtime; it
 does not imply that selecting another link swaps the page's execution engine.
 
+The page includes a development-process section linking directly to
+`order-model.xml` and the model-aware Assist directory. It explains the real
+model-to-runtime path: define the domain once, generate typed Q/E APIs and
+scoped Assist, write one bounded Q request with comment and purpose, then let
+the runtime retain TraceChain, timing and actual SQL evidence. Progressive
+entity/action/field Assist keeps agents from loading the runtime internals and
+the entire generated library into every context window; no unmeasured context
+savings are claimed.
+
 `OrderStatus` is a seventh, constant model object rather than a string field.
 Its five fixed values are reconciled through `RuntimeModule` bootstrap, orders
 store the status object ID, and generated Q expressions select, filter, and

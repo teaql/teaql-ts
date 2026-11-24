@@ -79,6 +79,27 @@ try {
     || runtimeLanguages.links.some(language => !language.href.startsWith('https://github.com/teaql/'))) {
     throw new Error(`Seven-runtime selector is incomplete: ${JSON.stringify(runtimeLanguages)}`);
   }
+  const developmentProcess = await page.evaluate(() => ({
+    title: document.querySelector('#development-process-title')?.textContent || '',
+    steps: [...document.querySelectorAll('.development-process-flow > li')].map(step => ({
+      title: step.querySelector('strong')?.textContent || '',
+      code: step.querySelector('code')?.textContent || '',
+    })),
+    modelHref: document.querySelector('.source-link-primary')?.getAttribute('href') || '',
+    assistHref: document.querySelector('.development-process-links .source-link:not(.source-link-primary)')?.getAttribute('href') || '',
+    contextTitle: document.querySelector('.context-efficiency h3')?.textContent || '',
+  }));
+  if (developmentProcess.title !== 'From one domain model to executable evidence.'
+    || developmentProcess.steps.length !== 4
+    || developmentProcess.steps.map(step => step.code).join('|')
+      !== 'order-model.xml|Q · E · Schema · Assist|comment · purpose · execute|Result · TraceChain · SQL'
+    || developmentProcess.modelHref
+      !== 'https://github.com/teaql/teaql-ts/blob/main/examples/browser-sqlite/order-model.xml'
+    || developmentProcess.assistHref
+      !== 'https://github.com/teaql/teaql-ts/tree/main/examples/browser-sqlite/assist'
+    || developmentProcess.contextTitle !== 'Spend context on the business change.') {
+    throw new Error(`Development process explanation is incomplete: ${JSON.stringify(developmentProcess)}`);
+  }
   const observabilityProof = await page.evaluate(() => {
     const image = document.querySelector('.observability-proof img');
     return {
@@ -373,6 +394,11 @@ try {
     title: document.querySelector('#query-browser-title')?.textContent || '',
     runtimeTitle: document.querySelector('#runtime-language-title')?.textContent || '',
     currentRuntime: document.querySelector('.runtime-language.active small')?.textContent || '',
+    developmentTitle: document.querySelector('#development-process-title')?.textContent || '',
+    modelLink: document.querySelector('.source-link-primary strong')?.textContent || '',
+    processSteps: [...document.querySelectorAll('.development-process-flow > li strong')]
+      .map(element => element.textContent || ''),
+    contextTitle: document.querySelector('.context-efficiency h3')?.textContent || '',
     observabilityTitle: document.querySelector('#observability-proof-title')?.textContent || '',
     observabilityCaption: document.querySelector('.observability-proof figcaption')?.textContent || '',
     evidenceTitle: document.querySelector('.sql-card-heading .query-card-label')?.textContent || '',
@@ -383,6 +409,10 @@ try {
   if (chineseLocale.title !== '选择一个查询'
     || chineseLocale.runtimeTitle !== '这个演示在浏览器中运行 TypeScript。'
     || chineseLocale.currentRuntime !== '当前浏览器 runtime'
+    || chineseLocale.developmentTitle !== '从一份领域模型，到可以执行和审查的证据。'
+    || chineseLocale.modelLink !== '查看 order-model.xml'
+    || chineseLocale.processSteps.join('|') !== '建立领域模型|生成领域开发接口|构建一个有界的 Q 请求|运行并保留证据'
+    || chineseLocale.contextTitle !== '把上下文窗口留给真正的业务变更。'
     || chineseLocale.observabilityTitle !== 'OpenObserve 中的 TraceChain'
     || chineseLocale.observabilityCaption !== 'OpenObserve 仪表盘展示一条已验证的 trace，以及它实际执行的八条 SQL。'
     || chineseLocale.evidenceTitle !== '执行证据'

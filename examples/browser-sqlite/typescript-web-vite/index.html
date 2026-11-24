@@ -93,6 +93,63 @@
           </nav>
         </section>
 
+        <section class="development-process" aria-labelledby="development-process-title">
+          <div class="development-process-heading">
+            <div>
+              <p class="section-index" data-i18n="developmentProcess">00 / DEVELOPMENT PROCESS</p>
+              <h2 id="development-process-title" data-i18n="developmentProcessTitle">From one domain model to executable evidence.</h2>
+            </div>
+            <div class="development-process-intro">
+              <p data-i18n="developmentProcessIntro">TeaQL keeps the business model small and readable, generates deterministic domain APIs, and carries request intent through the runtime to the SQL that actually ran.</p>
+              <div class="development-process-links">
+                <a class="source-link source-link-primary" href="https://github.com/teaql/teaql-ts/blob/main/examples/browser-sqlite/order-model.xml" target="_blank" rel="noreferrer">
+                  <span data-i18n="modelSource">MODEL SOURCE</span>
+                  <strong data-i18n="viewOrderModel">View order-model.xml</strong>
+                </a>
+                <a class="source-link" href="https://github.com/teaql/teaql-ts/tree/main/examples/browser-sqlite/assist" target="_blank" rel="noreferrer">
+                  <span data-i18n="scopedGuidance">SCOPED GUIDANCE</span>
+                  <strong data-i18n="viewModelAssist">View model-aware Assist</strong>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <ol class="development-process-flow">
+            <li>
+              <span class="development-step">01</span>
+              <strong data-i18n="processModelTitle">Model the domain</strong>
+              <p data-i18n="processModelBody">Define entities, fields, relationships, constant objects, and constraints in one model file.</p>
+              <code>order-model.xml</code>
+            </li>
+            <li>
+              <span class="development-step">02</span>
+              <strong data-i18n="processGenerateTitle">Generate the working surface</strong>
+              <p data-i18n="processGenerateBody">Generate typed Q and E APIs, schemas, audited mutations, and field-specific Assist from the model.</p>
+              <code>Q · E · Schema · Assist</code>
+            </li>
+            <li>
+              <span class="development-step">03</span>
+              <strong data-i18n="processQueryTitle">Build one bounded Q request</strong>
+              <p data-i18n="processQueryBody">Application code selects only what the page needs and attaches a readable comment and purpose.</p>
+              <code>comment · purpose · execute</code>
+            </li>
+            <li>
+              <span class="development-step">04</span>
+              <strong data-i18n="processEvidenceTitle">Run and retain evidence</strong>
+              <p data-i18n="processEvidenceBody">The runtime enforces policy, executes SQLite/WASM, and retains a TraceChain from purpose and nested comments to timing and actual SQL.</p>
+              <code>Result · TraceChain · SQL</code>
+            </li>
+          </ol>
+
+          <div class="context-efficiency">
+            <div>
+              <p class="section-index" data-i18n="contextEfficiency">CONTEXT EFFICIENCY</p>
+              <h3 data-i18n="contextEfficiencyTitle">Spend context on the business change.</h3>
+            </div>
+            <p data-i18n="contextEfficiencyBody">Instead of loading runtime internals and every generated file, an agent starts from the compact model and opens only the Assist for the current entity, action, or field. Typed domain operations compress provider details into a smaller working surface, reducing repeated context use while keeping behavior deterministic and reviewable.</p>
+          </div>
+        </section>
+
         <section class="runtime-bar" aria-label="Runtime settings">
           <p id="status" role="status">Starting SQLite/WASM…</p>
           <div class="controls">
