@@ -11,7 +11,7 @@ test('generated E uses the selected model profile without an application overrid
   expect(pointer).toBeDefined();
   const client = new SQLiteTeaQLClient(process.env.TEAQL_EXPRESSION_DB!);
   const context = new UserContext().insertResource('dataService', client);
-  const query = jest.spyOn((client as any).driver, 'query');
+  const query = jest.spyOn((client as any).driver, 'queryConnection');
   const transaction = jest.spyOn((client as any).driver, 'transaction');
   try {
     await context.ensureSchema();

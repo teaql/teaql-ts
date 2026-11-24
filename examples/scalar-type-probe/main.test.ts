@@ -182,7 +182,7 @@ test('generated exact scalars restore to known baselines without discarding real
     const row = await load(context, entity.id!);
     const original = values(row), json = JSON.stringify(row);
     const driver = (client as any).driver;
-    const transaction = jest.spyOn(driver, 'transaction'), query = jest.spyOn(driver, 'query');
+    const transaction = jest.spyOn(driver, 'transaction'), query = jest.spyOn(driver, 'queryConnection');
     const policy = jest.spyOn(context, 'enterMutationPolicy');
     const noops: unknown[] = [];
     const reset = () => {transaction.mockClear(); query.mockClear(); policy.mockClear(); return client.auditTrace.length;};
