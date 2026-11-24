@@ -26,7 +26,7 @@ export async function verifyContextRoot(filename: string): Promise<void> {
     const rootMember = Object.entries(schemas.PurchaseOrder.columns).find(([, column]) => (column as any).modelName === 'tenant')![0];
     expect(rootMember).toBeTruthy();
     const rootTable = schemas.Tenant.table as string;
-    const query = jest.spyOn(driver, 'query'), transaction = jest.spyOn(driver, 'transaction');
+    const query = jest.spyOn(driver, 'queryConnection'), transaction = jest.spyOn(driver, 'transaction');
     const allocation = jest.spyOn(driver, 'nextId');
     const policy = jest.spyOn(context, 'enterMutationPolicy'), review = jest.fn(() => undefined);
     context.withMutationPolicyRegistry({resolve: review});

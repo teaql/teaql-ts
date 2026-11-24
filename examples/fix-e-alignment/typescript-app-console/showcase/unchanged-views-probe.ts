@@ -21,7 +21,7 @@ export async function verifyUnchangedView(filename: string, scenario: UnchangedV
   context.insertResource('dataService', client);
   const driver = (client as any).driver;
   const actualQuery = driver.query.bind(driver), actualExec = driver.database.exec.bind(driver.database);
-  const query = jest.spyOn(driver, 'query'), transaction = jest.spyOn(driver, 'transaction');
+  const query = jest.spyOn(driver, 'queryConnection'), transaction = jest.spyOn(driver, 'transaction');
   const exec = jest.spyOn(driver.database as Database.Database, 'exec');
   const allocation = jest.spyOn(driver, 'nextId'), policy = jest.spyOn(context, 'enterMutationPolicy');
   const review = jest.fn(() => undefined); context.withMutationPolicyRegistry({resolve: review});

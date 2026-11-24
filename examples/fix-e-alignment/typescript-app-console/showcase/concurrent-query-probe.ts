@@ -39,7 +39,7 @@ export async function verifyConcurrentQuery(filename: string): Promise<void> {
   const events: SQLExecutionMetadata[] = [];
   client.setDiagnosticSQLLogSink({write: value => {events.push(value);}});
   const driver = (client as any).driver;
-  const query = jest.spyOn(driver, 'query');
+  const query = jest.spyOn(driver, 'queryConnection');
   const entered = signal(), release = signal();
   const tasks: Promise<unknown>[] = [];
   let execute: ReturnType<typeof jest.spyOn> | undefined;

@@ -19,7 +19,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
   const client = new SQLiteTeaQLClient(filename).setUserContext(context);
   context.insertResource('dataService', client);
   const driver = (client as any).driver;
-  const query = jest.spyOn(driver, 'query'), transaction = jest.spyOn(driver, 'transaction');
+  const query = jest.spyOn(driver, 'queryConnection'), transaction = jest.spyOn(driver, 'transaction');
   const exec = jest.spyOn(driver.database as Database.Database, 'exec');
   const allocation = jest.spyOn(driver, 'nextId'), policy = jest.spyOn(context, 'enterMutationPolicy');
   const review = jest.fn(() => undefined);
@@ -91,7 +91,7 @@ export async function verifyCheckerBoundaries(filename: string): Promise<void> {
     const isolated = new SQLiteTeaQLClient(filename + '.no-schema.sqlite').setUserContext(isolatedContext);
     isolatedContext.insertResource('dataService', isolated);
     const isolatedDriver = (isolated as any).driver;
-    const isolatedQuery = jest.spyOn(isolatedDriver, 'query'), isolatedTransaction = jest.spyOn(isolatedDriver, 'transaction');
+    const isolatedQuery = jest.spyOn(isolatedDriver, 'queryConnection'), isolatedTransaction = jest.spyOn(isolatedDriver, 'transaction');
     const isolatedSchema = jest.spyOn(isolatedContext, 'ensureSchema');
     let isolatedChecks = 0;
     try {

@@ -22,7 +22,7 @@ async function make(context: UserContext, label: string) {
 }
 function observe(client: SQLiteTeaQLClient, context: UserContext) {
   const driver = (client as any).driver, checkers = (client as any).checkers;
-  const query = jest.spyOn(driver, 'query'), transaction = jest.spyOn(driver, 'transaction'), allocation = jest.spyOn(driver, 'nextId');
+  const query = jest.spyOn(driver, 'queryConnection'), transaction = jest.spyOn(driver, 'transaction'), allocation = jest.spyOn(driver, 'nextId');
   const effects = () => [query.mock.calls.length, transaction.mock.calls.length, allocation.mock.calls.length];
   const visits: Array<{entity: string; action: string; time: number; providerCallsDuringFix: number}> = [];
   for (const type of ['PurchaseOrder', 'OrderItem']) {

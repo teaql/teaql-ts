@@ -10,7 +10,7 @@ export async function verifyExpressionBoundaries(filename: string): Promise<void
   const client = new SQLiteTeaQLClient(filename).setUserContext(context);
   context.insertResource('dataService', client);
   const driver = (client as any).driver;
-  const query = jest.spyOn(driver, 'query'), transaction = jest.spyOn(driver, 'transaction');
+  const query = jest.spyOn(driver, 'queryConnection'), transaction = jest.spyOn(driver, 'transaction');
   const policy = jest.spyOn(context, 'enterMutationPolicy');
   const cases: Array<Record<string, unknown>> = [];
   const record = (name: string, facts: Record<string, unknown>) => {
