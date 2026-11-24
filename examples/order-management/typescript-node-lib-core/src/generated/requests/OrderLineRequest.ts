@@ -117,69 +117,69 @@ export class OrderLineRequest {
     }
 
     selectSelfFields(): this {
-        this.query.select(["id", "customerOrder", "product", "productName", "sku", "quantity", "commercePlatform", "createTime", "version"]);
+        this.query.select([OrderLine.__teaqlFields.ID_PROPERTY.member, OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, OrderLine.__teaqlFields.PRODUCT_PROPERTY.member, OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member, OrderLine.__teaqlFields.SKU_PROPERTY.member, OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member, OrderLine.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
     selectId(): this {
-        this.query.select(["id"]);
+        this.query.select([OrderLine.__teaqlFields.ID_PROPERTY.member]);
         return this;
     }
 
 
 
     selectProductName(): this {
-        this.query.select(["productName"]);
+        this.query.select([OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]);
         return this;
     }
 
     selectSku(): this {
-        this.query.select(["sku"]);
+        this.query.select([OrderLine.__teaqlFields.SKU_PROPERTY.member]);
         return this;
     }
 
     selectQuantity(): this {
-        this.query.select(["quantity"]);
+        this.query.select([OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]);
         return this;
     }
 
 
     selectCreateTime(): this {
-        this.query.select(["createTime"]);
+        this.query.select([OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]);
         return this;
     }
 
     selectVersion(): this {
-        this.query.select(["version"]);
+        this.query.select([OrderLine.__teaqlFields.VERSION_PROPERTY.member]);
         return this;
     }
 
 
     selectCustomerOrderWith(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
-        this.query.select(["customerOrder"]);
+        this.query.select([OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]);
         this.query.relationQuery(
-            "customerOrder", request.toQuery(), "customerOrder", "id", false,
-            { kind: "relation-select", method: "selectCustomerOrderWith", relation: "customerOrder" });
+            OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, request.toQuery(), OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectCustomerOrderWith", relation: OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member });
         return this;
     }
     selectProductWith(request: { readonly entityName: "Product"; toQuery(): SelectQuery }): this {
-        this.query.select(["product"]);
+        this.query.select([OrderLine.__teaqlFields.PRODUCT_PROPERTY.member]);
         this.query.relationQuery(
-            "product", request.toQuery(), "product", "id", false,
-            { kind: "relation-select", method: "selectProductWith", relation: "product" });
+            OrderLine.__teaqlFields.PRODUCT_PROPERTY.member, request.toQuery(), OrderLine.__teaqlFields.PRODUCT_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectProductWith", relation: OrderLine.__teaqlFields.PRODUCT_PROPERTY.member });
         return this;
     }
     selectCommercePlatformWith(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
-        this.query.select(["commercePlatform"]);
+        this.query.select([OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]);
         this.query.relationQuery(
-            "commercePlatform", request.toQuery(), "commercePlatform", "id", false,
-            { kind: "relation-select", method: "selectCommercePlatformWith", relation: "commercePlatform" });
+            OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, request.toQuery(), OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, "id", false,
+            { kind: "relation-select", method: "selectCommercePlatformWith", relation: OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member });
         return this;
     }
 
     withCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "customerOrder": {
+            [OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -188,7 +188,7 @@ export class OrderLineRequest {
 
     withoutCustomerOrderMatching(request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "customerOrder": {
+            [OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -196,7 +196,7 @@ export class OrderLineRequest {
     }
     withProductMatching(request: { readonly entityName: "Product"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "product": {
+            [OrderLine.__teaqlFields.PRODUCT_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -205,7 +205,7 @@ export class OrderLineRequest {
 
     withoutProductMatching(request: { readonly entityName: "Product"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "product": {
+            [OrderLine.__teaqlFields.PRODUCT_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -213,7 +213,7 @@ export class OrderLineRequest {
     }
     withCommercePlatformMatching(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "commercePlatform": {
+            [OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: {
                 "$inSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -222,7 +222,7 @@ export class OrderLineRequest {
 
     withoutCommercePlatformMatching(request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery }): this {
         this.filters.push({
-            "commercePlatform": {
+            [OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: {
                 "$notInSubquery": { query: request.toQuery(), field: "id" },
             },
         });
@@ -233,523 +233,523 @@ export class OrderLineRequest {
 
 
         withIdIs(val: string): this {
-            this.filters.push({ "id": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withIdIsNot(val: string): this {
-            this.filters.push({ "id": { "$ne": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withIdIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withIdNotIn(...vals: string[]): this {
-            this.filters.push({ "id": { "$notIn": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withIdGreaterThan(val: string): this {
-            this.filters.push({ "id": { "$gt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withIdGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$gte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withIdLessThan(val: string): this {
-            this.filters.push({ "id": { "$lt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withIdLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "id": { "$lte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withIdBetween(lower: string, upper: string): this {
-            this.filters.push({ "id": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withIdIsKnown(): this {
-            this.filters.push({ "id": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withIdIsUnknown(): this {
-            this.filters.push({ "id": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.ID_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByCustomerOrder(val: any): this {
-            this.filters.push({ "customerOrder": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByCustomerOrderIn(...vals: any[]): this {
-            this.filters.push({ "customerOrder": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withCustomerOrderIsKnown(): this {
-            this.filters.push({ "customerOrder": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withCustomerOrderIsUnknown(): this {
-            this.filters.push({ "customerOrder": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByProduct(val: any): this {
-            this.filters.push({ "product": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByProductIn(...vals: any[]): this {
-            this.filters.push({ "product": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withProductIsKnown(): this {
-            this.filters.push({ "product": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withProductIsUnknown(): this {
-            this.filters.push({ "product": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withProductNameContaining(val: string): this {
-            this.filters.push({ "productName": { "$contains": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withProductNameIs(val: string): this {
-            this.filters.push({ "productName": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withProductNameIsNot(val: string): this {
-            this.filters.push({ "productName": { "$ne": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withProductNameIn(...vals: string[]): this {
-            this.filters.push({ "productName": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withProductNameNotIn(...vals: string[]): this {
-            this.filters.push({ "productName": { "$notIn": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withProductNameGreaterThan(val: string): this {
-            this.filters.push({ "productName": { "$gt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withProductNameGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "productName": { "$gte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withProductNameLessThan(val: string): this {
-            this.filters.push({ "productName": { "$lt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withProductNameLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "productName": { "$lte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withProductNameBetween(lower: string, upper: string): this {
-            this.filters.push({ "productName": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withProductNameIsKnown(): this {
-            this.filters.push({ "productName": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withProductNameIsUnknown(): this {
-            this.filters.push({ "productName": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withProductNameNotContaining(val: string): this {
-            this.filters.push({ "productName": { "$notContains": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withProductNameStartingWith(val: string): this {
-            this.filters.push({ "productName": { "$startsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withProductNameNotStartingWith(val: string): this {
-            this.filters.push({ "productName": { "$notStartsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withProductNameEndingWith(val: string): this {
-            this.filters.push({ "productName": { "$endsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withProductNameNotEndingWith(val: string): this {
-            this.filters.push({ "productName": { "$notEndsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withProductNameSoundingLike(val: string): this {
-            this.filters.push({ "productName": { "$soundLike": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withSkuContaining(val: string): this {
-            this.filters.push({ "sku": { "$contains": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$contains": val } });
             return this;
         }
 
         withSkuIs(val: string): this {
-            this.filters.push({ "sku": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withSkuIsNot(val: string): this {
-            this.filters.push({ "sku": { "$ne": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withSkuIn(...vals: string[]): this {
-            this.filters.push({ "sku": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withSkuNotIn(...vals: string[]): this {
-            this.filters.push({ "sku": { "$notIn": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withSkuGreaterThan(val: string): this {
-            this.filters.push({ "sku": { "$gt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withSkuGreaterThanOrEqualTo(val: string): this {
-            this.filters.push({ "sku": { "$gte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withSkuLessThan(val: string): this {
-            this.filters.push({ "sku": { "$lt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withSkuLessThanOrEqualTo(val: string): this {
-            this.filters.push({ "sku": { "$lte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withSkuBetween(lower: string, upper: string): this {
-            this.filters.push({ "sku": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withSkuIsKnown(): this {
-            this.filters.push({ "sku": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withSkuIsUnknown(): this {
-            this.filters.push({ "sku": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
         withSkuNotContaining(val: string): this {
-            this.filters.push({ "sku": { "$notContains": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$notContains": val } });
             return this;
         }
 
         withSkuStartingWith(val: string): this {
-            this.filters.push({ "sku": { "$startsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$startsWith": val } });
             return this;
         }
 
         withSkuNotStartingWith(val: string): this {
-            this.filters.push({ "sku": { "$notStartsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$notStartsWith": val } });
             return this;
         }
 
         withSkuEndingWith(val: string): this {
-            this.filters.push({ "sku": { "$endsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$endsWith": val } });
             return this;
         }
 
         withSkuNotEndingWith(val: string): this {
-            this.filters.push({ "sku": { "$notEndsWith": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$notEndsWith": val } });
             return this;
         }
 
         withSkuSoundingLike(val: string): this {
-            this.filters.push({ "sku": { "$soundLike": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.SKU_PROPERTY.member]: { "$soundLike": val } });
             return this;
         }
 
         withQuantityIs(val: number): this {
-            this.filters.push({ "quantity": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withQuantityIsNot(val: number): this {
-            this.filters.push({ "quantity": { "$ne": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withQuantityIn(...vals: number[]): this {
-            this.filters.push({ "quantity": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withQuantityNotIn(...vals: number[]): this {
-            this.filters.push({ "quantity": { "$notIn": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withQuantityGreaterThan(val: number): this {
-            this.filters.push({ "quantity": { "$gt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withQuantityGreaterThanOrEqualTo(val: number): this {
-            this.filters.push({ "quantity": { "$gte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withQuantityLessThan(val: number): this {
-            this.filters.push({ "quantity": { "$lt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withQuantityLessThanOrEqualTo(val: number): this {
-            this.filters.push({ "quantity": { "$lte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withQuantityBetween(lower: number, upper: number): this {
-            this.filters.push({ "quantity": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withQuantityIsKnown(): this {
-            this.filters.push({ "quantity": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withQuantityIsUnknown(): this {
-            this.filters.push({ "quantity": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.QUANTITY_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         filterByCommercePlatform(val: any): this {
-            this.filters.push({ "commercePlatform": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         filterByCommercePlatformIn(...vals: any[]): this {
-            this.filters.push({ "commercePlatform": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withCommercePlatformIsKnown(): this {
-            this.filters.push({ "commercePlatform": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withCommercePlatformIsUnknown(): this {
-            this.filters.push({ "commercePlatform": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withCreateTimeIs(val: unknown): this {
-            this.filters.push({ "createTime": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withCreateTimeIsNot(val: unknown): this {
-            this.filters.push({ "createTime": { "$ne": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withCreateTimeIn(...vals: unknown[]): this {
-            this.filters.push({ "createTime": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withCreateTimeNotIn(...vals: unknown[]): this {
-            this.filters.push({ "createTime": { "$notIn": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withCreateTimeGreaterThan(val: unknown): this {
-            this.filters.push({ "createTime": { "$gt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withCreateTimeGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "createTime": { "$gte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withCreateTimeLessThan(val: unknown): this {
-            this.filters.push({ "createTime": { "$lt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withCreateTimeLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "createTime": { "$lte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withCreateTimeBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "createTime": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withCreateTimeIsKnown(): this {
-            this.filters.push({ "createTime": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withCreateTimeIsUnknown(): this {
-            this.filters.push({ "createTime": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
         withVersionIs(val: unknown): this {
-            this.filters.push({ "version": { "$eq": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$eq": val } });
             return this;
         }
 
         withVersionIsNot(val: unknown): this {
-            this.filters.push({ "version": { "$ne": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$ne": val } });
             return this;
         }
 
         withVersionIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$in": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$in": vals } });
             return this;
         }
 
         withVersionNotIn(...vals: unknown[]): this {
-            this.filters.push({ "version": { "$notIn": vals } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$notIn": vals } });
             return this;
         }
 
         withVersionGreaterThan(val: unknown): this {
-            this.filters.push({ "version": { "$gt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$gt": val } });
             return this;
         }
 
         withVersionGreaterThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$gte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$gte": val } });
             return this;
         }
 
         withVersionLessThan(val: unknown): this {
-            this.filters.push({ "version": { "$lt": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$lt": val } });
             return this;
         }
 
         withVersionLessThanOrEqualTo(val: unknown): this {
-            this.filters.push({ "version": { "$lte": val } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$lte": val } });
             return this;
         }
 
         withVersionBetween(lower: unknown, upper: unknown): this {
-            this.filters.push({ "version": { "$between": [lower, upper] } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$between": [lower, upper] } });
             return this;
         }
 
         withVersionIsKnown(): this {
-            this.filters.push({ "version": { "$isNull": false } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": false } });
             return this;
         }
 
         withVersionIsUnknown(): this {
-            this.filters.push({ "version": { "$isNull": true } });
+            this.filters.push({ [OrderLine.__teaqlFields.VERSION_PROPERTY.member]: { "$isNull": true } });
             return this;
         }
 
     orderByIdAscending(): this {
-        this.query.orderBy("id", "asc");
+        this.query.orderBy(OrderLine.__teaqlFields.ID_PROPERTY.member, "asc");
         return this;
     }
 
     orderByIdDescending(): this {
-        this.query.orderBy("id", "desc");
+        this.query.orderBy(OrderLine.__teaqlFields.ID_PROPERTY.member, "desc");
         return this;
     }
 
 
 
     orderByProductNameAscending(): this {
-        this.query.orderBy("productName", "asc");
+        this.query.orderBy(OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByProductNameDescending(): this {
-        this.query.orderBy("productName", "desc");
+        this.query.orderBy(OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member, "desc");
         return this;
     }
 
     orderBySkuAscending(): this {
-        this.query.orderBy("sku", "asc");
+        this.query.orderBy(OrderLine.__teaqlFields.SKU_PROPERTY.member, "asc");
         return this;
     }
 
     orderBySkuDescending(): this {
-        this.query.orderBy("sku", "desc");
+        this.query.orderBy(OrderLine.__teaqlFields.SKU_PROPERTY.member, "desc");
         return this;
     }
 
     orderByQuantityAscending(): this {
-        this.query.orderBy("quantity", "asc");
+        this.query.orderBy(OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, "asc");
         return this;
     }
 
     orderByQuantityDescending(): this {
-        this.query.orderBy("quantity", "desc");
+        this.query.orderBy(OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, "desc");
         return this;
     }
 
 
     orderByCreateTimeAscending(): this {
-        this.query.orderBy("createTime", "asc");
+        this.query.orderBy(OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member, "asc");
         return this;
     }
 
     orderByCreateTimeDescending(): this {
-        this.query.orderBy("createTime", "desc");
+        this.query.orderBy(OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member, "desc");
         return this;
     }
 
     orderByVersionAscending(): this {
-        this.query.orderBy("version", "asc");
+        this.query.orderBy(OrderLine.__teaqlFields.VERSION_PROPERTY.member, "asc");
         return this;
     }
 
     orderByVersionDescending(): this {
-        this.query.orderBy("version", "desc");
+        this.query.orderBy(OrderLine.__teaqlFields.VERSION_PROPERTY.member, "desc");
         return this;
     }
 
@@ -774,7 +774,7 @@ export class OrderLineRequest {
     }
 
     minQuantityAs(retName: string): this {
-        this.query.aggregate("min", "quantity", retName);
+        this.query.aggregate("min", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     maxQuantity(): this {
@@ -782,7 +782,7 @@ export class OrderLineRequest {
     }
 
     maxQuantityAs(retName: string): this {
-        this.query.aggregate("max", "quantity", retName);
+        this.query.aggregate("max", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     sumQuantity(): this {
@@ -790,7 +790,7 @@ export class OrderLineRequest {
     }
 
     sumQuantityAs(retName: string): this {
-        this.query.aggregate("sum", "quantity", retName);
+        this.query.aggregate("sum", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     avgQuantity(): this {
@@ -798,7 +798,7 @@ export class OrderLineRequest {
     }
 
     avgQuantityAs(retName: string): this {
-        this.query.aggregate("avg", "quantity", retName);
+        this.query.aggregate("avg", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     standardDeviationQuantity(): this {
@@ -806,7 +806,7 @@ export class OrderLineRequest {
     }
 
     standardDeviationQuantityAs(retName: string): this {
-        this.query.aggregate("stddev", "quantity", retName);
+        this.query.aggregate("stddev", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     squareRootOfPopulationStandardDeviationQuantity(): this {
@@ -814,7 +814,7 @@ export class OrderLineRequest {
     }
 
     squareRootOfPopulationStandardDeviationQuantityAs(retName: string): this {
-        this.query.aggregate("stddev_pop", "quantity", retName);
+        this.query.aggregate("stddev_pop", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     sampleVarianceQuantity(): this {
@@ -822,7 +822,7 @@ export class OrderLineRequest {
     }
 
     sampleVarianceQuantityAs(retName: string): this {
-        this.query.aggregate("var_samp", "quantity", retName);
+        this.query.aggregate("var_samp", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     samplePopulationVarianceQuantity(): this {
@@ -830,90 +830,90 @@ export class OrderLineRequest {
     }
 
     samplePopulationVarianceQuantityAs(retName: string): this {
-        this.query.aggregate("var_pop", "quantity", retName);
+        this.query.aggregate("var_pop", OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
 
     // --- Group By ---
     groupById(): this {
-        this.query.groupBy("id");
+        this.query.groupBy(OrderLine.__teaqlFields.ID_PROPERTY.member);
         return this;
     }
 
     groupByIdAs(retName: string): this {
-        this.query.groupBy("id", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.ID_PROPERTY.member, retName);
         return this;
     }
     groupByCustomerOrder(): this {
-        this.query.groupBy("customerOrder");
+        this.query.groupBy(OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member);
         return this;
     }
 
     groupByCustomerOrderAs(retName: string): this {
-        this.query.groupBy("customerOrder", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, retName);
         return this;
     }
     groupByProduct(): this {
-        this.query.groupBy("product");
+        this.query.groupBy(OrderLine.__teaqlFields.PRODUCT_PROPERTY.member);
         return this;
     }
 
     groupByProductAs(retName: string): this {
-        this.query.groupBy("product", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.PRODUCT_PROPERTY.member, retName);
         return this;
     }
     groupByProductName(): this {
-        this.query.groupBy("productName");
+        this.query.groupBy(OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member);
         return this;
     }
 
     groupByProductNameAs(retName: string): this {
-        this.query.groupBy("productName", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.PRODUCT_NAME_PROPERTY.member, retName);
         return this;
     }
     groupBySku(): this {
-        this.query.groupBy("sku");
+        this.query.groupBy(OrderLine.__teaqlFields.SKU_PROPERTY.member);
         return this;
     }
 
     groupBySkuAs(retName: string): this {
-        this.query.groupBy("sku", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.SKU_PROPERTY.member, retName);
         return this;
     }
     groupByQuantity(): this {
-        this.query.groupBy("quantity");
+        this.query.groupBy(OrderLine.__teaqlFields.QUANTITY_PROPERTY.member);
         return this;
     }
 
     groupByQuantityAs(retName: string): this {
-        this.query.groupBy("quantity", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.QUANTITY_PROPERTY.member, retName);
         return this;
     }
     groupByCommercePlatform(): this {
-        this.query.groupBy("commercePlatform");
+        this.query.groupBy(OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
         return this;
     }
 
     groupByCommercePlatformAs(retName: string): this {
-        this.query.groupBy("commercePlatform", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, retName);
         return this;
     }
     groupByCreateTime(): this {
-        this.query.groupBy("createTime");
+        this.query.groupBy(OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member);
         return this;
     }
 
     groupByCreateTimeAs(retName: string): this {
-        this.query.groupBy("createTime", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.CREATE_TIME_PROPERTY.member, retName);
         return this;
     }
     groupByVersion(): this {
-        this.query.groupBy("version");
+        this.query.groupBy(OrderLine.__teaqlFields.VERSION_PROPERTY.member);
         return this;
     }
 
     groupByVersionAs(retName: string): this {
-        this.query.groupBy("version", retName);
+        this.query.groupBy(OrderLine.__teaqlFields.VERSION_PROPERTY.member, retName);
         return this;
     }
 
@@ -923,8 +923,8 @@ export class OrderLineRequest {
         request: { readonly entityName: "CustomerOrder"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "customerOrder", request, includeAllFacets,
-            { kind: "facet", method: "facetByCustomerOrderAs", relation: "customerOrder", alias: facetName });
+        this.query.facetBy(facetName, OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByCustomerOrderAs", relation: OrderLine.__teaqlFields.CUSTOMER_ORDER_PROPERTY.member, alias: facetName });
         return this;
     }
 
@@ -933,8 +933,8 @@ export class OrderLineRequest {
         request: { readonly entityName: "Product"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "product", request, includeAllFacets,
-            { kind: "facet", method: "facetByProductAs", relation: "product", alias: facetName });
+        this.query.facetBy(facetName, OrderLine.__teaqlFields.PRODUCT_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByProductAs", relation: OrderLine.__teaqlFields.PRODUCT_PROPERTY.member, alias: facetName });
         return this;
     }
 
@@ -943,14 +943,15 @@ export class OrderLineRequest {
         request: { readonly entityName: "CommercePlatform"; toQuery(): SelectQuery },
         includeAllFacets = true,
     ): this {
-        this.query.facetBy(facetName, "commercePlatform", request, includeAllFacets,
-            { kind: "facet", method: "facetByCommercePlatformAs", relation: "commercePlatform", alias: facetName });
+        this.query.facetBy(facetName, OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, request, includeAllFacets,
+            { kind: "facet", method: "facetByCommercePlatformAs", relation: OrderLine.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, alias: facetName });
         return this;
     }
 
 
     private async executeForListInternal(context: UserContext): Promise<SmartList<OrderLine>> {
         this.ensureIntent();
+        if (this.query.groupByItems.length > 0) throw new Error("Grouped projections require executeForRows");
         if (this._pageCountAlias !== undefined) return this.executeCountedListInternal(context);
         if (this.filters.length > 0) {
             this.query.filter({ "$and": this.filters });
@@ -1003,10 +1004,12 @@ export class OrderLineRequest {
         const totalCount = useIdSet && context.idSetPaginationCountAccuracy === "EXACT"
             ? context.idSetPaginationCount!
             : (totalCountBeforeRows ?? await service.executeCount(preparedQuery, this._pageCountAlias, countOperation));
-        const data = new SmartList(rows.map((row: unknown) =>
+        const aggregateOnly = pageQuery.aggregateItems.length > 0;
+        const data = new SmartList<OrderLine>(aggregateOnly ? [] : rows.map((row: unknown) =>
             row instanceof OrderLine
                 ? row
                 : OrderLine.fromRecord(row as Record<string, unknown>, new EntityRoot())));
+        if (aggregateOnly && rows[0]) Object.assign(data.aggregations, rows[0]);
         data.totalCount = totalCount;
         if (this._pageCountAlias !== undefined) data.aggregations[this._pageCountAlias] = totalCount;
         if (this.query.facets.length > 0) {
@@ -1021,6 +1024,9 @@ export class OrderLineRequest {
         if (this.filters.length > 0) this.query.filter({ "$and": this.filters });
         const service = context.requireResource<TeaQLDataService>("dataService");
         const preparedQuery = context.prepareQuery(this.query);
+        if (preparedQuery.aggregateItems.length > 0 || preparedQuery.groupByItems.length > 0) {
+            throw new Error("Entity streams require entity rows; use a record or aggregation query");
+        }
         // Prepare Context and capture the runtime request before returning a lazy iterator.
         const chunks = service.executeForStream(preparedQuery, chunkSize);
         return (async function* () {

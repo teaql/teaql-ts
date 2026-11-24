@@ -5,9 +5,20 @@ import { CustomerOrder } from './CustomerOrder';
 const teaqlConstruction = Symbol("managed entity construction");
 
 export class OrderStatus {
+    /** @internal Generated names shared by requests and entity state. */
+    static readonly __teaqlFields = {
+        ID_PROPERTY: { member: "id", model: "id" },
+        NAME_PROPERTY: { member: "name", model: "name" },
+        CODE_PROPERTY: { member: "code", model: "code" },
+        COLOR_PROPERTY: { member: "color", model: "color" },
+        DISPLAY_ORDER_PROPERTY: { member: "displayOrder", model: "display_order" },
+        COMMERCE_PLATFORM_PROPERTY: { member: "commercePlatform", model: "commerce_platform" },
+        VERSION_PROPERTY: { member: "version", model: "version" }
+    } as const;
+
     private static teaqlTemporaryId = 0;
     private static readonly teaqlMutationFields = new MutationFieldLayout("OrderStatus",
-        ["id", "name", "code", "color", "display_order", "commerce_platform", "version"], { id: "immutable_field", version: "immutable_field" });
+        [OrderStatus.__teaqlFields.ID_PROPERTY.model, OrderStatus.__teaqlFields.NAME_PROPERTY.model, OrderStatus.__teaqlFields.CODE_PROPERTY.model, OrderStatus.__teaqlFields.COLOR_PROPERTY.model, OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model, OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model, OrderStatus.__teaqlFields.VERSION_PROPERTY.model], { id: "immutable_field", version: "immutable_field" });
         id?: string;
         name?: string;
         code?: string;
@@ -34,7 +45,7 @@ export class OrderStatus {
                 this.commercePlatform = (init as any).commercePlatform instanceof CommercePlatform
                     ? (init as any).commercePlatform
                     : CommercePlatform.fromRecord((init as any).commercePlatform);
-                this.markLoaded("commercePlatform");
+                this.markLoaded(OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
             }
             if (Array.isArray((init as any).customerOrderList)) {
                 const selected = (init as any).customerOrderList;
@@ -56,6 +67,12 @@ export class OrderStatus {
     }
 
     private teaqlEntityKey(): EntityKey { return { entity: "OrderStatus", id: (this as any)._ledgerId }; }
+    /** @internal Restore known equal scalars after the prepared graph completes. */
+    private teaqlRestoreFixedValues(values: Readonly<Record<string, unknown>>): void {
+        for (const field of [{ member: OrderStatus.__teaqlFields.ID_PROPERTY.member, canonical: OrderStatus.__teaqlFields.ID_PROPERTY.model }, { member: OrderStatus.__teaqlFields.NAME_PROPERTY.member, canonical: OrderStatus.__teaqlFields.NAME_PROPERTY.model }, { member: OrderStatus.__teaqlFields.CODE_PROPERTY.member, canonical: OrderStatus.__teaqlFields.CODE_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: OrderStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderStatus.__teaqlFields.VERSION_PROPERTY.model }]) {
+            if (Object.prototype.hasOwnProperty.call(values, field.canonical)) (this as any)[field.member] = values[field.canonical];
+        }
+    }
     private teaqlAttachRoot(root: EntityRoot, hydration = false): this {
         if ((this as any)._root !== root) {
             root.mergeEntityFrom((this as any)._root, this.teaqlEntityKey());
@@ -71,9 +88,33 @@ export class OrderStatus {
     }
 
     toJSON(): Record<string, unknown> {
-        const result = Object.fromEntries(Object.entries(this));
-        if (this.isLoaded("customerOrderList")) result["customerOrderList"] = (this as any)._customerOrderList;
-        return result;
+        return this.teaqlJson(new Set());
+    }
+
+    private static teaqlJsonValue(value: any, active: Set<object>): any {
+        if (value === null || value === undefined) return value;
+        if (typeof value.teaqlJson === "function") return value.teaqlJson(active);
+        if (Array.isArray(value)) return Array.from(value, item => this.teaqlJsonValue(item, active));
+        if (typeof value.toJSON === "function") return value.toJSON();
+        if (typeof value === "object") return Object.fromEntries(Object.entries(value).map(
+            ([key, item]) => [key, this.teaqlJsonValue(item, active)]));
+        return typeof value === "bigint" ? value.toString() : value;
+    }
+
+    private teaqlJson(active: Set<object>): Record<string, unknown> {
+        if (active.has(this)) return { id: this.id, version: this.version };
+        active.add(this);
+        try {
+            // Only enumerable business/query data participates; runtime state is private.
+            const payload = Object.fromEntries(Object.entries(this).filter(([key]) => this.isLoaded(key))
+                .map(([key, value]) => [key, OrderStatus.teaqlJsonValue(value, active)]));
+            const childrenCustomerOrderList = this.customerOrderList();
+            if (childrenCustomerOrderList.isLoaded || childrenCustomerOrderList.some(child =>
+                (child as any)._root.hasPending((child as any).teaqlEntityKey()))) {
+                payload["customerOrderList"] = OrderStatus.teaqlJsonValue(childrenCustomerOrderList, active);
+            }
+            return payload;
+        } finally { active.delete(this); }
     }
 
     isLoaded(field: string): boolean {
@@ -121,6 +162,9 @@ export class OrderStatus {
     async save(context: UserContext): Promise<OrderStatus> {
         const intent = new MutationIntent((this as any)._comment);
         this.teaqlValidateLoadedIdentities();
+        if (this.teaqlIsCancelledNew()) throw new CheckException([{ruleId: "invalid_deletion_state",
+            entityType: "OrderStatus", location: ObjectLocation.property("id"),
+            message: "Cannot save a cancelled new root"}]);
         if (!this.teaqlValidateMutationOrigins()) return this;
         const service = context.requireResource<TeaQLDataService>("dataService");
         return service.executeGraphSave(new MutationIntent((this as any)._comment), async (graph) => {
@@ -139,8 +183,31 @@ export class OrderStatus {
         });
     }
 
+    /** @internal Cancellation is admitted only for a real Context-reserved creation. */
+    private teaqlIsCancelledNew(): boolean {
+        const key = this.teaqlEntityKey(), root = (this as any)._root;
+        if ((this as any)._action !== "Delete" || !root.isNew(key) || !root.isDeleted(key)) return false;
+        EntityCreation.requireMutation(this, key, this.id, "Create", root, true);
+        for (const child of (this as any)._customerOrderList) {
+            if (child.teaqlHasPendingGraph(new Set<object>([this]))) throw new CheckException([{ruleId: "invalid_deletion_state",
+                entityType: "OrderStatus", location: ObjectLocation.property("customer_order_list"),
+                message: "Cancelled new entity has pending descendants; explicit resolution is required"}]);
+        }
+        return true;
+    }
+
+    /** @internal Pure pending-state check; nested cancellation is not an implicit cascade. */
+    private teaqlHasPendingGraph(seen = new Set<object>()): boolean {
+        if (seen.has(this)) return false;
+        seen.add(this);
+        let pending = (this as any)._action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
+        for (const child of (this as any)._customerOrderList) pending = child.teaqlHasPendingGraph(seen) || pending;
+        return pending;
+    }
+
     /** @internal Pure provenance pass before resolving any Context resources. */
     private teaqlValidateMutationOrigins(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
         if (seen.has(this)) return false;
         seen.add(this);
         const action = (this as any)._action;
@@ -167,6 +234,7 @@ export class OrderStatus {
 
     /** @internal Cancel known no-ops across the graph before any derived FK edits. */
     private teaqlDiscardRestoredGraph(graph: GraphMutationSession, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (seen.has(this)) return;
         seen.add(this);
         graph.discardRestoredFields(OrderStatus.teaqlMutationFields,
@@ -181,14 +249,17 @@ export class OrderStatus {
         graph.discardRestoredFields(OrderStatus.teaqlMutationFields,
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         graph.registerSource(this, (this as any)._root, this.teaqlEntityKey(), {
-            "commerce_platform": "CommercePlatform"
+            [OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model]: "CommercePlatform"
         }, () => ({ ...this.teaqlMutationPayload(),
             __teaql_key: this.teaqlEntityKey(), __teaql_action: (this as any)._action,
             __teaql_comment: (this as any)._comment,
             __teaql_load: {fullyLoaded: (this as any)._fullyLoaded, fields: [...(this as any)._loadedFields].sort()},
             "customer_order_list": graph.sourceMembers((this as any)._customerOrderList)
         }));
+        // Keep omitted nodes in the immutable input review, not in the write plan.
+        if (this.teaqlIsCancelledNew()) return;
         for (const child of (this as any)._customerOrderList) {
+            if (child.teaqlIsCancelledNew()) { child.teaqlNormalizeGraph(graph, seen); continue; }
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.status;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -200,6 +271,7 @@ export class OrderStatus {
 
     /** @internal Whole-input version/completeness pass; does not use Context or Fix. */
     private teaqlAdmitGraph(seen = new Set<object>()): boolean {
+        if (this.teaqlIsCancelledNew()) return false;
         if (seen.has(this)) return false;
         seen.add(this);
         const action = (this as any)._action;
@@ -210,7 +282,7 @@ export class OrderStatus {
         if (pending) {
             nextEntityVersion(action, LoadedScalarSnapshot.forEntity(this)?.persistedVersion);
             if (action === "Update") {
-                const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "commercePlatform", canonical: "commerce_platform" }, { member: "version", canonical: "version" }].find(field => !this.isLoaded(field.member));
+                const notLoaded = [{ member: OrderStatus.__teaqlFields.ID_PROPERTY.member, canonical: OrderStatus.__teaqlFields.ID_PROPERTY.model }, { member: OrderStatus.__teaqlFields.NAME_PROPERTY.member, canonical: OrderStatus.__teaqlFields.NAME_PROPERTY.model }, { member: OrderStatus.__teaqlFields.CODE_PROPERTY.member, canonical: OrderStatus.__teaqlFields.CODE_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model }, { member: OrderStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderStatus.__teaqlFields.VERSION_PROPERTY.model }].find(field => !this.isLoaded(field.member));
                 if (notLoaded) throw new CheckException([{ruleId: "invalid_type", entityType: "OrderStatus", location: ObjectLocation.property(notLoaded.canonical),
                     message: "Mutation requires a fully loaded entity"}]);
             }
@@ -229,6 +301,7 @@ export class OrderStatus {
 
     /** @internal Validates and fixes the complete graph before its first mutation. */
     teaqlPreflightGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): void {
+        if (this.teaqlIsCancelledNew()) return;
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return;
         seen.add(this);
@@ -237,7 +310,7 @@ export class OrderStatus {
             (this as any)._root, this.teaqlEntityKey(), LoadedScalarSnapshot.forEntity(this));
         const pending = action !== "Update" || (this as any)._root.hasPending(this.teaqlEntityKey());
         if (action === "Update" && pending) {
-            const notLoaded = [{ member: "id", canonical: "id" }, { member: "name", canonical: "name" }, { member: "code", canonical: "code" }, { member: "color", canonical: "color" }, { member: "displayOrder", canonical: "display_order" }, { member: "commercePlatform", canonical: "commerce_platform" }, { member: "version", canonical: "version" }]
+            const notLoaded = [{ member: OrderStatus.__teaqlFields.ID_PROPERTY.member, canonical: OrderStatus.__teaqlFields.ID_PROPERTY.model }, { member: OrderStatus.__teaqlFields.NAME_PROPERTY.member, canonical: OrderStatus.__teaqlFields.NAME_PROPERTY.model }, { member: OrderStatus.__teaqlFields.CODE_PROPERTY.member, canonical: OrderStatus.__teaqlFields.CODE_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COLOR_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COLOR_PROPERTY.model }, { member: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member, canonical: OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model }, { member: OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member, canonical: OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model }, { member: OrderStatus.__teaqlFields.VERSION_PROPERTY.member, canonical: OrderStatus.__teaqlFields.VERSION_PROPERTY.model }]
                 .find(field => !this.isLoaded(field.member));
             if (notLoaded) {
                 throw new CheckException([{
@@ -261,6 +334,7 @@ export class OrderStatus {
         if (pending) service.preflightMutation(request);
         const scope = request.scopeFor(this.teaqlEntityKey());
         for (const [index, child] of (this as any)._customerOrderList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.status;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -279,6 +353,7 @@ export class OrderStatus {
 
     /** @internal Used by generated relation cascades inside the root graph transaction. */
     async teaqlSaveWithinGraph(context: UserContext, service: TeaQLDataService, graph: GraphMutationSession, parent?: MutationTraceScope, seen = new Set<object>()): Promise<OrderStatus> {
+        if (this.teaqlIsCancelledNew()) { graph.validatePreparedSources(); return this; }
         if (!parent) new MutationIntent((this as any)._comment);
         if (seen.has(this)) return this;
         seen.add(this);
@@ -299,6 +374,7 @@ export class OrderStatus {
         if (action === "Update" && !(this as any)._root.hasPending(this.teaqlEntityKey())) {
             const scope = request.scopeFor(this.teaqlEntityKey());
             for (const [index, child] of (this as any)._customerOrderList.entries()) {
+                if (child.teaqlIsCancelledNew()) continue;
                 child.teaqlAttachRoot((this as any)._root);
                 const currentParent = child.status;
                 if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -349,10 +425,14 @@ export class OrderStatus {
         });
         (this as any)._loadedFields = new Set(Object.keys(result.persistedRecord));
         (this as any)._fullyLoaded = false;
-        if (mutation.action !== "Delete") (this as any)._action = "Update";
+        // Normalize the native action before the prepared result captures it.
+        // The ledger keeps pending deletion until commit; rollback restores
+        // rollbackState.action so the same graph can retry every mutation kind.
+        (this as any)._action = "Update";
         graph.acceptPreparedResult((this as any)._root, oldKey, newKey);
         const scope = request.scopeFor(newKey);
         for (const [index, child] of (this as any)._customerOrderList.entries()) {
+            if (child.teaqlIsCancelledNew()) continue;
             child.teaqlAttachRoot((this as any)._root);
             const currentParent = child.status;
             if (((child as any)._action !== "Update" || (child as any)._root.hasPending(child.teaqlEntityKey()))
@@ -379,13 +459,13 @@ export class OrderStatus {
 
     private teaqlMutationPayload(): Record<string, unknown> {
         return {
-            "id": this.id,
-            "name": this.name,
-            "code": this.code,
-            "color": this.color,
-            "display_order": this.displayOrder,
-            "commerce_platform": this.commercePlatform,
-            "version": this.version
+            [OrderStatus.__teaqlFields.ID_PROPERTY.model]: this.id,
+            [OrderStatus.__teaqlFields.NAME_PROPERTY.model]: this.name,
+            [OrderStatus.__teaqlFields.CODE_PROPERTY.model]: this.code,
+            [OrderStatus.__teaqlFields.COLOR_PROPERTY.model]: this.color,
+            [OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model]: this.displayOrder,
+            [OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model]: this.commercePlatform,
+            [OrderStatus.__teaqlFields.VERSION_PROPERTY.model]: this.version
         };
     }
 
@@ -395,50 +475,50 @@ export class OrderStatus {
 
     updateId(value: string): this {
         this.id = value;
-        this.markLoaded("id");
-        (this as any)._root.set(this.teaqlEntityKey(), "id", value);
+        this.markLoaded(OrderStatus.__teaqlFields.ID_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.ID_PROPERTY.model, value);
         return this;
     }
 
     updateName(value: string): this {
         this.name = value;
-        this.markLoaded("name");
-        (this as any)._root.set(this.teaqlEntityKey(), "name", value);
+        this.markLoaded(OrderStatus.__teaqlFields.NAME_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.NAME_PROPERTY.model, value);
         return this;
     }
 
     updateCode(value: string): this {
         this.code = value;
-        this.markLoaded("code");
-        (this as any)._root.set(this.teaqlEntityKey(), "code", value);
+        this.markLoaded(OrderStatus.__teaqlFields.CODE_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.CODE_PROPERTY.model, value);
         return this;
     }
 
     updateColor(value: string | null): this {
         this.color = value;
-        this.markLoaded("color");
-        (this as any)._root.set(this.teaqlEntityKey(), "color", value);
+        this.markLoaded(OrderStatus.__teaqlFields.COLOR_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.COLOR_PROPERTY.model, value);
         return this;
     }
 
     updateDisplayOrder(value: Decimal | null): this {
         if (value != null) value = decimal(value);
         this.displayOrder = value;
-        this.markLoaded("displayOrder");
-        (this as any)._root.set(this.teaqlEntityKey(), "display_order", value);
+        this.markLoaded(OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.DISPLAY_ORDER_PROPERTY.model, value);
         return this;
     }
 
     updateVersion(value: EntityVersion): this {
         this.version = value;
-        this.markLoaded("version");
-        (this as any)._root.set(this.teaqlEntityKey(), "version", value);
+        this.markLoaded(OrderStatus.__teaqlFields.VERSION_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.VERSION_PROPERTY.model, value);
         return this;
     }
     updateCommercePlatform(value: any): this {
         this.commercePlatform = value?.id ?? value;
-        this.markLoaded("commercePlatform");
-        (this as any)._root.set(this.teaqlEntityKey(), "commerce_platform", this.commercePlatform);
+        this.markLoaded(OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.member);
+        (this as any)._root.set(this.teaqlEntityKey(), OrderStatus.__teaqlFields.COMMERCE_PLATFORM_PROPERTY.model, this.commercePlatform);
         return this;
     }
 

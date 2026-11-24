@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "teaql-ts": "file:../../.."
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "5.4.5"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "name": "teaql-generated-facet-trace-example",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "ts-node src/main.ts"
+  }
+}

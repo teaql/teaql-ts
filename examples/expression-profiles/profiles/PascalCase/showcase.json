@@ -1,0 +1,53 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/expression-profiles",
+  "library": {
+    "generatedFilesManifestSHA256": "3b2563c318922d2e3761c48601b2b40bae42e0728acb80f8013b855b2d8a8f5a",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "0b74f30c25123ae9e3a65799cfb5a67f46b96f985b4a0dad1a1daa9ed52d80be"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "029f602cf0e2de4ec0910495c340fbeb41f11772b6aca875569f498811158e7d",
+      "qualificationReceiptSHA256": "1012520de60d49cfc1e45c7e08fcf204dd2db36a163909e1e36752065a31047a",
+      "sourceCommit": "99d6bde2351d79b7d8b1b1c5cbc78c5dc777b6f2",
+      "tag": "unreleased-source-99d6bde2"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/dispatch-document-profiles-generation/receipt.json",
+    "receiptSHA256": "11b1084da4040d1a68378b9ee879d98dd18d61b7eace2700c2e3dc207276c1b3"
+  },
+  "scene": "Read a dispatch order in PascalCase",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "covered-by-parent-qualification",
+  "verification": [
+    "bash",
+    "examples/expression-profiles/verify-dispatch.sh"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/DispatchOrder.ts",
+      "src/generated/models/DistributionCenter.ts",
+      "src/generated/requests/DispatchOrderRequest.ts",
+      "src/generated/requests/DistributionCenterRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "5ec1771ee56914020bc6d081e7ccfff251bef2c0a8aeadb3d62d6ba2392f9102",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "expected": {
+    "constantIdentities": [
+      "1001",
+      "1002"
+    ],
+    "fileProviderRounds": 2,
+    "retainedFileScenarios": 6,
+    "rootIdentity": "1"
+  },
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/school-management",
+  "library": {
+    "generatedFilesManifestSHA256": "f4e64b0b853d72ccdcc1a2868755ff2464aefdcd4b5ec4d083b93d5cdb7cb683",
+    "root": "typescript-lib-core",
+    "scope": "typescript-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "b5cd06ae44464fc29ed24de82654b47c80f546110496756aa15923cee1c511b4"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build; not a public release",
+      "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+      "qualificationReceiptSHA256": "5119b9f3a5c95fb84f527885fdd5bac0fe79a56352a55b8acf116f67fd12787d",
+      "sourceCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+      "tag": "unreleased-source-021b1ed8"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/school-generation/receipt.json",
+    "receiptSHA256": "86cdc634a758fdf746de3323e8cd5c4fd32a050e50c0b7b04c5e64b397a1165f"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/runtime/school-management/business-receipt.json",
+    "businessReceiptSHA256": "b10b6ab75c47654f6eb0ae2c6b0fe64495247cf3ea21aa5b7df0280357e58ebd",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-school-scopes/receipt.json",
+    "nativeReceiptSHA256": "9525ac96dd9c19e0eedf62252c4fa0541cb9a95ceeb328df5b7aba98cbf330e3",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "2bb127991d587a14aca8483a0e44054a55db686c"
+  },
+  "relatedShowcases": [
+    "typescript-app-console/reconciled/showcase.json"
+  ],
+  "scene": "School startup, ID floor, query and audited update",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "verification": [
+    "bash",
+    "verify.sh"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "package.json",
+      "src/main.ts",
+      "app.ts",
+      "request-intent.ts",
+      "file-bootstrap.test.ts",
+      "src/teaql-node-sqlite.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/School.ts",
+      "src/generated/models/SchoolType.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/SchoolRequest.ts",
+      "src/generated/requests/SchoolTypeRequest.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "f31f5a964920b8c12c023a015902caab5ed1745e5a9a9dc2ad0ae1764a40e60d",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console",
+    "usePortableTypeScriptModule": true
+  }
+}

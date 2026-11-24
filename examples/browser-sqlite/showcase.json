@@ -1,0 +1,47 @@
+{
+  "goalId": "typescript:examples/browser-sqlite",
+  "library": {
+    "generatedFilesManifestSHA256": "17006eaaee1c8ab7bc5e5686a7baed113f81b7712159f28e91ec7e35f5a7e8ea",
+    "root": "typescript-lib-core",
+    "scope": "typescript-lib-core"
+  },
+  "model": {
+    "path": "order-model.xml",
+    "sha256": "44d20c0d236de9c79f767054deba773e11aa6ae4eaed1ede98cf7c6ed8d18495"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "e36769f32f8a6fa4db846658a973ac7856c9a357e6f273cf4dc396600303fc27",
+      "qualificationReceiptSHA256": "f0f8b85e4bd1ce2abdf178e72ef41b1d1348bfd415a296192bf22fa1f5d1afda",
+      "sourceCommit": "5c42fcfa8ed692c42b70860e7e224d2287358def",
+      "tag": "unreleased-source-5c42fcfa"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-generation-shared-types/receipt.json",
+    "receiptSHA256": "d39cf600de08a25446c876ed3c3fc098d1ce7042a36d00abb6608b46ef2f90a2"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-runtime-shared-types/business-receipt.json",
+    "businessReceiptSHA256": "65fbd0f4905df1b1a9c8b60033759923957a071faebd2395345acaf6d422f2a7",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/browser-order-workbench-runtime-shared-types/receipt.json",
+    "nativeReceiptSHA256": "6485b6a93244b780665d9017a18ee872f096e38ed466aeb04df6f0759f0488ea",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "1501fb9c4872a2b79ee070be6f746d7248f7b61d"
+  },
+  "runtimeTestExempt": false,
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "title": "Offline order workbench",
+  "workspace": {
+    "applicationOwnedFiles": [
+      "index.html",
+      "package.json",
+      "src/main.ts",
+      "tsconfig.json",
+      "vite.config.ts"
+    ],
+    "generatedFilesManifestSHA256": "ea9efecdc4956c9224ff0d7df6ac44427dbb1fd6d63560363584d1d7dace8058",
+    "root": "typescript-web-vite",
+    "scope": "typescript-web-vite"
+  }
+}

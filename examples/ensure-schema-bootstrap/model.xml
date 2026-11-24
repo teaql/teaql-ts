@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root name="district-school-bootstrap-service" org="example" data_service="sqlite">
+  <platform name="Default School District"/>
+  <school_type id="id()" platform="platform()" name="string()" code="string()" _constant="true" _identifier="code">
+    <_value id="1001" name="Primary" code="PRIMARY"/>
+    <_value id="1002" name="Secondary" code="SECONDARY"/>
+  </school_type>
+  <school platform="platform()" school_type="school_type()" name="School Name|[1,100]"/>
+</root>

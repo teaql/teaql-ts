@@ -1,0 +1,68 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/conformance",
+  "library": {
+    "generatedFilesManifestSHA256": "764f266caa84e9e648b9a31335af955f09cc1d8074ca007b7588d3aa0f95cb56",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "0a59f66db2487fdd0430087dd5985ae780225c088ad800679cb57c593c6bcee7"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build; not a public release",
+      "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+      "qualificationReceiptSHA256": "5119b9f3a5c95fb84f527885fdd5bac0fe79a56352a55b8acf116f67fd12787d",
+      "sourceCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+      "tag": "unreleased-source-021b1ed8"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/work-item-generation/receipt.json",
+    "receiptSHA256": "99afd2b0806d9aec86d271cd5154f9447b895e9f3a5e69f2e95468bcd8a1644a"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-work-item-native-scopes/runtime/conformance/business-receipt.json",
+    "businessReceiptSHA256": "dab90d4c40864364a3e9ab3151a8e695b7aa8fcd7dba0d118811afdc920b21a2",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-work-item-native-scopes/receipt.json",
+    "nativeReceiptSHA256": "1b075c77ba88fd6dc93f9b3a7322165b75fd1d8acba6023aefc4b2e4e9ddcbf7",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "2154da7f11252bb9bb575713e46f066bd6d4e68c"
+  },
+  "scene": "WorkItem governed lifecycle, managed creation and exact loaded-state boundaries",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "verification": [
+    "bash",
+    "verify.sh"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "package.json",
+      "tsconfig.json",
+      "src/main.ts",
+      "src/masking-verification.ts",
+      "src/operational-clock-verification.ts",
+      "src/fix-owner-verification.ts",
+      "managed-construction.test.ts",
+      "managed-sqlite.test.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/models/WorkItem.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/generated/requests/WorkItemRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "e9dfe7bd990e9c6562ebd7ef4d94a8437cffe5bea399d10a6c9bdbf32f8ac66d",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

@@ -9,8 +9,8 @@ async function main(){
  try{
   runner=createOwnedRunner();const config=path.join(scratch,'jest.cjs'),tsconfig=path.join(scratch,'tsconfig.json');
   fs.writeFileSync(tsconfig,JSON.stringify({extends:path.join(repo,'tsconfig.json'),compilerOptions:{baseUrl:repo,types:['node','jest'],typeRoots:[path.join(repo,'node_modules/@types')],paths:{'teaql-ts':[path.join(repo,'src/index.ts')],'teaql-ts/*':[path.join(repo,'src/*')]}}}));
-  fs.writeFileSync(config,'module.exports = '+JSON.stringify({rootDir:repo,roots:[__dirname],testEnvironment:'node',
-   testMatch:['**/examples/school-management/file-bootstrap.test.ts'],moduleNameMapper:{'^teaql-ts$':path.join(repo,'src/index.ts'),'^teaql-ts/(.*)$':path.join(repo,'src/$1')},
+  fs.writeFileSync(config,'module.exports = '+JSON.stringify({rootDir:repo,roots:[path.join(__dirname,'typescript-app-console')],testEnvironment:'node',
+   testMatch:['**/examples/school-management/typescript-app-console/file-bootstrap.test.ts'],moduleNameMapper:{'^teaql-ts$':path.join(repo,'src/index.ts'),'^teaql-ts/(.*)$':path.join(repo,'src/$1')},
    transform:{'^.+\\.tsx?$':['ts-jest',{tsconfig}]}})+';\n');
   for(const round of [1,2]){
    const log=path.join(supplied,'round-'+round+'.log'),fd=fs.openSync(log,'wx');let result;

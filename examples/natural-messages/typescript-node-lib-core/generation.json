@@ -1,0 +1,20 @@
+{
+  "artifactKind": "signed published generator release",
+  "generationReceipt": "../../generator-v5.0.0.json",
+  "generator": {
+    "jarSHA256": "ba0a502363884c206a46b6d5da89b0854b7f3e84072dd88544b15573c0d70812",
+    "kind": "signed published generator release",
+    "release": "v5.0.0",
+    "sourceCommit": "783ff0d81751b030c1209043476e8326cc6da58b",
+    "url": "https://github.com/teaql/teaql-code-gen/releases/tag/v5.0.0"
+  },
+  "implementationHandEdited": false,
+  "modelSha256": "871c28ee976d0fc0e35c21305870cf21f83bd0aed0b758bbf217b51ae65299b1",
+  "previousOrigin": {
+    "commit": "a332c8ad2cb6288e6bda1e4a8b243bbf3c7b4f36",
+    "path": "examples/natural-messages/typescript-node-lib-core/generation.json",
+    "sha256": "b075c9b6b0a48bfaf34c4ba6a97e1012844d5bf660d5f54b15685eb9881609ca"
+  },
+  "publicPublication": false,
+  "schema": "teaql.native-natural-message-generation/v1"
+}

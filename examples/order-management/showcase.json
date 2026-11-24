@@ -1,0 +1,91 @@
+{
+  "domainConsumption": "Named Node library via npm workspaces; parent override binds every teaql-ts edge to current runtime source",
+  "expected": {
+    "exactAmount": "129.95",
+    "orderDate": "2026-08-12",
+    "orderNumber": "WEB-2026-001",
+    "orders": 1,
+    "presets": 1,
+    "sameDatabaseRuns": 2
+  },
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/order-management",
+  "library": {
+    "generatedFilesManifestSHA256": "f8857938a31d90460e161be9caba075378fcb618631679de4b3f982a88fe7d24",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "a50951aa0df35cac1f4ed64ef0646860941916aed1ec0919b5b299ef4ad6a303"
+  },
+  "priorFocusedQualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-scopes/runtime/order-management/business-receipt.json",
+    "businessReceiptSHA256": "a70446a016fa458882961078521de38b04ab6871dd4557cccde92bd5a7d3909c",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-scopes/receipt.json",
+    "nativeReceiptSHA256": "9c578a72d038e5e7839f20794d57e0d446e3f5a18554f16c603205e3f14ae900",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "4985faa074c16b710fd640bd7e20169165014fb2"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build; not a public release",
+      "jarSHA256": "34dd804dccf05470dad46d086d58412e4a9dfcd0a1c6ed34f8f90c55ff478220",
+      "qualificationReceiptSHA256": "5119b9f3a5c95fb84f527885fdd5bac0fe79a56352a55b8acf116f67fd12787d",
+      "sourceCommit": "021b1ed8bee5db7eef38a6b1e3a3ef2e7ac69daa",
+      "tag": "unreleased-source-021b1ed8"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/order-generation/receipt.json",
+    "receiptSHA256": "5041246b7c9f452219d943efa393ea380ce7f7e172da739a945bb49da2ba5db2"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-exact-native-qualification/runtime/order-management/business-receipt.json",
+    "businessReceiptSHA256": "bd541a1e00a41c461c553bf9299f2f1a2b918693026572eaac27bda7e60e33a5",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-order-exact-native-qualification/receipt.json",
+    "nativeReceiptSHA256": "9546588d5aa7f7eee9f613cbc6753ee7129b4f73f6c0451040fc0893a360e83a",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "4acac1178112efcb72709e01d51fe729818d46ba"
+  },
+  "scene": "Order terminal, exact amount and idempotent search presets",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "verification": [
+    "bash",
+    "verify.sh"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts",
+      "app.ts",
+      "package.json",
+      "tsconfig.json"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/CommercePlatform.ts",
+      "src/generated/models/Customer.ts",
+      "src/generated/models/CustomerOrder.ts",
+      "src/generated/models/OrderLine.ts",
+      "src/generated/models/OrderSearchPreset.ts",
+      "src/generated/models/OrderStatus.ts",
+      "src/generated/models/Product.ts",
+      "src/generated/requests/CommercePlatformRequest.ts",
+      "src/generated/requests/CustomerOrderRequest.ts",
+      "src/generated/requests/CustomerRequest.ts",
+      "src/generated/requests/OrderLineRequest.ts",
+      "src/generated/requests/OrderSearchPresetRequest.ts",
+      "src/generated/requests/OrderStatusRequest.ts",
+      "src/generated/requests/ProductRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "32f4730d354bf5a9d96206be401da638e15ba80584740142c5372a230a5df140",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

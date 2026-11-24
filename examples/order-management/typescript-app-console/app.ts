@@ -6,7 +6,7 @@ import { SQLiteTeaQLClient } from "order-management-service-lib/src/teaql-node-s
 
 async function main(): Promise<void> {
   const root = path.resolve(__dirname, "..");
-  const database = path.join(root, ".local", "order.db");
+  const database = process.env.TEAQL_ORDER_MANAGEMENT_DB ?? path.join(root, ".local", "order.db");
   if (!fs.existsSync(database)) {
     console.log(`[database] ${database} was not found; TeaQL will create it`);
   }

@@ -1,7 +1,7 @@
 # Browser SQLite example
 
 - Keep the existing WorkItem page and the generated Order page independently usable.
-- Application-owned code lives in `src/`, HTML, and `scripts/`. Never hand-edit `orders-lib/`.
+- Application-owned code lives in `typescript-web-vite/`. Keep the current `typescript-lib-core/` and historical `orders-lib/` domain files read-only.
 - Use `assist/query-*.md`, the required field help, and create/expression/debug Assist for API discovery. Do not inspect generated library source or guess method names.
 - Order queries must remain bounded and carry non-empty comment/purpose; seeding uses generated audited mutation APIs with the trusted context.
 - Search input is validated JSON. Never execute it with `eval` or `new Function`.

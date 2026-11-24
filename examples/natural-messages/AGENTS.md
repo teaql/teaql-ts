@@ -4,7 +4,7 @@ Run `node scripts/verify-natural-messages.cjs --full --example --output
 /new/evidence/path` from the runtime repository. The output path must not exist.
 
 The example consumes the complete immutable generated library and model under
-`fixture/`. Do not read or edit generated library source for
+`typescript-node-lib-core/`. Do not read or edit generated library source for
 API discovery. Use current model-aware Assist when application code needs an
 operation not already demonstrated here. Its generated Runtime Module installs
 presentation metadata and actual Checker rules. Do not replace them with manual

@@ -1,0 +1,61 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/scalar-type-probe",
+  "library": {
+    "generatedFilesManifestSHA256": "394d5f8762c9e7073e2baaabbbf5ec39428ae66e9996207667eeb0a1e47076d6",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "freight-quote.xml",
+    "sha256": "076fdf926be1a8b71e61cdfaf66b539f54c1ac2182e1f2bc75897dfab52d6d38"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "029f602cf0e2de4ec0910495c340fbeb41f11772b6aca875569f498811158e7d",
+      "qualificationReceiptSHA256": "1012520de60d49cfc1e45c7e08fcf204dd2db36a163909e1e36752065a31047a",
+      "sourceCommit": "99d6bde2351d79b7d8b1b1c5cbc78c5dc777b6f2",
+      "tag": "unreleased-source-99d6bde2"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-freight-quote-generation/receipt.json",
+    "receiptSHA256": "21255d96894aac7c7b0436462fd4070da9028754c275b799653fb44d73ea0481"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-freight-quotes-independent-readback/runtime/freight-quote/receipt.json",
+    "businessReceiptSHA256": "a58f0dfcd449a24b8c2a001d1d5774251d7e1c45e44f2f3dc2f404277e31b83f",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-freight-quotes-independent-readback/receipt.json",
+    "nativeReceiptSHA256": "ed1456eb909c8b7ba4ae66c9e260c0a1c5d00737bd7911f120447da78ea0d700",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "7035309ae6866ae0c13b68b36bef1594f4c27d4b"
+  },
+  "scene": "Precise freight quotes and delivery commitments",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "verification": [
+    "bash",
+    "examples/scalar-type-probe/verify-freight-quotes.sh"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/FreightQuote.ts",
+      "src/generated/models/Platform.ts",
+      "src/generated/requests/FreightQuoteRequest.ts",
+      "src/generated/requests/PlatformRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "a3147742fc565d01d9cd3e8520024f0881e773a56b20d1480f0b59d7e084fb58",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "generatedDomainLibraryHandEdited": false,
+  "goalId": "typescript:examples/expression-profiles",
+  "library": {
+    "generatedFilesManifestSHA256": "e2750f62235ee5bc49d20887452e1b2fb4c015c5af54c0c7b1015165a8a529d9",
+    "root": "typescript-node-lib-core",
+    "scope": "typescript-node-lib-core"
+  },
+  "model": {
+    "path": "model.xml",
+    "sha256": "80efe091edc3c7e43fa0b654cc1fecf65fda6664434b3a3ee8d8676027e70ede"
+  },
+  "producer": {
+    "generator": {
+      "artifactKind": "qualified source build",
+      "jarSHA256": "029f602cf0e2de4ec0910495c340fbeb41f11772b6aca875569f498811158e7d",
+      "qualificationReceiptSHA256": "1012520de60d49cfc1e45c7e08fcf204dd2db36a163909e1e36752065a31047a",
+      "sourceCommit": "99d6bde2351d79b7d8b1b1c5cbc78c5dc777b6f2",
+      "tag": "unreleased-source-99d6bde2"
+    },
+    "receipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/dispatch-document-profiles-generation/receipt.json",
+    "receiptSHA256": "11b1084da4040d1a68378b9ee879d98dd18d61b7eace2700c2e3dc207276c1b3"
+  },
+  "qualification": {
+    "businessReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-dispatch-profiles-native/runtime/expression-profiles/receipt.json",
+    "businessReceiptSHA256": "7ff73cb274104e317eb055866e7c5815ba708eced48d77152cbaa45311b81ad4",
+    "nativeReceipt": "teaql-conformance/evidence/2026-11-20-example-showcase-remediation/typescript-dispatch-profiles-native/receipt.json",
+    "nativeReceiptSHA256": "95c6ea0faae1554624df74ccf41eb80bd9cbca73167a4f361bdf4fa6239a65ce",
+    "remainingFullRuntimeInventory": true,
+    "sourceCommit": "d80de9039c471ea480aa15ed20a8ca7d6d6748b9"
+  },
+  "relatedShowcases": [
+    "profiles/snake_case/showcase.json",
+    "profiles/PascalCase/showcase.json"
+  ],
+  "scene": "Read a dispatch order in camelCase",
+  "schema": "teaql.model-workspace-showcase/v1",
+  "status": "focused-verified",
+  "verification": [
+    "bash",
+    "examples/expression-profiles/verify-dispatch.sh"
+  ],
+  "workspace": {
+    "applicationOwnedFiles": [
+      "src/main.ts"
+    ],
+    "domainSourcesFromLibrary": [
+      "src/generated-bootstrap.ts",
+      "src/generated-search-models.ts",
+      "src/generated/E.ts",
+      "src/generated/Q.ts",
+      "src/generated/models/DispatchOrder.ts",
+      "src/generated/models/DistributionCenter.ts",
+      "src/generated/requests/DispatchOrderRequest.ts",
+      "src/generated/requests/DistributionCenterRequest.ts",
+      "src/runtime-module.ts",
+      "src/teaql-node-sql.ts",
+      "src/teaql-node-sqlite.ts",
+      "src/teaql-ts.ts"
+    ],
+    "generatedFilesManifestSHA256": "cfb18caa71c292b840e8f84f38d24f61ce90e6ac0ed6294c629e77fe0309f36b",
+    "root": "typescript-app-console",
+    "scope": "typescript-app-console"
+  }
+}

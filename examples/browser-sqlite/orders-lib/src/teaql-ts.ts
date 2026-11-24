@@ -1,9 +1,11 @@
 import {
-    CheckException, EntityChecker, RuntimeModule, ContextSchemaProvider,
+    CheckException, EntityChecker, RuntimeModule, ContextSchemaProvider, ContextFix,
     SelectQuery as RuntimeSelectQuery, UserContext,
     GraphCommittedError, executeRelationFacets, QueryRequest, MutationIntent, MutationRequest, GraphMutationSession, MutationFieldLayout,
     EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, compareLongs, ModeledInteger32Layout, internalId,
 } from "teaql-ts";
+import { CheckerPresentationModel } from "teaql-ts";
+import type { CheckerMessageConfiguration, CheckerValidationOrigin } from "teaql-ts";
 
 export { CheckException, EntityRoot, ObjectLocation, SmartList, UserContext, executeRelationFacets, MutationIntent } from "teaql-ts";
 export { decimal, compareDecimals } from "teaql-ts";
@@ -71,6 +73,19 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
     private readonly checkers: Record<string, EntityChecker> = {};
     private readonly schemas: Record<string, EntitySchema> = {};
     private userContext = new UserContext();
+    private checkerPresentationModel = CheckerPresentationModel.empty;
+    private readonly checkerPrivacyPolicy = (entity: string | undefined, field: string): "masked" | "credential" | undefined => {
+        const schema = entity ? this.schemas[entity] : undefined;
+        if (!schema) return undefined;
+        const native = Object.keys(schema.columns).find(name => name === field
+            || schema.columns[name].modelName === field || schema.columns[name].columnName === field) ?? field;
+        const column = schema.columns[native];
+        const modeled = column?.modelName ?? column?.columnName ?? native;
+        if (column?.logPolicy === "credential") return "credential";
+        if (column?.logPolicy === "masked" || schema.auditMaskFields?.includes(modeled)
+            || schema.auditMaskFields?.includes(native)) return "masked";
+        return undefined;
+    };
     private graphSaveActive = false;
     private activeGraph?: GraphMutationSession;
     private graphCommitActions: Array<() => void> = [];
@@ -95,9 +110,11 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
 
     /** Installs passive generated metadata. It never mutates storage. */
     install(module: RuntimeModule): this {
+        const presentation = this.checkerPresentationModel.merge(module.checkerPresentationModel);
         this.installBootstrap(module.bootstrap);
         Object.assign(this.checkers, module.checkers);
         Object.assign(this.schemas, module.schemas);
+        this.checkerPresentationModel = presentation;
         return this;
     }
 
@@ -213,6 +230,7 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
         const graph = new GraphMutationSession(intent);
         const executionContext = this.userContext;
         graph.bindExecutionReference(() => this.userContext);
+        graph.bindExecutionReference(() => this.checkerPresentationModel);
         graph.bindExecutionMetadata(() => ({schemas: this.schemas, checkerNames: Object.keys(this.checkers).sort()}));
         for (const name of Object.keys(this.checkers)) {
             graph.bindExecutionReference(() => this.checkers[name]);
@@ -227,6 +245,8 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
         let fixEvidenceStarted = false;
         let mutationPolicyGraphStarted = false;
         let committed = false;
+        let checkerConfig: CheckerMessageConfiguration | undefined;
+        let checkerOrigin: CheckerValidationOrigin | undefined;
         try {
             graph.validatePreparedSources();
             this.graphSaveActive = true;
@@ -236,6 +256,8 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
             this.graphAuditActions = [];
             const pending = admit?.(graph);
             if (admit && typeof pending !== "boolean") throw new Error("GRAPH_ADMISSION_RESULT_REQUIRED");
+            checkerConfig = executionContext.captureCheckerMessages(this.checkerPresentationModel);
+            if (graph.preparedRootEntity) checkerOrigin = Object.freeze({model: checkerConfig.model, entity: graph.preparedRootEntity});
             graph.captureInputSources();
             if (pending === false) { graph.sealPreparedGraph(); return await work(graph); }
             // Reject a competing Context owner before changing its Fix resources.
@@ -268,6 +290,9 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
                     try { action(); } catch { /* retain the original failure */ }
                 }
             }
+            if (error instanceof CheckException && checkerOrigin && checkerConfig) {
+                error.refreshPresentation(executionContext.renderCheckerGraphResults(error.violations, checkerConfig, checkerOrigin));
+            }
             throw error;
         } finally {
             this.graphSaveActive = false;
@@ -293,8 +318,14 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
 
     preflightMutation(mutation: any): any {
         const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
-        request.graphSession?.recordPreparedMutation();
         mutation = this.checkAndFixMutation(request);
+        const normalized = request.graphSession?.normalizePreparedMutation(mutation);
+        if (normalized?.restore) {
+            this.afterGraphCommit(normalized.restore);
+            this.afterGraphRollback(normalized.restore);
+        }
+        if (normalized?.empty) return mutation;
+        request.graphSession?.recordPreparedMutation();
         if (request.graphSession) {
             const values = [...Object.values(mutation.payload || {}), ...Object.values(request.loadedValues())];
             request.graphSession.captureLogBindings({ parameterizedSQL: "", sqlOrigin: "generated",
@@ -341,14 +372,21 @@ export class TeaQLClient extends ContextSchemaProvider implements TeaQLDataServi
         const ownsFixTime = this.userContext.getResource("fixTime") === undefined;
         if (ownsFixTime) this.userContext.insertResource("fixTime", this.userContext.businessTime()).beginFixEvidence();
         try {
-            checker.checkAndFix(this.userContext, mutation, results);
+            ContextFix.run(this.userContext, mutation, schema, () => checker.checkAndFix(this.userContext, mutation, results));
             if (mutation.action !== request.mutation.action || this.checkedMutationVersion(mutation) !== originalVersion)
                 throw new MutationVersionError("invalid_type");
             width.checkMutation(mutation.payload || {}, results);
-            this.userContext.translateCheckResults(results, declaringEntityType);
+            this.userContext.translateCheckResultsFrom(declaringEntityType, results, {
+                defaultModel: this.checkerPresentationModel, privacyPolicy: this.checkerPrivacyPolicy,
+                checkedValues: [request.loadedValues(), request.mutation.payload ?? {}, mutation.payload ?? {}],
+            });
             if (results.length) throw new CheckException(results);
-            // Loaded Delete values are validation/audit input, never field-write intent.
-            if (mutation.action !== "Delete" && mutation.ledgerKey && mutation.ledgerRoot) for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+            // Loaded Delete values remain validation/audit input, never field-write intent.
+            if (mutation.action !== "Delete" && mutation.ledgerKey && mutation.ledgerRoot) {
+                const undo = ContextFix.captureUndo(mutation, schema);
+                if (request.graphSession && undo) this.graphRollbackActions.push(undo);
+                for (const [field, value] of Object.entries(mutation.payload)) mutation.ledgerRoot.set(mutation.ledgerKey, field, value);
+            }
             return this.sealMutationVersion(mutation, originalVersion);
         } finally { if (ownsFixTime) this.userContext.removeResource("fixTime").finishFixEvidence(); }
     }

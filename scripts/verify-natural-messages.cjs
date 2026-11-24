@@ -21,6 +21,8 @@ async function main(){
   try{
     const disk=fs.statfsSync(scratch);assert(disk.bavail*disk.bsize>3*1024**3);
     report.freeBytesBefore=disk.bavail*disk.bsize;report.sourceCommit=cp.execFileSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).trim();
+    assert(!(args.includes('--full')&&args.includes('--example-only')));
+    report.exampleOnly=args.includes('--example-only');
     report.sourceSelection=selection;report.sourceHashes=source();report.node=process.version;report.scratch=scratch;
     for(const name of files()){
       const from=path.join(repo,name),to=path.join(runtime,name);fs.mkdirSync(path.dirname(to),{recursive:true});fs.copyFileSync(from,to);fs.chmodSync(to,fs.statSync(from).mode&0o777);
@@ -33,6 +35,7 @@ async function main(){
     report.dependencyScriptPolicy={sourceEdited:false,allowScripts:pkg.allowScripts,executionManifestSha256:sha(fs.readFileSync(manifest))};
     await run('source-inventory-tests',[process.execPath,'--test','scripts/natural-source-inventory.test.cjs']);
     await run('dependencies',['npm','ci','--offline','--no-audit','--fund=false']);
+    if(!args.includes('--example-only')){
     await run('typecheck',[process.execPath,path.join(runtime,'node_modules/typescript/bin/tsc'),'--noEmit']);
     const jest=[process.execPath,path.join(runtime,'node_modules/jest/bin/jest.js'),'--config',path.join(runtime,'jest.config.cjs'),'--runInBand','--cacheDirectory',path.join(scratch,'jest')];
     await run('focused',[...jest,'tests/natural-messages.test.ts','--json','--outputFile',path.join(output,'focused-summary.json')]);
@@ -54,17 +57,13 @@ async function main(){
         assert.equal(result.message,'The name is required.');assert.equal(api.checkResultToWire(result).instancePath,'/name');console.log('TS_NATURAL_ARTIFACT='+kind);
       }}main().catch(error=>{console.error(error);process.exitCode=1;});`);
     await run('artifacts',[process.execPath,smoke]);
-    if(args.includes('--example')){
-      const example=path.join(runtime,'examples/natural-messages'),fixture=path.join(example,'fixture');
+    }
+    if(args.includes('--example')||args.includes('--example-only')){
+      const example=path.join(runtime,'examples/natural-messages'),fixture=path.join(example,'typescript-node-lib-core');
       const manifest=JSON.parse(fs.readFileSync(path.join(fixture,'generated-files.json')));
       for(const [name,hash] of Object.entries(manifest))assert.equal(sha(fs.readFileSync(path.join(fixture,name))),hash,'generated library changed: '+name);
       report.fixture=manifest;
-      const config=path.join(scratch,'example-jest.cjs'),tsconfig=path.join(scratch,'example-tsconfig.json');
-      fs.writeFileSync(tsconfig,JSON.stringify({extends:path.join(runtime,'tsconfig.json'),compilerOptions:{types:['node','jest'],typeRoots:[path.join(runtime,'node_modules/@types')],baseUrl:runtime,
-        paths:{'teaql-ts':[path.join(runtime,'src/index.ts')],'teaql-ts/*':[path.join(runtime,'src/*')],'natural-generated/*':[path.join(fixture,'src/*')]}}}));
-      fs.writeFileSync(config,'module.exports='+JSON.stringify({rootDir:runtime,roots:[example],testEnvironment:'node',testMatch:['**/examples/natural-messages/verify.test.ts'],
-        moduleNameMapper:{'^teaql-ts$':path.join(runtime,'src/index.ts'),'^teaql-ts/(.*)$':path.join(runtime,'src/$1'),'^natural-generated/(.*)$':path.join(fixture,'src/$1')},
-        transform:{'^.+\\.tsx?$':['ts-jest',{tsconfig}]}})+';\n');
+      const config=path.join(example,'typescript-app-console/jest.showcase.cjs');
       const database=path.join(output,'example.sqlite'),fileDatabase=path.join(output,'example.json');report.rounds=[];
       for(const round of [1,2]){
         const log=await run('example-'+round,[process.execPath,path.join(runtime,'node_modules/jest/bin/jest.js'),'--config',config,'--runInBand','--cacheDirectory',path.join(scratch,'example-jest')],120000,
@@ -90,7 +89,7 @@ async function main(){
         {TEAQL_FIX_E_EVIDENCE_DIR:path.join(output,'fix-e-alignment')});
     }
     if(args.includes('--browser-example')){
-      const browser=path.join(runtime,'examples/browser-sqlite');
+      const browser=path.join(runtime,'examples/browser-sqlite/typescript-web-vite');
       await run('browser-example-dependencies',['npm','--prefix',browser,'ci','--offline','--no-audit','--fund=false']);
       await run('browser-example-build',['npm','--prefix',browser,'run','build']);
       await run('browser-example-smoke',['npm','--prefix',browser,'run','smoke']);

@@ -1,16 +1,22 @@
 {
   "name": "teaql-order-management-example",
   "private": true,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "workspaces": [
     "typescript-node-lib-core",
     "typescript-app-console"
   ],
   "overrides": {
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.3",
+    "teaql-ts": "$teaql-ts"
   },
   "scripts": {
     "build": "npm run build --workspace order-management-example",
     "start": "npm start --workspace order-management-example"
+  },
+  "dependencies": {
+    "teaql-ts": "file:../.."
   }
 }

@@ -1,5 +1,6 @@
 import { compareDecimals, decimal, compareLongs, long, localTime } from './teaql-ts';
-import { ObjectLocation, RuntimeModule } from "teaql-ts";
+import { ContextFix, ObjectLocation, RuntimeModule } from "teaql-ts";
+import { CheckerPresentationModel } from "teaql-ts";
 import { ENTITY_SCHEMAS } from "./teaql-node-sql";
 import { ensureGeneratedBootstrap } from "./generated-bootstrap";
 
@@ -111,19 +112,15 @@ export const GENERATED_WIRE_MODEL_METADATA = Object.freeze({
 export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   "CommercePlatform": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "CommercePlatform", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "CommercePlatform", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "CommercePlatform", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -139,19 +136,15 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "Customer": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "Customer", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "Customer", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "Customer", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -172,7 +165,6 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "OrderStatus": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
       if ((mutation.action === "Create" && mutation.payload["name"] === undefined) || mutation.payload["name"] === null) results.push({ ruleId: "required", location: ObjectLocation.property("name") });
       if (mutation.payload["name"] != null && [...String(mutation.payload["name"])].length > 100) results.push({ ruleId: "max_length", location: ObjectLocation.property("name"), inputValue: mutation.payload["name"], systemValue: 100 });
 
@@ -189,19 +181,15 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "CustomerOrder": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "CustomerOrder", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "CustomerOrder", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "CustomerOrder", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -227,19 +215,15 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "Product": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "Product", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "Product", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "Product", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -262,10 +246,8 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "OrderLine": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "OrderLine", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
 
@@ -290,19 +272,15 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
   },
   "OrderSearchPreset": {
     checkAndFix(context, mutation, results) {
-      const now = context.getResource("fixTime");
-      if (mutation.action === "Create" && mutation.payload["create_time"] == null) {
-        mutation.payload["create_time"] = now;
-        context.recordFixEvidence({ entityType: "OrderSearchPreset", modelPath: "create_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "create_time", "now", []);
       }
 
-      if (mutation.action === "Create" && mutation.payload["update_time"] == null) {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "OrderSearchPreset", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+      if (mutation.action === "Create") {
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
       if (mutation.action === "Update") {
-        mutation.payload["update_time"] = now;
-        context.recordFixEvidence({ entityType: "OrderSearchPreset", modelPath: "update_time", source: "clock", sourceLabel: "graphClock" });
+        ContextFix.apply(context, mutation, "update_time", "now", []);
       }
 
 
@@ -333,4 +311,4 @@ export const GENERATED_RUNTIME_MODULE = new RuntimeModule(ENTITY_SCHEMAS, {
     { entity: "OrderStatus", id: "1001", values: { "name": "Pending", "code": "PENDING", "color": "#F59E0B", "displayOrder": decimal("1"), "commercePlatform": "1" } },
     { entity: "OrderStatus", id: "1002", values: { "name": "Confirmed", "code": "CONFIRMED", "color": "#10B981", "displayOrder": decimal("2"), "commercePlatform": "1" } }
   ]
-}, ensure: ensureGeneratedBootstrap });
+}, ensure: ensureGeneratedBootstrap }).withCheckerPresentation(CheckerPresentationModel.fromJson("{\"schema\":\"teaql.checker-model/v1\",\"revision\":\"sha256:feb0a6c97f37d35282317bf77fbd60ffde5a4dc18d6f6a371fd40d2c37d6c975\",\"entities\":{\"CommercePlatform\":{\"labels\":{\"en\":\"commerce platform\"},\"fields\":[{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"customer_list\",\"targetType\":\"Customer\",\"labels\":{\"en\":\"customer\"},\"aliases\":[\"CustomerList\",\"customerList\"]},{\"name\":\"customer_order_list\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"customer order\"},\"aliases\":[\"CustomerOrderList\",\"customerOrderList\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"order_line_list\",\"targetType\":\"OrderLine\",\"labels\":{\"en\":\"order line\"},\"aliases\":[\"OrderLineList\",\"orderLineList\"]},{\"name\":\"order_search_preset_list\",\"targetType\":\"OrderSearchPreset\",\"labels\":{\"en\":\"order search preset\"},\"aliases\":[\"OrderSearchPresetList\",\"orderSearchPresetList\"]},{\"name\":\"order_status_list\",\"targetType\":\"OrderStatus\",\"labels\":{\"en\":\"order status\"},\"aliases\":[\"OrderStatusList\",\"orderStatusList\"]},{\"name\":\"product_list\",\"targetType\":\"Product\",\"labels\":{\"en\":\"product\"},\"aliases\":[\"ProductList\",\"productList\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"Customer\":{\"labels\":{\"en\":\"customer\"},\"fields\":[{\"name\":\"commerce_platform\",\"targetType\":\"CommercePlatform\",\"labels\":{\"en\":\"commerce platform\"},\"aliases\":[\"CommercePlatform\",\"commercePlatform\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"customer_order_list\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"customer order\"},\"aliases\":[\"CustomerOrderList\",\"customerOrderList\"]},{\"name\":\"email\",\"labels\":{\"en\":\"email\"},\"aliases\":[\"Email\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"CustomerOrder\":{\"labels\":{\"en\":\"customer order\"},\"fields\":[{\"name\":\"commerce_platform\",\"targetType\":\"CommercePlatform\",\"labels\":{\"en\":\"commerce platform\"},\"aliases\":[\"CommercePlatform\",\"commercePlatform\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"customer\",\"targetType\":\"Customer\",\"labels\":{\"en\":\"customer\"},\"aliases\":[\"Customer\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"order_date\",\"labels\":{\"en\":\"order date\"},\"aliases\":[\"OrderDate\",\"orderDate\"]},{\"name\":\"order_line_list\",\"targetType\":\"OrderLine\",\"labels\":{\"en\":\"order line\"},\"aliases\":[\"OrderLineList\",\"orderLineList\"]},{\"name\":\"order_number\",\"labels\":{\"en\":\"order number\"},\"aliases\":[\"OrderNumber\",\"orderNumber\"]},{\"name\":\"status\",\"targetType\":\"OrderStatus\",\"labels\":{\"en\":\"status\"},\"aliases\":[\"Status\"]},{\"name\":\"total_amount\",\"labels\":{\"en\":\"total amount\"},\"aliases\":[\"TotalAmount\",\"totalAmount\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"OrderLine\":{\"labels\":{\"en\":\"order line\"},\"fields\":[{\"name\":\"commerce_platform\",\"targetType\":\"CommercePlatform\",\"labels\":{\"en\":\"commerce platform\"},\"aliases\":[\"CommercePlatform\",\"commercePlatform\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"customer_order\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"customer order\"},\"aliases\":[\"CustomerOrder\",\"customerOrder\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"product\",\"targetType\":\"Product\",\"labels\":{\"en\":\"product\"},\"aliases\":[\"Product\"]},{\"name\":\"product_name\",\"labels\":{\"en\":\"product name\"},\"aliases\":[\"ProductName\",\"productName\"]},{\"name\":\"quantity\",\"labels\":{\"en\":\"quantity\"},\"aliases\":[\"Quantity\"]},{\"name\":\"sku\",\"labels\":{\"en\":\"sku\"},\"aliases\":[\"Sku\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"OrderSearchPreset\":{\"labels\":{\"en\":\"order search preset\"},\"fields\":[{\"name\":\"commerce_platform\",\"targetType\":\"CommercePlatform\",\"labels\":{\"en\":\"commerce platform\"},\"aliases\":[\"CommercePlatform\",\"commercePlatform\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"filter_json\",\"labels\":{\"en\":\"filter json\"},\"aliases\":[\"FilterJson\",\"filterJson\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"owner_user_id\",\"labels\":{\"en\":\"owner user id\"},\"aliases\":[\"OwnerUserId\",\"ownerUserId\"]},{\"name\":\"request_id\",\"labels\":{\"en\":\"request id\"},\"aliases\":[\"RequestId\",\"requestId\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"OrderStatus\":{\"labels\":{\"en\":\"order status\"},\"fields\":[{\"name\":\"code\",\"labels\":{\"en\":\"code\"},\"aliases\":[\"Code\"]},{\"name\":\"color\",\"labels\":{\"en\":\"color\"},\"aliases\":[\"Color\"]},{\"name\":\"commerce_platform\",\"targetType\":\"CommercePlatform\",\"labels\":{\"en\":\"commerce platform\"},\"aliases\":[\"CommercePlatform\",\"commercePlatform\"]},{\"name\":\"customer_order_list\",\"targetType\":\"CustomerOrder\",\"labels\":{\"en\":\"customer order\"},\"aliases\":[\"CustomerOrderList\",\"customerOrderList\"]},{\"name\":\"display_order\",\"labels\":{\"en\":\"display order\"},\"aliases\":[\"DisplayOrder\",\"displayOrder\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]},\"Product\":{\"labels\":{\"en\":\"product\"},\"fields\":[{\"name\":\"commerce_platform\",\"targetType\":\"CommercePlatform\",\"labels\":{\"en\":\"commerce platform\"},\"aliases\":[\"CommercePlatform\",\"commercePlatform\"]},{\"name\":\"create_time\",\"labels\":{\"en\":\"create time\"},\"aliases\":[\"CreateTime\",\"createTime\"]},{\"name\":\"id\",\"labels\":{\"en\":\"id\"},\"aliases\":[\"Id\"]},{\"name\":\"image_url\",\"labels\":{\"en\":\"image url\"},\"aliases\":[\"ImageUrl\",\"imageUrl\"]},{\"name\":\"name\",\"labels\":{\"en\":\"name\"},\"aliases\":[\"Name\"]},{\"name\":\"order_line_list\",\"targetType\":\"OrderLine\",\"labels\":{\"en\":\"order line\"},\"aliases\":[\"OrderLineList\",\"orderLineList\"]},{\"name\":\"sku\",\"labels\":{\"en\":\"sku\"},\"aliases\":[\"Sku\"]},{\"name\":\"update_time\",\"labels\":{\"en\":\"update time\"},\"aliases\":[\"UpdateTime\",\"updateTime\"]},{\"name\":\"version\",\"labels\":{\"en\":\"version\"},\"aliases\":[\"Version\"]}]}}}"));
