@@ -18,7 +18,10 @@ export class EntityRoot {
 
   /** @internal An unconfirmed transaction cannot be replayed from this ledger. */
   fenceTransactionOutcome(): void { fenceTransactionEntity(this); }
-  requireKnownTransactionOutcome(): void { requireKnownTransactionOutcome(this); }
+  requireKnownTransactionOutcome(entity?: object): void {
+    requireKnownTransactionOutcome(this);
+    if (entity) requireKnownTransactionOutcome(entity);
+  }
 
   /** A complete per-entity lineage replaces, rather than extends, graph fallback. */
   setTraceChain(key: EntityKey, nodes: readonly TraceNode[]): void {
