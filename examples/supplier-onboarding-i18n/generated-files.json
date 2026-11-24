@@ -1,0 +1,52 @@
+{
+  "library": {
+    "scope": "typescript-lib-core",
+    "sha256": {
+      "package.json": "4050dbefc66f0107426a6b9952118cbf349c2aa8c0f17d390608186669fb8f2a",
+      "src/generated-bootstrap.ts": "151037507320f0773cb2c8ee35689573b5081e7bae9f2f2d43e3f9f57b85eacd",
+      "src/generated-search-models.ts": "a50f895bb30df309e18cabe42add800c5e00b31e9dbb2a58ef4b8d0d7bd1dc9f",
+      "src/generated/E.ts": "5b5030bfa875eb87505d498ee7edffa7f083eb9d6de5b72d19bb8c257c86fb84",
+      "src/generated/Q.ts": "e2379ab4a35cad02d22335d4b6d41e67f73bf91cbb1c1384558e3c23bda38427",
+      "src/generated/models/Supplier.ts": "16c1c15c9bd018f7a3f015d7b47262a408e10a9220c1944f483bcd1ea3238bf4",
+      "src/generated/models/Warehouse.ts": "d6c5d6b5034510712f4e4f14c1d828a7b92ab27d955000a83c5ac2bf34493823",
+      "src/generated/requests/SupplierRequest.ts": "c29929014af27405ca00ed1c311b1030008e179be4a829684d73878b021a1f98",
+      "src/generated/requests/WarehouseRequest.ts": "f0eabf22dcdabddb8a0efd59c466bb42d7bb1bedb74555a31fac49babdc8a290",
+      "src/runtime-module.ts": "549472a61ffe2d8604e9acbb0bb76b0a1643ef493695f0e8e4c01e49ae5902dc",
+      "src/teaql-schemas.ts": "f69a5a9dce4c4742da61a379b0ba403de5b783e86dae20983aa8cf59a9d6eec8",
+      "src/teaql-ts.ts": "1f0af27f2d14f6bab1963cae88e3776b2fde5e01aa22befd463a50d7a6fb4bab",
+      "teaql-i18n.json": "f848093c0785f2730eaa74f8a9e175e1f90943f056d84666bc964d56668e298c",
+      "teaql/checker-model.json": "0c70836b868047e6bbf8c5a4b167343ef9425e5c535c59ee388b634a79f2b144",
+      "teaql/model-provenance.json": "94ae1b99943275455fce8de247c97f10a81cdb09fef91ada0ae924b26e572759",
+      "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
+    }
+  },
+  "schema": "teaql.i18n-showcase-generation/v1",
+  "workspace": {
+    "applicationEntry": "src/main.ts",
+    "domainSourcesFromSibling": true,
+    "scope": "typescript-app-console",
+    "sha256": {
+      "AGENTS.md": "848aa19b3980dce76a67929470ef6bef3c572f2fb124bf589aa2040ac621f214",
+      "README.md": "6ba7b5ae95ed373513423228aa8297f20f31e981854ddfc32e4d14c2c908937b",
+      "STANDARD_TELEMETRY.md": "73c75d0728b236bf98445af0d7165525b4d87c5ec5c45b25efc17a15415895d7",
+      "package.json": "6e243d19954bce15646415669829dedafd35f1a6702cebc45a43fef71bf55a48",
+      "src/generated-bootstrap.ts": "151037507320f0773cb2c8ee35689573b5081e7bae9f2f2d43e3f9f57b85eacd",
+      "src/generated-search-models.ts": "a50f895bb30df309e18cabe42add800c5e00b31e9dbb2a58ef4b8d0d7bd1dc9f",
+      "src/generated/E.ts": "5b5030bfa875eb87505d498ee7edffa7f083eb9d6de5b72d19bb8c257c86fb84",
+      "src/generated/Q.ts": "e2379ab4a35cad02d22335d4b6d41e67f73bf91cbb1c1384558e3c23bda38427",
+      "src/generated/models/Supplier.ts": "16c1c15c9bd018f7a3f015d7b47262a408e10a9220c1944f483bcd1ea3238bf4",
+      "src/generated/models/Warehouse.ts": "d6c5d6b5034510712f4e4f14c1d828a7b92ab27d955000a83c5ac2bf34493823",
+      "src/generated/requests/SupplierRequest.ts": "c29929014af27405ca00ed1c311b1030008e179be4a829684d73878b021a1f98",
+      "src/generated/requests/WarehouseRequest.ts": "f0eabf22dcdabddb8a0efd59c466bb42d7bb1bedb74555a31fac49babdc8a290",
+      "src/main.ts": "4bb704b393491577e7e29fb3c4e9e4ffac629a54f565becc312a3651442d560c",
+      "src/runtime-module.ts": "3cbd88ceed5dfca71645bf4e7ef4a60b52206187e9d61d1c9622f1b560b293e8",
+      "src/teaql-node-sql.ts": "f69a5a9dce4c4742da61a379b0ba403de5b783e86dae20983aa8cf59a9d6eec8",
+      "src/teaql-node-sqlite.ts": "7a984388cc13bfdc4230a85cd4b360b4e0cc63ed8f122c516a2361a5e483a91c",
+      "src/teaql-ts.ts": "1f0af27f2d14f6bab1963cae88e3776b2fde5e01aa22befd463a50d7a6fb4bab",
+      "teaql-i18n.json": "f848093c0785f2730eaa74f8a9e175e1f90943f056d84666bc964d56668e298c",
+      "teaql/checker-model.json": "0c70836b868047e6bbf8c5a4b167343ef9425e5c535c59ee388b634a79f2b144",
+      "teaql/model-provenance.json": "94ae1b99943275455fce8de247c97f10a81cdb09fef91ada0ae924b26e572759",
+      "tsconfig.json": "cf9a9767019ac7f4035a6d16952a5ae75b964b1c10c4584822b90799e6ce2037"
+    }
+  }
+}

@@ -16,7 +16,7 @@ trap finish_verification EXIT
 example_evidence="${TEAQL_EXAMPLES_EVIDENCE_DIR:-$(mktemp -d -t teaql-ts-example-evidence.XXXXXXXX)}"
 mkdir -p "$example_evidence"
 echo "Retained TypeScript example evidence: $example_evidence"
-expected=(browser-sqlite conformance context-derived ensure-schema-bootstrap expression-profiles facet-trace fix-e-alignment natural-messages object-storage order-management scalar-type-probe school-management task-board trace-chain)
+expected=(browser-sqlite conformance context-derived ensure-schema-bootstrap expression-profiles facet-trace fix-e-alignment natural-messages object-storage order-management scalar-type-probe school-management supplier-onboarding-i18n task-board trace-chain)
 mapfile -t actual < <(find "$repo/examples" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "example inventory changed; update scripts/verify-examples.sh: ${actual[*]}" >&2
@@ -64,3 +64,5 @@ TEAQL_ORDER_EVIDENCE_DIR="$example_evidence/order-management" bash "$repo/exampl
 TEAQL_TRACE_CHAIN_EVIDENCE_DIRECTORY="$example_evidence/trace-chain" bash "$repo/examples/trace-chain/verify.sh"
 bash "$repo/examples/facet-trace/verify.sh"
 echo "PASS: all TypeScript examples"
+
+bash "$repo/examples/supplier-onboarding-i18n/run.sh" --verify > "$example_evidence/supplier-i18n.jsonl"
