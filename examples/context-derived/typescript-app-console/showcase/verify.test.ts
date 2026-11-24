@@ -53,7 +53,7 @@ test.each(['sqlite','file'] as const)('generated Context Fix: %s provider',async
     };
     context.insertResource('contextFixResolver',resolver);
     const provider=kind==='sqlite'?(client as any).driver:client;
-    const write=jest.spyOn(provider,kind==='sqlite'?'query':'persist');
+    const write=jest.spyOn(provider,kind==='sqlite'?'queryConnection':'persist');
     const transaction=kind==='sqlite'?jest.spyOn(provider,'transaction'):undefined;
     const clear=()=>{write.mockClear();transaction?.mockClear();};
     const noWrites=()=>{expect(write).not.toHaveBeenCalled();if(transaction)expect(transaction).not.toHaveBeenCalled();};
