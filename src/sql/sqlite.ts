@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { addDecimals, compareDecimals, decimal, decimalOrderKey, Decimal } from '../core/decimal';
 import { compareLongs, long, longOrderKey } from '../core/long';
 import { localTime } from '../core/local-time';
+import { finishSqlTransaction } from './transaction';
 import { startStandardNodeTelemetry } from '../telemetry/standard-node';
 import {
   AbstractSQLTeaQLClient,
@@ -37,6 +38,23 @@ function soundex(value: unknown): string {
 }
 
 export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
+  private accessTail: Promise<void> = Promise.resolve();
+  private openStreams = 0;
+  private invalidated = false;
+
+  private async exclusive<T>(work: () => T | Promise<T>): Promise<T> {
+    const predecessor = this.accessTail;
+    let release!: () => void;
+    this.accessTail = new Promise<void>(resolve => { release = resolve; });
+    await predecessor;
+    try { return await work(); }
+    finally { release(); }
+  }
+
+  private requireConnection(): void {
+    if (this.invalidated) throw new Error('SQLite connection was invalidated after an unconfirmed transaction');
+  }
+
   readonly databaseKind = 'sqlite' as const;
   readonly topNRelationPlanPolicy = 'alwaysProbe' as const;
   private readonly database: Database.Database;
@@ -206,15 +224,18 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   }
 
   async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
-      const result = await work(this);
-      this.database.exec('COMMIT');
-      return result;
-    } catch (error) {
-      this.database.exec('ROLLBACK');
-      throw error;
-    }
+    return this.exclusive(async () => {
+      this.requireConnection();
+      if (this.openStreams) throw new Error('Close active SQLite streams before starting a transaction on this connection');
+      this.database.exec('BEGIN IMMEDIATE');
+      const session: SqlSession = { query: (sql, values) => this.queryConnection(sql, values) };
+      return finishSqlTransaction(
+        () => work(session),
+        () => this.database.exec('COMMIT'),
+        () => this.database.exec('ROLLBACK'),
+        () => { this.invalidated = true; this.database.close(); },
+      );
+    });
   }
 
   async nextId(session: SqlSession, entity: string): Promise<string> {
@@ -260,6 +281,12 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   }
 
   async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+    return this.exclusive(() => this.queryConnection(sql, values));
+  }
+
+  /** The physical statement boundary for the driver and the pinned session. */
+  protected async queryConnection(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+    this.requireConnection();
     const statement = this.database.prepare(sql);
     if (statement.reader) {
       const rows = statement.all(...values);
@@ -270,13 +297,20 @@ export class SQLiteDriver implements TeaQLSqlDriver, SqlSession {
   }
 
   async *stream(sql: string, values: any[] = []): AsyncIterable<any> {
-    const statement = this.database.prepare(sql);
-    if (!statement.reader) throw new Error('stream() requires a SELECT statement');
-    for (const row of statement.iterate(...values)) yield row;
+    const cursor = await this.exclusive(() => {
+      this.requireConnection();
+      const statement = this.database.prepare(sql);
+      if (!statement.reader) throw new Error('stream() requires a SELECT statement');
+      const iterator = statement.iterate(...values);
+      this.openStreams++;
+      return iterator;
+    });
+    try { yield* cursor; }
+    finally { this.openStreams--; }
   }
 
   async close(): Promise<void> {
-    this.database.close();
+    await this.exclusive(() => { if (this.database.open) this.database.close(); });
   }
 }
 

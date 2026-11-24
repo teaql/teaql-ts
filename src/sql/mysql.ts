@@ -1,5 +1,6 @@
 import { createPool as createCallbackPool, Pool as CallbackPool } from 'mysql2';
 import { Pool, PoolConnection } from 'mysql2/promise';
+import { finishSqlTransaction, SqlCommittedCleanupError } from './transaction';
 import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
@@ -29,10 +30,16 @@ export class MySQLDriver implements TeaQLSqlDriver {
   private readonly callbackPool: CallbackPool;
   private readonly pool: Pool;
 
-  constructor(connectionString: string) {
+  constructor(connectionString: string, decodeNativeIntegers = false) {
     if (!connectionString) throw new Error('connectionString is required');
     this.callbackPool = createCallbackPool({ uri: connectionString, timezone: 'Z',
-      supportBigNumbers: true, bigNumberStrings: true });
+      supportBigNumbers: true, bigNumberStrings: true, ...(decodeNativeIntegers ? {
+        typeCast(field: { type: string; string(): string | null }, next: () => unknown) {
+          if (field.type !== 'LONGLONG') return next();
+          const value = field.string();
+          return value === null ? null : BigInt(value);
+        },
+      } : {}) });
     this.pool = this.callbackPool.promise();
   }
 
@@ -132,16 +139,24 @@ export class MySQLDriver implements TeaQLSqlDriver {
 
   async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
     const connection = await this.pool.getConnection();
+    let discard = true;
+    let committed = false;
     try {
       await connection.beginTransaction();
-      const result = await work(new MySQLSession(connection));
-      await connection.commit();
+      discard = false;
+      const result = await finishSqlTransaction(
+        () => work(new MySQLSession(connection)),
+        () => connection.commit(),
+        () => connection.rollback(),
+        () => { discard = true; },
+      );
+      committed = true;
       return result;
-    } catch (error) {
-      await connection.rollback();
-      throw error;
     } finally {
-      connection.release();
+      try {
+        if (discard) connection.destroy();
+        else connection.release();
+      } catch (error) { if (committed) throw new SqlCommittedCleanupError(error); }
     }
   }
 
@@ -201,7 +216,7 @@ export class MySQLDriver implements TeaQLSqlDriver {
 
 export class MySQLTeaQLClient extends AbstractSQLTeaQLClient {
   constructor(connectionString: string, schemas: Record<string, EntitySchema>) {
-    super(new MySQLDriver(connectionString), schemas);
+    super(new MySQLDriver(connectionString, true), schemas);
     this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
   }
 }

@@ -2,6 +2,7 @@ import { UserContext } from '../core/context';
 import { decimal } from '../core/decimal';
 import { long } from '../core/long';
 import { localTime } from '../core/local-time';
+import { finishSqlTransaction } from './transaction';
 import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
@@ -75,15 +76,17 @@ class BrowserSQLiteTransport {
   async close(terminateWorker: boolean): Promise<void> {
     if (this.closed) return;
     try { await this.request<void>('close'); }
-    finally {
-      this.closed = true;
-      this.worker.removeEventListener('message', this.onMessage);
-      this.worker.removeEventListener('error', this.onError);
-      if (terminateWorker) this.worker.terminate?.();
-      const error = new Error('Browser SQLite worker is closed');
-      for (const pending of this.pending.values()) pending.reject(error);
-      this.pending.clear();
-    }
+    finally { this.invalidate(terminateWorker); }
+  }
+
+  invalidate(terminateWorker: boolean): void {
+    this.closed = true;
+    this.worker.removeEventListener('message', this.onMessage);
+    this.worker.removeEventListener('error', this.onError);
+    if (terminateWorker) this.worker.terminate?.();
+    const error = new Error('Browser SQLite worker is closed');
+    for (const pending of this.pending.values()) pending.reject(error);
+    this.pending.clear();
   }
 }
 
@@ -183,14 +186,12 @@ export class BrowserSQLiteDriver implements TeaQLSqlDriver {
     return this.exclusive(async () => {
       const session = new BrowserSQLiteSession(this.transport);
       await session.query('BEGIN IMMEDIATE');
-      try {
-        const result = await work(session);
-        await session.query('COMMIT');
-        return result;
-      } catch (error) {
-        try { await session.query('ROLLBACK'); } catch { /* preserve the business error */ }
-        throw error;
-      }
+      return finishSqlTransaction(
+        () => work(session),
+        () => session.query('COMMIT'),
+        () => session.query('ROLLBACK'),
+        () => this.transport.invalidate(this.options.terminateWorkerOnClose),
+      );
     });
   }
 
@@ -298,6 +299,7 @@ export class BrowserSQLiteTeaQLClient extends AbstractSQLTeaQLClient {
 
   /** Drops browser-local data, then explicitly reconciles schema and generated bootstrap data. */
   async reset(context: UserContext): Promise<void> {
+    this.requireUnboundService();
     await this.browserDriver.reset();
     this.invalidateSchemaState();
     await context.ensureSchema();

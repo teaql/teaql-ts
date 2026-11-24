@@ -142,7 +142,7 @@ export class MutationPolicyRuntimeState {
   private readonly profile: MutableMutationPolicyProfile = {
     warningSink: new ConsoleMutationGovernanceSink(),
   };
-  private readonly emittedWarnings = new Set<string>();
+  private emittedWarnings = new Set<string>();
   private graphActive = false;
   private graphReviewed = false;
   private preflight: MutationOperation[] = [];
@@ -151,6 +151,13 @@ export class MutationPolicyRuntimeState {
   private auditReason?: string;
   private remaining = new Map<string, number>();
   private graphSnapshot?: MutationGovernanceSnapshot;
+
+  forInvocation(): MutationPolicyRuntimeState {
+    const invocation = new MutationPolicyRuntimeState();
+    Object.assign(invocation.profile, this.profile);
+    invocation.emittedWarnings = this.emittedWarnings;
+    return invocation;
+  }
 
   setRegistry(registry: MutationPolicyRegistry): void { this.profile.registry = registry; }
   setApprovalProvider(provider: MutationPolicyApprovalProvider): void {
