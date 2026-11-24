@@ -136,11 +136,13 @@ export async function verifyUnchangedView(filename: string, scenario: UnchangedV
         return result;
       });
     } else {
-      transaction.mockImplementation((work: (session: unknown) => Promise<unknown>) =>
-        actualTransaction(async (session: unknown) => {
+      transaction.mockImplementation((...args: unknown[]) => {
+        const work = args[0] as (session: unknown) => Promise<unknown>;
+        return actualTransaction(async (session: unknown) => {
           await work(session);
           observeWritten();
-        }));
+        });
+      });
     }
     reset();
     await expect(row.auditAs('Roll back a real write without losing the original view or retry intent').save(context)).rejects.toBe(failure);
