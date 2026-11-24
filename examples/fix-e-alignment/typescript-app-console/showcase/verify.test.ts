@@ -174,7 +174,7 @@ test('a generated persisted field restored to its baseline has no provider, poli
     row.updateContactPhone('5550799').updateContactPhone('5550700');
     const driver = (client as any).driver;
     const transaction = jest.spyOn(driver, 'transaction');
-    const query = jest.spyOn(driver, 'query');
+    const query = jest.spyOn(driver, 'queryConnection');
     const policy = jest.spyOn(context, 'enterMutationPolicy');
     const audits = client.auditTrace.length;
     await row.auditAs('Save the restored baseline without writing').save(context);

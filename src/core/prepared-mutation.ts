@@ -5,6 +5,7 @@ import {ObjectLocation} from './object-location';
 import {snapshotQuery} from './query-snapshot';
 import type {MutationRequest} from './request-intent';
 import {entityVersion} from './mutation-version';
+import {fenceTransactionEntity, requireKnownTransactionOutcome} from './context-transaction';
 
 const refField = '__teaql_prepared_reference';
 const keyOf = (key: EntityKey) => `${key.entity}\0${typeof key.id}:${String(key.id)}`;
@@ -38,10 +39,19 @@ export class PreparedGraphState {
   get size(): number {return this.entries.length;}
 
   register(object: object, root: EntityRoot, key: EntityKey, references: References, read: () => Record<string, unknown>): void {
+    requireKnownTransactionOutcome(object);
+    root.requireKnownTransactionOutcome();
     if (this.sealed) throw new PreparedMutationError();
     if (this.objects.has(object)) return;
     const source: Source = {object, token: Symbol('prepared entity'), root, key: {...key}, origin: {...key}, references, read};
     this.objects.set(object, source); this.tokens.set(source.token, source); this.sources.push(source);
+  }
+  fenceTransactionOutcome(): void {
+    for (const source of this.sources) {
+      fenceTransactionEntity(source.object);
+      source.root.fenceTransactionOutcome();
+    }
+    for (const entry of this.entries) entry.root?.fenceTransactionOutcome();
   }
   members(objects: readonly object[]): readonly symbol[] {
     return objects.map(object => {const source = this.objects.get(object); if (!source) throw new PreparedMutationError(); return source.token;});

@@ -1,6 +1,7 @@
 export type EntityId = string | number | bigint;
 import {EntityVersion, EntityVersionInput, entityVersion} from './mutation-version';
 import {snapshotQuery} from './query-snapshot';
+import {fenceTransactionEntity, requireKnownTransactionOutcome} from './context-transaction';
 
 export type EntityKey = Readonly<{ entity: string; id: EntityId }>;
 export type EntityChange = Readonly<{ key: EntityKey; values: Readonly<Record<string, unknown>> }>;
@@ -14,6 +15,13 @@ export class EntityRoot {
   private readonly newKeys = new Map<string, EntityKey>();
   private readonly deletedKeys = new Map<string, EntityKey>();
   private readonly traces = new Map<string, { key: EntityKey; nodes: readonly TraceNode[] }>();
+
+  /** @internal An unconfirmed transaction cannot be replayed from this ledger. */
+  fenceTransactionOutcome(): void { fenceTransactionEntity(this); }
+  requireKnownTransactionOutcome(entity?: object): void {
+    requireKnownTransactionOutcome(this);
+    if (entity) requireKnownTransactionOutcome(entity);
+  }
 
   /** A complete per-entity lineage replaces, rather than extends, graph fallback. */
   setTraceChain(key: EntityKey, nodes: readonly TraceNode[]): void {
@@ -68,6 +76,8 @@ export class EntityRoot {
   }
 
   mergeFrom(other: EntityRoot): void {
+    this.requireKnownTransactionOutcome();
+    other.requireKnownTransactionOutcome();
     if (other === this) return;
     // Validate the whole explicit merge before copying any pending state.
     for (const entry of other.snapshotVersions()) this.requireMatchingVersion(entry.key, entry.version);
@@ -80,6 +90,8 @@ export class EntityRoot {
 
   /** Import one explicitly reached entity, never its foreign graph or ownership. */
   mergeEntityFrom(other: EntityRoot, key: EntityKey): void {
+    this.requireKnownTransactionOutcome();
+    other.requireKnownTransactionOutcome();
     if (other === this) return;
     const version = other.originalVersion(key);
     if (version !== undefined) this.requireMatchingVersion(key, version);
@@ -131,6 +143,32 @@ export class EntityRoot {
     const version = entityVersion(input);
     if (this.hasPending(key)) throw new Error('ENTITY_COMMIT_PENDING: clear committed changes before accepting the persisted version');
     this.originalVersions.set(identity(key), { key: Object.freeze({ ...key }), version });
+  }
+
+  /** @internal Accept a transaction-local baseline and undo it on rollback. */
+  stagePersistedVersion(key: EntityKey, input: EntityVersionInput): () => void {
+    const id = identity(key);
+    const version = entityVersion(input);
+    const before = this.originalVersions.get(id);
+    const changes = this.change(key);
+    const fresh = this.isNew(key);
+    const deleted = this.isDeleted(key);
+    const trace = this.traces.get(id);
+    this.clearEntity(key);
+    this.acceptCommittedVersion(key, version);
+    return () => {
+      const later = this.change(key);
+      const laterTrace = this.traces.get(id);
+      const deletedLater = this.isDeleted(key);
+      this.clearEntity(key);
+      if (before) this.originalVersions.set(id, before);
+      else this.originalVersions.delete(id);
+      if (fresh) this.markAsNew(key);
+      if (deleted || deletedLater) this.markAsDeleted(key);
+      else for (const [field, value] of Object.entries({ ...changes, ...later })) this.set(key, field, value);
+      const pendingTrace = laterTrace ?? trace;
+      if (pendingTrace) this.traces.set(id, pendingTrace);
+    };
   }
   originalVersion(key: EntityKey): EntityVersion | undefined { return this.originalVersions.get(identity(key))?.version; }
   markAsNew(key: EntityKey): void { this.newKeys.set(identity(key), Object.freeze({ ...key })); }

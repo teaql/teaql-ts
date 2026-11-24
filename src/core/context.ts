@@ -8,6 +8,7 @@ import {CheckerMessageCatalog, CheckerMessageConfiguration, CheckerMessageRender
   CheckerPresentationModel, CheckerValidationOrigin, bindCheckerOrigin, renderNaturalCheckerResult,
   standardCheckerMessageRenderer} from './natural-messages';
 import { internalId, InternalIdGenerator, InternalIdReservationService } from './internal-id';
+import { ContextTransactionService, transactionContextCapability, transactionServiceCapability } from './context-transaction';
 import {
   contextSchemaCapability,
   InternalContextSchemaExecutor,
@@ -67,6 +68,41 @@ export class ContextRootError extends Error {
 export class UserContext {
   readonly runtimeLogger: RuntimeLogger;
   constructor(logger: RuntimeLogger = defaultRuntimeLogger()) { this.runtimeLogger = logger; }
+
+  /** Run business queries and saves with one transaction-bound UserContext. */
+  async transaction<T>(work: (context: UserContext) => T | Promise<T>): Promise<T> {
+    if (typeof work !== 'function') throw new TypeError('Transaction requires a callback');
+    const service = this.requireResource<Partial<ContextTransactionService>>('dataService');
+    if (!service[transactionServiceCapability]) throw new Error('Configured data service does not support UserContext transactions');
+    return service[transactionServiceCapability](this, work);
+  }
+
+  /** @internal A generated save can fail before creating the graph request. */
+  recordTransactionSaveFailure(error: unknown): void {
+    this.transactionService?.recordSaveFailure(error);
+  }
+
+  /** @internal Derive an operation-local Context without changing the caller's bindings. */
+  [transactionContextCapability](service: ContextTransactionService): UserContext {
+    const view: UserContext = Object.assign(Object.create(Object.getPrototypeOf(this)), this, {
+      resources: new Map(this.resources),
+      mutationPolicy: this.mutationPolicy.forInvocation(),
+      transactionService: service,
+      continuousPagePlan: 'DISABLED',
+      continuousPageCursorId: undefined,
+      idSetPaginationPlan: 'ID_SET_DISABLED',
+      idSetPaginationCount: undefined,
+      idSetPaginationCountAccuracy: 'UNKNOWN',
+    });
+    view.resources.set('dataService', service);
+    view.resources.delete('fixTime');
+    view.resources.delete('fixEvidenceCurrent');
+    view.resources.delete('fixEvidenceLast');
+    return view;
+  }
+
+  private transactionService?: ContextTransactionService;
+
   withInternalIdGenerator(generator: InternalIdGenerator): this {
     if (!generator || typeof generator.generateId !== 'function') {
       throw new TypeError('Internal ID generator must provide generateId(entity, context)');
@@ -76,6 +112,7 @@ export class UserContext {
 
   /** Reserve before constructing an entity. Failure must never choose another allocator. */
   async generateInternalId(entity: string): Promise<string> {
+    this.transactionService?.requireTransactionAccess();
     if (typeof entity !== 'string' || !entity.trim() || entity !== entity.trim()) {
       throw new TypeError('Internal ID entity type is required');
     }
@@ -282,15 +319,21 @@ export class UserContext {
   }
 
   insertResource<T>(name: string, resource: T): this {
+    if (name === 'dataService' && this.transactionService) throw new Error('Transaction data service is fixed');
     this.resources.set(name, resource);
     return this;
   }
 
   getResource<T>(name: string): T | undefined {
+    if (name === 'dataService') this.transactionService?.requireTransactionAccess();
     return this.resources.get(name) as T | undefined;
   }
 
-  removeResource(name: string): this { this.resources.delete(name); return this; }
+  removeResource(name: string): this {
+    if (name === 'dataService' && this.transactionService) throw new Error('Transaction data service is fixed');
+    this.resources.delete(name);
+    return this;
+  }
 
   requireResource<T>(name: string): T {
     const resource = this.getResource<T>(name);
@@ -339,6 +382,11 @@ export class UserContext {
    * into the query or federation JSON payload.
    */
   prepareQuery(query: SelectQuery): SelectQuery {
+    if (this.transactionService) {
+      this.transactionService.requireTransactionAccess();
+      // A later write in this transaction can invalidate an earlier cursor or ID set.
+      return query.bindContinuousPageRuntime(undefined).bindIdSetPaginationRuntime(undefined);
+    }
     this.continuousPageRuntime.owner = this.userIdentifier;
     this.idSetPaginationRuntime.owner = this.userIdentifier;
     const activeRoot = this.getResource<ContextEntityRef>('activeRoot');

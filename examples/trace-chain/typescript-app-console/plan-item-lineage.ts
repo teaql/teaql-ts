@@ -36,11 +36,11 @@ class Driver extends SQLiteDriver {
     transaction.committed = true;
     return result;
   }
-  async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+  protected override async queryConnection(sql: string, values: any[] = []): Promise<SqlQueryResult> {
     if (/^(INSERT|UPDATE)/.test(sql) && sql.includes('order_item_data')) {
       this.writes.push({ sql, values: [...values], transaction: this.activeTransaction });
     }
-    return super.query(sql, values);
+    return super.queryConnection(sql, values);
   }
 }
 class Client extends AbstractSQLTeaQLClient {

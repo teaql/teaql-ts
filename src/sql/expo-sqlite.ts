@@ -14,6 +14,7 @@ import {
 import { decimal } from '../core/decimal';
 import { long } from '../core/long';
 import { localTime } from '../core/local-time';
+import { SqlTransactionOutcomeUnknown } from './transaction';
 
 export type ExpoSQLiteBindValue = null | number | string | Uint8Array;
 
@@ -171,11 +172,29 @@ export class ExpoSQLiteDriver implements TeaQLSqlDriver {
   }
 
   async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
-    let value: T | undefined;
-    await this.database.withExclusiveTransactionAsync(async transaction => {
-      value = await work(new ExpoSQLiteSession(transaction));
-    });
-    return value as T;
+    let value!: T;
+    let entered = false;
+    let rolledBack: { error: unknown } | undefined;
+    const abort = new Error('TeaQL aborted the Expo transaction');
+    try {
+      await this.database.withExclusiveTransactionAsync(async transaction => {
+        entered = true;
+        try { value = await work(new ExpoSQLiteSession(transaction)); }
+        catch (error) {
+          // The Expo helper can suppress rollback errors. Obtain our own
+          // acknowledgement before handing control back to its cleanup.
+          await transaction.execAsync('ROLLBACK');
+          rolledBack = { error };
+          throw abort;
+        }
+      });
+    } catch (error) {
+      if (rolledBack) throw rolledBack.error;
+      if (entered) throw new SqlTransactionOutcomeUnknown();
+      throw error;
+    }
+    if (rolledBack) throw rolledBack.error;
+    return value;
   }
 
   async nextId(session: SqlSession, entity: string): Promise<string> {

@@ -23,11 +23,11 @@ class Driver extends SQLiteDriver {
   failStreamAfter?: number;
   closedCursor = false;
   values: unknown[] = [];
-  async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+  protected async queryConnection(sql: string, values: any[] = []): Promise<SqlQueryResult> {
     if (sql.startsWith('SELECT') && sql.includes('customer_data') && sql.includes('WHERE "id" = ?')) {
       if (this.readbackFault) throw this.readbackFault;
       if (this.readbackRows !== undefined) {
-        const result = await super.query(sql, values);
+        const result = await super.queryConnection(sql, values);
         return { rowCount: this.readbackRows, rows: Array.from({ length: this.readbackRows }, () => result.rows[0]) };
       }
     }
@@ -35,7 +35,7 @@ class Driver extends SQLiteDriver {
       this.values = [...values];
       throw this.fault;
     }
-    return super.query(sql, values);
+    return super.queryConnection(sql, values);
   }
   async *stream(sql: string, values: any[] = []): AsyncIterable<any> {
     this.values = [...values];

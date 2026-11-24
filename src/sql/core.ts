@@ -11,6 +11,9 @@ import { translateCheckerResults } from '../core/checker-privacy';
 import {CheckerPresentationModel, CheckerValidationOrigin, CheckerMessageConfiguration, bindCheckerOrigin} from '../core/natural-messages';
 import { MutationFieldLayout } from '../core/mutation-field-layout';
 import { UserContext } from '../core/context';
+import {
+  ContextTransactionService, transactionContextCapability, transactionServiceCapability,
+} from '../core/context-transaction';
 import {RuntimeLogger, loggingTelemetry} from '../core/runtime-logging';
 import { internalId } from '../core/internal-id';
 import { mergeRuntimeBootstrap } from '../core/runtime-module';
@@ -34,6 +37,7 @@ import { long } from '../core/long';
 import {EntityVersion, entityVersion, nextEntityVersion, MutationVersionError, VersionOperation} from '../core/mutation-version';
 import { localTime } from '../core/local-time';
 import {ModeledInteger32Layout, validateInteger32Schemas} from '../core/modeled-integer32';
+import { SqlCommittedCleanupError, SqlTransactionOutcomeUnknown } from './transaction';
 
 export type LogicalColumnType =
   | 'boolean'
@@ -371,7 +375,64 @@ type NormalizedOrder = { field: string; direction: string };
 // mutation state or UserContext; null hydration cannot erase membership.
 type RelationAssembly = { field: string; keys: WeakMap<object, unknown> };
 
-export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
+class BoundContextTransaction implements SqlSession {
+  active = true;
+  private settled = false;
+  failure?: { error: unknown };
+  readonly graphs = new Set<GraphMutationSession>();
+  readonly commitActions: Array<() => void | Promise<void>> = [];
+  readonly rollbackActions: Array<() => void> = [];
+  private readonly statements = new Set<Promise<SqlQueryResult>>();
+
+  constructor(private readonly session: SqlSession) {}
+
+  requireAccess(): void {
+    if (!this.active) throw new Error('TRANSACTION_CONTEXT_EXPIRED: the transaction callback has ended');
+  }
+
+  requireWritable(): void {
+    this.requireAccess();
+    if (this.failure) throw new Error('TRANSACTION_ROLLBACK_ONLY: a previous save failed');
+  }
+
+  fail(error: unknown): void { if (!this.settled) this.failure ??= { error }; }
+
+  async query(sql: string, values?: any[]): Promise<SqlQueryResult> {
+    this.requireAccess();
+    const statement = this.session.query(sql, values);
+    this.statements.add(statement);
+    try { return await statement; }
+    finally { this.statements.delete(statement); }
+  }
+
+  async *stream(sql: string, values: any[]): AsyncIterable<any> {
+    // Finish the pinned statement before relation hydration issues queries
+    // on the same connection. The pool's independent cursor is out of scope.
+    const result = await this.query(sql, values);
+    for (const row of result.rows) {
+      this.requireAccess();
+      yield row;
+    }
+  }
+
+  async drain(): Promise<void> { await Promise.allSettled(this.statements); }
+
+  restore(): void {
+    for (const action of this.rollbackActions.reverse()) {
+      try { action(); } catch { /* independent restorations continue */ }
+    }
+  }
+
+  settle(): void {
+    this.settled = true;
+    this.graphs.clear();
+    this.commitActions.length = 0;
+    this.rollbackActions.length = 0;
+    this.failure = undefined;
+  }
+}
+
+export abstract class AbstractSQLTeaQLClient implements TeaQLDataService, ContextTransactionService {
   private schemaReady?: Promise<void>;
   private bootstrapTail: Promise<void> = Promise.resolve();
   public readonly sqlTrace: string[] = [];
@@ -419,7 +480,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private readonly auditEvents: Readonly<Record<string, unknown>>[] = [];
   private auditSink?: (event: Readonly<Record<string, unknown>>) => void | Promise<void>;
   private telemetrySink?: RuntimeTelemetrySink;
-  private diagnosticSQLLogSink?: DiagnosticSQLLogSink = new RuntimeDiagnosticSQLLogSink(() => this.userContext.runtimeLogger);
+  private readonly defaultDiagnosticSQLLogSink = new RuntimeDiagnosticSQLLogSink(() => this.userContext.runtimeLogger);
+  private diagnosticSQLLogSink?: DiagnosticSQLLogSink = this.defaultDiagnosticSQLLogSink;
   private queryLoggingEnabled = true;
   private mutationLoggingEnabled = true;
   private runtimeTelemetry?: RuntimeTelemetry;
@@ -430,10 +492,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   private checkerPresentationModel=CheckerPresentationModel.empty;
   private userContext = new UserContext();
   private bootstrap: RuntimeBootstrap = {};
+  private contextTransaction?: BoundContextTransaction;
   private graphMutationSession?: SqlSession;
   private activeGraph?: GraphMutationSession;
   private graphAuditActions: Array<() => Promise<void>> = [];
   private graphCommitActions: Array<() => void> = [];
+  private graphPersistenceActions: Array<() => void> = [];
   private graphRollbackActions: Array<() => void> = [];
   private graphSaveTail: Promise<void> = Promise.resolve();
   private readonly schemas: Record<string, EntitySchema>;
@@ -443,8 +507,74 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     schemas: Record<string, EntitySchema>,
   ) { validateInteger32Schemas(schemas); this.schemas = { ...schemas }; }
 
+  async [transactionServiceCapability]<T>(context: UserContext, work: (context: UserContext) => T | Promise<T>): Promise<T> {
+    if (this.activeGraph) throw new Error('Cannot enter a UserContext transaction inside a graph save');
+    if (this.contextTransaction) {
+      this.contextTransaction.requireWritable();
+      try { return await work(context); }
+      catch (error) { this.contextTransaction.fail(error); throw error; }
+    }
+
+    await this.telemetryStartup;
+    let scope: BoundContextTransaction | undefined;
+    let result!: T;
+    let completionFailure: GraphCommittedError | undefined;
+    try {
+      result = await this.driver.transaction(async session => {
+        scope = new BoundContextTransaction(session);
+        const view: AbstractSQLTeaQLClient = Object.assign(Object.create(Object.getPrototypeOf(this)), this, {
+          contextTransaction: scope,
+          graphMutationSession: undefined,
+          activeGraph: undefined,
+          graphAuditActions: [],
+          graphCommitActions: [],
+          graphPersistenceActions: [],
+          graphRollbackActions: [],
+          graphSaveTail: Promise.resolve(),
+        });
+        view.userContext = context[transactionContextCapability](view);
+        if (this.diagnosticSQLLogSink === this.defaultDiagnosticSQLLogSink) {
+          view.diagnosticSQLLogSink = new RuntimeDiagnosticSQLLogSink(() => view.userContext.runtimeLogger);
+        }
+        let value!: T;
+        try { value = await work(view.userContext); }
+        catch (error) { scope.fail(error); }
+        finally { scope.active = false; }
+        await view.graphSaveTail;
+        await scope.drain();
+        if (scope.failure) throw scope.failure.error;
+        return value;
+      });
+    } catch (error) {
+      if (error instanceof SqlCommittedCleanupError) completionFailure = error;
+      else {
+        if (error instanceof SqlTransactionOutcomeUnknown) {
+          for (const graph of scope?.graphs ?? []) graph.fenceTransactionOutcome();
+        } else scope?.restore();
+        scope?.settle();
+        throw error;
+      }
+    }
+
+    for (const action of scope?.commitActions ?? []) {
+      try { await action(); }
+      catch (error) { completionFailure ??= new GraphCommittedError(error); }
+    }
+    scope?.settle();
+    if (completionFailure) throw completionFailure;
+    return result;
+  }
+
+  requireTransactionAccess(): void { this.contextTransaction?.requireAccess(); }
+  recordSaveFailure(error: unknown): void { this.contextTransaction?.fail(error); }
+
+  protected requireUnboundService(): void {
+    if (this.contextTransaction) throw new Error('Cannot configure a transaction-bound data service');
+  }
+
   /** Installs metadata only. Call context.ensureSchema() explicitly when schema changes are intended. */
   install(module: import('../core/runtime-module').RuntimeModule): this {
+    this.requireUnboundService();
     const presentation=this.checkerPresentationModel.merge(module.checkerPresentationModel);
     Object.assign(this.schemas, module.schemas);
     Object.assign(this.checkers, module.checkers);
@@ -453,9 +583,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     return this;
   }
 
-  setUserContext(context: UserContext): this { this.userContext = context; return this; }
+  setUserContext(context: UserContext): this {
+    this.requireUnboundService();
+    this.userContext = context;
+    return this;
+  }
 
-  /** Separate reservation transaction: no business mutation, Checker, Fix or audit. */
+  /** Reserve on the current connection without running Checker, Fix or audit. */
   async reserveInternalId(entity: string, context: UserContext): Promise<string> {
     if (!(context instanceof UserContext)) throw new TypeError('UserContext is required for ID reservation');
     this.schema(entity);
@@ -465,14 +599,16 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     this.graphSaveTail = new Promise<void>(resolve => { release = resolve; });
     await predecessor;
     try {
-      return await this.driver.transaction(async session => {
+      this.contextTransaction?.requireWritable();
+      const reserve = async (session: SqlSession) => {
         const id = internalId(await this.driver.nextId(session, entity));
         // The current SQL ID-space and floor implementations use JS numbers.
         // Reject their exhausted range inside the transaction, never return a
         // rounded/duplicate string or silently select a different allocator.
         if (!Number.isSafeInteger(Number(id))) throw new RangeError('SQL internal ID space exhausted its exact integer range');
         return id;
-      });
+      };
+      return await (this.contextTransaction ? reserve(this.contextTransaction) : this.driver.transaction(reserve));
     } finally { release(); }
   }
 
@@ -642,6 +778,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async withQueryRequest<T>(query: SelectQuery, work: () => Promise<T>): Promise<T> {
+    this.requireTransactionAccess();
     try { new QueryRequest(query); }
     catch (error) {
       this.userContext.runtimeLogger.write('WARN', 'query.rejected', 'TeaQL query rejected',
@@ -750,6 +887,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   /** Package-internal physical capability used only by UserContext.ensureSchema(). */
   async [contextSchemaCapability](context: UserContext): Promise<void> {
+    this.requireUnboundService();
     await this.telemetryStartup;
     if (!this.schemaReady) {
       this.schemaReady = this.driver.ensureSchema(this.schemas);
@@ -859,7 +997,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       graph.bindExecutionReference(() => this.checkers[name]);
       graph.bindExecutionReference(() => this.checkers[name]?.checkAndFix);
     }
-    await this.telemetryStartup;
+    const transaction = this.contextTransaction;
+    transaction?.requireWritable();
     const save = async () => {
     // Generated child saves call their within-graph entry point directly. Every
     // public/root save comes through here and is queued, so an unrelated async
@@ -875,8 +1014,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     let checkerOrigin:CheckerValidationOrigin|undefined;
     let checkerConfig:CheckerMessageConfiguration|undefined;
     try {
+      await this.telemetryStartup;
+      transaction?.requireWritable();
+      transaction?.graphs.add(graph);
       graph.validatePreparedSources();
       this.graphCommitActions = [];
+      this.graphPersistenceActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
       // The synchronous generated pass runs inside the serialized save queue.
@@ -916,13 +1059,17 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           executionContext.ensureMutationPolicyGraphComplete();
           // No provider transaction or committed mutation audit exists, but a
           // successful business normalization still updates its typed view.
-          for (const action of this.graphCommitActions) await action();
+          if (transaction) {
+            for (const action of this.graphPersistenceActions) action();
+            transaction.commitActions.push(...this.graphCommitActions);
+          }
+          else for (const action of this.graphCommitActions) await action();
           committed = true;
           return value;
         }
         finally { this.activeGraph = undefined; }
       }
-      const result = await this.driver.transaction(async session => {
+      const write = async (session: SqlSession) => {
         this.graphMutationSession = session;
         this.activeGraph = graph;
         try {
@@ -932,7 +1079,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
           return value;
         }
         finally { this.graphMutationSession = undefined; this.activeGraph = undefined; }
-      });
+      };
+      const result = await (transaction ? write(transaction) : this.driver.transaction(write));
+      if (transaction) {
+        for (const action of this.graphPersistenceActions) action();
+        transaction.commitActions.push(...this.graphCommitActions, ...this.graphAuditActions);
+        return result;
+      }
       committed = true;
       let failure: unknown;
       let failed = false;
@@ -943,7 +1096,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if (failed) throw new GraphCommittedError(failure);
       return result;
     } catch (error) {
-      if (!committed) {
+      if (error instanceof SqlTransactionOutcomeUnknown && !transaction) graph.fenceTransactionOutcome();
+      if (error instanceof SqlCommittedCleanupError && !transaction && !committed) {
+        for (const action of [...this.graphCommitActions, ...this.graphAuditActions]) {
+          try { await action(); } catch { /* preserve the confirmed-commit error */ }
+        }
+      } else if (!transaction && !committed && !(error instanceof SqlTransactionOutcomeUnknown)) {
         // Keep the original execution failure even if a restore callback fails.
         for (const action of [...this.graphRollbackActions].reverse()) {
           try { action(); } catch { /* independent rollback restorations continue */ }
@@ -952,9 +1110,12 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       if(error instanceof CheckException&&checkerOrigin&&checkerConfig){
         error.refreshPresentation(executionContext.renderCheckerGraphResults(error.violations,checkerConfig,checkerOrigin));
       }
+      transaction?.fail(error);
       throw error;
     } finally {
+      transaction?.rollbackActions.push(...this.graphRollbackActions);
       this.graphCommitActions = [];
+      this.graphPersistenceActions = [];
       this.graphRollbackActions = [];
       this.graphAuditActions = [];
       if (mutationPolicyGraphStarted) executionContext.endMutationPolicyGraph();
@@ -971,6 +1132,13 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     this.graphCommitActions.push(work);
   }
 
+  /** @internal The generated view may advance before commit with an explicit undo. */
+  afterGraphPersistence(work: () => void, stage: () => void): void {
+    if (!this.graphMutationSession) throw new Error('No graph save is active');
+    if (this.contextTransaction) this.graphPersistenceActions.push(stage);
+    else this.graphCommitActions.push(work);
+  }
+
   afterGraphRollback(work: () => void): void {
     if (!this.graphMutationSession) throw new Error('No graph save is active');
     this.graphRollbackActions.push(work);
@@ -985,7 +1153,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
 
   private async withMutationSession<T>(request: MutationRequest<any>, work: (session: SqlSession) => Promise<T>): Promise<T> {
     this.requireGraphOwnership(request);
-    return request.graphSession ? work(this.graphMutationSession!) : this.driver.transaction(work);
+    if (request.graphSession) return work(this.graphMutationSession!);
+    return this.contextTransaction ? work(this.contextTransaction) : this.driver.transaction(work);
   }
 
   preflightMutation(mutation: any): any {
@@ -996,7 +1165,8 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     if(normalized?.restore) {
       // Preparation precedes the physical SQL transaction. Ownership has
       // already been checked above; public transaction callbacks stay guarded.
-      this.graphCommitActions.push(normalized.restore);
+      if (this.contextTransaction) this.graphPersistenceActions.push(normalized.restore);
+      else this.graphCommitActions.push(normalized.restore);
       this.graphRollbackActions.push(normalized.restore);
     }
     if(normalized?.empty) return mutation;
@@ -1125,6 +1295,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeMutation(mutation: any): Promise<MutationResult> {
+    this.contextTransaction?.requireWritable();
     await this.telemetryStartup;
     // Validate before Checker, policy, telemetry and transaction/provider work.
     const request = mutation instanceof MutationRequest ? mutation : new MutationRequest(mutation);
@@ -1305,6 +1476,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         }, async () => this.auditSink!(event));
       };
       if (request.graphSession) this.graphAuditActions.push(publish);
+      else if (this.contextTransaction) this.contextTransaction.commitActions.push(publish);
       else {
         try { await publish(); } catch (error) { throw new GraphCommittedError(error); }
       }
@@ -1313,6 +1485,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
       retainSQLLogProvenance(metadata, inheritSQLLogBindings(diagnosticBindings, request.graphSession?.logBindings), [result.id]);
       return { ...result, metadata };
     } catch (error) {
+      this.contextTransaction?.fail(error);
       scope.failure(error);
       throw error;
     } };
@@ -1776,6 +1949,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async executeQuery<T = any>(query: any): Promise<T[]> {
+    this.requireTransactionAccess();
     const request = query instanceof QueryRequest ? query : new QueryRequest(query);
     // Keep the existing builder hard-limit normalization contract. Intent is
     // already validated; the private execution snapshot is normalized again.
@@ -1862,7 +2036,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
     const { sql, values, aggregateNames, groupAliases } = await this.compileQuery(query, true, assembly ? [assembly.field] : []);
     inherited = await this.queryTreeBindings(query, sql, values, inherited);
     const result = await this.executeLoggedSQL('select', sql, values, this.queryLogIntent(query),
-      () => this.driver.query(sql, values), inherited);
+      () => (this.contextTransaction ?? this.driver).query(sql, values), inherited);
     const rows = result.rows.map(row =>
       this.decodeRow(query.entity, row, aggregateNames, groupAliases),
     );
@@ -2120,6 +2294,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   private async *executeCapturedStream<T>(query: any, chunkSize: number): AsyncIterable<T[]> {
+    this.requireTransactionAccess();
     await this.telemetryStartup;
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
       throw new Error('stream chunk size must be a positive integer');
@@ -2138,7 +2313,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
         'teaql.provider.kind': this.driver.databaseKind, 'teaql.provider.operation': 'query' } }); };
     await (queryScope.run ? queryScope.run(startProvider) : startProvider());
     const correlation = providerScope.correlation?.();
-    const iterator = this.driver.stream(sql, values)[Symbol.asyncIterator]();
+    const iterator = (this.contextTransaction ?? this.driver).stream(sql, values)[Symbol.asyncIterator]();
     const startedAt = Date.now();
     let outcome: SQLExecutionOutcome = 'cancelled';
     let delivered = 0;
@@ -2418,6 +2593,7 @@ export abstract class AbstractSQLTeaQLClient implements TeaQLDataService {
   }
 
   async close(): Promise<void> {
+    this.requireUnboundService();
     try { await this.driver.close(); }
     finally {
       await this.telemetryStartup;

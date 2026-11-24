@@ -359,6 +359,8 @@ export class GraphMutationSession {
   acceptPreparedResult(root: EntityRoot, oldKey: EntityKey, newKey: EntityKey): void {this.#prepared.applied(root, oldKey, newKey);}
   finishPreparedCommit(root: EntityRoot, key: EntityKey): void {this.#prepared.committed(root, key);}
   requirePreparedComplete(): void {this.#prepared.complete();}
+  /** @internal Fence all generated participants and prepared ledgers. */
+  fenceTransactionOutcome(): void { this.#prepared.fenceTransactionOutcome(); }
   get isPreparedEmpty(): boolean { return this.#sealed && this.#preparedCount === 0; }
   /** @internal Manual unsealed graphs retain their existing transaction behavior. */
   recordPreparedMutation(): void {
@@ -372,6 +374,7 @@ export class GraphMutationSession {
   /** @internal Admission always precedes cancellation, including unknown baselines. */
   discardRestoredFields(layout: MutationFieldLayout, root: EntityRoot, key: EntityKey,
     snapshot: LoadedScalarSnapshot | undefined): void {
+    root.requireKnownTransactionOutcome();
     if (layout.entity !== key.entity) throw new Error('MUTATION_LAYOUT_OWNER_MISMATCH');
     layout.validate(root.change(key), !root.isNew(key));
     snapshot?.discardRestoredFields(root, key);

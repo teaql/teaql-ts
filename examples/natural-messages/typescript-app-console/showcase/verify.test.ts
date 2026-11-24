@@ -49,7 +49,7 @@ test.each(['sqlite','file'] as const)('generated %s graph uses automatic metadat
       .purpose('Verify an indexed child failure without editing the parent').executeForList(context);
     const parent=parents[0],parentVersion=parent.version;parent.entryList().push(first,second);
     const execute=jest.spyOn(client,'executeMutation');
-    const query=provider==='sqlite'?jest.spyOn((client as any).driver,'query'):undefined;
+    const query=provider==='sqlite'?jest.spyOn((client as any).driver,'queryConnection'):undefined;
     const transaction=provider==='sqlite'?jest.spyOn((client as any).driver,'transaction'):undefined;
     const auditBefore=client.auditTrace.length,originalFile=provider==='file'?fs.readFileSync(file):undefined;
     const reset=()=>{execute.mockClear();query?.mockClear();transaction?.mockClear();};

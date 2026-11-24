@@ -328,8 +328,9 @@ it.each([false, true].flatMap(logging => [false, true].map(empty => ({ logging, 
         expect(commits).toBe(audits.length < 4 ? 1 : 2);
         audits.push(event);
       });
-    const query = f.driver.query.bind(f.driver);
-    const physical = jest.spyOn(f.driver, 'query');
+    const transport = f.driver as unknown as { queryConnection: SQLiteDriver['query'] };
+    const query = transport.queryConnection.bind(f.driver);
+    const physical = jest.spyOn(transport, 'queryConnection');
     const commands: Array<{ entity: string; id: string; comment: string;
       payload: unknown; lineage: readonly TraceNode[] }> = [];
     const execute = f.client.executeMutation.bind(f.client);
@@ -493,8 +494,9 @@ it.each([false, true])('redacts sibling-owned private values throughout graph in
   f.client.setRuntimeTelemetrySink(sql);
   const secret = 'SIBLING-PRIVATE-CANARY';
   const reason = `submit using ${secret}`;
-  const query = f.driver.query.bind(f.driver);
-  if (failReadback) jest.spyOn(f.driver, 'query').mockImplementation(async (statement, values) => {
+  const physical = f.driver as unknown as { queryConnection: SQLiteDriver['query'] };
+  const query = physical.queryConnection.bind(f.driver);
+  if (failReadback) jest.spyOn(physical, 'queryConnection').mockImplementation(async (statement, values) => {
     if (statement.startsWith('SELECT') && statement.includes('payment_data') && statement.includes('WHERE "id" = ?'))
       throw new Error('injected readback failure');
     return query(statement, values);

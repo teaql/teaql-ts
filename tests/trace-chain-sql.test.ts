@@ -27,14 +27,14 @@ class Driver extends SQLiteDriver {
   readbackFailure?: Error;
   aggregateFailure?: Error;
   aggregateCalls = 0;
-  async query(sql: string, values: any[] = []): Promise<SqlQueryResult> {
+  protected async queryConnection(sql: string, values: any[] = []): Promise<SqlQueryResult> {
     if (/COUNT\(/i.test(sql) && sql.includes('platform_data')) {
       this.aggregateCalls++;
       if (this.aggregateFailure) throw this.aggregateFailure;
     }
     if (this.readbackFailure && sql.includes('school_data') && sql.startsWith('SELECT')
       && sql.includes('WHERE "id" = ?')) throw this.readbackFailure;
-    return super.query(sql, values);
+    return super.queryConnection(sql, values);
   }
 }
 class Client extends AbstractSQLTeaQLClient {

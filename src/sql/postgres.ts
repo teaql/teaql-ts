@@ -1,5 +1,6 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool, PoolClient, types as pgTypes } from 'pg';
 import QueryStream from 'pg-query-stream';
+import { finishSqlTransaction, SqlCommitRejectedError, SqlCommittedCleanupError } from './transaction';
 import {
   AbstractSQLTeaQLClient,
   assertSafeIdentifier,
@@ -27,9 +28,16 @@ export class PostgreSQLDriver implements TeaQLSqlDriver {
   readonly databaseKind = 'postgresql' as const;
   private readonly pool: Pool;
 
-  constructor(connectionString: string) {
+  constructor(connectionString: string, decodeNativeIntegers = false) {
     if (!connectionString) throw new Error('connectionString is required');
-    this.pool = new Pool({ connectionString });
+    this.pool = new Pool({ connectionString, ...(decodeNativeIntegers ? {
+      types: {
+        getTypeParser(oid, format) {
+          if (oid === pgTypes.builtins.INT8 && (!format || format === 'text')) return BigInt;
+          return pgTypes.getTypeParser(oid, format);
+        },
+      },
+    } : {}) });
   }
 
   identifier(value: string): string {
@@ -114,16 +122,25 @@ export class PostgreSQLDriver implements TeaQLSqlDriver {
 
   async transaction<T>(work: (session: SqlSession) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
+    let discard = true;
+    let committed = false;
     try {
       await client.query('BEGIN');
-      const result = await work(new PostgreSQLSession(client));
-      await client.query('COMMIT');
+      discard = false;
+      const result = await finishSqlTransaction(
+        () => work(new PostgreSQLSession(client)),
+        async () => {
+          const completion = await client.query('COMMIT');
+          if (completion.command === 'ROLLBACK') throw new SqlCommitRejectedError('PostgreSQL rolled back the aborted transaction');
+        },
+        () => client.query('ROLLBACK'),
+        () => { discard = true; },
+      );
+      committed = true;
       return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
     } finally {
-      client.release();
+      try { client.release(discard); }
+      catch (error) { if (committed) throw new SqlCommittedCleanupError(error); }
     }
   }
 
@@ -187,7 +204,7 @@ export class PostgreSQLDriver implements TeaQLSqlDriver {
 
 export class PostgreSQLTeaQLClient extends AbstractSQLTeaQLClient {
   constructor(connectionString: string, schemas: Record<string, EntitySchema>) {
-    super(new PostgreSQLDriver(connectionString), schemas);
+    super(new PostgreSQLDriver(connectionString, true), schemas);
     this.attachStandardTelemetryStartup(startStandardNodeTelemetry());
   }
 }

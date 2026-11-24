@@ -28,7 +28,7 @@ export async function verifyCheckerMetadata(filename: string): Promise<void> {
   try {
     await context.ensureSchema();
     const driver = (client as any).driver;
-    const query = jest.spyOn(driver, 'query');
+    const query = jest.spyOn(driver, 'queryConnection');
     const transaction = jest.spyOn(driver, 'transaction');
     const owner = async () => (await Q.purchaseOrders().comment('Prepare a Checker metadata regression')
       .purpose('Require declaring entity types on actual generated-save errors').newEntity(context));

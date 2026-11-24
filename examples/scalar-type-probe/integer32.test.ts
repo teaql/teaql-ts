@@ -43,7 +43,7 @@ for(const backend of ['sqlite','file'] as const)test(`generated Integer32 ${back
   await context.ensureSchema();
   let control=await prepare(context,prefix+'-control');await control.auditAs('persist a complete generated width control').save(context);
   const id=control.id!;
-  const providers=backend==='sqlite'?[jest.spyOn(native.driver,'query'),jest.spyOn(native.driver,'transaction'),jest.spyOn(native.driver,'nextId'),jest.spyOn(native.driver,'ensureIdFloor')]
+  const providers=backend==='sqlite'?[jest.spyOn(native.driver,'queryConnection'),jest.spyOn(native.driver,'transaction'),jest.spyOn(native.driver,'nextId'),jest.spyOn(native.driver,'ensureIdFloor')]
    :[jest.spyOn(native,'persist')];
   const initial=await load(context,id);expect(E.scalarTypeProbe(initial).requiredLong().eval()).toBe('9223372036854775807');
   const mutation=(row:ScalarTypeProbe,field:string,value:number)=>field==='required_integer'?row.updateRequiredInteger(value):row.updateOptionalInteger(value);
