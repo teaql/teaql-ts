@@ -1,4 +1,5 @@
 'use strict';
+const {originalExamplePackage}=require('../../scripts/original-example-package.cjs');
 // Local repository source, original generated fixture, two unreset SQLite rounds.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {createOwnedRunner,ownedBytes}=require('../fix-e-alignment/owned-command.cjs');
@@ -7,7 +8,10 @@ const app=path.join(__dirname,'typescript-app-console'),library=path.join(__dirn
 function fixture(){
   const m=JSON.parse(fs.readFileSync(path.join(library,'current-generator-fixture.json')));
   assert.equal(sha(fs.readFileSync(path.join(__dirname,'model.xml'))),m.modelSha256);
-  for(const[n,h]of Object.entries(m.files))assert.equal(sha(fs.readFileSync(path.join(library,n))),h,n);
+  for(const [name, expected] of Object.entries(m.files)){
+    const bytes=fs.readFileSync(path.join(library,name));
+    assert.equal(sha(name==='package.json'?originalExamplePackage(bytes,'0.6.0'):bytes),expected,name);
+  }
   return m;
 }
 async function main(){

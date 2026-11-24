@@ -1,6 +1,6 @@
 {
   "name": "@teaql/teaql",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "TeaQL runtime and SQL data services for TypeScript",
   "files": [
     "dist",

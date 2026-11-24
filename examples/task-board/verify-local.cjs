@@ -1,4 +1,5 @@
 'use strict';
+const {originalExamplePackage}=require('../../scripts/original-example-package.cjs');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {createOwnedRunner,ownedBytes}=require('../fix-e-alignment/owned-command.cjs');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex'),example=__dirname,repo=path.resolve(example,'../..');
@@ -12,7 +13,10 @@ function fixture(){
  assert.equal(sha(generatedManifest),manifest.generatedManifestSha256);
  assert.deepEqual(JSON.parse(generatedManifest),manifest.files);
  assert.deepEqual(actual.sort(),[...Object.keys(manifest.files),'generated-files.json'].sort());
- for(const[n,h]of Object.entries(manifest.files))assert.equal(sha(fs.readFileSync(path.join(example,'typescript-node-lib-core',n))),h);
+ for(const [name, expected] of Object.entries(manifest.files)){
+  const bytes=fs.readFileSync(path.join(example,'typescript-node-lib-core',name));
+  assert.equal(sha(name==='package.json'?originalExamplePackage(bytes,'0.6.0'):bytes),expected,name);
+ }
  for(const[n,h]of Object.entries(manifest.assist))assert.equal(sha(fs.readFileSync(path.join(example,'assist',n))),h);
  return manifest;
 }
